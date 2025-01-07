@@ -134,22 +134,24 @@ export function createAuthCookie(token: string) {
     name: 'token',
     value: token,
     httpOnly: true,
-    secure: isProd,
+    secure: true,
     sameSite: 'lax' as const,
     path: '/',
-    maxAge: 24 * 60 * 60 // 24 hours
+    maxAge: 24 * 60 * 60,
+    domain: isProd ? '.vercel.app' : undefined
   };
 }
 
 export function clearAuthCookie() {
+  const isProd = process.env.NODE_ENV === 'production';
   return {
     name: 'token',
     value: '',
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: true,
     sameSite: 'lax' as const,
     path: '/',
-    maxAge: 0
+    domain: isProd ? '.vercel.app' : undefined
   };
 }
 
