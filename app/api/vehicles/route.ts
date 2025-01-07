@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const params: any[] = [];
 
     if (type) {
-      query += ` AND LOWER(v.type) = LOWER($1)`;
+      query += ' AND LOWER(v.type) = LOWER($1)';
       params.push(type);
     }
 
