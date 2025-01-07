@@ -51,7 +51,6 @@ export async function GET(request: NextRequest) {
         p.last_name,
         p.phone_number as phone,
         p.address,
-        p.profile_picture_url,
         p.is_documents_verified,
         p.created_at as profile_created_at,
         p.updated_at as profile_updated_at
@@ -161,7 +160,6 @@ export async function PATCH(request: NextRequest) {
         p.last_name,
         p.phone_number as phone,
         p.address,
-        p.profile_picture_url,
         p.is_documents_verified,
         p.created_at as profile_created_at,
         p.updated_at as profile_updated_at
