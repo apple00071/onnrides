@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const usersResult = await client.query('SELECT COUNT(*) as total FROM users WHERE role = $1', ['user']);
     
     // Get total revenue
-    const revenueResult = await client.query('SELECT COALESCE(SUM(amount), 0) as total FROM bookings WHERE status = $1', ['completed']);
+    const revenueResult = await client.query('SELECT COALESCE(SUM(total_amount), 0) as total FROM bookings WHERE status = $1', ['completed']);
     
     // Get total vehicles
     const vehiclesResult = await client.query('SELECT COUNT(*) as total FROM vehicles');
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
         CONCAT(p.first_name, ' ', p.last_name) as user_name,
         u.email as user_email,
         v.name as vehicle_name,
-        b.amount,
+        b.total_amount as amount,
         b.status,
         b.created_at,
         b.pickup_datetime,

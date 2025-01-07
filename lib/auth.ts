@@ -129,29 +129,26 @@ export async function validateUser(email: string, password: string) {
 }
 
 export function createAuthCookie(token: string) {
-  const isProd = process.env.NODE_ENV === 'production';
   return {
     name: 'token',
     value: token,
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     path: '/',
-    maxAge: 24 * 60 * 60,
-    domain: isProd ? '.vercel.app' : undefined
+    maxAge: 24 * 60 * 60 // 24 hours
   };
 }
 
 export function clearAuthCookie() {
-  const isProd = process.env.NODE_ENV === 'production';
   return {
     name: 'token',
     value: '',
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     path: '/',
-    domain: isProd ? '.vercel.app' : undefined
+    maxAge: 0
   };
 }
 

@@ -44,21 +44,21 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     
     // Validate required fields
-    const name = formData.get('name');
-    const type = formData.get('type');
-    const location = formData.get('location');
-    const price_per_day = formData.get('price_per_day');
-    const is_available = formData.get('is_available') === 'true';
-    const image = formData.get('image') as File;
+    const requiredFields = [
+      'name', 'type', 'location', 'price_per_day'
+    ];
     
-    if (!name || !type || !location || !price_per_day) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+    for (const field of requiredFields) {
+      if (!formData.get(field)) {
+        return NextResponse.json(
+          { error: `Missing required field: ${field}` },
+          { status: 400 }
+        );
+      }
     }
 
     // Parse and validate price
+    const price_per_day = formData.get('price_per_day');
     const parsedPrice = parseFloat(price_per_day as string);
     if (isNaN(parsedPrice) || parsedPrice <= 0) {
       return NextResponse.json(
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
 
     // Handle image upload
     let image_url = '';
+    const image = formData.get('image') as File;
     if (image) {
       // TODO: Implement image upload to a storage service
       // For now, we'll use a placeholder URL
@@ -79,26 +80,26 @@ export async function POST(request: NextRequest) {
     try {
       const result = await client.query(`
         INSERT INTO vehicles (
-          owner_id,
           name,
           type,
           location,
           price_per_day,
           image_url,
           status,
-          is_available
+          is_available,
+          owner_id
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
       `, [
-        user.id,
-        name,
-        type,
-        location,
+        formData.get('name'),
+        formData.get('type'),
+        formData.get('location'),
         parsedPrice,
         image_url,
         'active',
-        is_available
+        formData.get('is_available') === 'true',
+        user.id
       ]);
 
       return NextResponse.json(result.rows[0]);
