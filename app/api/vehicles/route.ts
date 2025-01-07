@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const dropoff = url.searchParams.get('dropoff');
 
     let queryParams: any[] = [];
-    let conditions: string[] = ["v.status = 'active'"];
+    let conditions: string[] = ['v.status = \'active\''];
 
     if (type) {
       conditions.push('LOWER(v.type) = LOWER($' + (queryParams.length + 1) + ')');
