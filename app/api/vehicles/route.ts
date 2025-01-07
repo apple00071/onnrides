@@ -1,19 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import sql from '@/lib/db';
+import pool from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const client = await pool.connect();
+  
   try {
-    // Get query parameters
     const url = new URL(request.url);
     const type = url.searchParams.get('type');
     const location = url.searchParams.get('location');
     const pickup = url.searchParams.get('pickup');
     const dropoff = url.searchParams.get('dropoff');
 
-    // Build the query
-    let query = `
+    let queryParams: any[] = [];
+    let conditions: string[] = ['v.is_available = true'];
+
+    if (type) {
+      conditions.push('LOWER(v.type) = LOWER($' + (queryParams.length + 1) + ')');
+      queryParams.push(type);
+    }
+
+    if (location) {
+      conditions.push('LOWER(v.location) = LOWER($' + (queryParams.length + 1) + ')');
+      queryParams.push(location);
+    }
+
+    // Add booking date filter if both pickup and dropoff are provided
+    if (pickup && dropoff) {
+      conditions.push(`
+        NOT EXISTS (
+          SELECT 1 FROM bookings b 
+          WHERE b.vehicle_id = v.id 
+          AND b.status = 'confirmed'
+          AND (
+            (b.start_date <= $${queryParams.length + 1} AND b.end_date >= $${queryParams.length + 1})
+            OR (b.start_date <= $${queryParams.length + 2} AND b.end_date >= $${queryParams.length + 2})
+            OR (b.start_date >= $${queryParams.length + 1} AND b.end_date <= $${queryParams.length + 2})
+          )
+        )
+      `);
+      queryParams.push(pickup, dropoff);
+    }
+
+    const query = `
       SELECT 
         v.id,
         v.name,
@@ -39,129 +70,93 @@ export async function GET(request: NextRequest) {
           0
         ) as total_rides
       FROM vehicles v 
-      WHERE v.is_available = true
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY v.created_at DESC
     `;
-    const params: any[] = [];
 
-    if (type) {
-      query += ' AND LOWER(v.type) = LOWER($1)';
-      params.push(type);
-    }
-
-    if (location) {
-      query += ` AND LOWER(v.location) = LOWER($${params.length + 1})`;
-      params.push(location);
-    }
-
-    // Add date range check if both pickup and dropoff are provided
-    if (pickup && dropoff) {
-      query += ` AND v.id NOT IN (
-        SELECT b.vehicle_id FROM bookings b 
-        WHERE b.status NOT IN ('cancelled', 'rejected')
-        AND (b.pickup_datetime, b.dropoff_datetime) OVERLAPS ($${params.length + 1}, $${params.length + 2})
-      )`;
-      params.push(new Date(pickup), new Date(dropoff));
-    }
-
-    query += ' ORDER BY v.created_at DESC';
-
-    console.log('Executing query:', query, 'with params:', params);
-
-    const result = await sql.query(query, params);
-    
-    // Format the response data
-    const vehicles = result.rows.map((vehicle: {
-      price_per_day: string;
-      total_rides: string;
-      [key: string]: any;
-    }) => ({
-      ...vehicle,
-      price_per_day: parseFloat(vehicle.price_per_day),
-      total_rides: parseInt(vehicle.total_rides)
-    }));
-
-    return NextResponse.json(vehicles);
-  } catch (error: any) {
-    console.error('Error in vehicles API:', error);
+    const result = await client.query(query, queryParams);
+    return NextResponse.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching vehicles:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch vehicles', details: error.message },
+      { error: 'Failed to fetch vehicles' },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 }
 
 export async function POST(request: NextRequest) {
+  const client = await pool.connect();
+  
   try {
-    const {
-      name,
-      description,
-      type,
-      brand,
-      model,
-      year,
-      color,
-      transmission,
-      fuel_type,
-      mileage,
-      seating_capacity,
-      price_per_day,
-      is_available,
-      image_url,
-      location
-    } = await request.json();
-
-    // Validate required fields
-    if (!name || !type || !brand || !model || !year || !price_per_day) {
+    const user = await getCurrentUser(request.cookies);
+    
+    if (!user || user.role !== 'admin') {
       return NextResponse.json(
-        { message: 'Missing required fields' },
-        { status: 400 }
+        { error: 'Admin access required' },
+        { status: 403 }
       );
     }
 
-    const result = await sql.query(
-      `INSERT INTO vehicles (
-        name,
-        description,
-        type,
-        brand,
-        model,
-        year,
-        color,
-        transmission,
-        fuel_type,
-        mileage,
-        seating_capacity,
-        price_per_day,
-        is_available,
-        image_url,
-        location
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-      RETURNING *`,
-      [
-        name,
-        description,
-        type,
-        brand,
-        model,
-        year,
-        color,
-        transmission,
-        fuel_type,
-        mileage,
-        seating_capacity,
-        price_per_day,
-        is_available || true,
-        image_url,
-        location
-      ]
-    );
+    const data = await request.json();
+    
+    // Validate required fields
+    const requiredFields = [
+      'name', 'type', 'brand', 'model', 'year', 'price_per_day',
+      'location', 'transmission', 'fuel_type', 'seating_capacity'
+    ];
+    
+    for (const field of requiredFields) {
+      if (!data[field]) {
+        return NextResponse.json(
+          { error: `Missing required field: ${field}` },
+          { status: 400 }
+        );
+      }
+    }
 
+    // Start transaction
+    await client.query('BEGIN');
+
+    const result = await client.query(`
+      INSERT INTO vehicles (
+        name, description, type, brand, model, year,
+        color, transmission, fuel_type, mileage,
+        seating_capacity, price_per_day, is_available,
+        image_url, location, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      RETURNING *
+    `, [
+      data.name,
+      data.description || '',
+      data.type,
+      data.brand,
+      data.model,
+      data.year,
+      data.color || null,
+      data.transmission,
+      data.fuel_type,
+      data.mileage || 0,
+      data.seating_capacity,
+      data.price_per_day,
+      true,
+      data.image_url || null,
+      data.location,
+      user.id
+    ]);
+
+    await client.query('COMMIT');
     return NextResponse.json(result.rows[0]);
-  } catch (error: any) {
+  } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Error creating vehicle:', error);
     return NextResponse.json(
-      { message: 'Internal server error', details: error.message },
+      { error: 'Failed to create vehicle' },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 } 

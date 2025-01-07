@@ -25,9 +25,9 @@ interface DashboardStats {
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  let client;
+  const client = await pool.connect();
+  
   try {
-    // Check if user is authenticated and is an admin
     const user = await getCurrentUser(request.cookies);
     
     if (!user) {
@@ -44,35 +44,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    client = await pool.connect();
+    // Start a transaction
+    await client.query('BEGIN');
 
     // Get total users
-    const usersResult = await client.query(`
-      SELECT COUNT(*) as total_users
-      FROM users
-      WHERE role = 'user'
-    `);
-
+    const usersResult = await client.query('SELECT COUNT(*) as total FROM users WHERE role = $1', ['user']);
+    
     // Get total revenue
-    const revenueResult = await client.query(`
-      SELECT COALESCE(SUM(total_amount), 0) as total_revenue
-      FROM bookings
-      WHERE status = 'completed'
-    `);
-
+    const revenueResult = await client.query('SELECT COALESCE(SUM(amount), 0) as total FROM bookings WHERE status = $1', ['completed']);
+    
     // Get total vehicles
-    const vehiclesResult = await client.query(`
-      SELECT COUNT(*) as total_vehicles
-      FROM vehicles
-    `);
-
-    // Get pending documents count
-    const documentsResult = await client.query(`
-      SELECT COUNT(*) as pending_documents
-      FROM user_documents
-      WHERE status = 'pending'
-    `);
-
+    const vehiclesResult = await client.query('SELECT COUNT(*) as total FROM vehicles');
+    
+    // Get pending documents
+    const documentsResult = await client.query('SELECT COUNT(*) as total FROM documents WHERE status = $1', ['pending']);
+    
     // Get recent bookings
     const bookingsResult = await client.query(`
       SELECT 
@@ -80,41 +66,43 @@ export async function GET(request: NextRequest) {
         u.name as user_name,
         u.email as user_email,
         v.name as vehicle_name,
-        b.total_amount as amount,
+        b.amount,
         b.status,
         b.created_at,
-        b.pickup_datetime as start_date,
-        b.dropoff_datetime as end_date,
+        b.start_date,
+        b.end_date,
         b.pickup_location,
         b.drop_location
       FROM bookings b
       JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
       ORDER BY b.created_at DESC
-      LIMIT 10
+      LIMIT 5
     `);
 
+    // Commit the transaction
+    await client.query('COMMIT');
+
     const stats: DashboardStats = {
-      total_users: parseInt(usersResult.rows[0].total_users),
-      total_revenue: parseFloat(revenueResult.rows[0].total_revenue),
-      total_vehicles: parseInt(vehiclesResult.rows[0].total_vehicles),
-      pending_documents: parseInt(documentsResult.rows[0].pending_documents),
+      total_users: parseInt(usersResult.rows[0].total),
+      total_revenue: parseFloat(revenueResult.rows[0].total),
+      total_vehicles: parseInt(vehiclesResult.rows[0].total),
+      pending_documents: parseInt(documentsResult.rows[0].total),
       recent_bookings: bookingsResult.rows
     };
 
     return NextResponse.json(stats);
   } catch (error) {
-    console.error('Error in admin dashboard:', error);
+    // Rollback the transaction in case of error
+    await client.query('ROLLBACK');
+    
+    console.error('Dashboard stats error:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch dashboard stats',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to fetch dashboard stats' },
       { status: 500 }
     );
   } finally {
-    if (client) {
-      client.release();
-    }
+    // Always release the client back to the pool
+    client.release();
   }
 } 
