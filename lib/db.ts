@@ -1,18 +1,46 @@
 import { Pool } from 'pg';
 
-if (!process.env.PGUSER || !process.env.PGPASSWORD || !process.env.PGHOST || !process.env.PGDATABASE) {
-  throw new Error('Missing database configuration environment variables');
+// Function to validate environment variables
+function validateEnvVariables() {
+  const required = ['PGUSER', 'PGPASSWORD', 'PGHOST', 'PGDATABASE'];
+  const missing = required.filter(key => !process.env[key]);
+  
+  if (missing.length > 0) {
+    console.error(`Missing required environment variables: ${missing.join(', ')}`);
+    console.error('Please ensure all required environment variables are set in your deployment environment.');
+    
+    // In development, we can use default values
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Using default development database configuration...');
+      return {
+        user: process.env.PGUSER || 'neondb_owner',
+        password: process.env.PGPASSWORD || 'fpBXEsTct9g1',
+        host: process.env.PGHOST || 'ep-long-dream-a6avbuml-pooler.us-west-2.aws.neon.tech',
+        database: process.env.PGDATABASE || 'neondb',
+      };
+    }
+    
+    throw new Error('Missing required environment variables. Check server logs for details.');
+  }
+  
+  return {
+    user: process.env.PGUSER,
+    password: process.env.PGPASSWORD,
+    host: process.env.PGHOST,
+    database: process.env.PGDATABASE,
+  };
 }
 
+// Get database configuration
+const dbConfig = validateEnvVariables();
+
+// Create the pool with validated configuration
 const pool = new Pool({
-  user: process.env.PGUSER,
-  password: process.env.PGPASSWORD,
-  host: process.env.PGHOST,
-  database: process.env.PGDATABASE,
+  ...dbConfig,
   ssl: true,
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-  connectionTimeoutMillis: 2000, // How long to wait for a connection
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
 });
 
 // Add event listeners for pool error handling
