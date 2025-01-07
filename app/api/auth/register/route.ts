@@ -3,6 +3,8 @@ import pool from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { generateToken } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   let client;
   
@@ -35,84 +37,119 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    client = await pool.connect();
-    await client.query('BEGIN');
-
-    // Check if email exists
-    const emailCheck = await client.query(
-      'SELECT id FROM users WHERE email = $1',
-      [email]
-    );
-
-    if (emailCheck.rows.length > 0) {
+    // Get database connection
+    try {
+      client = await pool.connect();
+    } catch (dbError) {
+      console.error('Database connection error:', dbError);
       return NextResponse.json(
-        { success: false, message: 'Email already exists' },
-        { status: 400 }
+        { success: false, message: 'Service temporarily unavailable' },
+        { status: 503 }
       );
     }
 
-    // Hash password
-    const password_hash = await bcrypt.hash(password, 10);
+    await client.query('BEGIN');
 
-    // Create user account
-    const userResult = await client.query(
-      'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role',
-      [email, password_hash, 'user']
-    );
+    try {
+      // Check if email exists
+      const emailCheck = await client.query(
+        'SELECT id FROM users WHERE email = $1',
+        [email]
+      );
 
-    const user = userResult.rows[0];
+      if (emailCheck.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return NextResponse.json(
+          { success: false, message: 'Email already exists' },
+          { status: 400 }
+        );
+      }
 
-    // Split name into first_name and last_name
-    const [firstName, ...lastNameParts] = name.trim().split(' ');
-    const lastName = lastNameParts.join(' ');
+      // Hash password
+      const password_hash = await bcrypt.hash(password, 10);
 
-    // Create user profile
-    await client.query(
-      'INSERT INTO profiles (user_id, first_name, last_name, phone_number) VALUES ($1, $2, $3, $4)',
-      [user.id, firstName, lastName || null, phone]
-    );
+      // Create user account
+      const userResult = await client.query(
+        'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role',
+        [email, password_hash, 'user']
+      );
 
-    await client.query('COMMIT');
+      const user = userResult.rows[0];
 
-    // Generate token
-    const token = await generateToken({ 
-      id: user.id.toString(),
-      email: user.email,
-      role: user.role
-    });
+      // Split name into first_name and last_name
+      const [firstName, ...lastNameParts] = name.trim().split(' ');
+      const lastName = lastNameParts.join(' ');
 
-    // Create response
-    const response = NextResponse.json(
-      { success: true, message: 'Account created successfully' },
-      { status: 201 }
-    );
+      // Create user profile
+      await client.query(
+        'INSERT INTO profiles (user_id, first_name, last_name, phone_number) VALUES ($1, $2, $3, $4)',
+        [user.id, firstName, lastName || null, phone]
+      );
 
-    // Set cookie
-    response.cookies.set('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60 // 24 hours
-    });
+      await client.query('COMMIT');
 
-    return response;
-  } catch (error: any) {
-    if (client) {
+      // Generate token
+      const token = await generateToken({ 
+        id: user.id.toString(),
+        email: user.email,
+        role: user.role
+      });
+
+      // Create response
+      const response = NextResponse.json(
+        { 
+          success: true, 
+          message: 'Account created successfully',
+          user: {
+            id: user.id,
+            email: user.email,
+            name: name,
+            phone: phone
+          }
+        },
+        { status: 201 }
+      );
+
+      // Set cookie
+      response.cookies.set('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 // 24 hours
+      });
+
+      return response;
+    } catch (error: any) {
       await client.query('ROLLBACK');
+      console.error('Registration error:', error);
+      
+      // Determine if it's a database constraint violation
+      if (error.code === '23505') { // unique_violation
+        return NextResponse.json(
+          { success: false, message: 'Email already registered' },
+          { status: 400 }
+        );
+      }
+      
+      throw error; // Re-throw to be caught by outer catch
     }
+  } catch (error: any) {
     console.error('Registration error:', error);
-    
     return NextResponse.json(
       { 
         success: false, 
         message: 'Failed to create account',
-        error: error.message 
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       },
       { status: 500 }
     );
   } finally {
     if (client) {
-      client.release();
+      try {
+        client.release();
+      } catch (releaseError) {
+        console.error('Error releasing client:', releaseError);
+      }
     }
   }
 } 

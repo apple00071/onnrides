@@ -104,21 +104,20 @@ export async function validateUser(email: string, password: string) {
   const client = await pool.connect();
   try {
     const result = await client.query(
-      'SELECT id, email, password_hash, role FROM users WHERE LOWER(email) = LOWER($1)',
+      'SELECT id, email, password_hash, role FROM users WHERE email = $1',
       [email]
     );
-    
-    if (result.rows.length === 0) {
+
+    const user = result.rows[0];
+    if (!user) {
       return null;
     }
-    
-    const user = result.rows[0];
+
     const isValid = await verifyPassword(password, user.password_hash);
-    
     if (!isValid) {
       return null;
     }
-    
+
     return {
       id: user.id,
       email: user.email,

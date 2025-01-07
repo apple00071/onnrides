@@ -13,13 +13,8 @@ const config = {
   connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 30000,
   max: 20,
-  // Disable SSL for development, enable for production with proper configuration
-  ssl: process.env.NODE_ENV === 'production' 
-    ? {
-      rejectUnauthorized: false,
-      ca: process.env.POSTGRES_CA_CERT,
-    }
-    : false
+  // SSL configuration for production
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 };
 
 // Create pool instance
@@ -32,28 +27,9 @@ pool.on('connect', () => {
 
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  // Don't exit the process, just log the error
+  console.error('Database pool error:', err);
 });
 
-// Test database connection on startup
-async function testConnection() {
-  try {
-    const client = await pool.connect();
-    console.log('Database connection test successful');
-    client.release();
-  } catch (err) {
-    console.error('Error connecting to the database:', err);
-    throw err;
-  }
-}
-
-// Run the test
-testConnection().catch(err => {
-  console.error('Initial database connection failed:', err);
-  // Don't exit in production, just log the error
-  if (process.env.NODE_ENV !== 'production') {
-    process.exit(1);
-  }
-});
-
+// Export the pool
 export default pool; 
