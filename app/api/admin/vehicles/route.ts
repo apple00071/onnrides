@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         formData.get('type'),
         formData.get('location'),
         parsedPrice,
-        image_url,
+        image_url || '/cars/default.jpg',
         'active',
         formData.get('is_available') === 'true',
         user.id
@@ -109,7 +109,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating vehicle:', error);
     return NextResponse.json(
-      { error: 'Failed to create vehicle' },
+      { 
+        error: 'Failed to create vehicle',
+        details: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     );
   }

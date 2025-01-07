@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       `SELECT 
         ds.id,
         ds.document_type,
-        ds.file_url,
+        ds.document_url,
         ds.status,
         ds.created_at,
         ds.updated_at

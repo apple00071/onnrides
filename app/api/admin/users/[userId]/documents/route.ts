@@ -29,7 +29,7 @@ export async function GET(
           id,
           document_type as type,
           COALESCE(status, 'pending') as status,
-          file_url,
+          document_url,
           created_at,
           updated_at
         FROM document_submissions
@@ -42,7 +42,7 @@ export async function GET(
         id: doc.id,
         type: doc.type,
         status: doc.status || 'pending',
-        file_url: doc.file_url,
+        document_url: doc.document_url,
         created_at: doc.created_at,
         updated_at: doc.updated_at
       }));

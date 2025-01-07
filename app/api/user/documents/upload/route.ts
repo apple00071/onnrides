@@ -43,14 +43,14 @@ export async function POST(request: NextRequest) {
 
     // For now, we'll store the file URL as a placeholder
     // In a real application, you would upload the file to a storage service
-    const file_url = `https://storage.example.com/${user.id}/${type}/${file.name}`;
+    const document_url = `https://storage.example.com/${user.id}/${type}/${file.name}`;
 
     // Insert document record
     const result = await client.query(
-      `INSERT INTO document_submissions (user_id, document_type, file_url, status)
+      `INSERT INTO document_submissions (user_id, document_type, document_url, status)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [user.id, type, file_url, 'pending']
+      [user.id, type, document_url, 'pending']
     );
 
     // Update user's documents_submitted status
