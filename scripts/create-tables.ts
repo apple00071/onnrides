@@ -31,6 +31,8 @@ async function createTables() {
         first_name VARCHAR(255),
         last_name VARCHAR(255),
         phone_number VARCHAR(20),
+        is_documents_verified BOOLEAN DEFAULT false,
+        is_blocked BOOLEAN DEFAULT false,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
