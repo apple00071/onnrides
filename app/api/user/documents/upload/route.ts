@@ -53,14 +53,6 @@ export async function POST(request: NextRequest) {
       [user.id, type, document_url, 'pending']
     );
 
-    // Update user's documents_submitted status
-    await client.query(
-      `UPDATE users 
-       SET documents_submitted = true 
-       WHERE id = $1`,
-      [user.id]
-    );
-
     await client.query('COMMIT');
 
     return NextResponse.json({

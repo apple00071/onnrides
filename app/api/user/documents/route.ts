@@ -98,18 +98,10 @@ export async function POST(request: NextRequest) {
 
     // Insert document
     const result = await client.query(
-      `INSERT INTO document_submissions (user_id, document_type, file_url, status)
+      `INSERT INTO document_submissions (user_id, document_type, document_url, status)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
       [user.id, document_type, file_url, 'pending']
-    );
-
-    // Update user's documents_submitted status
-    await client.query(
-      `UPDATE users 
-       SET documents_submitted = true 
-       WHERE id = $1`,
-      [user.id]
     );
 
     await client.query('COMMIT');

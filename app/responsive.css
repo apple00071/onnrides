@@ -1,0 +1,150 @@
+/* Mobile-first responsive styles */
+
+/* Base responsive container */
+.container-responsive {
+  @apply w-full px-4 mx-auto sm:px-6 lg:px-8 max-w-7xl;
+}
+
+/* Responsive grid layouts */
+.grid-responsive {
+  @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+}
+
+/* Responsive card layouts */
+.card-responsive {
+  @apply flex flex-col w-full p-4 space-y-4 bg-white rounded-lg shadow-md;
+}
+
+/* Responsive navigation */
+.nav-responsive {
+  @apply flex flex-col w-full space-y-2 md:flex-row md:space-y-0 md:space-x-4;
+}
+
+/* Responsive form elements */
+.form-responsive {
+  @apply w-full max-w-md mx-auto space-y-4 md:space-y-6;
+}
+
+.input-responsive {
+  @apply w-full px-3 py-2 text-sm md:text-base;
+}
+
+/* Responsive buttons */
+.button-responsive {
+  @apply w-full md:w-auto px-4 py-2 text-sm md:text-base;
+}
+
+/* Responsive tables */
+.table-responsive-wrapper {
+  @apply w-full overflow-x-auto -mx-4 sm:mx-0;
+}
+
+.table-responsive {
+  @apply min-w-full divide-y divide-gray-200;
+}
+
+/* Responsive text */
+.text-responsive {
+  @apply text-sm sm:text-base lg:text-lg;
+}
+
+/* Responsive headings */
+.heading-responsive {
+  @apply text-xl sm:text-2xl lg:text-3xl font-bold;
+}
+
+/* Responsive spacing */
+.section-responsive {
+  @apply py-6 sm:py-8 lg:py-12;
+}
+
+/* Responsive images */
+.image-responsive {
+  @apply w-full h-auto object-cover rounded-lg;
+}
+
+/* Responsive modal/dialog */
+.modal-responsive {
+  @apply w-full max-w-lg mx-4 sm:mx-auto;
+}
+
+/* Responsive sidebar */
+.sidebar-responsive {
+  @apply fixed inset-y-0 left-0 z-50 w-64 transform -translate-x-full transition-transform duration-300 ease-in-out md:relative md:translate-x-0;
+}
+
+.sidebar-responsive.open {
+  @apply translate-x-0;
+}
+
+/* Responsive dashboard layout */
+.dashboard-responsive {
+  @apply flex flex-col md:flex-row;
+}
+
+.dashboard-content {
+  @apply w-full md:flex-1 p-4 md:p-6;
+}
+
+/* Responsive file upload */
+.upload-box-responsive {
+  @apply p-4 sm:p-6 text-center;
+}
+
+/* Responsive document list */
+.document-list-responsive {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4;
+}
+
+/* Responsive vehicle cards */
+.vehicle-card-responsive {
+  @apply flex flex-col sm:flex-row items-start sm:items-center p-4 space-y-4 sm:space-y-0 sm:space-x-4;
+}
+
+/* Responsive profile section */
+.profile-section-responsive {
+  @apply space-y-4 sm:space-y-6 p-4 sm:p-6;
+}
+
+/* Responsive navigation menu */
+.nav-menu-responsive {
+  @apply fixed inset-0 z-50 bg-white transform translate-x-full transition-transform duration-300 ease-in-out md:relative md:translate-x-0;
+}
+
+.nav-menu-responsive.open {
+  @apply translate-x-0;
+}
+
+/* Responsive booking form */
+.booking-form-responsive {
+  @apply space-y-4 sm:space-y-6 max-w-xl mx-auto;
+}
+
+/* Responsive status badges */
+.status-badge-responsive {
+  @apply text-xs sm:text-sm px-2 py-1 rounded-full;
+}
+
+/* Responsive filters */
+.filters-responsive {
+  @apply flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4;
+}
+
+/* Responsive search bar */
+.search-bar-responsive {
+  @apply w-full sm:max-w-md mx-auto;
+}
+
+/* Responsive pagination */
+.pagination-responsive {
+  @apply flex flex-wrap justify-center space-x-1 sm:space-x-2;
+}
+
+/* Responsive alerts/notifications */
+.alert-responsive {
+  @apply fixed bottom-0 left-0 right-0 m-4 sm:m-6 transform translate-y-full transition-transform duration-300 ease-in-out;
+}
+
+.alert-responsive.show {
+  @apply translate-y-0;
+} 
