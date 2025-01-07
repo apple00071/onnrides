@@ -1,6 +1,6 @@
-const pool = require('../lib/db').default;
-const fs = require('fs');
-const path = require('path');
+import pool from '../lib/db';
+import fs from 'fs';
+import path from 'path';
 
 async function runMigration(migrationFile: string) {
   try {
@@ -30,4 +30,7 @@ if (!migrationFile) {
   process.exit(1);
 }
 
-runMigration(migrationFile); 
+runMigration(migrationFile);
+
+// Add empty export to make it a module
+export {}; 

@@ -1,3 +1,4 @@
+/* eslint-disable indent */
 import pg from 'pg';
 const { Pool } = pg;
 
@@ -12,8 +13,13 @@ const config = {
   connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 30000,
   max: 20,
-  // Add SSL configuration for production
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  // Disable SSL for development, enable for production with proper configuration
+  ssl: process.env.NODE_ENV === 'production' 
+    ? {
+      rejectUnauthorized: false,
+      ca: process.env.POSTGRES_CA_CERT,
+    }
+    : false
 };
 
 // Create pool instance
@@ -44,7 +50,10 @@ async function testConnection() {
 // Run the test
 testConnection().catch(err => {
   console.error('Initial database connection failed:', err);
-  process.exit(1);
+  // Don't exit in production, just log the error
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
 });
 
 export default pool; 

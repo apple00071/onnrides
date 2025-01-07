@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import pool from '@/lib/db';
 import { generateToken, createAuthCookie } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();

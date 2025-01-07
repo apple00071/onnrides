@@ -1,4 +1,4 @@
-import { User } from '@/app/(main)/profile/page';
+import { User } from '@/providers/AuthProvider';
 import { redirect } from 'next/navigation';
 
 export const handleBookingRedirect = (user: User | null) => {
