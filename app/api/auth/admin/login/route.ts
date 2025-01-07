@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateUser, generateToken } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    const body = await request.json();
+    const { email, password } = body;
 
     // Validate input
     if (!email || !password) {
@@ -34,8 +37,15 @@ export async function POST(request: NextRequest) {
     // Generate token
     const token = await generateToken(user);
 
-    // Create response
-    const response = NextResponse.json({ success: true });
+    // Create response with user data (excluding sensitive information)
+    const response = NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role
+      }
+    });
 
     // Set cookie
     response.cookies.set('token', token, {
@@ -49,7 +59,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Admin login error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error during login' },
       { status: 500 }
     );
   }

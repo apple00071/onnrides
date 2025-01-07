@@ -29,6 +29,7 @@ interface Vehicle {
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [vehicleType, setVehicleType] = useState<'bike' | 'car'>('car');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedVehicleLocations, setSelectedVehicleLocations] = useState<{ [key: string]: string }>({});
@@ -119,45 +120,57 @@ export default function VehiclesPage() {
   useEffect(() => {
     const fetchVehicles = async () => {
       try {
+        setLoading(true);
+        setError(null);
+        
+        const queryParams = new URLSearchParams();
+        if (vehicleType) queryParams.set('type', vehicleType);
+        if (selectedLocation) queryParams.set('location', selectedLocation);
+        
         const pickup = searchParams.get('pickup');
         const dropoff = searchParams.get('dropoff');
-        const location = selectedLocation || searchParams.get('location');
+        if (pickup) queryParams.set('pickup', pickup);
+        if (dropoff) queryParams.set('dropoff', dropoff);
 
-        let url = '/api/vehicles';
-        const params = new URLSearchParams();
-        
-        if (pickup) params.append('pickup', pickup);
-        if (dropoff) params.append('dropoff', dropoff);
-        if (location) params.append('location', location);
-        params.append('type', vehicleType);
-
-        if (params.toString()) {
-          url += `?${params.toString()}`;
-        }
-
-        console.log('Fetching vehicles from:', url);
-
-        const response = await fetch(url);
-        const data = await response.json();
-
+        const response = await fetch(`/api/vehicles?${queryParams.toString()}`);
         if (!response.ok) {
-          throw new Error(data.message || `Failed to fetch vehicles: ${response.status}`);
+          throw new Error(`Failed to fetch vehicles: ${response.statusText}`);
         }
 
-        // Handle both array and object with vehicles property
-        const vehiclesData = Array.isArray(data) ? data : data.vehicles || [];
-        setVehicles(vehiclesData);
-      } catch (error) {
-        console.error('Error fetching vehicles:', error);
-        toast.error(error instanceof Error ? error.message : 'Failed to load vehicles');
-        setVehicles([]); // Reset vehicles on error
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid response format from server');
+        }
+
+        setVehicles(data.map(vehicle => ({
+          ...vehicle,
+          price_per_day: parseFloat(vehicle.price_per_day)
+        })));
+      } catch (err) {
+        console.error('Error fetching vehicles:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load vehicles');
+        toast.error('Failed to load vehicles. Please try again.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchVehicles();
-  }, [searchParams, vehicleType, selectedLocation]);
+  }, [vehicleType, selectedLocation, searchParams]);
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <div className="text-red-500 mb-4">{error}</div>
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

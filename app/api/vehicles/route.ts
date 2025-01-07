@@ -1,72 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
-  const client = await pool.connect();
   try {
-    // Get query parameters
-    const url = new URL(request.url);
-    const type = url.searchParams.get('type');
-    const location = url.searchParams.get('location');
-    const pickup = url.searchParams.get('pickup');
-    const dropoff = url.searchParams.get('dropoff');
+    const client = await pool.connect();
+    try {
+      // Get query parameters
+      const url = new URL(request.url);
+      const type = url.searchParams.get('type');
+      const location = url.searchParams.get('location');
+      const pickup = url.searchParams.get('pickup');
+      const dropoff = url.searchParams.get('dropoff');
 
-    // Build the query
-    let query = `
-      SELECT 
-        v.*,
-        COALESCE(
-          (SELECT COUNT(*) FROM bookings b 
-           WHERE b.vehicle_id = v.id 
-           AND b.status = 'completed'),
-          0
-        ) as total_rides
-      FROM vehicles v 
-      WHERE v.is_available = true
-    `;
-    const params: any[] = [];
-    let paramCount = 1;
+      // Build the query
+      let query = `
+        SELECT 
+          v.*,
+          COALESCE(
+            (SELECT COUNT(*) FROM bookings b 
+             WHERE b.vehicle_id = v.id 
+             AND b.status = 'completed'),
+            0
+          ) as total_rides
+        FROM vehicles v 
+        WHERE v.is_available = true
+      `;
+      const params: any[] = [];
+      let paramCount = 1;
 
-    if (type) {
-      query += ` AND LOWER(v.type) = LOWER($${paramCount})`;
-      params.push(type);
-      paramCount++;
+      if (type) {
+        query += ` AND LOWER(v.type) = LOWER($${paramCount})`;
+        params.push(type);
+        paramCount++;
+      }
+
+      if (location) {
+        query += ` AND LOWER(v.location) = LOWER($${paramCount})`;
+        params.push(location);
+        paramCount++;
+      }
+
+      // Add date range check if both pickup and dropoff are provided
+      if (pickup && dropoff) {
+        query += ` AND v.id NOT IN (
+          SELECT b.vehicle_id FROM bookings b 
+          WHERE b.status NOT IN ('cancelled', 'rejected')
+          AND (b.pickup_datetime, b.dropoff_datetime) OVERLAPS ($${paramCount}, $${paramCount + 1})
+        )`;
+        params.push(new Date(pickup), new Date(dropoff));
+      }
+
+      query += ` ORDER BY v.created_at DESC`;
+
+      const result = await client.query(query, params);
+      return NextResponse.json(result.rows);
+    } catch (error) {
+      console.error('Database query error:', error);
+      return NextResponse.json({ error: 'Failed to fetch vehicles' }, { status: 500 });
+    } finally {
+      client.release();
     }
-
-    if (location) {
-      query += ` AND LOWER(v.location) = LOWER($${paramCount})`;
-      params.push(location);
-      paramCount++;
-    }
-
-    // Add date range check if both pickup and dropoff are provided
-    if (pickup && dropoff) {
-      query += ` AND v.id NOT IN (
-        SELECT b.vehicle_id FROM bookings b 
-        WHERE b.status NOT IN ('cancelled', 'rejected')
-        AND (b.pickup_datetime, b.dropoff_datetime) OVERLAPS ($${paramCount}, $${paramCount + 1})
-      )`;
-      params.push(new Date(pickup), new Date(dropoff));
-    }
-
-    query += ' ORDER BY v.created_at DESC';
-
-    const result = await client.query(query, params);
-
-    return NextResponse.json({
-      vehicles: result.rows.map(vehicle => ({
-        ...vehicle,
-        price_per_day: parseFloat(vehicle.price_per_day)
-      }))
-    });
   } catch (error) {
-    console.error('Failed to fetch vehicles:', error);
-    return NextResponse.json(
-      { message: 'Failed to fetch vehicles. Please try again.' },
-      { status: 500 }
-    );
-  } finally {
-    client.release();
+    console.error('Error in vehicles API:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
