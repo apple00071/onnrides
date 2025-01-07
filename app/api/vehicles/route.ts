@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         params.push(new Date(pickup), new Date(dropoff));
       }
 
-      query += ` ORDER BY v.created_at DESC`;
+      query += ' ORDER BY v.created_at DESC';
 
       const result = await client.query(query, params);
       return NextResponse.json(result.rows);
