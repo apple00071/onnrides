@@ -1,0 +1,20 @@
+{
+  "extends": ["next/core-web-vitals"],
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "module"
+  },
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "node": true
+  },
+  "rules": {
+    "quotes": ["error", "single"],
+    "indent": ["error", 2],
+    "@typescript-eslint/no-explicit-any": "off",
+    "react/no-unescaped-entities": "off",
+    "@next/next/no-img-element": "off",
+    "react-hooks/exhaustive-deps": "warn"
+  }
+} 

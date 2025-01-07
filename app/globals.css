@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+:root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 24 88% 54%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 24 88% 54%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 24 88% 54%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 24 88% 54%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Upload box styles */
+.upload-box {
+  @apply border-2 border-dashed border-gray-200 rounded-lg p-4 text-center cursor-pointer transition-colors duration-200;
+}
+
+.upload-box:hover {
+  @apply border-[#f26e24];
+}
+
+/* Progress step styles */
+.step-circle {
+  @apply w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors duration-200;
+}
+
+.step-circle.active {
+  @apply bg-[#f26e24] text-white;
+}
+
+.step-circle.completed {
+  @apply bg-green-500 text-white;
+}
+
+.step-circle.inactive {
+  @apply bg-gray-200 text-gray-500;
+}
+
+.step-label {
+  @apply text-xs text-gray-500 mt-1 text-center;
+}
+
+/* Progress line */
+.progress-line {
+  @apply absolute top-4 left-0 right-0 h-0.5 bg-gray-200 -z-10;
+}
+
+.progress-line-fill {
+  @apply h-full bg-[#f26e24] transition-all duration-300;
+}
+
+/* Input styles */
+.input-field {
+  @apply w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#f26e24] transition-colors duration-200;
+}
+
+.input-icon {
+  @apply text-gray-400 group-hover:text-[#f26e24] transition-colors duration-200;
+}
+
+/* Button styles */
+.primary-button {
+  @apply bg-[#f26e24] text-white px-4 py-2 rounded-lg hover:bg-[#e05d13] transition-colors duration-200;
+}
+
+.secondary-button {
+  @apply text-[#f26e24] hover:text-[#e05d13] transition-colors duration-200;
+}

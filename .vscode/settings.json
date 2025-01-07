@@ -1,0 +1,16 @@
+{
+  "css.validate": false,
+  "less.validate": false,
+  "scss.validate": false,
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "tailwindCSS.includeLanguages": {
+    "plaintext": "html",
+    "typescript": "javascript",
+    "typescriptreact": "javascript"
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always"
+  }
+} 
