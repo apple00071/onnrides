@@ -31,8 +31,9 @@ export async function GET(
           u.email,
           u.role,
           u.created_at,
-          p.name,
-          p.phone,
+          p.first_name,
+          p.last_name,
+          p.phone_number,
           p.address,
           p.is_blocked
         FROM users u
@@ -53,8 +54,9 @@ export async function GET(
       return NextResponse.json({
         id: user.id,
         email: user.email,
-        name: user.name || '',
-        phone: user.phone || '',
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        phone_number: user.phone_number || '',
         address: user.address || '',
         created_at: user.created_at,
         is_blocked: user.is_blocked || false
