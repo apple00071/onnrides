@@ -43,6 +43,7 @@ async function createTables() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS vehicles (
         id SERIAL PRIMARY KEY,
+        owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         name VARCHAR(255) NOT NULL,
         description TEXT,
         type VARCHAR(50) NOT NULL,

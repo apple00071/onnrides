@@ -15,8 +15,8 @@ interface DashboardStats {
     amount: number;
     status: string;
     created_at: string;
-    start_date: string;
-    end_date: string;
+    pickup_datetime: string;
+    dropoff_datetime: string;
     pickup_location: string;
     drop_location: string;
   }>;
@@ -57,24 +57,25 @@ export async function GET(request: NextRequest) {
     const vehiclesResult = await client.query('SELECT COUNT(*) as total FROM vehicles');
     
     // Get pending documents
-    const documentsResult = await client.query('SELECT COUNT(*) as total FROM documents WHERE status = $1', ['pending']);
+    const documentsResult = await client.query('SELECT COUNT(*) as total FROM document_submissions WHERE status = $1', ['pending']);
     
     // Get recent bookings
     const bookingsResult = await client.query(`
       SELECT 
         b.id,
-        u.name as user_name,
+        CONCAT(p.first_name, ' ', p.last_name) as user_name,
         u.email as user_email,
         v.name as vehicle_name,
         b.amount,
         b.status,
         b.created_at,
-        b.start_date,
-        b.end_date,
+        b.pickup_datetime,
+        b.dropoff_datetime,
         b.pickup_location,
         b.drop_location
       FROM bookings b
       JOIN users u ON b.user_id = u.id
+      JOIN profiles p ON u.id = p.user_id
       JOIN vehicles v ON b.vehicle_id = v.id
       ORDER BY b.created_at DESC
       LIMIT 5
