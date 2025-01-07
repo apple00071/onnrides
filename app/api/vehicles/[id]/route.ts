@@ -18,7 +18,10 @@ export async function GET(
     const client = await pool.connect();
     try {
       const result = await client.query(`
-        SELECT * FROM vehicles
+        SELECT 
+          id, name, type, location, price_per_day, 
+          image_url, created_at, updated_at
+        FROM vehicles
         WHERE id = $1
       `, [vehicleId]);
 

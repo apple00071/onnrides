@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const dropoff = url.searchParams.get('dropoff');
 
     let queryParams: any[] = [];
-    let conditions: string[] = ['v.is_available = true'];
+    let conditions: string[] = ["v.status = 'active'"];
 
     if (type) {
       conditions.push('LOWER(v.type) = LOWER($' + (queryParams.length + 1) + ')');
@@ -35,9 +35,9 @@ export async function GET(request: NextRequest) {
           WHERE b.vehicle_id = v.id 
           AND b.status = 'confirmed'
           AND (
-            (b.start_date <= $${queryParams.length + 1} AND b.end_date >= $${queryParams.length + 1})
-            OR (b.start_date <= $${queryParams.length + 2} AND b.end_date >= $${queryParams.length + 2})
-            OR (b.start_date >= $${queryParams.length + 1} AND b.end_date <= $${queryParams.length + 2})
+            (b.pickup_datetime <= $${queryParams.length + 1} AND b.dropoff_datetime >= $${queryParams.length + 1})
+            OR (b.pickup_datetime <= $${queryParams.length + 2} AND b.dropoff_datetime >= $${queryParams.length + 2})
+            OR (b.pickup_datetime >= $${queryParams.length + 1} AND b.dropoff_datetime <= $${queryParams.length + 2})
           )
         )
       `);
@@ -48,27 +48,12 @@ export async function GET(request: NextRequest) {
       SELECT 
         v.id,
         v.name,
-        v.description,
         v.type,
-        v.brand,
-        v.model,
-        v.year,
-        v.color,
-        v.transmission,
-        v.fuel_type,
-        v.mileage,
-        v.seating_capacity,
         v.price_per_day,
-        v.is_available,
         v.image_url,
         v.location,
-        v.created_at,
-        COALESCE(
-          (SELECT COUNT(*) FROM bookings b 
-           WHERE b.vehicle_id = v.id 
-           AND b.status = 'completed'),
-          0
-        ) as total_rides
+        v.status,
+        v.created_at
       FROM vehicles v 
       WHERE ${conditions.join(' AND ')}
       ORDER BY v.created_at DESC

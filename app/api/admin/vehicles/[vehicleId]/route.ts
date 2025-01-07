@@ -107,8 +107,7 @@ export async function PUT(
         'type = $2',
         'location = $3',
         'price_per_day = $4',
-        'status = $5',
-        'is_available = $6'
+        'status = $5'
       ];
       const values = [
         name,
@@ -116,19 +115,18 @@ export async function PUT(
         location,
         price_per_day,
         status || 'active',
-        is_available,
         vehicleId
       ];
 
       if (image_url) {
-        updateFields.push('image_url = $8');
+        updateFields.push('image_url = $7');
         values.push(image_url);
       }
 
       const result = await client.query(`
         UPDATE vehicles
         SET ${updateFields.join(', ')}
-        WHERE id = $7
+        WHERE id = $6
         RETURNING *
       `, values);
 

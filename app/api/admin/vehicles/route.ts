@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       const result = await client.query(`
         SELECT 
           id, name, type, location, price_per_day, 
-          image_url, status, created_at, is_available
+          image_url, status, created_at, updated_at
         FROM vehicles
         ORDER BY created_at DESC
       `);
@@ -84,16 +84,18 @@ export async function POST(request: NextRequest) {
           type,
           location,
           price_per_day,
-          image_url
+          image_url,
+          status
         )
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
       `, [
         formData.get('name'),
         formData.get('type'),
         formData.get('location'),
         parsedPrice,
-        image_url || '/cars/default.jpg'
+        image_url || '/cars/default.jpg',
+        'active' // Default status
       ]);
 
       return NextResponse.json(result.rows[0]);
