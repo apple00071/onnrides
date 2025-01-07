@@ -1,57 +1,64 @@
-import pool from '../lib/db';
+import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 
-async function createAdmin() {
-  const client = await pool.connect();
+const adminEmail = 'admin@onnrides.com';
+const adminPassword = 'admin123'; // You should change this in production
+
+async function createAdminUser() {
+  const pool = new Pool({
+    user: process.env.POSTGRES_USER || 'postgres',
+    password: process.env.POSTGRES_PASSWORD,
+    host: process.env.POSTGRES_HOST || 'localhost',
+    port: parseInt(process.env.POSTGRES_PORT || '5432'),
+    database: process.env.POSTGRES_DB || 'onnrides',
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  });
+
   try {
-    await client.query('BEGIN');
-
-    // Check if admin already exists
-    const checkResult = await client.query(
-      'SELECT id FROM users WHERE email = $1',
-      ['admin@onnrides.com']
-    );
-
-    if (checkResult.rows.length > 0) {
-      // Update admin password
-      const passwordHash = await bcrypt.hash('admin123', 10);
-      await client.query(
-        'UPDATE users SET password_hash = $1 WHERE email = $2',
-        [passwordHash, 'admin@onnrides.com']
+    const client = await pool.connect();
+    try {
+      // Check if admin already exists
+      const checkResult = await client.query(
+        'SELECT id FROM users WHERE email = $1',
+        [adminEmail]
       );
-      console.log('Admin password updated successfully');
-    } else {
-      // Create new admin user
-      const passwordHash = await bcrypt.hash('admin123', 10);
+
+      if (checkResult.rows.length > 0) {
+        console.log('Admin user already exists');
+        return;
+      }
+
+      // Start transaction
+      await client.query('BEGIN');
+
+      // Hash password
+      const password_hash = await bcrypt.hash(adminPassword, 10);
+
+      // Create admin user
       const userResult = await client.query(
-        `INSERT INTO users (email, password_hash, role, created_at, updated_at)
-         VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-         RETURNING id`,
-        ['admin@onnrides.com', passwordHash, 'admin']
+        'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id',
+        [adminEmail, password_hash, 'admin']
       );
 
       // Create admin profile
       await client.query(
-        `INSERT INTO profiles (user_id, first_name, last_name, created_at, updated_at)
-         VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        'INSERT INTO profiles (user_id, first_name, last_name) VALUES ($1, $2, $3)',
         [userResult.rows[0].id, 'Admin', 'User']
       );
 
+      await client.query('COMMIT');
       console.log('Admin user created successfully');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-
-    await client.query('COMMIT');
   } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error creating/updating admin:', error);
+    console.error('Error creating admin user:', error);
   } finally {
-    client.release();
+    await pool.end();
   }
 }
 
-createAdmin()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error('Script failed:', error);
-    process.exit(1);
-  }); 
+createAdminUser().catch(console.error); 
