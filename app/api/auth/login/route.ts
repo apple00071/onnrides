@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import pool from '@/lib/db';
+import { query } from '@/lib/db';
 import { generateToken, createAuthCookie } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  let client;
   try {
     const { email, password } = await request.json();
 
@@ -17,10 +16,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    client = await pool.connect();
-
     // Get user with profile data
-    const result = await client.query(`
+    const result = await query(`
       SELECT 
         u.id,
         u.email,
@@ -51,62 +48,46 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify password
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
-    if (!passwordMatch) {
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    if (!isValidPassword) {
       return NextResponse.json(
         { message: 'Invalid email or password' },
         { status: 401 }
       );
     }
 
-    try {
-      // Generate JWT token
-      const token = await generateToken({
-        id: user.id.toString(),
-        email: user.email,
-        role: user.role
-      });
+    // Generate JWT token
+    const token = await generateToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      is_documents_verified: user.is_documents_verified
+    });
 
-      // Create response with cookie
-      const response = NextResponse.json({
+    // Create response with auth cookie
+    const response = NextResponse.json(
+      {
+        message: 'Login successful',
         user: {
           id: user.id,
           email: user.email,
           role: user.role,
-          is_documents_verified: user.is_documents_verified || false
+          is_documents_verified: user.is_documents_verified
         }
-      });
+      },
+      { status: 200 }
+    );
 
-      // Set auth cookie
-      const cookie = createAuthCookie(token);
-      response.cookies.set(cookie);
+    // Set auth cookie
+    const cookie = createAuthCookie(token);
+    response.cookies.set(cookie);
 
-      return response;
-    } catch (tokenError) {
-      console.error('Token generation error:', tokenError);
-      return NextResponse.json(
-        { message: 'Authentication failed. Please try again.' },
-        { status: 500 }
-      );
-    }
+    return response;
   } catch (error) {
     console.error('Login error:', error);
-    if (error instanceof Error) {
-      return NextResponse.json(
-        { 
-          message: 'Login failed',
-          details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        },
-        { status: 500 }
-      );
-    }
     return NextResponse.json(
-      { message: 'An unexpected error occurred' },
+      { message: 'An error occurred during login. Please try again.' },
       { status: 500 }
     );
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 } 
