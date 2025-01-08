@@ -9,7 +9,8 @@ interface Vehicle {
   id: string;
   name: string;
   type: string;
-  location: string;
+  location: string[];
+  quantity: number;
   price_per_day: number;
   is_available: boolean;
   status: string;
@@ -25,10 +26,11 @@ export default function VehiclesPage() {
   const [formData, setFormData] = useState({
     name: '',
     type: 'car',
-    location: '',
+    location: [] as string[],
+    quantity: 1,
     price_per_day: 0,
     is_available: true,
-    status: 'available',
+    status: 'active',
     image: null as File | null
   });
 
@@ -65,6 +67,15 @@ export default function VehiclesPage() {
     }));
   };
 
+  const handleLocationChange = (location: string) => {
+    setFormData(prev => ({
+      ...prev,
+      location: prev.location.includes(location)
+        ? prev.location.filter(loc => loc !== location)
+        : [...prev.location, location]
+    }));
+  };
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFormData(prev => ({
@@ -81,15 +92,14 @@ export default function VehiclesPage() {
     try {
       const formDataToSend = new FormData();
       
-      // Add form fields with proper types
       formDataToSend.append('name', formData.name);
       formDataToSend.append('type', formData.type);
-      formDataToSend.append('location', formData.location);
+      formDataToSend.append('location', JSON.stringify(formData.location));
+      formDataToSend.append('quantity', formData.quantity.toString());
       formDataToSend.append('price_per_day', formData.price_per_day.toString());
       formDataToSend.append('is_available', formData.is_available.toString());
       formDataToSend.append('status', formData.status);
 
-      // Add image if it exists
       if (formData.image) {
         formDataToSend.append('image', formData.image);
       }
@@ -148,9 +158,10 @@ export default function VehiclesPage() {
       name: vehicle.name,
       type: vehicle.type,
       location: vehicle.location,
+      quantity: vehicle.quantity,
       price_per_day: vehicle.price_per_day,
       is_available: vehicle.is_available,
-      status: vehicle.is_available ? 'available' : 'unavailable',
+      status: vehicle.status,
       image: null
     });
     setShowAddModal(true);
@@ -158,9 +169,10 @@ export default function VehiclesPage() {
 
   const handleToggleAvailability = async (vehicleId: string, currentStatus: boolean) => {
     try {
+      const newStatus = !currentStatus;
       const formData = new FormData();
-      formData.append('is_available', (!currentStatus).toString());
-      formData.append('status', !currentStatus ? 'available' : 'unavailable');
+      formData.append('is_available', newStatus.toString());
+      formData.append('status', newStatus ? 'active' : 'unavailable');
 
       const response = await fetch(`/api/admin/vehicles/${vehicleId}`, {
         method: 'PUT',
@@ -173,7 +185,7 @@ export default function VehiclesPage() {
       }
 
       toast.success('Vehicle availability updated');
-      fetchVehicles(); // Refresh the list
+      fetchVehicles();
     } catch (error) {
       console.error('Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update vehicle availability');
@@ -198,10 +210,11 @@ export default function VehiclesPage() {
             setFormData({
               name: '',
               type: 'car',
-              location: '',
+              location: [],
+              quantity: 1,
               price_per_day: 0,
               is_available: true,
-              status: 'available',
+              status: 'active',
               image: null
             });
             setShowAddModal(true);
@@ -257,7 +270,7 @@ export default function VehiclesPage() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-900">
-                    {vehicle.location}
+                    {vehicle.location.join(', ')}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -334,23 +347,36 @@ export default function VehiclesPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Location
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Locations
                     </label>
-                    <select
-                      name="location"
-                      value={formData.location}
+                    <div className="space-y-2">
+                      {locations.map((location) => (
+                        <label key={location} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={formData.location.includes(location)}
+                            onChange={() => handleLocationChange(location)}
+                            className="rounded border-gray-300 text-[#f26e24] focus:ring-[#f26e24]"
+                          />
+                          <span className="text-sm text-gray-700">{location}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Quantity
+                    </label>
+                    <input
+                      type="number"
+                      name="quantity"
+                      value={formData.quantity}
                       onChange={handleInputChange}
                       required
+                      min="1"
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f26e24] focus:ring-[#f26e24] sm:text-sm"
-                    >
-                      <option value="">Select Location</option>
-                      {locations.map((location) => (
-                        <option key={location} value={location}>
-                          {location}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">

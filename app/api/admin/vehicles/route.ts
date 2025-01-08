@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     
     // Validate required fields
     const requiredFields = [
-      'name', 'type', 'location', 'price_per_day'
+      'name', 'type', 'location', 'price_per_day', 'quantity'
     ];
     
     for (const field of requiredFields) {
@@ -67,12 +67,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Parse and validate quantity
+    const quantity = parseInt(formData.get('quantity') as string);
+    if (isNaN(quantity) || quantity <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid quantity' },
+        { status: 400 }
+      );
+    }
+
+    // Parse locations array
+    let locations;
+    try {
+      locations = JSON.parse(formData.get('location') as string);
+      if (!Array.isArray(locations) || locations.length === 0) {
+        throw new Error('Invalid locations');
+      }
+    } catch (error) {
+      return NextResponse.json(
+        { error: 'Invalid locations format' },
+        { status: 400 }
+      );
+    }
+
     // Handle image upload
     let image_url = '';
     const image = formData.get('image') as File;
     if (image) {
       // TODO: Implement image upload to a storage service
-      // For now, we'll use a placeholder URL
       image_url = '/cars/default.jpg';
     }
 
@@ -83,21 +105,23 @@ export async function POST(request: NextRequest) {
           name,
           type,
           location,
+          quantity,
           price_per_day,
           image_url,
           status,
           is_available
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
       `, [
         formData.get('name'),
         formData.get('type'),
-        formData.get('location'),
+        locations,
+        quantity,
         parsedPrice,
         image_url || '/cars/default.jpg',
-        formData.get('status') || 'available',
-        formData.get('is_available') === 'true' || true
+        'active',
+        true
       ]);
 
       return NextResponse.json(result.rows[0]);
@@ -107,11 +131,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating vehicle:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to create vehicle',
-        details: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      },
+      { error: 'Failed to create vehicle' },
       { status: 500 }
     );
   }
@@ -137,17 +157,22 @@ export async function PUT(request: NextRequest) {
     const formData = await request.formData();
     const name = formData.get('name') as string;
     const type = formData.get('type') as string;
-    const location = formData.get('location') as string;
+    let locations;
+    try {
+      locations = JSON.parse(formData.get('location') as string);
+    } catch (error) {
+      locations = [];
+    }
+    const quantity = parseInt(formData.get('quantity') as string) || 1;
     const price_per_day = parseFloat(formData.get('price_per_day') as string);
     const is_available = formData.get('is_available') === 'true';
-    const image = formData.get('image') as File;
     const status = formData.get('status') as string;
 
     // Handle image upload
     let image_url;
+    const image = formData.get('image') as File;
     if (image) {
       // TODO: Implement image upload to a storage service
-      // For now, we'll use a placeholder URL
       image_url = '/cars/default.jpg';
     }
 
@@ -157,14 +182,16 @@ export async function PUT(request: NextRequest) {
         'name = $1',
         'type = $2',
         'location = $3',
-        'price_per_day = $4',
-        'status = $5',
-        'is_available = $6'
+        'quantity = $4',
+        'price_per_day = $5',
+        'status = $6',
+        'is_available = $7'
       ];
       const values = [
         name,
         type,
-        location,
+        locations,
+        quantity,
         price_per_day,
         status || 'active',
         is_available,
@@ -172,14 +199,14 @@ export async function PUT(request: NextRequest) {
       ];
 
       if (image_url) {
-        updateFields.push('image_url = $8');
+        updateFields.push('image_url = $9');
         values.push(image_url);
       }
 
       const result = await client.query(`
         UPDATE vehicles
         SET ${updateFields.join(', ')}
-        WHERE id = $7
+        WHERE id = $8
         RETURNING *
       `, values);
 
