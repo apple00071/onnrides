@@ -32,6 +32,16 @@ export async function GET(request: NextRequest) {
       [user.id]
     );
 
+    // Transform the data to ensure all fields are properly typed
+    const documents = result.rows.map(doc => ({
+      id: doc.id,
+      type: doc.document_type,
+      url: doc.document_url,
+      status: doc.status || 'pending',
+      created_at: doc.created_at,
+      updated_at: doc.updated_at
+    }));
+
     // Check document verification status
     const verificationResult = await client.query(`
       WITH required_docs AS (
@@ -57,7 +67,7 @@ export async function GET(request: NextRequest) {
     `, [user.id]);
 
     return NextResponse.json({
-      documents: result.rows,
+      documents,
       is_verified: verificationResult.rows[0]?.is_documents_verified || false,
       documents_submitted: verificationResult.rows[0]?.documents_submitted || false
     });
