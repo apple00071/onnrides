@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
+import { differenceInMinutes } from 'date-fns';
 
 interface Vehicle {
   id: string;
@@ -23,7 +24,6 @@ export default function BookingPage() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [numHelmet, setNumHelmet] = useState(1);
   const [couponCode, setCouponCode] = useState('');
 
   const vehicleId = searchParams.get('vehicleId');
@@ -65,8 +65,11 @@ export default function BookingPage() {
   }, [vehicleId, pickupDateTime, dropoffDateTime, location, router, fetchVehicle]);
 
   const calculateTotalAmount = () => {
-    if (!vehicle) return 0;
-    return vehicle.price_per_day;
+    if (!vehicle || !pickupDateTime || !dropoffDateTime) return 0;
+    
+    const totalMinutes = differenceInMinutes(new Date(dropoffDateTime), new Date(pickupDateTime));
+    const totalDays = totalMinutes / (24 * 60);
+    return Math.round(vehicle.price_per_day * totalDays);
   };
 
   const calculateTax = (amount: number) => {
@@ -155,35 +158,9 @@ export default function BookingPage() {
               </div>
 
               <div className="mt-6">
-                <div className="flex justify-between items-center mb-4">
-                  <span>Peak duration pricing</span>
-                  <span>₹{baseAmount.toFixed(1)}</span>
-                </div>
                 <div className="flex justify-between items-center font-bold">
                   <span>Total</span>
                   <span>₹{baseAmount.toFixed(1)}</span>
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-4">
-                <div className="flex justify-between items-center">
-                  <span>Number of Helmet (?)</span>
-                  <select
-                    value={numHelmet}
-                    onChange={(e) => setNumHelmet(Number(e.target.value))}
-                    className="border rounded px-2 py-1"
-                  >
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                  </select>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Km limit (?)</span>
-                  <span>144 km</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Excess km charges (?)</span>
-                  <span>₹4.0/km</span>
                 </div>
               </div>
             </div>
@@ -195,16 +172,6 @@ export default function BookingPage() {
           <h2 className="text-2xl font-bold mb-6">Billing Details</h2>
 
           <div className="mb-6">
-            <div className="flex items-center gap-2 p-4 border rounded-lg">
-              <input type="checkbox" className="accent-[#f26e24]" />
-              <div className="flex justify-between items-center w-full">
-                <span>RB Wallet Balance</span>
-                <span>(₹ 0.0)</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-6">
             <h3 className="text-lg font-semibold mb-4">Apply Coupon</h3>
             <div className="flex gap-2">
               <input
@@ -214,7 +181,7 @@ export default function BookingPage() {
                 placeholder="Coupon code"
                 className="flex-1 p-2 border rounded"
               />
-              <button className="bg-black text-white px-4 py-2 rounded">APPLY</button>
+              <button className="bg-[#f26e24] text-white px-4 py-2 rounded hover:bg-[#e05d13] transition-colors">APPLY</button>
             </div>
           </div>
 
@@ -237,13 +204,13 @@ export default function BookingPage() {
             </div>
             <div className="flex justify-between font-bold text-xl">
               <span>Total Due</span>
-              <span>₹ {totalAmount.toFixed(2)}</span>
+              <span className="text-[#f26e24]">₹ {totalAmount.toFixed(2)}</span>
             </div>
           </div>
 
           <button
             onClick={handleMakePayment}
-            className="w-full bg-[#ffc107] text-black py-3 rounded-lg font-medium mt-6 hover:bg-[#ffb300] transition-colors"
+            className="w-full bg-[#f26e24] text-white py-3 rounded-lg font-medium mt-6 hover:bg-[#e05d13] transition-colors"
           >
             Make payment
           </button>

@@ -184,8 +184,19 @@ export default function VehiclesPage() {
         throw new Error(errorData.error || 'Failed to update vehicle availability');
       }
 
+      setVehicles(prevVehicles => 
+        prevVehicles.map(vehicle => 
+          vehicle.id === vehicleId 
+            ? { 
+                ...vehicle, 
+                is_available: newStatus,
+                status: newStatus ? 'active' : 'unavailable'
+              }
+            : vehicle
+        )
+      );
+
       toast.success('Vehicle availability updated');
-      fetchVehicles();
     } catch (error) {
       console.error('Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update vehicle availability');
@@ -279,10 +290,10 @@ export default function VehiclesPage() {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <button
                     onClick={() => handleToggleAvailability(vehicle.id, vehicle.is_available)}
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
                       vehicle.is_available
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                        : 'bg-red-100 text-red-800 hover:bg-red-200'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
                     }`}
                   >
                     {vehicle.is_available ? 'Available' : 'Not Available'}

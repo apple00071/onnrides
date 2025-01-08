@@ -84,89 +84,112 @@ export async function PUT(
     }
 
     const formData = await request.formData();
-    
-    // Create an array to store update fields and values
-    const updateFields = [];
-    const values = [];
-    let paramCount = 1;
-
-    // Only add fields that are present in the formData
-    if (formData.has('name')) {
-      updateFields.push(`name = $${paramCount}`);
-      values.push(formData.get('name'));
-      paramCount++;
+    const name = formData.get('name') as string;
+    const type = formData.get('type') as string;
+    let locations;
+    try {
+      locations = JSON.parse(formData.get('location') as string);
+    } catch (error) {
+      locations = [];
     }
+    const quantity = parseInt(formData.get('quantity') as string) || 1;
+    const price_per_day = parseFloat(formData.get('price_per_day') as string);
+    const is_available = formData.get('is_available') === 'true';
+    const status = formData.get('status') as string || (is_available ? 'active' : 'unavailable');
 
-    if (formData.has('type')) {
-      updateFields.push(`type = $${paramCount}`);
-      values.push(formData.get('type'));
-      paramCount++;
-    }
-
-    if (formData.has('location')) {
-      updateFields.push(`location = $${paramCount}`);
-      values.push(formData.get('location'));
-      paramCount++;
-    }
-
-    if (formData.has('price_per_day')) {
-      const price = parseFloat(formData.get('price_per_day') as string);
-      if (!isNaN(price) && price > 0) {
-        updateFields.push(`price_per_day = $${paramCount}`);
-        values.push(price);
-        paramCount++;
-      }
-    }
-
-    // Handle is_available field
-    if (formData.has('is_available')) {
-      updateFields.push(`is_available = $${paramCount}`);
-      values.push(formData.get('is_available') === 'true');
-      paramCount++;
-    }
-
-    if (formData.has('status')) {
-      updateFields.push(`status = $${paramCount}`);
-      values.push(formData.get('status'));
-      paramCount++;
-    }
-
-    // Handle image if present
+    // Handle image upload
+    let image_url;
     const image = formData.get('image') as File;
     if (image) {
       // TODO: Implement image upload to a storage service
-      const image_url = '/cars/default.jpg';
-      updateFields.push(`image_url = $${paramCount}`);
-      values.push(image_url);
-      paramCount++;
-    }
-
-    // Add vehicleId as the last parameter
-    values.push(vehicleId);
-
-    // If no fields to update, return error
-    if (updateFields.length === 0) {
-      return NextResponse.json(
-        { error: 'No fields to update' },
-        { status: 400 }
-      );
+      image_url = '/cars/default.jpg';
     }
 
     const client = await pool.connect();
     try {
+      // First, get the current vehicle data
+      const currentVehicle = await client.query(
+        'SELECT * FROM vehicles WHERE id = $1',
+        [vehicleId]
+      );
+
+      if (currentVehicle.rowCount === 0) {
+        return NextResponse.json(
+          { error: 'Vehicle not found' },
+          { status: 404 }
+        );
+      }
+
+      // Prepare update fields
+      const updateFields = [];
+      const values = [];
+      let paramCount = 1;
+
+      // Only update fields that are provided in the formData
+      if (name) {
+        updateFields.push(`name = $${paramCount}`);
+        values.push(name);
+        paramCount++;
+      }
+
+      if (type) {
+        updateFields.push(`type = $${paramCount}`);
+        values.push(type);
+        paramCount++;
+      }
+
+      if (locations && locations.length > 0) {
+        updateFields.push(`location = $${paramCount}`);
+        values.push(locations);
+        paramCount++;
+      }
+
+      if (quantity) {
+        updateFields.push(`quantity = $${paramCount}`);
+        values.push(quantity);
+        paramCount++;
+      }
+
+      if (price_per_day) {
+        updateFields.push(`price_per_day = $${paramCount}`);
+        values.push(price_per_day);
+        paramCount++;
+      }
+
+      if (formData.has('is_available')) {
+        updateFields.push(`is_available = $${paramCount}`);
+        values.push(is_available);
+        paramCount++;
+      }
+
+      if (formData.has('status')) {
+        updateFields.push(`status = $${paramCount}`);
+        values.push(status);
+        paramCount++;
+      }
+
+      if (image_url) {
+        updateFields.push(`image_url = $${paramCount}`);
+        values.push(image_url);
+        paramCount++;
+      }
+
+      // Add vehicleId as the last parameter
+      values.push(vehicleId);
+
+      if (updateFields.length === 0) {
+        return NextResponse.json(
+          { error: 'No fields to update' },
+          { status: 400 }
+        );
+      }
+
       const result = await client.query(`
         UPDATE vehicles
         SET ${updateFields.join(', ')}
         WHERE id = $${paramCount}
         RETURNING *
       `, values);
-
-      if (result.rowCount === 0) {
-        return NextResponse.json(
-          { error: 'Vehicle not found' },
-          { status: 404 }
-        );
-      }
 
       return NextResponse.json(result.rows[0]);
     } finally {
