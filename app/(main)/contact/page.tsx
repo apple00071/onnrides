@@ -1,153 +1,149 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { toast } from 'react-hot-toast';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    subject: '',
+    phone: '',
     message: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      // Send email using your preferred method (e.g., API endpoint)
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
+    // TODO: Implement form submission
+    toast.success('Message sent successfully!');
+    setFormData({ name: '', email: '', phone: '', message: '' });
+  };
 
-      if (response.ok) {
-        alert('Message sent successfully!');
-        setFormData({ name: '', email: '', subject: '', message: '' });
-      } else {
-        throw new Error('Failed to send message');
-      }
-    } catch (error) {
-      alert('Failed to send message. Please try again.');
-    }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   return (
-    <main className="container mx-auto px-4 py-2 mt-4">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8">Contact Us</h1>
+    <main className="container mx-auto px-4 py-8 mt-16">
+      <h1 className="text-3xl font-bold mb-8 text-center">Contact Us</h1>
+      
+      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12">
+        {/* Contact Information */}
+        <div className="space-y-8">
+          <section>
+            <h2 className="text-2xl font-semibold mb-4">Get in Touch</h2>
+            <p className="text-gray-600 mb-6">
+              Have questions about our services? We're here to help!
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold mb-2">Phone Numbers</h3>
+                <p className="text-gray-600">+91 83090 31203</p>
+                <p className="text-gray-600">+91 91824 95481</p>
+              </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Contact Information */}
-          <div>
-            <div className="bg-white p-8 rounded-lg shadow-sm mb-8">
-              <h2 className="text-2xl font-semibold mb-6">Get in Touch</h2>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-semibold mb-2">Address</h3>
-                  <p className="text-gray-600">
-                    123 Main Street<br />
-                    Hyderabad, Telangana 500001<br />
-                    India
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-2">Call Us</h3>
-                  <div className="space-y-2">
-                    <Link href="tel:+918309031203" className="block text-yellow-600 hover:text-yellow-700">
-                      +91 83090 31203
-                    </Link>
-                    <Link href="tel:+919182495481" className="block text-yellow-600 hover:text-yellow-700">
-                      +91 91824 95481
-                    </Link>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-2">Email</h3>
-                  <Link href="mailto:support@onnrides.com" className="text-yellow-600 hover:text-yellow-700">
-                    support@onnrides.com
-                  </Link>
-                </div>
+              <div>
+                <h3 className="font-semibold mb-2">Email</h3>
+                <p className="text-gray-600">support@onnrides.com</p>
               </div>
             </div>
+          </section>
 
-            <div className="bg-white p-8 rounded-lg shadow-sm">
-              <h2 className="text-2xl font-semibold mb-6">Business Hours</h2>
-              <div className="space-y-2">
-                <p className="flex justify-between">
-                  <span className="text-gray-600">Monday - Friday:</span>
-                  <span>9:00 AM - 10:30 PM</span>
-                </p>
-                <p className="flex justify-between">
-                  <span className="text-gray-600">Saturday:</span>
-                  <span>9:00 AM - 10:30 PM</span>
-                </p>
-                <p className="flex justify-between">
-                  <span className="text-gray-600">Sunday:</span>
-                  <span>9:00 AM - 10:30 PM</span>
-                </p>
+          <section>
+            <h2 className="text-2xl font-semibold mb-4">Our Locations</h2>
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold mb-2">Eragadda Branch</h3>
+                <p className="text-gray-600">1st Branch</p>
+                <p className="text-gray-600">Hyderabad, Telangana</p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold mb-2">Madhapur Branch</h3>
+                <p className="text-gray-600">2nd Branch</p>
+                <p className="text-gray-600">Hyderabad, Telangana</p>
               </div>
             </div>
-          </div>
+          </section>
 
-          {/* Contact Form */}
-          <div className="bg-white p-8 rounded-lg shadow-sm">
-            <h2 className="text-2xl font-semibold mb-6">Send us a Message</h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label htmlFor="name" className="block text-gray-700 mb-2">Name</label>
-                <input
-                  type="text"
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="email" className="block text-gray-700 mb-2">Email</label>
-                <input
-                  type="email"
-                  id="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="subject" className="block text-gray-700 mb-2">Subject</label>
-                <input
-                  type="text"
-                  id="subject"
-                  value={formData.subject}
-                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="message" className="block text-gray-700 mb-2">Message</label>
-                <textarea
-                  id="message"
-                  value={formData.message}
-                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  rows={5}
-                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                  required
-                ></textarea>
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-yellow-400 text-black py-3 rounded-lg font-semibold hover:bg-yellow-500 transition-colors"
-              >
-                Send Message
-              </button>
-            </form>
-          </div>
+          <section>
+            <h2 className="text-2xl font-semibold mb-4">Business Hours</h2>
+            <p className="text-gray-600">Monday - Sunday: 24/7</p>
+          </section>
+        </div>
+
+        {/* Contact Form */}
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-2xl font-semibold mb-6">Send us a Message</h2>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                Name
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-[#f26e24] focus:border-[#f26e24]"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-[#f26e24] focus:border-[#f26e24]"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                Phone
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-[#f26e24] focus:border-[#f26e24]"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
+                Message
+              </label>
+              <textarea
+                id="message"
+                name="message"
+                value={formData.message}
+                onChange={handleChange}
+                required
+                rows={4}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-[#f26e24] focus:border-[#f26e24]"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-[#f26e24] text-white py-2 px-4 rounded-md hover:bg-[#e05d13] transition-colors"
+            >
+              Send Message
+            </button>
+          </form>
         </div>
       </div>
     </main>

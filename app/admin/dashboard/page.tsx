@@ -56,7 +56,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#f26e24]"></div>
       </div>
     );
@@ -71,63 +71,59 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-
+    <div className="space-y-4 sm:space-y-6 pb-6">
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-              <UsersIcon className="h-6 w-6" />
+            <div className="p-2 sm:p-3 rounded-full bg-blue-100 text-blue-600">
+              <UsersIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Users</p>
-              <p className="text-2xl font-semibold text-gray-900">
+            <div className="ml-3">
+              <p className="text-xs sm:text-sm font-medium text-gray-500">Total Users</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900">
                 {stats.total_users}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100 text-green-600">
-              <CurrencyRupeeIcon className="h-6 w-6" />
+            <div className="p-2 sm:p-3 rounded-full bg-green-100 text-green-600">
+              <CurrencyRupeeIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Revenue</p>
-              <p className="text-2xl font-semibold text-gray-900">
+            <div className="ml-3">
+              <p className="text-xs sm:text-sm font-medium text-gray-500">Total Revenue</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900">
                 ₹{stats.total_revenue}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
-              <TruckIcon className="h-6 w-6" />
+            <div className="p-2 sm:p-3 rounded-full bg-yellow-100 text-yellow-600">
+              <TruckIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Vehicles</p>
-              <p className="text-2xl font-semibold text-gray-900">
+            <div className="ml-3">
+              <p className="text-xs sm:text-sm font-medium text-gray-500">Total Vehicles</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900">
                 {stats.total_vehicles}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-white rounded-lg shadow-md p-3 sm:p-4">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-red-100 text-red-600">
-              <DocumentTextIcon className="h-6 w-6" />
+            <div className="p-2 sm:p-3 rounded-full bg-red-100 text-red-600">
+              <DocumentTextIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">
-                Pending Documents
-              </p>
-              <p className="text-2xl font-semibold text-gray-900">
+            <div className="ml-3">
+              <p className="text-xs sm:text-sm font-medium text-gray-500">Pending Documents</p>
+              <p className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900">
                 {stats.pending_documents}
               </p>
             </div>
@@ -137,69 +133,107 @@ export default function DashboardPage() {
 
       {/* Recent Bookings */}
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Recent Bookings</h2>
+        <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-gray-200">
+          <h2 className="text-base sm:text-lg font-medium text-gray-900">Recent Bookings</h2>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Customer
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Vehicle
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {stats.recent_bookings.map((booking) => (
-                <tr key={booking.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {booking.user_name}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {booking.user_email}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {booking.vehicle_name}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ₹{booking.amount}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      booking.status === 'completed'
-                        ? 'bg-green-100 text-green-800'
-                        : booking.status === 'cancelled'
-                          ? 'bg-red-100 text-red-800'
-                          : booking.status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {booking.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {format(new Date(booking.created_at), 'MMM d, yyyy')}
-                  </td>
+        
+        {/* Mobile Booking Cards */}
+        <div className="block sm:hidden">
+          <div className="divide-y divide-gray-200">
+            {stats.recent_bookings.map((booking) => (
+              <div key={booking.id} className="p-4 space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">{booking.user_name}</div>
+                    <div className="text-xs text-gray-500">{booking.user_email}</div>
+                  </div>
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                    booking.status === 'completed'
+                      ? 'bg-green-100 text-green-800'
+                      : booking.status === 'cancelled'
+                        ? 'bg-red-100 text-red-800'
+                        : booking.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {booking.status}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <div className="text-gray-900">{booking.vehicle_name}</div>
+                  <div className="font-medium text-gray-900">₹{booking.amount}</div>
+                </div>
+                <div className="text-xs text-gray-500">
+                  {format(new Date(booking.created_at), 'MMM d, yyyy')}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Desktop Table */}
+        <div className="hidden sm:block overflow-x-auto">
+          <div className="inline-block min-w-full align-middle">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Customer
+                  </th>
+                  <th scope="col" className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Vehicle
+                  </th>
+                  <th scope="col" className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th scope="col" className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th scope="col" className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {stats.recent_bookings.map((booking) => (
+                  <tr key={booking.id} className="hover:bg-gray-50">
+                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {booking.user_name}
+                      </div>
+                      <div className="text-xs sm:text-sm text-gray-500">
+                        {booking.user_email}
+                      </div>
+                    </td>
+                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {booking.vehicle_name}
+                      </div>
+                    </td>
+                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ₹{booking.amount}
+                    </td>
+                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        booking.status === 'completed'
+                          ? 'bg-green-100 text-green-800'
+                          : booking.status === 'cancelled'
+                            ? 'bg-red-100 text-red-800'
+                            : booking.status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {booking.status}
+                      </span>
+                    </td>
+                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {format(new Date(booking.created_at), 'MMM d, yyyy')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

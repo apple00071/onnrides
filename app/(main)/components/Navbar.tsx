@@ -50,21 +50,11 @@ export default function Navbar() {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <button onClick={() => handleNavigation('/')} className="text-2xl font-bold text-[#f26e24]">
+              <button onClick={() => handleNavigation('/')} className="text-2xl font-bold text-[#f26e24] font-goodtimes">
                 OnnRides
               </button>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              <button
-                onClick={() => handleNavigation('/vehicles')}
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                  isActive('/vehicles')
-                    ? 'border-[#f26e24] text-gray-900'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                Vehicles
-              </button>
               <button
                 onClick={() => handleNavigation('/about')}
                 className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
@@ -74,6 +64,16 @@ export default function Navbar() {
                 }`}
               >
                 About
+              </button>
+              <button
+                onClick={() => handleNavigation('/contact')}
+                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                  isActive('/contact')
+                    ? 'border-[#f26e24] text-gray-900'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                }`}
+              >
+                Contact Us
               </button>
             </div>
           </div>
@@ -168,16 +168,6 @@ export default function Navbar() {
       <div className={`${mobileMenuOpen ? 'block' : 'hidden'} sm:hidden`}>
         <div className="pt-2 pb-3 space-y-1">
           <button
-            onClick={() => handleNavigation('/vehicles')}
-            className={`block w-full text-left pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-              isActive('/vehicles')
-                ? 'border-[#f26e24] text-[#f26e24] bg-[#fff8f0]'
-                : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
-            }`}
-          >
-            Vehicles
-          </button>
-          <button
             onClick={() => handleNavigation('/about')}
             className={`block w-full text-left pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
               isActive('/about')
@@ -186,6 +176,16 @@ export default function Navbar() {
             }`}
           >
             About
+          </button>
+          <button
+            onClick={() => handleNavigation('/contact')}
+            className={`block w-full text-left pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+              isActive('/contact')
+                ? 'border-[#f26e24] text-[#f26e24] bg-[#fff8f0]'
+                : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            Contact Us
           </button>
         </div>
         <div className="pt-4 pb-3 border-t border-gray-200">

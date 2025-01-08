@@ -1,9 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['images.unsplash.com'],
-    unoptimized: true,
-  }
+    domains: ['res.cloudinary.com'],
+  },
+  async redirects() {
+    return [
+      {
+        source: '/signup',
+        destination: '/register',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig; 
