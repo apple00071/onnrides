@@ -115,7 +115,7 @@ export default function BookingPage() {
     return (
       <div className="text-center py-12">
         <h2 className="text-2xl font-semibold text-gray-700">Vehicle not found</h2>
-        <p className="text-gray-500 mt-2">The vehicle you're looking for doesn't exist or has been removed.</p>
+        <p className="text-gray-500 mt-2">The vehicle you&apos;re looking for doesn&apos;t exist or has been removed.</p>
       </div>
     );
   }

@@ -74,6 +74,10 @@ const DocumentVerification = ({
         </div>
       )}
 
+      <p className="text-sm text-gray-500 mb-4">
+        If you haven&apos;t uploaded your documents yet, you won&apos;t be able to make a booking.
+      </p>
+
       <div className="space-y-4">
         {documentTypes.map(({ key, label }) => {
           const status = getDocumentStatus(key);

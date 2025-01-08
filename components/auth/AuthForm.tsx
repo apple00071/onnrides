@@ -59,24 +59,12 @@ export default function AuthForm({ mode }: AuthFormProps) {
           {mode === 'signup' && 'Create a new account'}
           {mode === 'admin-login' && 'Admin Login'}
         </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          {mode === 'login' && (
-            <>
-              Don't have an account?{' '}
-              <Link href="/signup" className="font-medium text-[#f26e24] hover:text-[#e05d13]">
-                Sign up
-              </Link>
-            </>
-          )}
-          {mode === 'signup' && (
-            <>
-              Already have an account?{' '}
-              <Link href="/login" className="font-medium text-[#f26e24] hover:text-[#e05d13]">
-                Sign in
-              </Link>
-            </>
-          )}
+        <p className="text-sm text-gray-500">
+          Don&apos;t have an account?
         </p>
+        <Link href="/signup" className="font-medium text-[#f26e24] hover:text-[#e05d13]">
+          Sign up
+        </Link>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">

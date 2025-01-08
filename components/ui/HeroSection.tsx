@@ -79,8 +79,8 @@ export default function HeroSection() {
       <h1 className="text-4xl md:text-6xl font-bold mb-4">
         MAKE IT A DECEMBER TO<br />REMEMBER
       </h1>
-      <p className="text-xl md:text-2xl mb-12">
-        BOOK YOUR RIDE BEFORE IT'S GONE
+      <p className="text-gray-600 mb-8">
+        Let&apos;s find your perfect ride
       </p>
 
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl">

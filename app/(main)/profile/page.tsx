@@ -229,11 +229,9 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <p className="text-lg text-gray-600 mb-4">Please log in to view your profile</p>
-        <Link href="/login" className="text-[#f26e24] hover:text-[#e05d13]">
-          Go to Login
-        </Link>
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-semibold text-gray-700">User not found</h2>
+        <p className="text-gray-500 mt-2">The user you&apos;re looking for doesn&apos;t exist.</p>
       </div>
     );
   }
