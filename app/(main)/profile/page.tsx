@@ -190,12 +190,23 @@ export default function ProfilePage() {
   const getDocumentUrl = (doc: Document) => {
     if (!doc?.file_url) return '';
     try {
-      // If it's a relative URL, prepend the origin
-      if (doc.file_url.startsWith('/')) {
+      // If it's a base64 string
+      if (doc.file_url.startsWith('data:')) {
+        return doc.file_url;
+      }
+      
+      // If it's a relative URL starting with /api or /uploads
+      if (doc.file_url.startsWith('/api') || doc.file_url.startsWith('/uploads')) {
         return `${window.location.origin}${doc.file_url}`;
       }
-      // If it's already an absolute URL or base64, return as is
-      return doc.file_url;
+      
+      // If it's a storage URL (e.g., from your storage service)
+      if (doc.file_url.startsWith('http')) {
+        return doc.file_url;
+      }
+      
+      // For any other case, prepend the API endpoint
+      return `${window.location.origin}/api/user/documents/view/${doc.id}`;
     } catch (error) {
       console.error('Error formatting document URL:', error);
       return '';
@@ -218,10 +229,14 @@ export default function ProfilePage() {
                 rel="noopener noreferrer"
                 className="text-[#f26e24] hover:underline mb-2"
                 onClick={(e) => {
-                  if (!doc.file_url) {
+                  const url = getDocumentUrl(doc);
+                  if (!url) {
                     e.preventDefault();
                     toast.error('Document URL not available');
+                    return;
                   }
+                  // For debugging
+                  console.log('Document URL:', url);
                 }}
               >
                 View {label}

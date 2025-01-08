@@ -38,19 +38,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Convert file to base64 for storage
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64String = buffer.toString('base64');
+    const fileUrl = `data:${file.type};base64,${base64String}`;
+
     // Start transaction
     await client.query('BEGIN');
 
-    // For now, we'll store the file URL as a placeholder
-    // In a real application, you would upload the file to a storage service
-    const document_url = `https://storage.example.com/${user.id}/${type}/${file.name}`;
-
-    // Insert document record
+    // Insert document record with base64 data
     const result = await client.query(
       `INSERT INTO document_submissions (user_id, document_type, document_url, status)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [user.id, type, document_url, 'pending']
+      [user.id, type, fileUrl, 'pending']
     );
 
     await client.query('COMMIT');
@@ -63,7 +65,7 @@ export async function POST(request: NextRequest) {
     await client.query('ROLLBACK');
     console.error('Error uploading document:', error);
     return NextResponse.json(
-      { message: 'Failed to upload document' },
+      { message: error instanceof Error ? error.message : 'Failed to upload document' },
       { status: 500 }
     );
   } finally {
