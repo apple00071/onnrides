@@ -4,11 +4,11 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { 
-  HomeIcon, 
-  UsersIcon, 
-  TruckIcon, 
-  CalendarIcon, 
+import {
+  HomeIcon,
+  UsersIcon,
+  TruckIcon,
+  CalendarIcon,
   DocumentTextIcon,
   ChartBarIcon,
   BellIcon,
