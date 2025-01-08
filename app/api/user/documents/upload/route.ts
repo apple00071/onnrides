@@ -47,13 +47,32 @@ export async function POST(request: NextRequest) {
     // Start transaction
     await client.query('BEGIN');
 
-    // Insert document record with base64 data
-    const result = await client.query(
-      `INSERT INTO document_submissions (user_id, document_type, document_url, status)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-      [user.id, type, fileUrl, 'pending']
+    // Check if document of this type already exists
+    const existingDoc = await client.query(
+      `SELECT id FROM document_submissions 
+       WHERE user_id = $1 AND document_type = $2`,
+      [user.id, type]
     );
+
+    let result;
+    if (existingDoc.rows.length > 0) {
+      // Update existing document
+      result = await client.query(
+        `UPDATE document_submissions 
+         SET document_url = $1, status = $2, updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $3 AND document_type = $4
+         RETURNING *`,
+        [fileUrl, 'pending', user.id, type]
+      );
+    } else {
+      // Insert new document record
+      result = await client.query(
+        `INSERT INTO document_submissions (user_id, document_type, document_url, status)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [user.id, type, fileUrl, 'pending']
+      );
+    }
 
     await client.query('COMMIT');
 
