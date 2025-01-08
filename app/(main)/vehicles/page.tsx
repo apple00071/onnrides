@@ -170,7 +170,7 @@ export default function VehiclesPage() {
         <div className="flex-1">
           {/* Top Bar */}
           <div className="flex flex-col items-center mb-6">
-            {/* New Toggle Switch UI - Centered */}
+            {/* Toggle Switch UI */}
             <div className="bg-gray-100 p-1 rounded-full mb-6">
               <div className="relative flex">
                 <button 
@@ -196,7 +196,7 @@ export default function VehiclesPage() {
               </div>
             </div>
 
-            {/* New Sort UI */}
+            {/* Sort UI */}
             <div className="w-full border-b">
               <div className="flex items-center">
                 <span className="text-sm font-medium mr-4">Sort by</span>
@@ -306,7 +306,7 @@ export default function VehiclesPage() {
                     </div>
                   </div>
                 </div>
-            ))}
+              ))}
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { FaTrash, FaEdit } from 'react-icons/fa';
+import Image from 'next/image';
 
 interface Vehicle {
   id: string;
