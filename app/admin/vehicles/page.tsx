@@ -1,3 +1,4 @@
+/* eslint-disable indent */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -259,6 +260,7 @@ export default function VehiclesPage() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
+            {/* eslint-disable indent */}
             {vehicles.map((vehicle) => (
               <tr key={vehicle.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -316,6 +318,7 @@ export default function VehiclesPage() {
                 </td>
               </tr>
             ))}
+            {/* eslint-enable indent */}
           </tbody>
         </table>
       </div>

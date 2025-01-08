@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FaHome, FaUsers, FaCar, FaBookmark, FaFileAlt, FaSignOutAlt } from 'react-icons/fa';
+import { toast } from 'react-hot-toast';
 
 export default function AdminLayout({
   children,
@@ -14,14 +15,24 @@ export default function AdminLayout({
   const handleSignOut = async () => {
     try {
       const response = await fetch('/api/auth/admin/logout', {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
       if (response.ok) {
+        toast.success('Logged out successfully');
         router.push('/admin/login');
+        // Force a hard refresh to clear any cached state
+        router.refresh();
+      } else {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to logout');
       }
     } catch (error) {
       console.error('Error signing out:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to logout');
     }
   };
 
