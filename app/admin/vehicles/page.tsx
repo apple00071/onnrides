@@ -163,14 +163,15 @@ export default function VehiclesPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update vehicle availability');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update vehicle availability');
       }
 
       toast.success('Vehicle availability updated');
       fetchVehicles(); // Refresh the list
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Failed to update vehicle availability');
+      toast.error(error instanceof Error ? error.message : 'Failed to update vehicle availability');
     }
   };
 

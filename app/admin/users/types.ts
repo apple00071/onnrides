@@ -1,38 +1,33 @@
 export interface User {
-  id: number;
-  email: string;
+  id: string;
   name: string;
-  phone: string;
-  address: string;
-  created_at: string;
-  is_blocked: boolean;
+  email: string;
+  phone: string | null;
+  address: string | null;
   is_verified: boolean;
-  documents_status?: {
-    approved: number;
-    total: number;
-  };
+  is_blocked: boolean;
+  role: string;
+  created_at: string;
 }
 
-export interface Document {
+export interface UserDocument {
   id: string;
   type: string;
   status: string;
-  file_url: string;
+  document_url: string;
   created_at: string;
-  updated_at: string;
 }
 
 export interface Booking {
-  id: number;
-  vehicle_id: number;
-  start_date: string;
-  end_date: string;
-  status: string;
-  total_amount: number;
-  created_at: string;
+  id: string;
   vehicle: {
+    id: string;
     name: string;
     type: string;
     image_url: string;
   };
+  start_date: string;
+  end_date: string;
+  status: string;
+  total_amount: number;
 } 

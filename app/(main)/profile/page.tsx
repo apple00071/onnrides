@@ -167,10 +167,22 @@ export default function ProfilePage() {
       await fetchDocuments();
       toast.success('Document uploaded successfully');
       
-      // Update current step based on document type
-      if (type === 'profile_photo') setCurrentStep(2);
-      else if (type.startsWith('dl_')) setCurrentStep(3);
-      else if (type.startsWith('aadhar_')) setCurrentStep(4);
+      // Update step based on uploaded documents
+      const uploadedDocs = new Set(documents.map(doc => doc.document_type));
+      uploadedDocs.add(type); // Add the newly uploaded document type
+      
+      // Calculate step based on uploaded documents
+      if (uploadedDocs.has('dl_front') && uploadedDocs.has('dl_back')) {
+        if (uploadedDocs.has('aadhar_front') && uploadedDocs.has('aadhar_back')) {
+          setCurrentStep(4); // All documents uploaded
+        } else {
+          setCurrentStep(3); // DL documents uploaded
+        }
+      } else if (uploadedDocs.size > 0) {
+        setCurrentStep(2); // At least one document uploaded
+      } else {
+        setCurrentStep(1); // No documents uploaded
+      }
     } catch (error) {
       console.error('Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to upload document');

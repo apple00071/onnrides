@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { FaCheck, FaTimes } from 'react-icons/fa';
-import { Dialog } from '@/components/ui/dialog';
-import { User, Document, Booking } from '../types';
+import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
+import { User, UserDocument, Booking } from '../types';
 
 interface UserDetailsModalProps {
   user: User | null;
@@ -15,7 +15,7 @@ interface UserDetailsModalProps {
 
 export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated }: UserDetailsModalProps) {
   const [loading, setLoading] = useState(false);
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documents, setDocuments] = useState<UserDocument[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
 
   const fetchUserData = useCallback(async () => {
@@ -126,10 +126,11 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-        <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogOverlay />
+      <DialogContent className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-4xl translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg">
+        <div className="max-h-[90vh] overflow-y-auto">
           {/* Header */}
-          <div className="px-6 py-4 border-b">
+          <div className="sticky top-0 bg-white px-6 py-4 border-b">
             <h2 className="text-xl font-semibold">User Details</h2>
           </div>
 
@@ -225,7 +226,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(doc.created_at)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                             <a
-                              href={doc.file_url}
+                              href={doc.document_url}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-200 mr-4"
@@ -329,7 +330,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t bg-gray-50">
+          <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t">
             <button
               onClick={onClose}
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors duration-200"
@@ -338,7 +339,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
             </button>
           </div>
         </div>
-      </div>
+      </DialogContent>
     </Dialog>
   );
 } 

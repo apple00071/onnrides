@@ -91,25 +91,25 @@ export async function PUT(
     let paramCount = 1;
 
     // Only add fields that are present in the formData
-    if (formData.get('name')) {
+    if (formData.has('name')) {
       updateFields.push(`name = $${paramCount}`);
       values.push(formData.get('name'));
       paramCount++;
     }
 
-    if (formData.get('type')) {
+    if (formData.has('type')) {
       updateFields.push(`type = $${paramCount}`);
       values.push(formData.get('type'));
       paramCount++;
     }
 
-    if (formData.get('location')) {
+    if (formData.has('location')) {
       updateFields.push(`location = $${paramCount}`);
       values.push(formData.get('location'));
       paramCount++;
     }
 
-    if (formData.get('price_per_day')) {
+    if (formData.has('price_per_day')) {
       const price = parseFloat(formData.get('price_per_day') as string);
       if (!isNaN(price) && price > 0) {
         updateFields.push(`price_per_day = $${paramCount}`);
@@ -118,7 +118,14 @@ export async function PUT(
       }
     }
 
-    if (formData.get('status')) {
+    // Handle is_available field
+    if (formData.has('is_available')) {
+      updateFields.push(`is_available = $${paramCount}`);
+      values.push(formData.get('is_available') === 'true');
+      paramCount++;
+    }
+
+    if (formData.has('status')) {
       updateFields.push(`status = $${paramCount}`);
       values.push(formData.get('status'));
       paramCount++;
