@@ -1,16 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/providers/AuthProvider';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Bars3Icon, XMarkIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 
 export default function Navbar() {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+
+  // Close mobile menu when pathname changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setProfileDropdownOpen(false);
+  }, [pathname]);
 
   const isActive = (path: string) => pathname === path;
 
@@ -23,19 +30,33 @@ export default function Navbar() {
     setProfileDropdownOpen(false);
   };
 
+  // Handle navigation with menu closing
+  const handleNavigation = (path: string) => {
+    router.push(path);
+    setMobileMenuOpen(false);
+    setProfileDropdownOpen(false);
+  };
+
+  // Handle sign out with menu closing
+  const handleSignOut = () => {
+    signOut();
+    setMobileMenuOpen(false);
+    setProfileDropdownOpen(false);
+  };
+
   return (
     <nav className="bg-white shadow-lg fixed w-full top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <Link href="/" className="text-2xl font-bold text-[#f26e24]">
+              <button onClick={() => handleNavigation('/')} className="text-2xl font-bold text-[#f26e24]">
                 OnnRides
-              </Link>
+              </button>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              <Link
-                href="/vehicles"
+              <button
+                onClick={() => handleNavigation('/vehicles')}
                 className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
                   isActive('/vehicles')
                     ? 'border-[#f26e24] text-gray-900'
@@ -43,9 +64,9 @@ export default function Navbar() {
                 }`}
               >
                 Vehicles
-              </Link>
-              <Link
-                href="/about"
+              </button>
+              <button
+                onClick={() => handleNavigation('/about')}
                 className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
                   isActive('/about')
                     ? 'border-[#f26e24] text-gray-900'
@@ -53,7 +74,7 @@ export default function Navbar() {
                 }`}
               >
                 About
-              </Link>
+              </button>
             </div>
           </div>
 
@@ -94,30 +115,27 @@ export default function Navbar() {
                     ></div>
                     <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 z-20">
                       {user.role === 'admin' && (
-                        <Link
-                          href="/admin/dashboard"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        <button
+                          onClick={() => handleNavigation('/admin/dashboard')}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                         >
                           Admin Dashboard
-                        </Link>
+                        </button>
                       )}
-                      <Link
-                        href="/profile"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      <button
+                        onClick={() => handleNavigation('/profile')}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
                         My Profile
-                      </Link>
-                      <Link
-                        href="/bookings"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      </button>
+                      <button
+                        onClick={() => handleNavigation('/bookings')}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
                         My Bookings
-                      </Link>
+                      </button>
                       <button
-                        onClick={() => {
-                          signOut();
-                          setProfileDropdownOpen(false);
-                        }}
+                        onClick={handleSignOut}
                         className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
                         Sign Out
@@ -128,18 +146,18 @@ export default function Navbar() {
               </div>
             ) : (
               <>
-                <Link
-                  href="/login"
+                <button
+                  onClick={() => handleNavigation('/login')}
                   className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium"
                 >
                   Sign In
-                </Link>
-                <Link
-                  href="/signup"
+                </button>
+                <button
+                  onClick={() => handleNavigation('/signup')}
                   className="bg-[#f26e24] text-white hover:bg-[#e05d13] px-3 py-2 rounded-md text-sm font-medium transition-colors"
                 >
                   Sign Up
-                </Link>
+                </button>
               </>
             )}
           </div>
@@ -149,53 +167,53 @@ export default function Navbar() {
       {/* Mobile menu */}
       <div className={`${mobileMenuOpen ? 'block' : 'hidden'} sm:hidden`}>
         <div className="pt-2 pb-3 space-y-1">
-          <Link
-            href="/vehicles"
-            className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+          <button
+            onClick={() => handleNavigation('/vehicles')}
+            className={`block w-full text-left pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
               isActive('/vehicles')
                 ? 'border-[#f26e24] text-[#f26e24] bg-[#fff8f0]'
                 : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
             }`}
           >
             Vehicles
-          </Link>
-          <Link
-            href="/about"
-            className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+          </button>
+          <button
+            onClick={() => handleNavigation('/about')}
+            className={`block w-full text-left pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
               isActive('/about')
                 ? 'border-[#f26e24] text-[#f26e24] bg-[#fff8f0]'
                 : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
             }`}
           >
             About
-          </Link>
+          </button>
         </div>
         <div className="pt-4 pb-3 border-t border-gray-200">
           <div className="space-y-1">
             {user ? (
               <>
                 {user.role === 'admin' && (
-                  <Link
-                    href="/admin/dashboard"
-                    className="block pl-3 pr-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                  <button
+                    onClick={() => handleNavigation('/admin/dashboard')}
+                    className="block w-full text-left pl-3 pr-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                   >
                     Admin Dashboard
-                  </Link>
+                  </button>
                 )}
-                <Link
-                  href="/profile"
-                  className="block pl-3 pr-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                <button
+                  onClick={() => handleNavigation('/profile')}
+                  className="block w-full text-left pl-3 pr-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                 >
                   My Profile
-                </Link>
-                <Link
-                  href="/bookings"
-                  className="block pl-3 pr-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                </button>
+                <button
+                  onClick={() => handleNavigation('/bookings')}
+                  className="block w-full text-left pl-3 pr-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                 >
                   My Bookings
-                </Link>
+                </button>
                 <button
-                  onClick={() => signOut()}
+                  onClick={handleSignOut}
                   className="block w-full text-left pl-3 pr-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                 >
                   Sign Out
@@ -203,18 +221,18 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <Link
-                  href="/login"
-                  className="block pl-3 pr-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                <button
+                  onClick={() => handleNavigation('/login')}
+                  className="block w-full text-left pl-3 pr-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                 >
                   Sign In
-                </Link>
-                <Link
-                  href="/signup"
-                  className="block pl-3 pr-4 py-2 text-base font-medium bg-[#f26e24] text-white hover:bg-[#e05d13]"
+                </button>
+                <button
+                  onClick={() => handleNavigation('/signup')}
+                  className="block w-full text-left pl-3 pr-4 py-2 text-base font-medium bg-[#f26e24] text-white hover:bg-[#e05d13]"
                 >
                   Sign Up
-                </Link>
+                </button>
               </>
             )}
           </div>

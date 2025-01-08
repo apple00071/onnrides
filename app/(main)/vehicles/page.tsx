@@ -24,6 +24,7 @@ export default function VehiclesPage() {
   const [selectedType, setSelectedType] = useState('bike');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [sortBy, setSortBy] = useState('relevance');
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
 
   const pickupDate = searchParams.get('pickup') || new Date().toISOString();
   const dropoffDate = searchParams.get('dropoff') || new Date().toISOString();
@@ -110,7 +111,8 @@ export default function VehiclesPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex gap-8">
+      {/* Desktop Filters */}
+      <div className="hidden md:flex gap-8">
         {/* Filter Section */}
         <div className="w-1/4">
           <div className="bg-white rounded-lg shadow p-6">
@@ -309,6 +311,211 @@ export default function VehiclesPage() {
               ))}
           </div>
         </div>
+      </div>
+
+      {/* Mobile Layout */}
+      <div className="md:hidden">
+        <div className="flex-1">
+          {/* Toggle Switch UI */}
+          <div className="bg-gray-100 p-1 rounded-full mb-6">
+            <div className="relative flex">
+              <button 
+                className={`px-6 py-2 rounded-full transition-all duration-300 ${
+                  selectedType === 'bike' 
+                    ? 'bg-[#f26e24] text-white' 
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+                onClick={() => setSelectedType('bike')}
+              >
+                Bikes
+              </button>
+              <button 
+                className={`px-6 py-2 rounded-full transition-all duration-300 ${
+                  selectedType === 'car' 
+                    ? 'bg-[#f26e24] text-white' 
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+                onClick={() => setSelectedType('car')}
+              >
+                Cars
+              </button>
+            </div>
+          </div>
+
+          {/* Vehicle Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {vehicles
+              .filter(v => selectedType === 'all' || v.type === selectedType)
+              .map((vehicle) => (
+                <div key={vehicle.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+                  {/* Image */}
+                  <div className="relative h-48 w-full">
+                    <Image
+                      src={vehicle.image_url}
+                      alt={vehicle.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+
+                  {/* Details */}
+                  <div className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="text-lg font-semibold">{vehicle.name}</h3>
+                      {vehicle.type === 'bike' && (
+                        <div className="flex items-center text-sm text-gray-600">
+                          <span className="mr-1">🛡️</span>
+                          Zero deposit
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mb-3">
+                      <select 
+                        className="w-full border rounded p-2 text-sm"
+                        value={selectedLocation}
+                        onChange={(e) => setSelectedLocation(e.target.value)}
+                      >
+                        <option value="">Available at</option>
+                        {vehicle.location.map(loc => (
+                          <option key={loc} value={loc}>{loc}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex justify-between items-center text-sm mb-3">
+                      <div>
+                        <div className="text-gray-600">{pickup.time}</div>
+                        <div>{pickup.date}</div>
+                      </div>
+                      <div className="text-gray-600">to</div>
+                      <div>
+                        <div className="text-gray-600">{dropoff.time}</div>
+                        <div>{dropoff.date}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="text-xl font-bold">₹{calculateTotalAmount(vehicle.price_per_day)}</span>
+                      </div>
+                      <button 
+                        onClick={() => handleBooking(vehicle.id, selectedLocation)}
+                        className="bg-[#f26e24] text-white px-6 py-2 rounded hover:bg-[#e05d13] text-sm"
+                      >
+                        Book
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+
+        {/* Mobile Bottom Sheet for Filters & Sort */}
+        <div className="fixed bottom-0 left-0 right-0 z-50">
+          <div className="bg-white shadow-lg rounded-t-xl">
+            <div className="flex justify-between items-center p-4 border-b">
+              <button
+                onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
+                className="flex items-center space-x-2 text-gray-600"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
+                </svg>
+                <span>Filters</span>
+              </button>
+              <div className="flex space-x-4">
+                <button
+                  className={`text-sm ${sortBy === 'relevance' ? 'text-[#f26e24]' : 'text-gray-600'}`}
+                  onClick={() => setSortBy('relevance')}
+                >
+                  Relevance
+                </button>
+                <button
+                  className={`text-sm ${sortBy === 'price_low' ? 'text-[#f26e24]' : 'text-gray-600'}`}
+                  onClick={() => setSortBy('price_low')}
+                >
+                  Price ↑
+                </button>
+                <button
+                  className={`text-sm ${sortBy === 'price_high' ? 'text-[#f26e24]' : 'text-gray-600'}`}
+                  onClick={() => setSortBy('price_high')}
+                >
+                  Price ↓
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Filters Sheet */}
+        {isMobileFiltersOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50">
+            <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-xl max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center p-4 border-b">
+                <h3 className="text-lg font-semibold">Filters</h3>
+                <button onClick={() => setIsMobileFiltersOpen(false)}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="p-4">
+                {/* Date & Time Selection */}
+                <div className="mb-6">
+                  <h3 className="font-medium mb-2">Select Date & Time</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm mb-1">Pickup date</label>
+                      <input
+                        type="datetime-local"
+                        value={pickupDate}
+                        className="w-full border rounded p-2"
+                        readOnly
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Dropoff date</label>
+                      <input
+                        type="datetime-local"
+                        value={dropoffDate}
+                        className="w-full border rounded p-2"
+                        readOnly
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Search Duration */}
+                <div className="mb-6">
+                  <h3 className="font-medium mb-2">Search Duration</h3>
+                  <div className="text-sm text-[#f26e24] font-medium">{duration}</div>
+                </div>
+
+                {/* Location Checkboxes */}
+                <div className="mb-6">
+                  <h3 className="font-medium mb-2">Locations</h3>
+                  <div className="space-y-2">
+                    {locations.map(location => (
+                      <label key={location} className="flex items-center">
+                        <input type="checkbox" className="mr-2" />
+                        <span className="text-sm">{location}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setIsMobileFiltersOpen(false)}
+                  className="w-full bg-[#f26e24] text-white py-3 rounded-lg hover:bg-[#e05d13]"
+                >
+                  Apply Filters
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
