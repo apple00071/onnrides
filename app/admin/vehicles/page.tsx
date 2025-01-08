@@ -12,6 +12,7 @@ interface Vehicle {
   location: string;
   price_per_day: number;
   is_available: boolean;
+  status: string;
   image_url: string;
   created_at: string;
 }
@@ -86,6 +87,7 @@ export default function VehiclesPage() {
       formDataToSend.append('location', formData.location);
       formDataToSend.append('price_per_day', formData.price_per_day.toString());
       formDataToSend.append('is_available', formData.is_available.toString());
+      formDataToSend.append('status', formData.status);
 
       // Add image if it exists
       if (formData.image) {
