@@ -8,6 +8,10 @@ export interface User {
   is_blocked: boolean;
   role: string;
   created_at: string;
+  documents_status?: {
+    approved: number;
+    total: number;
+  };
 }
 
 export interface UserDocument {
