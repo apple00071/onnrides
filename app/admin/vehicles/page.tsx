@@ -27,6 +27,7 @@ export default function VehiclesPage() {
     location: '',
     price_per_day: 0,
     is_available: true,
+    status: 'available',
     image: null as File | null
   });
 
@@ -144,9 +145,10 @@ export default function VehiclesPage() {
     setFormData({
       name: vehicle.name,
       type: vehicle.type,
-      location: '',
+      location: vehicle.location,
       price_per_day: vehicle.price_per_day,
       is_available: vehicle.is_available,
+      status: vehicle.is_available ? 'available' : 'unavailable',
       image: null
     });
     setShowAddModal(true);
@@ -156,6 +158,7 @@ export default function VehiclesPage() {
     try {
       const formData = new FormData();
       formData.append('is_available', (!currentStatus).toString());
+      formData.append('status', !currentStatus ? 'available' : 'unavailable');
 
       const response = await fetch(`/api/admin/vehicles/${vehicleId}`, {
         method: 'PUT',
@@ -196,6 +199,7 @@ export default function VehiclesPage() {
               location: '',
               price_per_day: 0,
               is_available: true,
+              status: 'available',
               image: null
             });
             setShowAddModal(true);

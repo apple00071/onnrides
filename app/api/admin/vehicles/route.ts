@@ -85,9 +85,10 @@ export async function POST(request: NextRequest) {
           location,
           price_per_day,
           image_url,
-          status
+          status,
+          is_available
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
       `, [
         formData.get('name'),
@@ -95,7 +96,8 @@ export async function POST(request: NextRequest) {
         formData.get('location'),
         parsedPrice,
         image_url || '/cars/default.jpg',
-        'active' // Default status
+        formData.get('status') || 'available',
+        formData.get('is_available') === 'true' || true
       ]);
 
       return NextResponse.json(result.rows[0]);
