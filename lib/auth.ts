@@ -1,38 +1,38 @@
-import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import { SignJWT, jwtVerify } from 'jose';
-import pool from './db';
-import { RequestCookies } from 'next/dist/server/web/spec-extension/cookies';
+import { NextRequest, NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
+import { SignJWT, jwtVerify } from 'jose'
+import pool from './db'
+import { RequestCookies } from 'next/dist/server/web/spec-extension/cookies'
 
 // Get JWT secret from environment variable
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET
 if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is not set');
+  throw new Error('JWT_SECRET environment variable is not set')
 }
 
 // Create secret for jose
-const secret = new TextEncoder().encode(JWT_SECRET);
+const secret = new TextEncoder().encode(JWT_SECRET)
 
 interface JWTPayload {
-  id: string;
-  email: string;
-  role: 'user' | 'admin';
-  iat?: number;
-  exp?: number;
+  id: string
+  email: string
+  role: 'user' | 'admin'
+  iat?: number
+  exp?: number
 }
 
 export interface UserJwtPayload {
-  id: string | number;
-  email: string;
-  role: string;
-  [key: string]: any;  // Add index signature for JWT compatibility
+  id: string | number
+  email: string
+  role: string
+  [key: string]: any  // Add index signature for JWT compatibility
 }
 
 interface TokenPayload {
-  id: string;
-  email: string;
-  role: string;
-  [key: string]: string; // Add index signature for JWTPayload compatibility
+  id: string
+  email: string
+  role: string
+  [key: string]: string // Add index signature for JWTPayload compatibility
 }
 
 export async function generateToken(payload: TokenPayload): Promise<string> {
@@ -44,87 +44,87 @@ export async function generateToken(payload: TokenPayload): Promise<string> {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('24h')
-    .sign(secret);
+    .sign(secret)
 
-  return token;
+  return token
 }
 
 export async function verifyToken(token: string): Promise<TokenPayload> {
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, secret)
     return {
       id: payload.id as string,
       email: payload.email as string,
       role: payload.role as string
-    };
+    }
   } catch (error) {
-    console.error('Token verification error:', error);
-    throw new Error('Invalid token');
+    console.error('Token verification error:', error)
+    throw new Error('Invalid token')
   }
 }
 
 export async function hashPassword(password: string) {
-  return await bcrypt.hash(password, 10);
+  return await bcrypt.hash(password, 10)
 }
 
 export async function verifyPassword(password: string, hashedPassword: string) {
-  return await bcrypt.compare(password, hashedPassword);
+  return await bcrypt.compare(password, hashedPassword)
 }
 
 export async function createUser(email: string, password: string, role: string = 'user') {
-  const hashedPassword = await hashPassword(password);
-  const client = await pool.connect();
+  const hashedPassword = await hashPassword(password)
+  const client = await pool.connect()
   
   try {
-    await client.query('BEGIN');
+    await client.query('BEGIN')
     
     // Insert user
     const userResult = await client.query(
       'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id',
       [email, hashedPassword, role]
-    );
+    )
     
     // Create empty profile
     await client.query(
       'INSERT INTO profiles (user_id) VALUES ($1)',
       [userResult.rows[0].id]
-    );
+    )
     
-    await client.query('COMMIT');
-    return userResult.rows[0].id;
+    await client.query('COMMIT')
+    return userResult.rows[0].id
   } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
+    await client.query('ROLLBACK')
+    throw error
   } finally {
-    client.release();
+    client.release()
   }
 }
 
 export async function validateUser(email: string, password: string) {
-  const client = await pool.connect();
+  const client = await pool.connect()
   try {
     const result = await client.query(
       'SELECT id, email, password_hash, role FROM users WHERE email = $1',
       [email]
-    );
+    )
 
-    const user = result.rows[0];
+    const user = result.rows[0]
     if (!user) {
-      return null;
+      return null
     }
 
-    const isValid = await verifyPassword(password, user.password_hash);
+    const isValid = await verifyPassword(password, user.password_hash)
     if (!isValid) {
-      return null;
+      return null
     }
 
     return {
       id: user.id,
       email: user.email,
       role: user.role
-    };
+    }
   } finally {
-    client.release();
+    client.release()
   }
 }
 
@@ -137,7 +137,7 @@ export function createAuthCookie(token: string) {
     sameSite: 'lax' as const,
     path: '/',
     maxAge: 24 * 60 * 60 // 24 hours
-  };
+  }
 }
 
 export function clearAuthCookie() {
@@ -149,32 +149,32 @@ export function clearAuthCookie() {
     sameSite: 'lax' as const,
     path: '/',
     maxAge: 0
-  };
+  }
 }
 
 // Helper function to get token from cookies
 export async function getTokenFromCookies(cookies: RequestCookies): Promise<string | null> {
-  const token = cookies.get('token')?.value;
-  return token || null;
+  const token = cookies.get('token')?.value
+  return token || null
 }
 
 // Helper function to get current user from cookies
 export async function getCurrentUser(cookies: RequestCookies): Promise<UserJwtPayload | null> {
   try {
-    const token = await getTokenFromCookies(cookies);
+    const token = await getTokenFromCookies(cookies)
     if (!token) {
-      console.log('No token found in cookies');
-      return null;
+      console.log('No token found in cookies')
+      return null
     }
 
-    const decoded = await verifyToken(token);
+    const decoded = await verifyToken(token)
     if (!decoded) {
-      console.log('Token verification failed');
-      return null;
+      console.log('Token verification failed')
+      return null
     }
     
     // Get document verification status
-    const client = await pool.connect();
+    const client = await pool.connect()
     try {
       // Check if all required documents are approved
       const result = await client.query(`
@@ -194,73 +194,73 @@ export async function getCurrentUser(cookies: RequestCookies): Promise<UserJwtPa
           END as is_documents_verified
         FROM required_docs rd
         LEFT JOIN document_submissions ds ON ds.document_type = rd.doc_type AND ds.user_id = $1
-      `, [decoded.id]);
+      `, [decoded.id])
 
       return {
         ...decoded,
         isDocumentsVerified: result.rows[0]?.is_documents_verified || false
-      };
+      }
     } catch (dbError) {
-      console.error('Database error in getCurrentUser:', dbError);
+      console.error('Database error in getCurrentUser:', dbError)
       // Return user data without document verification status
       return {
         ...decoded,
         isDocumentsVerified: false
-      };
+      }
     } finally {
-      client.release();
+      client.release()
     }
   } catch (error) {
-    console.error('Error in getCurrentUser:', error);
-    return null;
+    console.error('Error in getCurrentUser:', error)
+    return null
   }
 }
 
 // Helper function to verify auth in API routes
 export async function verifyAuth(request: NextRequest): Promise<JWTPayload | null> {
-  const token = request.cookies.get('token')?.value;
+  const token = request.cookies.get('token')?.value
   if (!token) {
-    return null;
+    return null
   }
 
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, secret)
     return {
       id: payload.id as string,
       email: payload.email as string,
       role: payload.role as 'user' | 'admin',
       iat: payload.iat as number,
       exp: payload.exp as number
-    };
+    }
   } catch (error) {
-    return null;
+    return null
   }
 }
 
 // Helper function to require auth in API routes
 export async function requireAuth(request: NextRequest, requireAdmin = false) {
-  const user = await verifyAuth(request);
+  const user = await verifyAuth(request)
   
   if (!user) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
   }
 
   if (requireAdmin && user.role !== 'admin') {
-    return NextResponse.json({ message: 'Access denied' }, { status: 403 });
+    return NextResponse.json({ message: 'Access denied' }, { status: 403 })
   }
 
-  return user;
+  return user
 }
 
 // Helper function to get current user with database profile
 export async function getCurrentUserWithProfile(cookies: RequestCookies): Promise<any | null> {
   try {
-    const user = await getCurrentUser(cookies);
+    const user = await getCurrentUser(cookies)
     if (!user) {
-      return null;
+      return null
     }
 
-    const client = await pool.connect();
+    const client = await pool.connect()
     try {
       const result = await client.query(
         `SELECT u.id, u.email, u.role, p.* 
@@ -268,13 +268,13 @@ export async function getCurrentUserWithProfile(cookies: RequestCookies): Promis
          LEFT JOIN profiles p ON u.id = p.user_id 
          WHERE u.id = $1`,
         [user.id]
-      );
-      return result.rows[0] || null;
+      )
+      return result.rows[0] || null
     } finally {
-      client.release();
+      client.release()
     }
   } catch (error) {
-    console.error('Error getting user profile:', error);
-    return null;
+    console.error('Error getting user profile:', error)
+    return null
   }
 } 

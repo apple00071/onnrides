@@ -1,18 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['res.cloudinary.com'],
+    domains: ['res.cloudinary.com']
   },
   async redirects() {
     return [
       {
         source: '/signup',
         destination: '/register',
-        permanent: true,
-      },
-    ];
+        permanent: true
+      }
+    ]
   },
-  output: 'standalone',
-};
+  output: 'standalone'
+}
 
-module.exports = nextConfig; 
+module.exports = nextConfig

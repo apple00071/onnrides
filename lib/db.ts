@@ -9,7 +9,7 @@ function parseConnectionString(connectionString: string) {
       host: url.hostname,
       database: url.pathname.split('/')[1],
       ssl: true,
-      port: url.port ? parseInt(url.port) : 5432,
+      port: url.port ? parseInt(url.port) : 5432
     };
   } catch (error) {
     console.error('Error parsing connection string:', error);
@@ -110,7 +110,7 @@ const pool = new Pool({
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
   statement_timeout: 30000,
-  query_timeout: 30000,
+  query_timeout: 30000
 });
 
 // Add event listeners for pool error handling
