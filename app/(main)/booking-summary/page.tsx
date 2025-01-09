@@ -1,34 +1,34 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/providers/AuthProvider';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { toast } from 'react-hot-toast';
-import Image from 'next/image';
+import { useEffect, useState } from 'react'
+import { useAuth } from '@/providers/AuthProvider'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { toast } from 'react-hot-toast'
+import Image from 'next/image'
 
 interface BookingDetails {
-  vehicleId: string;
-  vehicleName: string;
-  vehicleImage: string;
-  price: string;
-  pickupDate: string;
-  dropoffDate: string;
-  pickupTime: string;
-  dropoffTime: string;
-  returnUrl?: string;
+  vehicleId: string
+  vehicleName: string
+  vehicleImage: string
+  price: string
+  pickupDate: string
+  dropoffDate: string
+  pickupTime: string
+  dropoffTime: string
+  returnUrl?: string
 }
 
 export default function BookingSummaryPage() {
-  const { user, loading, signIn } = useAuth();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [showLoginForm, setShowLoginForm] = useState(false);
-  const [authLoading, setAuthLoading] = useState(false);
+  const { user, loading, signIn } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [showLoginForm, setShowLoginForm] = useState(false)
+  const [authLoading, setAuthLoading] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     password: ''
-  });
-  const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
+  })
+  const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null)
 
   useEffect(() => {
     // Get booking details from URL params
@@ -42,66 +42,66 @@ export default function BookingSummaryPage() {
       pickupTime: searchParams.get('pickupTime') || '',
       dropoffTime: searchParams.get('dropoffTime') || '',
       returnUrl: searchParams.get('returnUrl') || ''
-    };
+    }
 
     if (!details.vehicleId || !details.pickupDate || !details.dropoffDate) {
-      toast.error('Missing booking details');
-      router.push('/');
-      return;
+      toast.error('Missing booking details')
+      router.push('/')
+      return
     }
 
-    setBookingDetails(details);
-  }, [searchParams, router]);
+    setBookingDetails(details)
+  }, [searchParams, router])
 
   const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthLoading(true);
+    e.preventDefault()
+    setAuthLoading(true)
     try {
-      const result = await signIn(formData.email, formData.password);
+      const result = await signIn(formData.email, formData.password)
       if (result.success) {
-        toast.success('Successfully signed in!');
-        setShowLoginForm(false);
+        toast.success('Successfully signed in!')
+        setShowLoginForm(false)
       }
     } finally {
-      setAuthLoading(false);
+      setAuthLoading(false)
     }
-  };
+  }
 
   const handleCancel = () => {
     if (bookingDetails?.returnUrl) {
-      router.push(bookingDetails.returnUrl);
+      router.push(bookingDetails.returnUrl)
     } else {
-      setShowLoginForm(false);
+      setShowLoginForm(false)
     }
-  };
+  }
 
   const handleConfirmBooking = async () => {
     if (!user) {
-      setShowLoginForm(true);
-      return;
+      setShowLoginForm(true)
+      return
     }
 
-    if (!bookingDetails) return;
+    if (!bookingDetails) return
 
     try {
       // First check if user has verified documents
-      const docResponse = await fetch(`/api/users/${user.id}/documents`);
+      const docResponse = await fetch(`/api/users/${user.id}/documents`)
       if (!docResponse.ok) {
-        throw new Error('Failed to fetch user documents');
+        throw new Error('Failed to fetch user documents')
       }
-      const documents = await docResponse.json();
+      const documents = await docResponse.json()
 
       if (!documents || !documents.is_approved) {
-        toast.error('Please verify your documents before booking');
-        router.push('/profile');
-        return;
+        toast.error('Please verify your documents before booking')
+        router.push('/profile')
+        return
       }
 
       // Calculate total days and amount
-      const pickupDate = new Date(bookingDetails.pickupDate);
-      const dropoffDate = new Date(bookingDetails.dropoffDate);
-      const days = Math.ceil((dropoffDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24));
-      const totalAmount = days * parseFloat(bookingDetails.price);
+      const pickupDate = new Date(bookingDetails.pickupDate)
+      const dropoffDate = new Date(bookingDetails.dropoffDate)
+      const days = Math.ceil((dropoffDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))
+      const totalAmount = days * parseFloat(bookingDetails.price)
 
       // Create booking
       const bookingResponse = await fetch('/api/bookings', {
@@ -119,34 +119,34 @@ export default function BookingSummaryPage() {
           total_amount: totalAmount,
           status: 'pending'
         }),
-      });
+      })
 
       if (!bookingResponse.ok) {
-        throw new Error('Failed to create booking');
+        throw new Error('Failed to create booking')
       }
 
-      toast.success('Booking confirmed successfully!');
-      router.push('/bookings'); // Redirect to bookings list
+      toast.success('Booking confirmed successfully!')
+      router.push('/bookings') // Redirect to bookings list
     } catch (error: any) {
-      toast.error(error.message || 'Failed to confirm booking');
+      toast.error(error.message || 'Failed to confirm booking')
     }
-  };
+  }
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#f26e24]"></div>
       </div>
-    );
+    )
   }
 
   if (!bookingDetails) {
-    return null;
+    return null
   }
 
   // Calculate total amount
-  const days = Math.ceil((new Date(bookingDetails.dropoffDate).getTime() - new Date(bookingDetails.pickupDate).getTime()) / (1000 * 60 * 60 * 24));
-  const totalAmount = days * parseFloat(bookingDetails.price);
+  const days = Math.ceil((new Date(bookingDetails.dropoffDate).getTime() - new Date(bookingDetails.pickupDate).getTime()) / (1000 * 60 * 60 * 24))
+  const totalAmount = days * parseFloat(bookingDetails.price)
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -280,5 +280,5 @@ export default function BookingSummaryPage() {
         </div>
       </div>
     </div>
-  );
+  )
 } 

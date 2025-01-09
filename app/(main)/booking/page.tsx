@@ -1,85 +1,85 @@
-'use client';
+'use client'
 
-import { useEffect, useState, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { toast } from 'react-hot-toast';
-import Link from 'next/link';
-import { differenceInMinutes } from 'date-fns';
+import { useEffect, useState, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { toast } from 'react-hot-toast'
+import Link from 'next/link'
+import { differenceInMinutes } from 'date-fns'
 
 interface Vehicle {
-  id: string;
-  name: string;
-  type: 'bike' | 'car';
-  price_per_day: number;
-  image_url: string;
-  location: string;
-  transmission?: string;
-  fuel_type?: string;
-  mileage?: string;
-  seating_capacity?: number;
+  id: string
+  name: string
+  type: 'bike' | 'car'
+  price_per_day: number
+  image_url: string
+  location: string
+  transmission?: string
+  fuel_type?: string
+  mileage?: string
+  seating_capacity?: number
 }
 
 export default function BookingPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [loading, setLoading] = useState(true);
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [couponCode, setCouponCode] = useState('');
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [loading, setLoading] = useState(true)
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null)
+  const [couponCode, setCouponCode] = useState('')
 
-  const vehicleId = searchParams.get('vehicleId');
-  const pickupDateTime = searchParams.get('pickup');
-  const dropoffDateTime = searchParams.get('dropoff');
-  const location = searchParams.get('location');
+  const vehicleId = searchParams.get('vehicleId')
+  const pickupDateTime = searchParams.get('pickup')
+  const dropoffDateTime = searchParams.get('dropoff')
+  const location = searchParams.get('location')
 
   const fetchVehicle = useCallback(async () => {
     try {
-      const response = await fetch(`/api/vehicles/${vehicleId}`);
+      const response = await fetch(`/api/vehicles/${vehicleId}`)
       if (!response.ok) {
-        throw new Error('Failed to fetch vehicle');
+        throw new Error('Failed to fetch vehicle')
       }
       
-      const vehicle = await response.json();
+      const vehicle = await response.json()
       if (!vehicle) {
-        toast.error('Vehicle not found');
-        router.push('/');
-        return;
+        toast.error('Vehicle not found')
+        router.push('/')
+        return
       }
 
-      setVehicle(vehicle);
+      setVehicle(vehicle)
     } catch (error) {
-      console.error('Error fetching vehicle:', error);
-      toast.error('Failed to load vehicle details');
+      console.error('Error fetching vehicle:', error)
+      toast.error('Failed to load vehicle details')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [vehicleId, router]);
+  }, [vehicleId, router])
 
   useEffect(() => {
     if (!vehicleId || !pickupDateTime || !dropoffDateTime || !location) {
-      toast.error('Missing required booking information');
-      router.push('/');
-      return;
+      toast.error('Missing required booking information')
+      router.push('/')
+      return
     }
 
-    fetchVehicle();
-  }, [vehicleId, pickupDateTime, dropoffDateTime, location, router, fetchVehicle]);
+    fetchVehicle()
+  }, [vehicleId, pickupDateTime, dropoffDateTime, location, router, fetchVehicle])
 
   const calculateTotalAmount = () => {
-    if (!vehicle || !pickupDateTime || !dropoffDateTime) return 0;
+    if (!vehicle || !pickupDateTime || !dropoffDateTime) return 0
     
-    const totalMinutes = differenceInMinutes(new Date(dropoffDateTime), new Date(pickupDateTime));
-    const totalDays = totalMinutes / (24 * 60);
-    return Math.round(vehicle.price_per_day * totalDays);
-  };
+    const totalMinutes = differenceInMinutes(new Date(dropoffDateTime), new Date(pickupDateTime))
+    const totalDays = totalMinutes / (24 * 60)
+    return Math.round(vehicle.price_per_day * totalDays)
+  }
 
   const calculateTax = (amount: number) => {
-    return amount * 0.28; // 28% GST
-  };
+    return amount * 0.28 // 28% GST
+  }
 
   const handleMakePayment = () => {
     // TODO: Implement payment logic
-    toast.success('Payment functionality coming soon!');
-  };
+    toast.success('Payment functionality coming soon!')
+  }
 
   const getLocationAddress = (location: string) => {
     switch (location) {
@@ -87,28 +87,28 @@ export default function BookingPage() {
       return {
         main: '1173, Ayyappa Society Main Rd, Ayyappa Society, Mega Hills, Madhapur',
         sub: 'Ayyappa Society Main Rd, Madhapur, Hyderabad'
-      };
+      }
     case 'Eragadda':
       return {
         main: 'Erragadda metro station R S hotel erragadda metro station',
         sub: 'Erragadda, Hyderabad'
-      };
+      }
     default:
       return {
         main: location,
         sub: 'Hyderabad'
-      };
+      }
     }
-  };
+  }
 
-  const locationDetails = getLocationAddress(location || '');
+  const locationDetails = getLocationAddress(location || '')
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#f26e24]"></div>
       </div>
-    );
+    )
   }
 
   if (!vehicle) {
@@ -117,12 +117,12 @@ export default function BookingPage() {
         <h2 className="text-2xl font-semibold text-gray-700">Vehicle not found</h2>
         <p className="text-gray-500 mt-2">The vehicle you&apos;re looking for doesn&apos;t exist or has been removed.</p>
       </div>
-    );
+    )
   }
 
-  const baseAmount = calculateTotalAmount();
-  const tax = calculateTax(baseAmount);
-  const totalAmount = baseAmount + tax;
+  const baseAmount = calculateTotalAmount()
+  const tax = calculateTax(baseAmount)
+  const totalAmount = baseAmount + tax
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -217,5 +217,5 @@ export default function BookingPage() {
         </div>
       </div>
     </div>
-  );
+  )
 } 
