@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
+import { uploadToBlob } from '@/lib/blob';
 
 export async function GET(request: NextRequest) {
   try {
@@ -94,8 +95,8 @@ export async function POST(request: NextRequest) {
     let image_url = '';
     const image = formData.get('image') as File;
     if (image) {
-      // TODO: Implement image upload to a storage service
-      image_url = '/cars/default.jpg';
+      const filename = `vehicles/${Date.now()}-${image.name}`;
+      image_url = await uploadToBlob(image, filename);
     }
 
     const client = await pool.connect();

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import pool from '@/lib/db';
+import { uploadToBlob } from '@/lib/blob';
 
 // Use the new route segment config format
 export const dynamic = 'force-dynamic';
@@ -38,18 +39,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert file to base64 for storage
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64String = buffer.toString('base64');
-    const fileUrl = `data:${file.type};base64,${base64String}`;
+    // Upload file to Blob Storage
+    const filename = `${user.id}-${type}-${Date.now()}-${file.name}`;
+    const fileUrl = await uploadToBlob(file, filename);
 
     // Start transaction
     await client.query('BEGIN');
 
     // Check if document of this type already exists
     const existingDoc = await client.query(
-      `SELECT id FROM document_submissions 
+      `SELECT id, document_url FROM document_submissions 
        WHERE user_id = $1 AND document_type = $2`,
       [user.id, type]
     );

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
+import { uploadToBlob, deleteFromBlob } from '@/lib/blob';
 
 export async function DELETE(
   request: NextRequest,
@@ -101,95 +102,65 @@ export async function PUT(
     let image_url;
     const image = formData.get('image') as File;
     if (image) {
-      // TODO: Implement image upload to a storage service
-      image_url = '/cars/default.jpg';
+      // Get the current image URL to delete it later
+      const currentImage = await pool.query(
+        'SELECT image_url FROM vehicles WHERE id = $1',
+        [vehicleId]
+      );
+
+      // Upload new image
+      const filename = `vehicles/${Date.now()}-${image.name}`;
+      image_url = await uploadToBlob(image, filename);
+
+      // Delete old image if it exists and is not the default image
+      if (currentImage.rows[0]?.image_url && !currentImage.rows[0].image_url.includes('default.jpg')) {
+        try {
+          await deleteFromBlob(currentImage.rows[0].image_url);
+        } catch (error) {
+          console.error('Error deleting old image:', error);
+        }
+      }
     }
 
     const client = await pool.connect();
     try {
-      // First, get the current vehicle data
-      const currentVehicle = await client.query(
-        'SELECT * FROM vehicles WHERE id = $1',
-        [vehicleId]
-      );
+      const updateFields = [
+        name && 'name = $1',
+        type && 'type = $2',
+        locations.length > 0 && 'location = $3',
+        'quantity = $4',
+        'price_per_day = $5',
+        image_url && 'image_url = $6',
+        'status = $7',
+        'is_available = $8',
+        'updated_at = CURRENT_TIMESTAMP'
+      ].filter(Boolean).join(', ');
 
-      if (currentVehicle.rowCount === 0) {
+      const values = [
+        name,
+        type,
+        locations,
+        quantity,
+        price_per_day,
+        image_url,
+        status,
+        is_available,
+        vehicleId
+      ];
+
+      const result = await client.query(`
+        UPDATE vehicles
+        SET ${updateFields}
+        WHERE id = $${values.length}
+        RETURNING *
+      `, values);
+
+      if (result.rowCount === 0) {
         return NextResponse.json(
           { error: 'Vehicle not found' },
           { status: 404 }
         );
       }
-
-      // Prepare update fields
-      const updateFields = [];
-      const values = [];
-      let paramCount = 1;
-
-      // Only update fields that are provided in the formData
-      if (name) {
-        updateFields.push(`name = $${paramCount}`);
-        values.push(name);
-        paramCount++;
-      }
-
-      if (type) {
-        updateFields.push(`type = $${paramCount}`);
-        values.push(type);
-        paramCount++;
-      }
-
-      if (locations && locations.length > 0) {
-        updateFields.push(`location = $${paramCount}`);
-        values.push(locations);
-        paramCount++;
-      }
-
-      if (quantity) {
-        updateFields.push(`quantity = $${paramCount}`);
-        values.push(quantity);
-        paramCount++;
-      }
-
-      if (price_per_day) {
-        updateFields.push(`price_per_day = $${paramCount}`);
-        values.push(price_per_day);
-        paramCount++;
-      }
-
-      if (formData.has('is_available')) {
-        updateFields.push(`is_available = $${paramCount}`);
-        values.push(is_available);
-        paramCount++;
-      }
-
-      if (formData.has('status')) {
-        updateFields.push(`status = $${paramCount}`);
-        values.push(status);
-        paramCount++;
-      }
-
-      if (image_url) {
-        updateFields.push(`image_url = $${paramCount}`);
-        values.push(image_url);
-        paramCount++;
-      }
-
-      // Add vehicleId as the last parameter
-      values.push(vehicleId);
-
-      if (updateFields.length === 0) {
-        return NextResponse.json(
-          { error: 'No fields to update' },
-          { status: 400 }
-        );
-      }
-
-      const result = await client.query(`
-        UPDATE vehicles
-        SET ${updateFields.join(', ')}
-        WHERE id = $${paramCount}
-        RETURNING *
-      `, values);
 
       return NextResponse.json(result.rows[0]);
     } finally {

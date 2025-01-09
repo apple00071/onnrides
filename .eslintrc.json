@@ -3,7 +3,6 @@
     "next/core-web-vitals",
     "eslint:recommended"
   ],
-  "parser": "@babel/eslint-parser",
   "rules": {
     "indent": ["error", 2],
     "semi": "off",
