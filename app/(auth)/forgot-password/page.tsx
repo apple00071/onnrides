@@ -7,37 +7,37 @@ import Image from 'next/image'
 import Link from 'next/link'
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  const [email, setEmail] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+    e.preventDefault()
+    setIsLoading(true)
 
     try {
       const response = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email }),
-      });
+        body: JSON.stringify({ email })
+      })
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to send reset email');
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to send reset email')
       }
 
-      toast.success('Password reset email sent');
-      router.push('/login');
+      toast.success('Password reset email sent')
+      router.push('/login')
     } catch (error) {
-      console.error('Forgot password error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to send reset email');
+      console.error('Forgot password error:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to send reset email')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
