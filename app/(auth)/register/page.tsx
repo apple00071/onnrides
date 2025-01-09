@@ -1,73 +1,77 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { toast } from 'react-hot-toast';
-import Image from 'next/image';
-import Link from 'next/link';
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'react-hot-toast'
+import Image from 'next/image'
+import Link from 'next/link'
+
+interface FormData {
+  name: string
+  email: string
+  phone: string
+  password: string
+  confirmPassword: string
+}
 
 export default function RegisterPage() {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
     phone: '',
     password: '',
-    confirmPassword: '',
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+    confirmPassword: ''
+  })
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+    const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
       [name]: value
-    }));
-  };
+    }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+    e.preventDefault()
+
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
+      toast.error('Passwords do not match')
+      return
     }
 
-    setIsLoading(true);
+    setIsLoading(true)
 
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
-          password: formData.password,
-        }),
-      });
+          password: formData.password
+        })
+      })
 
-      const data = await response.json();
+      const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to register');
+        throw new Error(data.message || 'Failed to register')
       }
 
-      if (data.success) {
-        toast.success(data.message || 'Registration successful');
-        router.push('/login');
-      } else {
-        throw new Error(data.message || 'Failed to register');
-      }
+      toast.success(data.message || 'Registration successful')
+      router.push('/login')
     } catch (error) {
-      console.error('Registration error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to register');
+      console.error('Registration error:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to register')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -104,7 +108,6 @@ export default function RegisterPage() {
                   id="name"
                   name="name"
                   type="text"
-                  autoComplete="name"
                   required
                   value={formData.name}
                   onChange={handleChange}
@@ -140,7 +143,6 @@ export default function RegisterPage() {
                   id="phone"
                   name="phone"
                   type="tel"
-                  autoComplete="tel"
                   required
                   value={formData.phone}
                   onChange={handleChange}
@@ -158,7 +160,6 @@ export default function RegisterPage() {
                   id="password"
                   name="password"
                   type="password"
-                  autoComplete="new-password"
                   required
                   value={formData.password}
                   onChange={handleChange}
@@ -176,7 +177,6 @@ export default function RegisterPage() {
                   id="confirmPassword"
                   name="confirmPassword"
                   type="password"
-                  autoComplete="new-password"
                   required
                   value={formData.confirmPassword}
                   onChange={handleChange}
@@ -198,5 +198,5 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
-  );
+  )
 } 

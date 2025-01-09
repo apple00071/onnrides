@@ -7,83 +7,63 @@ import { Toaster } from 'react-hot-toast';
 
 const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-inter',
+  display: 'swap'
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://onnrides.com'),
-  title: {
-    default: 'OnnRides - Rent Bikes & Cars in India',
-    template: '%s | OnnRides'
-  },
-  description: 'OnnRides offers convenient bike and car rentals across India. Find the perfect vehicle for your journey with our wide selection and competitive prices.',
-  keywords: ['bike rental', 'car rental', 'vehicle rental', 'India', 'OnnRides', 'transportation', 'travel', 'rental service'],
-  authors: [{ name: 'OnnRides', url: 'https://onnrides.com' }],
+  title: 'OnnRides - Your Trusted Vehicle Rental Platform',
+  description: 'Find and rent vehicles for your needs. OnnRides offers a wide selection of cars, bikes, and more with easy booking and secure payments.',
+  keywords: [
+    'vehicle rental',
+    'car rental',
+    'bike rental',
+    'transportation',
+    'travel',
+    'OnnRides',
+    'rental platform',
+    'vehicle booking'
+  ],
+  authors: [
+    {
+      name: 'OnnRides Team',
+      url: 'https://onnrides.com'
+    }
+  ],
   creator: 'OnnRides',
   publisher: 'OnnRides',
   formatDetection: {
     email: false,
     address: false,
-    telephone: false,
+    telephone: false
   },
   openGraph: {
-    type: 'website',
-    locale: 'en_IN',
+    title: 'OnnRides - Your Trusted Vehicle Rental Platform',
+    description: 'Find and rent vehicles for your needs. OnnRides offers a wide selection of cars, bikes, and more with easy booking and secure payments.',
     url: 'https://onnrides.com',
-    title: 'OnnRides - Rent Bikes & Cars in India',
-    description: 'OnnRides offers convenient bike and car rentals across India. Find the perfect vehicle for your journey with our wide selection and competitive prices.',
     siteName: 'OnnRides',
-    images: [
-      {
-        url: 'https://onnrides.com/og-image.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'OnnRides - Rent Bikes & Cars in India',
-      },
-    ],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
+    locale: 'en_US',
+    type: 'website'
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'OnnRides - Rent Bikes & Cars in India',
-    description: 'OnnRides offers convenient bike and car rentals across India. Find the perfect vehicle for your journey with our wide selection and competitive prices.',
-    images: ['https://onnrides.com/og-image.jpg'],
-  },
-  verification: {
-    google: 'your-google-site-verification-code',
-  },
-  alternates: {
-    canonical: 'https://onnrides.com',
-  },
+    title: 'OnnRides - Your Trusted Vehicle Rental Platform',
+    description: 'Find and rent vehicles for your needs. OnnRides offers a wide selection of cars, bikes, and more with easy booking and secure payments.',
+    creator: '@onnrides',
+    site: '@onnrides'
+  }
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+interface RootLayoutProps {
+  children: React.ReactNode
+}
+
+export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en">
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <link rel="manifest" href="/manifest.json" />
-      </head>
-      <body className={inter.className}>
+    <html lang="en" className={inter.className}>
+      <body>
         <AuthProvider>
           {children}
-          <Toaster />
+          <Toaster position="top-center" reverseOrder={false} />
         </AuthProvider>
       </body>
     </html>

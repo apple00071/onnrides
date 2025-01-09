@@ -18,37 +18,23 @@ export async function POST(request: NextRequest) {
 
     // Get user with profile data
     const result = await query(`
-      SELECT 
-        u.id,
-        u.email,
-        u.password_hash,
-        u.role,
-        p.is_documents_verified,
-        p.is_blocked
-      FROM users u
-      LEFT JOIN profiles p ON u.id = p.user_id
-      WHERE LOWER(u.email) = LOWER($1)
+      SELECT u.*, p.* 
+      FROM users u 
+      LEFT JOIN profiles p ON u.id = p.user_id 
+      WHERE u.email = $1
     `, [email]);
 
-    if (result.rows.length === 0) {
+    const user = result.rows[0];
+
+    if (!user) {
       return NextResponse.json(
         { message: 'Invalid email or password' },
         { status: 401 }
       );
     }
 
-    const user = result.rows[0];
+    const isValidPassword = await bcrypt.compare(password, user.password);
 
-    // Check if user is blocked
-    if (user.is_blocked) {
-      return NextResponse.json(
-        { message: 'Your account has been blocked. Please contact support.' },
-        { status: 403 }
-      );
-    }
-
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
       return NextResponse.json(
         { message: 'Invalid email or password' },
@@ -56,37 +42,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate JWT token
-    const token = await generateToken({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      is_documents_verified: user.is_documents_verified
-    });
-
-    // Create response with auth cookie
+    const token = await generateToken(user);
     const response = NextResponse.json(
       {
+        success: true,
         message: 'Login successful',
         user: {
           id: user.id,
           email: user.email,
-          role: user.role,
-          is_documents_verified: user.is_documents_verified
+          name: user.name,
+          role: user.role
         }
       },
       { status: 200 }
     );
 
-    // Set auth cookie
     const cookie = createAuthCookie(token);
-    response.cookies.set(cookie);
+    response.cookies.set(cookie.name, cookie.value, {
+      httpOnly: cookie.httpOnly,
+      secure: cookie.secure,
+      sameSite: cookie.sameSite,
+      path: cookie.path,
+      maxAge: cookie.maxAge
+    });
 
     return response;
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(
-      { message: 'An error occurred during login. Please try again.' },
+      { message: 'Internal server error' },
       { status: 500 }
     );
   }

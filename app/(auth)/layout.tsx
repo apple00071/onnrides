@@ -5,25 +5,22 @@ import Navbar from '@/app/(main)/components/Navbar';
 
 const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-inter',
+  display: 'swap'
 });
 
 export const metadata: Metadata = {
-  title: 'OnnRides - Book Your Next Ride',
-  description: 'Book bikes and scooters for your next ride',
+  title: 'Authentication - OnnRides'
 };
 
-export default function AuthLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+interface AuthLayoutProps {
+  children: React.ReactNode
+}
+
+export default function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className={`${inter.className} flex flex-col min-h-screen`}>
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <main className="flex-1 pt-16">
-        {children}
-      </main>
+      <main>{children}</main>
     </div>
   );
 } 
