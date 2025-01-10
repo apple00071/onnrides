@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
 import { FaEye } from 'react-icons/fa';
-import { Button, type ButtonProps } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import logger from '@/lib/logger';
 import UserDetailsModal from './components/UserDetailsModal';
 
@@ -117,8 +118,7 @@ export default function UsersPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleViewUser(user)}
-                      className="flex items-center gap-2"
-                      asChild={false}
+                      className={cn("flex items-center gap-2")}
                     >
                       <FaEye className="w-4 h-4" />
                       View
