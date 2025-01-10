@@ -1,7 +1,8 @@
 'use client';
 
-
-import Image from 'next/image';
+import { useState } from 'react';
+import { toast } from 'react-hot-toast';
+import logger from '@/lib/logger';
 
 interface Document {
   type: 'driving_license' | 'address_proof';
@@ -23,7 +24,13 @@ export default function DocumentsPage() {
     }
   });
 
-  
+  const handleFileChange = (type: keyof typeof documents) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
     reader.onloadend = () => {
       setDocuments(prev => ({
         ...prev,
@@ -38,169 +45,100 @@ export default function DocumentsPage() {
     reader.readAsDataURL(file);
   };
 
-  
-    if (!doc.file) return;
+  const handleUpload = async (type: keyof typeof documents) => {
+    const doc = documents[type];
+    if (!doc.file) {
+      toast.error('Please select a file first');
+      return;
+    }
 
     try {
-      
+      const formData = new FormData();
       formData.append('file', doc.file);
       formData.append('type', type);
 
-      // Replace with your API endpoint
-      
+      const response = await fetch('/api/user/documents/upload', {
+        method: 'POST',
+        body: formData
+      });
 
-      if (response.ok) {
-        setDocuments(prev => ({
-          ...prev,
-          [type]: {
-            ...prev[type],
-            status: 'pending',
-            message: 'Document uploaded successfully. Waiting for approval.'
-          }
-        }));
-      } else {
+      if (!response.ok) {
         throw new Error('Failed to upload document');
       }
-    } catch (error) {
+
+      const data = await response.json();
+      
       setDocuments(prev => ({
         ...prev,
         [type]: {
           ...prev[type],
           status: 'pending',
-          message: 'Failed to upload document. Please try again.'
+          message: 'Document uploaded successfully. Waiting for verification.'
         }
       }));
+
+      toast.success('Document uploaded successfully');
+    } catch (error) {
+      logger.error('Document upload error:', error);
+      toast.error('Failed to upload document');
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-8">Document Verification</h1>
-      
-      <div className="space-y-8">
-        {/* Driving License */}
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">Driving License</h2>
-          <div className="space-y-4">
-            {documents.driving_license.preview ? (
-              <div className="relative w-full h-48">
-                <Image
-                  src={documents.driving_license.preview}
-                  alt="Driving License Preview"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={(e) => {
-                    
-                    if (file) handleFileChange('driving_license', file);
-                  }}
-                  className="hidden"
-                  id="driving_license"
-                />
-                <label
-                  htmlFor="driving_license"
-                  className="cursor-pointer text-gray-600 hover:text-gray-800"
-                >
-                  <div className="space-y-2">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <div>Click to upload or drag and drop</div>
-                    <div className="text-sm text-gray-500">PNG, JPG, PDF up to 10MB</div>
-                  </div>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">Document Verification</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {Object.entries(documents).map(([key, doc]) => (
+          <div key={key} className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold mb-4 capitalize">
+              {key.replace('_', ' ')}
+            </h2>
+            <div className="space-y-4">
+              {doc.preview && (
+                <div className="relative h-48 bg-gray-100 rounded-lg overflow-hidden">
+                  <img
+                    src={doc.preview}
+                    alt={`Preview of ${key}`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="flex items-center space-x-4">
+                <label className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={handleFileChange(key as keyof typeof documents)}
+                    className="hidden"
+                  />
+                  <span className="block w-full px-4 py-2 text-center border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+                    {doc.file ? 'Change File' : 'Select File'}
+                  </span>
                 </label>
-              </div>
-            )}
-            {documents.driving_license.preview && (
-              <button
-                onClick={() => handleUpload('driving_license')}
-                className="w-full bg-yellow-400 text-black py-2 rounded-lg hover:bg-yellow-500 transition-colors"
-              >
-                Upload Driving License
-              </button>
-            )}
-            {documents.driving_license.message && (
-              <p className={`text-sm ${
-                documents.driving_license.status === 'approved' ? 'text-green-600' : 'text-yellow-600'
-              }`}>
-                {documents.driving_license.message}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Address Proof */}
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">Address Proof</h2>
-          <div className="space-y-4">
-            {documents.address_proof.preview ? (
-              <div className="relative w-full h-48">
-                <Image
-                  src={documents.address_proof.preview}
-                  alt="Address Proof Preview"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={(e) => {
-                    
-                    if (file) handleFileChange('address_proof', file);
-                  }}
-                  className="hidden"
-                  id="address_proof"
-                />
-                <label
-                  htmlFor="address_proof"
-                  className="cursor-pointer text-gray-600 hover:text-gray-800"
+                <button
+                  onClick={() => handleUpload(key as keyof typeof documents)}
+                  disabled={!doc.file || doc.status === 'approved'}
+                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <div className="space-y-2">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                      <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <div>Click to upload or drag and drop</div>
-                    <div className="text-sm text-gray-500">PNG, JPG, PDF up to 10MB</div>
-                  </div>
-                </label>
+                  Upload
+                </button>
               </div>
-            )}
-            {documents.address_proof.preview && (
-              <button
-                onClick={() => handleUpload('address_proof')}
-                className="w-full bg-yellow-400 text-black py-2 rounded-lg hover:bg-yellow-500 transition-colors"
-              >
-                Upload Address Proof
-              </button>
-            )}
-            {documents.address_proof.message && (
-              <p className={`text-sm ${
-                documents.address_proof.status === 'approved' ? 'text-green-600' : 'text-yellow-600'
-              }`}>
-                {documents.address_proof.message}
-              </p>
-            )}
+              {doc.message && (
+                <p className="text-sm text-gray-600">{doc.message}</p>
+              )}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm">Status:</span>
+                <span className={`text-sm font-medium ${
+                  doc.status === 'approved' ? 'text-green-600' :
+                  doc.status === 'rejected' ? 'text-red-600' :
+                  'text-yellow-600'
+                }`}>
+                  {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div className="bg-yellow-50 p-4 rounded-lg">
-          <h3 className="font-semibold mb-2">Note:</h3>
-          <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-            <li>Please upload clear, readable copies of your documents</li>
-            <li>Accepted address proofs: Aadhar Card, Passport, Voter ID, or Utility Bill</li>
-            <li>Documents will be verified within 24-48 hours</li>
-            <li>You will be notified once your documents are approved</li>
-          </ul>
-        </div>
+        ))}
       </div>
     </div>
   );
