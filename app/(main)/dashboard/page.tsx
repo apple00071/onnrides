@@ -1,6 +1,6 @@
-import logger from '@/lib/logger';
 'use client';
 
+import logger from '@/lib/logger';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';

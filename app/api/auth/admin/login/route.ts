@@ -1,16 +1,21 @@
 import logger from '@/lib/logger';
-
-
-
+import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-export 
+interface User {
+  id: string;
+  email: string;
+  password: string;
+  role: string;
+}
 
 export async function POST(request: NextRequest) {
   let client;
   
   try {
-    
+    const body = await request.json();
     const { email, password } = body;
 
     // Validate input
@@ -34,8 +39,11 @@ export async function POST(request: NextRequest) {
 
     try {
       // Get user from database
-      
-
+      const userResult = await client.query(
+        'SELECT * FROM users WHERE email = $1',
+        [email]
+      );
+      const user: User | undefined = userResult.rows[0];
       
       if (!user) {
         return NextResponse.json(
@@ -53,6 +61,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Verify password
+      const isValid = await bcrypt.compare(password, user.password);
       
       if (!isValid) {
         return NextResponse.json(
@@ -62,15 +71,32 @@ export async function POST(request: NextRequest) {
       }
 
       // Get admin profile
-      
-
-      
+      const profileResult = await client.query(
+        'SELECT * FROM admin_profiles WHERE user_id = $1',
+        [user.id]
+      );
+      const profile = profileResult.rows[0];
 
       // Generate token
-      
+      const token = jwt.sign(
+        { 
+          userId: user.id,
+          email: user.email,
+          role: user.role
+        },
+        process.env.JWT_SECRET || 'default-secret',
+        { expiresIn: '7d' }
+      );
 
       // Create response
-      
+      const response = NextResponse.json({
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          profile
+        }
+      });
 
       // Set cookie
       response.cookies.set('token', token, {
