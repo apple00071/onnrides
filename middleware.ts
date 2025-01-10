@@ -1,11 +1,12 @@
+import { NextResponse } from 'next/server';
+import { jwtVerify } from 'jose';
 import logger from '@/lib/logger';
-
 import type { NextRequest } from 'next/server';
 
-
-
-
-
+// Define routes configurations
+const publicRoutes = ['/', '/login', '/register', '/about', '/contact', '/vehicles'];
+const protectedRoutes = ['/dashboard', '/profile', '/bookings'];
+const adminRoutes = ['/admin'];
 
 interface TokenPayload {
   id: string;
@@ -22,7 +23,7 @@ async function verifyAuth(token: string): Promise<TokenPayload | null> {
   }
 
   try {
-    
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     const { payload } = await jwtVerify(token, secret);
     return {
       id: payload.id as string,
@@ -56,7 +57,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Get token from cookies
-  
+  const token = request.cookies.get('token')?.value;
 
   // Check token for protected routes
   if (protectedRoutes.some(route => pathname.startsWith(route))) {
@@ -65,10 +66,10 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    
+    const user = await verifyAuth(token);
     if (!user) {
       logger.debug('Invalid token for protected route, redirecting to login');
-      
+      const response = NextResponse.redirect(new URL('/login', request.url));
       response.cookies.delete('token'); // Clear invalid token
       return response;
     }
@@ -87,10 +88,10 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
 
-    
+    const user = await verifyAuth(token);
     if (!user || user.role !== 'admin') {
       logger.debug('Not admin or invalid token, redirecting to home');
-      
+      const response = NextResponse.redirect(new URL('/', request.url));
       if (!user) {
         response.cookies.delete('token'); // Clear invalid token
       }
@@ -103,4 +104,6 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-export  
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)']
+};  
