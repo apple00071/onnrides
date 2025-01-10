@@ -13,44 +13,44 @@ export default function FAQPage() {
 
   const faqs: FAQItem[] = [
     {
-      question: "What documents do I need to rent a vehicle?",
-      answer: "To rent a vehicle, you need a valid government-issued ID, a valid driving license, and an additional address proof. For outstation rentals, additional documentation may be required."
+      question: 'What documents do I need to rent a vehicle?',
+      answer: 'To rent a vehicle, you need a valid government-issued ID, a valid driving license, and an additional address proof. For outstation rentals, additional documentation may be required.'
     },
     {
-      question: "Is there a security deposit?",
-      answer: "Yes, a security deposit is required for certain vehicles, outstation rentals, and monthly rentals. The deposit amount varies based on the vehicle type and rental duration. The deposit is fully refundable upon safe return of the vehicle."
+      question: 'Is there a security deposit?',
+      answer: 'Yes, a security deposit is required for certain vehicles, outstation rentals, and monthly rentals. The deposit amount varies based on the vehicle type and rental duration. The deposit is fully refundable upon safe return of the vehicle.'
     },
     {
-      question: "What are the charges for outstation trips?",
-      answer: "For outstation trips, there is a 20% additional charge on the rental fee. Only Royal Enfield vehicles are allowed for outstation rentals. Additional security deposit and documentation are required."
+      question: 'What are the charges for outstation trips?',
+      answer: 'For outstation trips, there is a 20% additional charge on the rental fee. Only Royal Enfield vehicles are allowed for outstation rentals. Additional security deposit and documentation are required.'
     },
     {
-      question: "What are your operating hours?",
-      answer: "We are open 24/7 to serve you better. You can pick up and return vehicles at any time, but please make sure to schedule your pickup and return times in advance."
+      question: 'What are your operating hours?',
+      answer: 'We are open 24/7 to serve you better. You can pick up and return vehicles at any time, but please make sure to schedule your pickup and return times in advance.'
     },
     {
-      question: "Do you provide helmets with bike rentals?",
-      answer: "Yes, we provide DOT-certified helmets with all our bike rentals at no additional cost. We prioritize your safety and ensure all our helmets are regularly sanitized."
+      question: 'Do you provide helmets with bike rentals?',
+      answer: 'Yes, we provide DOT-certified helmets with all our bike rentals at no additional cost. We prioritize your safety and ensure all our helmets are regularly sanitized.'
     },
     {
-      question: "What is your cancellation policy?",
-      answer: "We offer free cancellation up to 24 hours before the scheduled pickup time. Cancellations within 24 hours of pickup will incur a 50% charge. No refunds are provided for no-shows."
+      question: 'What is your cancellation policy?',
+      answer: 'We offer free cancellation up to 24 hours before the scheduled pickup time. Cancellations within 24 hours of pickup will incur a 50% charge. No refunds are provided for no-shows.'
     },
     {
-      question: "What happens if the vehicle breaks down?",
-      answer: "In case of a breakdown, immediately contact our 24/7 support team. We will either fix the issue or provide a replacement vehicle as soon as possible. All our vehicles are regularly maintained to prevent such incidents."
+      question: 'What happens if the vehicle breaks down?',
+      answer: 'In case of a breakdown, immediately contact our 24/7 support team. We will either fix the issue or provide a replacement vehicle as soon as possible. All our vehicles are regularly maintained to prevent such incidents.'
     },
     {
-      question: "Do you offer monthly rental plans?",
-      answer: "Yes, we offer monthly rental plans with special rates. Monthly rentals require a security deposit and may have additional documentation requirements. Contact us for detailed monthly rental terms."
+      question: 'Do you offer monthly rental plans?',
+      answer: 'Yes, we offer monthly rental plans with special rates. Monthly rentals require a security deposit and may have additional documentation requirements. Contact us for detailed monthly rental terms.'
     },
     {
-      question: "What is included in the rental price?",
-      answer: "The rental price includes basic insurance coverage, vehicle maintenance, and 24/7 roadside assistance. Fuel costs and traffic violations are the responsibility of the renter."
+      question: 'What is included in the rental price?',
+      answer: 'The rental price includes basic insurance coverage, vehicle maintenance, and 24/7 roadside assistance. Fuel costs and traffic violations are the responsibility of the renter.'
     },
     {
-      question: "How do I extend my rental period?",
-      answer: "To extend your rental period, contact our support team at least 6 hours before your scheduled return time. Extensions are subject to vehicle availability and may require additional payment."
+      question: 'How do I extend my rental period?',
+      answer: 'To extend your rental period, contact our support team at least 6 hours before your scheduled return time. Extensions are subject to vehicle availability and may require additional payment.'
     }
   ];
 

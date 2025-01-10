@@ -32,7 +32,6 @@ export default function ForgotPasswordPage() {
       toast.success('Password reset email sent')
       router.push('/login')
     } catch (error) {
-      console.error('Forgot password error:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to send reset email')
     } finally {
       setIsLoading(false)
