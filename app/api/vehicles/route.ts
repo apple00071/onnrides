@@ -1,19 +1,35 @@
 import logger from '@/lib/logger';
-
+import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-
-export 
+interface Vehicle {
+  id: string;
+  name: string;
+  type: string;
+  brand: string;
+  model: string;
+  year: number;
+  color: string;
+  registration_number: string;
+  price_per_day: number;
+  is_available: boolean;
+  image_url: string;
+  created_at: string;
+}
 
 export async function GET(request: NextRequest) {
-  
-  
+  let client;
   try {
-    
-    
-    
-    
-    
+    const searchParams = request.nextUrl.searchParams;
+    const type = searchParams.get('type');
+    const location = searchParams.get('location');
+    const pickup = searchParams.get('pickup');
+    const dropoff = searchParams.get('dropoff');
+
+    // Get database connection
+    client = await pool.connect();
 
     const queryParams: unknown[] = [];
     const conditions: string[] = ['v.status = \'active\''];
@@ -45,9 +61,20 @@ export async function GET(request: NextRequest) {
       queryParams.push(pickup, dropoff);
     }
 
-    
+    // Build and execute query
+    const query = `
+      SELECT 
+        v.*,
+        COALESCE(
+          (SELECT COUNT(*) FROM bookings WHERE vehicle_id = v.id AND status = 'completed'),
+          0
+        ) as total_rides
+      FROM vehicles v
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY v.created_at DESC
+    `;
 
-    
+    const result = await client.query<Vehicle>(query, queryParams);
     return NextResponse.json(result.rows);
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
@@ -56,16 +83,17 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   } finally {
-    client.release();
+    if (client) client.release();
   }
 }
 
 export async function POST(request: NextRequest) {
-  
-  
+  let client;
   try {
-    
-    
+    // Check if user is authenticated and is admin
+    const session = await getServerSession(authOptions);
+    const user = session?.user;
+
     if (!user || user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Admin access required' },
@@ -73,11 +101,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    
-    
+    const data = await request.json();
+    const requiredFields = [
+      'name',
+      'type',
+      'brand',
+      'model',
+      'year',
+      'color',
+      'registration_number',
+      'price_per_day',
+      'image_url'
+    ];
+
     // Validate required fields
-    
-    
     for (const field of requiredFields) {
       if (!data[field]) {
         return NextResponse.json(
@@ -87,21 +124,52 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Get database connection
+    client = await pool.connect();
+
     // Start transaction
     await client.query('BEGIN');
 
-    
+    // Insert vehicle
+    const result = await client.query(`
+      INSERT INTO vehicles (
+        name,
+        type,
+        brand,
+        model,
+        year,
+        color,
+        registration_number,
+        price_per_day,
+        is_available,
+        image_url,
+        status
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, true, $9, 'active'
+      )
+      RETURNING *
+    `, [
+      data.name,
+      data.type,
+      data.brand,
+      data.model,
+      data.year,
+      data.color,
+      data.registration_number,
+      data.price_per_day,
+      data.image_url
+    ]);
 
     await client.query('COMMIT');
     return NextResponse.json(result.rows[0]);
   } catch (error) {
-    await client.query('ROLLBACK');
+    if (client) await client.query('ROLLBACK');
     logger.error('Error creating vehicle:', error);
     return NextResponse.json(
       { error: 'Failed to create vehicle' },
       { status: 500 }
     );
   } finally {
-    client.release();
+    if (client) client.release();
   }
 } 
