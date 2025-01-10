@@ -5,10 +5,6 @@ import { authOptions } from '@/lib/auth';
 import pool from '@/lib/db';
 import { put } from '@vercel/blob';
 
-// New route segment config format
-export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
-
 export async function POST(request: NextRequest) {
   let client;
   try {
