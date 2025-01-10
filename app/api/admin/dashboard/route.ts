@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import logger from '@/lib/logger';
+
 import pool from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+
 
 interface DashboardStats {
   total_users: number;
@@ -22,13 +23,13 @@ interface DashboardStats {
   }>;
 }
 
-export const dynamic = 'force-dynamic';
+export 
 
 export async function GET(request: NextRequest) {
-  const client = await pool.connect();
+  
   
   try {
-    const user = await getCurrentUser(request.cookies);
+    
     
     if (!user) {
       return NextResponse.json(
@@ -48,38 +49,19 @@ export async function GET(request: NextRequest) {
     await client.query('BEGIN');
 
     // Get total users
-    const usersResult = await client.query('SELECT COUNT(*) as total FROM users WHERE role = $1', ['user']);
+    
     
     // Get total revenue
-    const revenueResult = await client.query('SELECT COALESCE(SUM(total_amount), 0) as total FROM bookings WHERE status = $1', ['completed']);
+    
     
     // Get total vehicles
-    const vehiclesResult = await client.query('SELECT COUNT(*) as total FROM vehicles');
+    
     
     // Get pending documents
-    const documentsResult = await client.query('SELECT COUNT(*) as total FROM document_submissions WHERE status = $1', ['pending']);
+    
     
     // Get recent bookings
-    const bookingsResult = await client.query(`
-      SELECT 
-        b.id,
-        CONCAT(p.first_name, ' ', p.last_name) as user_name,
-        u.email as user_email,
-        v.name as vehicle_name,
-        b.total_amount as amount,
-        b.status,
-        b.created_at,
-        b.pickup_datetime,
-        b.dropoff_datetime,
-        b.pickup_location,
-        b.drop_location
-      FROM bookings b
-      JOIN users u ON b.user_id = u.id
-      JOIN profiles p ON u.id = p.user_id
-      JOIN vehicles v ON b.vehicle_id = v.id
-      ORDER BY b.created_at DESC
-      LIMIT 5
-    `);
+    
 
     // Commit the transaction
     await client.query('COMMIT');
@@ -97,7 +79,7 @@ export async function GET(request: NextRequest) {
     // Rollback the transaction in case of error
     await client.query('ROLLBACK');
     
-    console.error('Dashboard stats error:', error);
+    logger.error('Dashboard stats error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch dashboard stats' },
       { status: 500 }

@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import logger from '@/lib/logger';
+
 import pool from '@/lib/db';
 import bcrypt from 'bcryptjs';
-import { generateToken } from '@/lib/auth';
+
 
 export async function POST(request: NextRequest) {
-  const client = await pool.connect();
+  
   
   try {
     const { email, password, name, phone } = await request.json();
@@ -20,13 +21,10 @@ export async function POST(request: NextRequest) {
     await client.query('BEGIN');
 
     // Hash password
-    const password_hash = await bcrypt.hash(password, 10);
+    
 
     // Check if email exists
-    const emailCheck = await client.query(
-      'SELECT id FROM users WHERE email = $1',
-      [email]
-    );
+    
 
     if (emailCheck.rows.length > 0) {
       return NextResponse.json(
@@ -36,16 +34,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Create user account
-    const userResult = await client.query(
-      'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role',
-      [email, password_hash, 'user']
-    );
+    
 
-    const user = userResult.rows[0];
+    
 
     // Split name into first_name and last_name
     const [firstName, ...lastNameParts] = name.trim().split(' ');
-    const lastName = lastNameParts.join(' ');
+    
 
     // Create user profile
     await client.query(
@@ -56,17 +51,10 @@ export async function POST(request: NextRequest) {
     await client.query('COMMIT');
 
     // Generate token
-    const token = await generateToken({ 
-      id: user.id, 
-      email: user.email,
-      role: user.role 
-    });
+    
 
     // Create response
-    const response = NextResponse.json({ 
-      success: true,
-      message: 'Account created successfully'
-    });
+    
 
     // Set cookie
     response.cookies.set('token', token, {
@@ -79,7 +67,7 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Signup error:', error);
+    logger.error('Signup error:', error);
     
     return NextResponse.json(
       { message: 'Internal server error', error: error.message },

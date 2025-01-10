@@ -1,24 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server';
+import logger from '@/lib/logger';
+
 import pool from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+
 
 export async function POST(request: NextRequest) {
   try {
     // Check if user is authenticated and is an admin
-    const currentUser = await getCurrentUser(request.cookies);
+    
     if (!currentUser || currentUser.role !== 'admin') {
-      console.log('Unauthorized migration attempt');
+      logger.debug('Unauthorized migration attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const client = await pool.connect();
+    
     try {
       // Start transaction
       await client.query('BEGIN');
 
-      console.log('Starting migration...');
+      logger.debug('Starting migration...');
 
-      // Create update_updated_at_column function if it doesn't exist
+      // Create update_updated_at_column function if it doesn&apos;t exist
       await client.query(`
         CREATE OR REPLACE FUNCTION update_updated_at_column()
         RETURNS TRIGGER AS $$
@@ -28,14 +29,14 @@ export async function POST(request: NextRequest) {
         END;
         $$ language 'plpgsql'
       `);
-      console.log('Created update_updated_at_column function');
+      logger.debug('Created update_updated_at_column function');
 
       // Drop existing tables if they exist
       await client.query(`
         DROP TABLE IF EXISTS bookings CASCADE;
         DROP TABLE IF EXISTS vehicles CASCADE;
       `);
-      console.log('Dropped existing tables');
+      logger.debug('Dropped existing tables');
 
       // Create vehicles table
       await client.query(`
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('Created vehicles table');
+      logger.debug('Created vehicles table');
 
       // Create indexes for vehicles table
       await client.query(`
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
         CREATE INDEX idx_vehicles_type ON vehicles(type);
         CREATE INDEX idx_vehicles_is_available ON vehicles(is_available)
       `);
-      console.log('Created indexes for vehicles table');
+      logger.debug('Created indexes for vehicles table');
 
       // Create trigger for updating timestamp on vehicles table
       await client.query(`
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column()
       `);
-      console.log('Created trigger for vehicles table');
+      logger.debug('Created trigger for vehicles table');
 
       // Create bookings table
       await client.query(`
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('Created bookings table');
+      logger.debug('Created bookings table');
 
       // Create indexes for bookings table
       await client.query(`
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
         CREATE INDEX idx_bookings_vehicle_id ON bookings(vehicle_id);
         CREATE INDEX idx_bookings_status ON bookings(status)
       `);
-      console.log('Created indexes for bookings table');
+      logger.debug('Created indexes for bookings table');
 
       // Create trigger for updating timestamp on bookings table
       await client.query(`
@@ -107,12 +108,12 @@ export async function POST(request: NextRequest) {
         FOR EACH ROW
         EXECUTE FUNCTION update_updated_at_column()
       `);
-      console.log('Created trigger for bookings table');
+      logger.debug('Created trigger for bookings table');
 
       // Commit transaction
       await client.query('COMMIT');
 
-      console.log('Migration completed successfully');
+      logger.debug('Migration completed successfully');
       return NextResponse.json({ 
         message: 'Migration successful',
         details: 'Created bookings table with all required columns and indexes'
@@ -120,13 +121,13 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       // Rollback transaction on error
       await client.query('ROLLBACK');
-      console.error('Migration error:', error);
+      logger.error('Migration error:', error);
       throw error;
     } finally {
       client.release();
     }
   } catch (error) {
-    console.error('Error during migration:', error);
+    logger.error('Error during migration:', error);
     return NextResponse.json(
       { 
         error: 'Migration failed', 

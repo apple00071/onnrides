@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { hashPassword } from '@/lib/auth';
+import logger from '@/lib/logger';
+
+
 import pool from '@/lib/db';
 
 export async function POST(request: NextRequest) {
@@ -13,16 +14,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const client = await pool.connect();
+    
     try {
       // Find user with valid reset token
-      const result = await client.query(
-        `SELECT id 
-         FROM users 
-         WHERE reset_token = $1 
-         AND reset_token_expiry > NOW()`,
-        [token]
-      );
+      
 
       if (result.rows.length === 0) {
         return NextResponse.json(
@@ -32,7 +27,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Hash new password
-      const hashedPassword = await hashPassword(password);
+      
 
       // Update password and clear reset token
       await client.query(
@@ -51,7 +46,7 @@ export async function POST(request: NextRequest) {
       client.release();
     }
   } catch (error) {
-    console.error('Reset password error:', error);
+    logger.error('Reset password error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

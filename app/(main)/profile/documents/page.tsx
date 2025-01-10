@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+
 import Image from 'next/image';
 
 interface Document {
@@ -23,8 +23,7 @@ export default function DocumentsPage() {
     }
   });
 
-  const handleFileChange = (type: 'driving_license' | 'address_proof', file: File) => {
-    const reader = new FileReader();
+  
     reader.onloadend = () => {
       setDocuments(prev => ({
         ...prev,
@@ -39,20 +38,16 @@ export default function DocumentsPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleUpload = async (type: 'driving_license' | 'address_proof') => {
-    const doc = documents[type];
+  
     if (!doc.file) return;
 
     try {
-      const formData = new FormData();
+      
       formData.append('file', doc.file);
       formData.append('type', type);
 
       // Replace with your API endpoint
-      const response = await fetch('/api/documents/upload', {
-        method: 'POST',
-        body: formData
-      });
+      
 
       if (response.ok) {
         setDocuments(prev => ({
@@ -102,7 +97,7 @@ export default function DocumentsPage() {
                   type="file"
                   accept="image/*,.pdf"
                   onChange={(e) => {
-                    const file = e.target.files?.[0];
+                    
                     if (file) handleFileChange('driving_license', file);
                   }}
                   className="hidden"
@@ -159,7 +154,7 @@ export default function DocumentsPage() {
                   type="file"
                   accept="image/*,.pdf"
                   onChange={(e) => {
-                    const file = e.target.files?.[0];
+                    
                     if (file) handleFileChange('address_proof', file);
                   }}
                   className="hidden"

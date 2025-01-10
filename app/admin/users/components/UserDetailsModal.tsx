@@ -1,10 +1,12 @@
+import logger from '@/lib/logger';
+import Image from 'next/image';
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { toast } from 'react-hot-toast';
-import { FaCheck, FaTimes } from 'react-icons/fa';
-import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
-import { User, UserDocument, Booking } from '../types';
+
+
+
+
+
 
 interface UserDetailsModalProps {
   user: User | null;
@@ -18,25 +20,24 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
   const [documents, setDocuments] = useState<UserDocument[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
 
-  const fetchUserData = useCallback(async () => {
-    if (!user) return;
+  
 
     try {
       // Fetch documents
-      const docsResponse = await fetch(`/api/admin/users/${user.id}/documents`);
+      
       if (docsResponse.ok) {
-        const docsData = await docsResponse.json();
+        
         setDocuments(docsData);
       }
 
       // Fetch bookings
-      const bookingsResponse = await fetch(`/api/admin/users/${user.id}/bookings`);
+      
       if (bookingsResponse.ok) {
-        const bookingsData = await bookingsResponse.json();
+        
         setBookings(bookingsData);
       }
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      logger.error('Error fetching user data:', error);
       toast.error('Failed to fetch user data');
     }
   }, [user]);
@@ -51,48 +52,36 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
     }
   }, [isOpen, user, fetchUserData]);
 
-  const handleBlockUser = async () => {
-    if (!user) return;
+  
 
     try {
       setLoading(true);
-      const response = await fetch(`/api/admin/users/${user.id}/block`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isBlocked: !user.is_blocked })
-      });
+      
 
       if (!response.ok) {
         throw new Error('Failed to update user block status');
       }
 
-      const updatedUser = await response.json();
+      
       onUserUpdated(updatedUser);
       toast.success(`User successfully ${user.is_blocked ? 'unblocked' : 'blocked'}`);
     } catch (error) {
-      console.error('Error updating user block status:', error);
+      logger.error('Error updating user block status:', error);
       toast.error('Failed to update user block status');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDocumentStatus = async (documentId: string, status: 'approved' | 'rejected') => {
-    if (!user) return;
+  
     try {
-      const response = await fetch(`/api/admin/users/${user.id}/documents/${documentId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status }),
-      });
+      
 
       if (!response.ok) {
         throw new Error('Failed to update document status');
       }
 
-      const result = await response.json();
+      
       
       // Update the documents list with the new status
       setDocuments(prevDocs => 
@@ -109,17 +98,12 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
         onUserUpdated(result.user);
       }
     } catch (error) {
-      console.error('Error updating document status:', error);
+      logger.error('Error updating document status:', error);
       toast.error('Failed to update document status');
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  
   };
 
   if (!user) return null;

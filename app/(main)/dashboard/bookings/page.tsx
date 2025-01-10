@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
+import { toast } from 'react-hot-toast';
+import logger from '@/lib/logger';
 
 interface Booking {
   id: string;
@@ -18,10 +19,6 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchBookings();
-  }, []);
-
   const fetchBookings = async () => {
     try {
       const response = await fetch('/api/user/bookings');
@@ -29,8 +26,9 @@ export default function BookingsPage() {
         throw new Error('Failed to fetch bookings');
       }
       const data = await response.json();
-      setBookings(data);
+      setBookings(data.bookings || []);
     } catch (error) {
+      logger.error('Error fetching bookings:', error);
       toast.error('Failed to fetch bookings');
     } finally {
       setLoading(false);
@@ -38,13 +36,9 @@ export default function BookingsPage() {
   };
 
   const handleCancelBooking = async (bookingId: string) => {
-    if (!confirm('Are you sure you want to cancel this booking?')) {
-      return;
-    }
-
     try {
       const response = await fetch(`/api/user/bookings/${bookingId}/cancel`, {
-        method: 'POST'
+        method: 'POST',
       });
 
       if (!response.ok) {
@@ -54,9 +48,14 @@ export default function BookingsPage() {
       toast.success('Booking cancelled successfully');
       fetchBookings(); // Refresh the list
     } catch (error) {
+      logger.error('Error cancelling booking:', error);
       toast.error('Failed to cancel booking');
     }
   };
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
 
   if (loading) {
     return (

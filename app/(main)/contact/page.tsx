@@ -2,9 +2,17 @@
 
 import { useState, FormEvent, ChangeEvent } from 'react';
 import { toast } from 'react-hot-toast';
+import logger from '@/lib/logger';
+
+interface FormData {
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+}
 
 export default function ContactPage() {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
     phone: '',
@@ -13,9 +21,27 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // TODO: Implement form submission
-    toast.success('Message sent successfully!');
-    setFormData({ name: '', email: '', phone: '', message: '' });
+    
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to send message');
+      }
+
+      toast.success('Message sent successfully!');
+      setFormData({ name: '', email: '', phone: '', message: '' });
+    } catch (error) {
+      logger.error('Contact form error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to send message');
+    }
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

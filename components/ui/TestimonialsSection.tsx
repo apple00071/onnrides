@@ -1,38 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+
 import Image from 'next/image';
 
 export default function TestimonialsSection() {
-  const testimonials = [
-    {
-      name: 'Rahul Sharma',
-      image: '/testimonials/user1.jpg',
-      role: 'Business Professional',
-      comment: 'Excellent service! The bike was in perfect condition and the booking process was seamless.',
-      rating: 5
-    },
-    {
-      name: 'Priya Patel',
-      image: '/testimonials/user2.jpg',
-      role: 'Travel Enthusiast',
-      comment: 'Great experience with OnnRides. The staff was very helpful and the prices are reasonable.',
-      rating: 5
-    },
-    {
-      name: 'Arun Kumar',
-      image: '/testimonials/user3.jpg',
-      role: 'Student',
-      comment: 'Perfect for weekend trips. Will definitely use their service again!',
-      rating: 4
-    }
-  ];
+  
 
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % testimonials.length);
+    
     }, 5000);
 
     return () => clearInterval(timer);

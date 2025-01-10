@@ -1,8 +1,10 @@
+import logger from '@/lib/logger';
+import Image from 'next/image';
 'use client';
 
-import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
-import { format } from 'date-fns';
+
+
+;
 
 interface Vehicle {
   id: string;
@@ -27,31 +29,21 @@ export default function VehiclesPage() {
     fetchVehicles();
   }, []);
 
-  const fetchVehicles = async () => {
-    try {
-      const response = await fetch('/api/user/vehicles');
+  
       if (!response.ok) {
         throw new Error('Failed to fetch vehicles');
       }
-      const data = await response.json();
+      
       setVehicles(data);
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error('Failed to fetch vehicles');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggleAvailability = async (vehicleId: string, isAvailable: boolean) => {
-    try {
-      const response = await fetch(`/api/user/vehicles/${vehicleId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ is_available: isAvailable })
-      });
+  
 
       if (!response.ok) {
         throw new Error('Failed to update vehicle availability');
@@ -60,7 +52,7 @@ export default function VehiclesPage() {
       toast.success('Vehicle availability updated');
       fetchVehicles(); // Refresh the list
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error('Failed to update vehicle availability');
     }
   };

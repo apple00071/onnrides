@@ -1,14 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/providers/AuthProvider';
 import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/providers/AuthProvider';
 import { Bars3Icon, XMarkIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 
 export default function Navbar() {
   const { user, signOut } = useAuth();
-  const pathname = usePathname();
   const router = useRouter();
+  const pathname = usePathname();
+  
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
@@ -18,29 +19,35 @@ export default function Navbar() {
     setProfileDropdownOpen(false);
   }, [pathname]);
 
-  const isActive = (path: string) => pathname === path;
+  // Check if current path is active
+  const isActive = (path: string) => {
+    return pathname === path;
+  };
 
+  // Handle profile dropdown click
   const handleProfileClick = () => {
     setProfileDropdownOpen(!profileDropdownOpen);
   };
 
   // Close dropdown when clicking outside
   const handleClickOutside = () => {
+    setMobileMenuOpen(false);
     setProfileDropdownOpen(false);
   };
 
   // Handle navigation with menu closing
   const handleNavigation = (path: string) => {
-    router.push(path);
     setMobileMenuOpen(false);
     setProfileDropdownOpen(false);
+    router.push(path);
   };
 
   // Handle sign out with menu closing
-  const handleSignOut = () => {
-    signOut();
+  const handleSignOut = async () => {
     setMobileMenuOpen(false);
     setProfileDropdownOpen(false);
+    await signOut();
+    router.push('/login');
   };
 
   return (

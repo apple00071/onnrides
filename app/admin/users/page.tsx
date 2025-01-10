@@ -1,12 +1,13 @@
+import logger from '@/lib/logger';
 'use client';
 
-import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
-import { FaEye } from 'react-icons/fa';
-import { Button } from '@/components/ui/button';
+
+
+
+
 import UserDetailsModal from './components/UserDetailsModal';
-import { User } from './types';
-import { Loader2 } from 'lucide-react';
+
+
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -18,14 +19,10 @@ export default function UsersPage() {
     fetchUsers();
   }, []);
 
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/admin/users', {
-        credentials: 'include'
-      });
+  
       
-      const data = await response.json();
+      
+      
       
       if (!response.ok) {
         throw new Error(data.message || 'Failed to fetch users');
@@ -33,24 +30,18 @@ export default function UsersPage() {
       
       setUsers(data.users);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      logger.error('Error fetching users:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to fetch users');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleViewUser = (user: User) => {
-    setSelectedUser(user);
+  
     setIsModalOpen(true);
   };
 
-  const handleUserUpdated = (updatedUser: User) => {
-    setUsers(prevUsers => 
-      prevUsers.map(user => 
-        user.id === updatedUser.id ? updatedUser : user
-      )
-    );
+  
     setSelectedUser(updatedUser);
   };
 

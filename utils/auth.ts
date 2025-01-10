@@ -1,5 +1,5 @@
-import { User } from '@/providers/AuthProvider'
-import { redirect } from 'next/navigation'
+
+
 
 export const handleBookingRedirect = (user: User | null) => {
   if (!user) {

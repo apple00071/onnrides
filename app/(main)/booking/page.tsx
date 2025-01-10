@@ -1,127 +1,117 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { toast } from 'react-hot-toast'
-import Image from 'next/image'
-import { differenceInMinutes } from 'date-fns'
+import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
+import Image from 'next/image';
 
 interface Vehicle {
-  id: string
-  name: string
-  type: 'bike' | 'car'
-  price_per_day: number
-  image_url: string
-  location: string
-  transmission?: string
-  fuel_type?: string
-  mileage?: string
-  seating_capacity?: number
+  id: string;
+  name: string;
+  type: 'bike' | 'car';
+  price_per_day: number;
+  image_url: string;
+  location: string;
+  transmission?: string;
+  fuel_type?: string;
+  mileage?: string;
+  seating_capacity?: number;
 }
 
 export default function BookingPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [loading, setLoading] = useState(true)
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null)
-  const [couponCode, setCouponCode] = useState('')
-
-  const vehicleId = searchParams.get('vehicleId')
-  const pickupDateTime = searchParams.get('pickup')
-  const dropoffDateTime = searchParams.get('dropoff')
-  const location = searchParams.get('location')
-
-  const fetchVehicle = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/vehicles/${vehicleId}`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch vehicle')
-      }
-      
-      const vehicle = await response.json()
-      if (!vehicle) {
-        toast.error('Vehicle not found')
-        router.push('/')
-        return
-      }
-
-      setVehicle(vehicle)
-    } catch (error) {
-      toast.error('Failed to load vehicle details')
-    } finally {
-      setLoading(false)
-    }
-  }, [vehicleId, router])
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [couponCode, setCouponCode] = useState('');
+  const [pickupDateTime, setPickupDateTime] = useState<string | null>(searchParams.get('pickup'));
+  const [dropoffDateTime, setDropoffDateTime] = useState<string | null>(searchParams.get('dropoff'));
+  const [locationDetails, setLocationDetails] = useState({ main: '', sub: '' });
 
   useEffect(() => {
-    if (!vehicleId || !pickupDateTime || !dropoffDateTime || !location) {
-      toast.error('Missing required booking information')
-      router.push('/')
-      return
-    }
+    const fetchVehicle = async () => {
+      try {
+        const response = await fetch(`/api/vehicles/${searchParams.get('vehicleId')}`);
+        if (!response.ok) {
+          throw new Error('Vehicle not found');
+        }
+        const data = await response.json();
+        setVehicle(data);
+        setLocationDetails({
+          main: data.location,
+          sub: data.address || ''
+        });
+      } catch (error) {
+        toast.error('Failed to load vehicle details');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    fetchVehicle()
-  }, [vehicleId, pickupDateTime, dropoffDateTime, location, router, fetchVehicle])
+    if (searchParams.get('vehicleId')) {
+      fetchVehicle();
+    }
+  }, [searchParams]);
 
   const calculateTotalAmount = () => {
-    if (!vehicle || !pickupDateTime || !dropoffDateTime) return 0
+    if (!vehicle || !pickupDateTime || !dropoffDateTime) return 0;
     
-    const totalMinutes = differenceInMinutes(new Date(dropoffDateTime), new Date(pickupDateTime))
-    const totalDays = totalMinutes / (24 * 60)
-    return Math.round(vehicle.price_per_day * totalDays)
-  }
+    const start = new Date(pickupDateTime);
+    const end = new Date(dropoffDateTime);
+    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    return vehicle.price_per_day * days;
+  };
 
   const calculateTax = (amount: number) => {
-    return amount * 0.28 // 28% GST
-  }
+    return amount * 0.18; // 18% GST
+  };
 
-  const handleMakePayment = () => {
-    // TODO: Implement payment logic
-    toast.success('Payment functionality coming soon!')
-  }
+  const handleMakePayment = async () => {
+    try {
+      const response = await fetch('/api/payments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          vehicleId: vehicle?.id,
+          pickupDateTime,
+          dropoffDateTime,
+          amount: totalAmount,
+          couponCode
+        })
+      });
 
-  const getLocationAddress = (location: string) => {
-    switch (location) {
-    case 'Madhapur':
-      return {
-        main: '1173, Ayyappa Society Main Rd, Ayyappa Society, Mega Hills, Madhapur',
-        sub: 'Ayyappa Society Main Rd, Madhapur, Hyderabad'
+      if (!response.ok) {
+        throw new Error('Failed to initiate payment');
       }
-    case 'Eragadda':
-      return {
-        main: 'Erragadda metro station R S hotel erragadda metro station',
-        sub: 'Erragadda, Hyderabad'
-      }
-    default:
-      return {
-        main: location,
-        sub: 'Hyderabad'
-      }
+
+      const data = await response.json();
+      window.location.href = data.paymentUrl;
+    } catch (error) {
+      toast.error('Failed to initiate payment');
     }
-  }
-
-  const locationDetails = getLocationAddress(location || '')
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#f26e24]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
       </div>
-    )
+    );
   }
 
   if (!vehicle) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-2xl font-semibold text-gray-700">Vehicle not found</h2>
-        <p className="text-gray-500 mt-2">The vehicle you&apos;re looking for doesn&apos;t exist or has been removed.</p>
+        <p className="text-gray-500">The vehicle you're looking for doesn't exist or has been removed.</p>
       </div>
-    )
+    );
   }
 
-  const baseAmount = calculateTotalAmount()
-  const tax = calculateTax(baseAmount)
-  const totalAmount = baseAmount + tax
+  const baseAmount = calculateTotalAmount();
+  const tax = calculateTax(baseAmount);
+  const totalAmount = baseAmount + tax;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -220,5 +210,5 @@ export default function BookingPage() {
         </div>
       </div>
     </div>
-  )
+  );
 } 

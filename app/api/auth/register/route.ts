@@ -1,15 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import logger from '@/lib/logger';
+
 import pool from '@/lib/db';
 import bcrypt from 'bcryptjs';
-import { generateToken } from '@/lib/auth';
 
-export const dynamic = 'force-dynamic';
+
+export 
 
 export async function POST(request: NextRequest) {
   let client;
   
   try {
-    const body = await request.json();
+    
     const { email, password, name, phone } = body;
 
     // Validate input
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
     if (!emailRegex.test(email)) {
       return NextResponse.json(
         { success: false, message: 'Invalid email format' },
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     try {
       client = await pool.connect();
     } catch (dbError) {
-      console.error('Database connection error:', dbError);
+      logger.error('Database connection error:', dbError);
       return NextResponse.json(
         { success: false, message: 'Service temporarily unavailable' },
         { status: 503 }
@@ -52,10 +53,7 @@ export async function POST(request: NextRequest) {
 
     try {
       // Check if email exists
-      const emailCheck = await client.query(
-        'SELECT id FROM users WHERE email = $1',
-        [email]
-      );
+      
 
       if (emailCheck.rows.length > 0) {
         await client.query('ROLLBACK');
@@ -66,19 +64,16 @@ export async function POST(request: NextRequest) {
       }
 
       // Hash password
-      const password_hash = await bcrypt.hash(password, 10);
+      
 
       // Create user account
-      const userResult = await client.query(
-        'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role',
-        [email, password_hash, 'user']
-      );
+      
 
-      const user = userResult.rows[0];
+      
 
       // Split name into first_name and last_name
       const [firstName, ...lastNameParts] = name.trim().split(' ');
-      const lastName = lastNameParts.join(' ');
+      
 
       // Create user profile
       await client.query(
@@ -89,26 +84,10 @@ export async function POST(request: NextRequest) {
       await client.query('COMMIT');
 
       // Generate token
-      const token = await generateToken({ 
-        id: user.id.toString(),
-        email: user.email,
-        role: user.role
-      });
+      
 
       // Create response
-      const response = NextResponse.json(
-        { 
-          success: true, 
-          message: 'Account created successfully',
-          user: {
-            id: user.id,
-            email: user.email,
-            name: name,
-            phone: phone
-          }
-        },
-        { status: 201 }
-      );
+      
 
       // Set cookie
       response.cookies.set('token', token, {
@@ -121,9 +100,9 @@ export async function POST(request: NextRequest) {
       return response;
     } catch (error: any) {
       await client.query('ROLLBACK');
-      console.error('Registration error:', error);
+      logger.error('Registration error:', error);
       
-      // Determine if it's a database constraint violation
+      // Determine if it&apos;s a database constraint violation
       if (error.code === '23505') { // unique_violation
         return NextResponse.json(
           { success: false, message: 'Email already registered' },
@@ -134,7 +113,7 @@ export async function POST(request: NextRequest) {
       throw error; // Re-throw to be caught by outer catch
     }
   } catch (error: any) {
-    console.error('Registration error:', error);
+    logger.error('Registration error:', error);
     return NextResponse.json(
       { 
         success: false, 
@@ -148,7 +127,7 @@ export async function POST(request: NextRequest) {
       try {
         client.release();
       } catch (releaseError) {
-        console.error('Error releasing client:', releaseError);
+        logger.error('Error releasing client:', releaseError);
       }
     }
   }

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { toast } from 'react-hot-toast';
-import { ChevronDownIcon } from '@heroicons/react/24/outline';
+
+
+
+
 
 export default function HeroSection() {
-  const router = useRouter();
+  
   const [pickupDate, setPickupDate] = useState('');
   const [pickupTime, setPickupTime] = useState('');
   const [dropoffDate, setDropoffDate] = useState('');
@@ -14,52 +14,45 @@ export default function HeroSection() {
   const [showTimePicker, setShowTimePicker] = useState<'pickup' | 'dropoff' | null>(null);
 
   // Generate time options with 30-minute intervals
-  const generateTimeOptions = () => {
-    const options = [];
+  
     for (let hour = 0; hour < 24; hour++) {
-      for (let minute of ['00', '30']) {
-        const time = `${hour.toString().padStart(2, '0')}:${minute}`;
+      for (const minute of ['00', '30']) {
+        
         options.push(time);
       }
     }
     return options;
   };
 
-  const timeOptions = generateTimeOptions();
+  
 
-  // Get today's date in YYYY-MM-DD format
-  const today = new Date().toISOString().split('T')[0];
+  // Get today&apos;s date in YYYY-MM-DD format
+  
 
   // Function to check if a datetime is in the past
-  const isInPast = (date: string, time: string) => {
-    const selectedDateTime = new Date(`${date}T${time}`);
-    const now = new Date();
+  
+    
     return selectedDateTime < now;
   };
 
-  const handlePickupTimeChange = (time: string) => {
-    if (pickupDate && isInPast(pickupDate, time)) {
-      toast.error('Cannot select a past time');
+  
       return;
     }
     setPickupTime(time);
     setShowTimePicker(null);
   };
 
-  const handleDropoffTimeChange = (time: string) => {
-    setDropoffTime(time);
+  
     setShowTimePicker(null);
   };
 
-  const handleSearch = () => {
-    if (!pickupDate || !pickupTime || !dropoffDate || !dropoffTime) {
-      toast.error('Please select all date and time fields');
+  
       return;
     }
 
-    const pickupDateTime = new Date(`${pickupDate}T${pickupTime}`);
-    const dropoffDateTime = new Date(`${dropoffDate}T${dropoffTime}`);
-    const now = new Date();
+    
+    
+    
 
     if (pickupDateTime < now) {
       toast.error('Cannot select a past date and time for pickup');

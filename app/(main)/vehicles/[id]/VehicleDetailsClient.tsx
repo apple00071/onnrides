@@ -1,11 +1,12 @@
+import logger from '@/lib/logger';
 'use client';
 
 import VehicleDetails from './VehicleDetails';
-import { Vehicle } from './types';
-import { useAuth } from '@/providers/AuthProvider';
-import { useEffect, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { toast } from 'react-hot-toast';
+
+
+
+
+
 
 type Props = {
   params: {
@@ -16,20 +17,18 @@ type Props = {
 export default function VehicleDetailsClient({ params }: Props) {
   const { user } = useAuth();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const searchParams = useSearchParams();
-  const router = useRouter();
+  
+  
 
   useEffect(() => {
-    const fetchVehicle = async () => {
-      try {
-        const response = await fetch(`/api/vehicles/${params.id}`);
+    
         if (!response.ok) {
           throw new Error('Failed to fetch vehicle');
         }
-        const vehicle = await response.json();
+        
         setVehicle(vehicle);
       } catch (error) {
-        console.error('Error fetching vehicle:', error);
+        logger.error('Error fetching vehicle:', error);
         toast.error('Failed to load vehicle details');
       }
     };
@@ -37,11 +36,10 @@ export default function VehicleDetailsClient({ params }: Props) {
     fetchVehicle();
   }, [params.id]);
 
-  const handleBookNow = async () => {
-    console.log('Current user:', user);
+  
 
     if (!user) {
-      console.log('No user found, redirecting to login');
+      logger.debug('No user found, redirecting to login');
       toast.error('Please login to continue');
       await router.push('/login');
       return;
@@ -49,32 +47,32 @@ export default function VehicleDetailsClient({ params }: Props) {
 
     // Check if documents are verified from the profiles table
     try {
-      const response = await fetch(`/api/users/${user.id}/profile`);
+      
       if (!response.ok) {
         throw new Error('Failed to fetch user profile');
       }
-      const profile = await response.json();
+      
 
-      console.log('Profile data:', profile);
+      logger.debug('Profile data:', profile);
 
       if (!profile?.is_documents_verified) {
-        console.log('Documents not verified, redirecting to profile');
+        logger.debug('Documents not verified, redirecting to profile');
         toast.error('Please verify your documents first');
         await router.push('/profile');
         return;
       }
 
       // If user is logged in and documents are verified, proceed to booking
-      const pickup = searchParams.get('pickup');
-      const dropoff = searchParams.get('dropoff');
-      const location = searchParams.get('location');
+      
+      
+      
 
-      console.log('All checks passed, proceeding to booking');
-      const bookingUrl = `/booking?vehicleId=${params.id}&pickup=${pickup}&dropoff=${dropoff}&location=${location}`;
-      console.log('Redirecting to:', bookingUrl);
+      logger.debug('All checks passed, proceeding to booking');
+      
+      logger.debug('Redirecting to:', bookingUrl);
       await router.push(bookingUrl);
     } catch (error) {
-      console.error('Error checking user profile:', error);
+      logger.error('Error checking user profile:', error);
       toast.error('Failed to verify user documents');
     }
   };

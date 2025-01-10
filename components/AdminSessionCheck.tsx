@@ -1,21 +1,18 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+
+
 import Cookies from 'js-cookie';
 
 export default function AdminSessionCheck() {
-  const router = useRouter();
+  
 
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        // Check session status
-        const sessionResponse = await fetch('/api/admin/session');
+    
         if (!sessionResponse.ok) {
           throw new Error('No valid session');
         }
-        const session = await sessionResponse.json();
+        
         
         if (!session) {
           // No session, redirect to login
@@ -25,11 +22,11 @@ export default function AdminSessionCheck() {
         }
 
         // Verify admin role
-        const profileResponse = await fetch('/api/admin/profile');
+        
         if (!profileResponse.ok) {
           throw new Error('Failed to fetch admin profile');
         }
-        const profile = await profileResponse.json();
+        
 
         if (!profile || profile.role !== 'admin') {
           // Not an admin, clear session and redirect
@@ -46,7 +43,7 @@ export default function AdminSessionCheck() {
 
     // Check session on mount and setup refresh interval
     checkSession();
-    const interval = setInterval(checkSession, 5 * 60 * 1000); // Check every 5 minutes
+     // Check every 5 minutes
 
     return () => clearInterval(interval);
   }, [router]);

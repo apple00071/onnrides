@@ -1,10 +1,11 @@
+import logger from '@/lib/logger';
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+
+
 import Image from 'next/image';
-import { toast } from 'react-hot-toast';
-import { useAuth } from '@/providers/AuthProvider';
+
+
 
 interface Vehicle {
   id: string;
@@ -20,19 +21,18 @@ export default function BookingSummaryPage({ params }: { params: { id: string } 
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [helmets, setHelmets] = useState(1);
-  const searchParams = useSearchParams();
-  const router = useRouter();
+  
+  
   const { user } = useAuth();
 
   // Format time to 12-hour format
-  const formatTime = (dateStr: string | null) => {
-    if (!dateStr) return '';
+  
     try {
-      const date = new Date(dateStr);
-      const hours = date.getHours();
-      const minutes = date.getMinutes();
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const hour12 = hours % 12 || 12;
+      
+      
+      
+      
+      
       return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
     } catch (error) {
       return '';
@@ -40,10 +40,9 @@ export default function BookingSummaryPage({ params }: { params: { id: string } 
   };
 
   // Format date
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '';
+  
     try {
-      const date = new Date(dateStr);
+      
       return date.toLocaleDateString('en-IN', {
         day: '2-digit',
         month: 'short',
@@ -55,43 +54,37 @@ export default function BookingSummaryPage({ params }: { params: { id: string } 
   };
 
   // Calculate rental charges
-  const calculateCharges = () => {
-    if (!vehicle) return { totalAmount: 0 };
+  
 
     try {
-      const pickup = new Date(searchParams.get('pickup') || '');
-      const dropoff = new Date(searchParams.get('dropoff') || '');
+      
+      
       
       if (isNaN(pickup.getTime()) || isNaN(dropoff.getTime())) {
         throw new Error('Invalid dates');
       }
 
       // Calculate total hours
-      const diffInHours = Math.ceil((dropoff.getTime() - pickup.getTime()) / (1000 * 60 * 60));
-      const totalAmount = diffInHours * 20; // ₹20/hr
+      
+       // ₹20/hr
 
       return { totalAmount };
     } catch (error) {
-      console.error('Error calculating charges:', error);
+      logger.error('Error calculating charges:', error);
       return { totalAmount: 0 };
     }
   };
 
   useEffect(() => {
-    const checkUserAndFetchVehicle = async () => {
-      // Redirect to login if user is not authenticated
-      if (!user) {
-        router.push('/login');
+    
         return;
       }
 
-      // Check if user's documents are verified
+      // Check if user&apos;s documents are verified
       try {
-        const profileResponse = await fetch('/api/user/profile', {
-          credentials: 'include'
-        });
+        
         if (!profileResponse.ok) throw new Error('Failed to fetch profile');
-        const profileData = await profileResponse.json();
+        
 
         if (!profileData.is_documents_verified) {
           toast.error('Please verify your documents before booking');
@@ -100,14 +93,12 @@ export default function BookingSummaryPage({ params }: { params: { id: string } 
         }
 
         // Fetch vehicle details
-        const vehicleResponse = await fetch(`/api/vehicles/${params.id}`, {
-          credentials: 'include'
-        });
+        
         if (!vehicleResponse.ok) throw new Error('Failed to fetch vehicle');
-        const vehicleData = await vehicleResponse.json();
+        
         setVehicle(vehicleData);
       } catch (error) {
-        console.error('Error:', error);
+        logger.error('Error:', error);
         toast.error('Failed to load booking details');
       } finally {
         setLoading(false);
@@ -129,13 +120,11 @@ export default function BookingSummaryPage({ params }: { params: { id: string } 
     );
   }
 
-  const pickup = searchParams.get('pickup');
-  const dropoff = searchParams.get('dropoff');
-  const charges = calculateCharges();
+  
+  
+  
 
-  const handlePayment = () => {
-    // Add payment logic here
-    toast.success('Redirecting to payment gateway...');
+  
   };
 
   return (

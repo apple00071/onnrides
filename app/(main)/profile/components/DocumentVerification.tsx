@@ -1,8 +1,9 @@
+import logger from '@/lib/logger';
 'use client';
 
-import { useState } from 'react';
-import { toast } from 'react-hot-toast';
-import { Upload } from 'lucide-react';
+
+
+
 
 interface DocumentVerificationProps {
   isVerified: boolean;
@@ -16,45 +17,29 @@ interface DocumentVerificationProps {
   }>;
 }
 
-const DocumentVerification = ({
-  isVerified,
-  documentsSubmitted,
-  onUpload,
-  onSubmit,
-  documents
-}: DocumentVerificationProps) => {
-  const [uploading, setUploading] = useState(false);
 
-  const documentTypes = [
-    { key: 'dl_front', label: 'Driving License (Front)' },
-    { key: 'dl_back', label: 'Driving License (Back)' },
-    { key: 'aadhar_front', label: 'Aadhar Card (Front)' },
-    { key: 'aadhar_back', label: 'Aadhar Card (Back)' }
-  ];
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
-    const file = e.target.files?.[0];
+  
+
+  
     if (!file) return;
 
     try {
       setUploading(true);
       await onUpload(type, file);
     } catch (error) {
-      console.error('Error uploading file:', error);
+      logger.error('Error uploading file:', error);
       toast.error('Failed to upload file');
     } finally {
       setUploading(false);
     }
   };
 
-  const getDocumentStatus = (type: string) => {
-    const doc = documents.find(d => d.document_type === type);
+  
     return doc?.status || 'not_uploaded';
   };
 
-  const allDocumentsUploaded = documentTypes.every(
-    type => documents.some(doc => doc.document_type === type.key)
-  );
+  
 
   return (
     <div className="bg-white rounded-lg shadow p-6 mt-6">
@@ -80,8 +65,8 @@ const DocumentVerification = ({
 
       <div className="space-y-4">
         {documentTypes.map(({ key, label }) => {
-          const status = getDocumentStatus(key);
-          const isUploaded = status !== 'not_uploaded';
+          
+          
 
           return (
             <div key={key} className="border rounded-lg p-4">

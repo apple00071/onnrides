@@ -1,14 +1,42 @@
 {
   "extends": [
-    "next",
-    "next/core-web-vitals"
+    "next/core-web-vitals",
+    "plugin:@typescript-eslint/recommended"
   ],
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
   "rules": {
     "indent": ["error", 2],
     "semi": "off",
     "quotes": ["error", "single"],
-    "no-unused-vars": "warn",
-    "no-console": "warn",
-    "react/no-unescaped-entities": "off"
-  }
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": ["warn", {
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^_",
+      "ignoreRestSiblings": true
+    }],
+    "no-console": ["error", {
+      "allow": ["warn", "error"]
+    }],
+    "@next/next/no-img-element": "warn",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-var-requires": "off",
+    "react/no-unescaped-entities": "off",
+    "@typescript-eslint/no-this-alias": "off"
+  },
+  "overrides": [
+    {
+      "files": ["scripts/**/*"],
+      "rules": {
+        "@typescript-eslint/no-var-requires": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    ".next/**/*",
+    "node_modules/**/*",
+    "build/**/*",
+    "dist/**/*",
+    "coverage/**/*"
+  ]
 } 

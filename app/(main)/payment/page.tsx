@@ -1,7 +1,8 @@
+import logger from '@/lib/logger';
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+
+
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 
@@ -17,16 +18,16 @@ interface BookingDetails {
 }
 
 export default function PaymentPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  
+  
   const [loading, setLoading] = useState(true);
   const [qrCode, setQrCode] = useState<string>('');
   const [paymentRef, setPaymentRef] = useState<string>('');
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
 
   useEffect(() => {
-    const bookingId = searchParams.get('bookingId');
-    const amount = searchParams.get('amount');
+    
+    
 
     if (!bookingId || !amount) {
       toast.error('Invalid payment details');
@@ -34,18 +35,11 @@ export default function PaymentPage() {
       return;
     }
 
-    const initiatePayment = async () => {
-      try {
-        console.log('Initiating payment for booking:', bookingId);
-        const response = await fetch('http://localhost:3001/api/payments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId, amount: parseFloat(amount) }),
-          credentials: 'include'
-        });
+    
+        
 
-        const data = await response.json();
-        console.log('Payment initiation response:', data);
+        
+        logger.debug('Payment initiation response:', data);
 
         if (!response.ok) {
           throw new Error(data.error || 'Failed to initiate payment');
@@ -59,7 +53,7 @@ export default function PaymentPage() {
         setPaymentRef(data.paymentRef);
         setBookingDetails(data.bookingDetails);
       } catch (error) {
-        console.error('Payment initiation error:', error);
+        logger.error('Payment initiation error:', error);
         toast.error('Failed to generate payment QR code');
         router.push('/bookings');
       } finally {
@@ -70,17 +64,10 @@ export default function PaymentPage() {
     initiatePayment();
   }, [searchParams, router]);
 
-  const handlePaymentConfirmation = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('http://localhost:3001/api/payments/success', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentRef }),
-        credentials: 'include'
-      });
+  
+      
 
-      const data = await response.json();
+      
       if (!response.ok) {
         throw new Error(data.error || 'Failed to confirm payment');
       }
@@ -89,7 +76,7 @@ export default function PaymentPage() {
       router.push(`/bookings?success=true&bookingNumber=${data.bookingNumber}`);
     } catch (error) {
       toast.error('Failed to confirm payment');
-      console.error('Payment confirmation error:', error);
+      logger.error('Payment confirmation error:', error);
     } finally {
       setLoading(false);
     }

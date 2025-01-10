@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useAuth } from '@/providers/AuthProvider'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { toast } from 'react-hot-toast'
+
+
+
+
 import Image from 'next/image'
 
 interface BookingDetails {

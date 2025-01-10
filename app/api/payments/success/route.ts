@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import logger from '@/lib/logger';
+
 import pool from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+
 
 export async function POST(request: NextRequest) {
   try {
     // Check if user is authenticated
-    const user = await getCurrentUser(request.cookies);
+    
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -18,16 +19,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const client = await pool.connect();
+    
     try {
       // Start transaction
       await client.query('BEGIN');
 
       // Get booking by payment reference
-      const bookingResult = await client.query(`
-        SELECT * FROM bookings 
-        WHERE payment_reference = $1 AND user_id = $2
-      `, [paymentRef, user.id]);
+      
 
       if (bookingResult.rowCount === 0) {
         return NextResponse.json(
@@ -36,15 +34,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const booking = bookingResult.rows[0];
+      
 
       // Generate booking ID (format: B-YYYYMMDD-XXXXX)
-      const date = new Date();
-      const dateStr = date.getFullYear().toString() +
-        (date.getMonth() + 1).toString().padStart(2, '0') +
-        date.getDate().toString().padStart(2, '0');
-      const randomStr = Math.random().toString(36).substring(2, 7).toUpperCase();
-      const bookingNumber = `B-${dateStr}-${randomStr}`;
+      
+      
+      
+      
 
       // Update booking status and add booking number
       await client.query(`
@@ -72,7 +68,7 @@ export async function POST(request: NextRequest) {
       client.release();
     }
   } catch (error) {
-    console.error('Error processing payment success:', error);
+    logger.error('Error processing payment success:', error);
     return NextResponse.json(
       { error: 'Failed to process payment success' },
       { status: 500 }

@@ -1,10 +1,11 @@
+import logger from '@/lib/logger';
 'use client'
 
-import { useState, useEffect } from 'react'
+
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/providers/AuthProvider'
+
+
 import toast from 'react-hot-toast'
 
 export default function Navbar() {
@@ -18,7 +19,7 @@ export default function Navbar() {
       toast.success('Logged out successfully')
       router.push('/login')
     } catch (error) {
-      console.error('Logout error:', error)
+      logger.error('Logout error:', error)
       toast.error('Failed to logout')
     }
   }

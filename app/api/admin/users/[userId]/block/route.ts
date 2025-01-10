@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import logger from '@/lib/logger';
+
 import pool from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+
 
 export async function PATCH(
   request: NextRequest,
@@ -8,9 +9,9 @@ export async function PATCH(
 ) {
   try {
     // Check if user is authenticated and is an admin
-    const currentUser = await getCurrentUser(request.cookies);
+    
     if (!currentUser || currentUser.role !== 'admin') {
-      console.log('Unauthorized block/unblock attempt');
+      logger.debug('Unauthorized block/unblock attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -22,8 +23,8 @@ export async function PATCH(
       );
     }
 
-    const data = await request.json();
-    const isBlocked = data.isBlocked;
+    
+    
 
     if (typeof isBlocked !== 'boolean') {
       return NextResponse.json(
@@ -32,16 +33,13 @@ export async function PATCH(
       );
     }
 
-    const client = await pool.connect();
+    
     try {
       // Start transaction
       await client.query('BEGIN');
 
-      // Update user's blocked status
-      const updateResult = await client.query(
-        'UPDATE profiles SET is_blocked = $1 WHERE user_id = $2 RETURNING *',
-        [isBlocked, userId]
-      );
+      // Update user&apos;s blocked status
+      
 
       if (updateResult.rowCount === 0) {
         await client.query('ROLLBACK');
@@ -76,7 +74,7 @@ export async function PATCH(
       // Commit transaction
       await client.query('COMMIT');
 
-      console.log(`Successfully ${isBlocked ? 'blocked' : 'unblocked'} user ${userId}`);
+      logger.debug(`Successfully ${isBlocked ? 'blocked' : 'unblocked'} user ${userId}`);
       return NextResponse.json({
         message: `User successfully ${isBlocked ? 'blocked' : 'unblocked'}`,
         user: updateResult.rows[0]
@@ -89,7 +87,7 @@ export async function PATCH(
       client.release();
     }
   } catch (error) {
-    console.error('Error updating user block status:', error);
+    logger.error('Error updating user block status:', error);
     return NextResponse.json(
       { error: 'Failed to update user block status' },
       { status: 500 }

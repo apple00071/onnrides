@@ -1,8 +1,9 @@
+import logger from '@/lib/logger';
 'use client'
 
-import { createContext, useContext, useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { toast } from 'react-hot-toast'
+
+
+
 
 export interface User {
   id: number
@@ -38,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function checkUser() {
     try {
-      console.log('Checking user session...')
+      logger.debug('Checking user session...')
       const response = await fetch('/api/auth/me', {
         method: 'GET',
         headers: {
@@ -49,21 +50,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!response.ok) {
         const data = await response.json()
-        console.log('Session check failed:', data)
+        logger.debug('Session check failed:', data)
         setUser(null)
         return
       }
 
       const data = await response.json()
       if (data.user) {
-        console.log('User session found:', data.user)
+        logger.debug('User session found:', data.user)
         setUser(data.user)
       } else {
-        console.log('No user session found')
+        logger.debug('No user session found')
         setUser(null)
       }
     } catch (error) {
-      console.error('Error checking user session:', error)
+      logger.error('Error checking user session:', error)
       setUser(null)
     } finally {
       setLoading(false)
@@ -104,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: true, isAdmin: false }
       }
     } catch (error) {
-      console.error('Sign in error:', error)
+      logger.error('Sign in error:', error)
       const message = error instanceof Error ? error.message : 'Login failed'
       toast.error(message)
       return { success: false, message }
@@ -131,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       toast.success('Registration successful! Please login.')
       return { success: true, message: 'Registration successful' }
     } catch (error) {
-      console.error('Sign up error:', error)
+      logger.error('Sign up error:', error)
       const message = error instanceof Error ? error.message : 'Registration failed'
       toast.error(message)
       return { success: false, message }
@@ -147,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null)
       router.push('/login')
     } catch (error) {
-      console.error('Sign out error:', error)
+      logger.error('Sign out error:', error)
       toast.error('Failed to sign out')
     }
   }

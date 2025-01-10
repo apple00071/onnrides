@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import logger from '@/lib/logger';
 
-export const dynamic = 'force-dynamic';
+
+
+export 
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request.cookies);
+    
     
     if (!user) {
-      console.log('No authenticated user found');
+      logger.debug('No authenticated user found');
       return NextResponse.json(
         { message: 'Not authenticated', error: 'No valid session found' },
         { status: 401 }
@@ -24,8 +25,8 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Auth check error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    logger.error('Auth check error:', error);
+    
     return NextResponse.json(
       { 
         message: 'Failed to check authentication',

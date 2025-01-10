@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 interface Booking {
@@ -18,28 +18,29 @@ interface Booking {
 }
 
 export default function BookingsPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const success = searchParams.get('success');
+  const bookingNumber = searchParams.get('booking_number');
+  
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const success = searchParams.get('success');
-    const bookingNumber = searchParams.get('bookingNumber');
+    // Show success message if booking was just completed
     if (success && bookingNumber) {
       toast.success(`Booking confirmed! Your booking number is ${bookingNumber}`);
     }
-  }, [searchParams]);
+  }, [success, bookingNumber]);
 
   useEffect(() => {
     const fetchBookings = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/bookings', {
-          credentials: 'include'
-        });
+        const response = await fetch('/api/user/bookings');
+        
         if (!response.ok) {
           throw new Error('Failed to fetch bookings');
         }
+        
         const data = await response.json();
         setBookings(data);
       } catch (error) {
@@ -52,8 +53,25 @@ export default function BookingsPage() {
     fetchBookings();
   }, []);
 
-  const handleMakePayment = (booking: Booking) => {
-    router.push(`/payment?bookingId=${booking.id}&amount=${booking.total_amount}`);
+  const handleMakePayment = async (booking: Booking) => {
+    try {
+      const response = await fetch('/api/payments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ bookingId: booking.id }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to initiate payment');
+      }
+
+      const data = await response.json();
+      window.location.href = data.paymentUrl;
+    } catch (error) {
+      toast.error('Failed to initiate payment');
+    }
   };
 
   if (loading) {

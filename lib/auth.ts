@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import logger from '@/lib/logger';
+
 import bcrypt from 'bcryptjs'
-import { SignJWT, jwtVerify } from 'jose'
+
 import pool from './db'
-import { RequestCookies } from 'next/dist/server/web/spec-extension/cookies'
+
 
 // Get JWT secret from environment variable
 const JWT_SECRET = process.env.JWT_SECRET
@@ -25,7 +26,7 @@ export interface UserJwtPayload {
   id: string | number
   email: string
   role: string
-  [key: string]: any  // Add index signature for JWT compatibility
+  [key: string]: unknown  // Add index signature for JWT compatibility
 }
 
 interface TokenPayload {
@@ -58,7 +59,7 @@ export async function verifyToken(token: string): Promise<TokenPayload> {
       role: payload.role as string
     }
   } catch (error) {
-    console.error('Token verification error:', error)
+    logger.error('Token verification error:', error)
     throw new Error('Invalid token')
   }
 }
@@ -163,13 +164,13 @@ export async function getCurrentUser(cookies: RequestCookies): Promise<UserJwtPa
   try {
     const token = await getTokenFromCookies(cookies)
     if (!token) {
-      console.log('No token found in cookies')
+      logger.debug('No token found in cookies')
       return null
     }
 
     const decoded = await verifyToken(token)
     if (!decoded) {
-      console.log('Token verification failed')
+      logger.debug('Token verification failed')
       return null
     }
     
@@ -201,7 +202,7 @@ export async function getCurrentUser(cookies: RequestCookies): Promise<UserJwtPa
         isDocumentsVerified: result.rows[0]?.is_documents_verified || false
       }
     } catch (dbError) {
-      console.error('Database error in getCurrentUser:', dbError)
+      logger.error('Database error in getCurrentUser:', dbError)
       // Return user data without document verification status
       return {
         ...decoded,
@@ -211,7 +212,7 @@ export async function getCurrentUser(cookies: RequestCookies): Promise<UserJwtPa
       client.release()
     }
   } catch (error) {
-    console.error('Error in getCurrentUser:', error)
+    logger.error('Error in getCurrentUser:', error)
     return null
   }
 }
@@ -274,7 +275,7 @@ export async function getCurrentUserWithProfile(cookies: RequestCookies): Promis
       client.release()
     }
   } catch (error) {
-    console.error('Error getting user profile:', error)
+    logger.error('Error getting user profile:', error)
     return null
   }
 } 

@@ -1,8 +1,9 @@
+import logger from '@/lib/logger';
 'use client';
 
-import { useEffect, useState } from 'react';
-import { toast } from 'react-hot-toast';
-import { format } from 'date-fns';
+
+
+
 
 interface Booking {
   id: string;
@@ -31,31 +32,21 @@ export default function BookingsPage() {
     fetchBookings();
   }, []);
 
-  const fetchBookings = async () => {
-    try {
-      const response = await fetch('/api/admin/bookings');
+  
       if (!response.ok) {
         throw new Error('Failed to fetch bookings');
       }
-      const data = await response.json();
+      
       setBookings(data);
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error('Failed to fetch bookings');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateStatus = async (bookingId: string, newStatus: string) => {
-    try {
-      const response = await fetch(`/api/admin/bookings/${bookingId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
+  
 
       if (!response.ok) {
         throw new Error('Failed to update booking status');
@@ -64,7 +55,7 @@ export default function BookingsPage() {
       toast.success('Booking status updated successfully');
       fetchBookings(); // Refresh the list
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error('Failed to update booking status');
     }
   };

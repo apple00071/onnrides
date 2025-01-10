@@ -1,18 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth';
+import logger from '@/lib/logger';
+
+
+
 import pool from '@/lib/db';
-import { uploadToBlob } from '@/lib/blob';
+
 
 // Use the new route segment config format
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+export 
+export 
 
 export async function POST(request: NextRequest) {
-  const client = await pool.connect();
+  
   try {
     // Get user from token
-    const token = cookies().get('token')?.value;
+    
     if (!token) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await verifyToken(token);
+    
     if (!user?.id) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -28,9 +29,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const type = formData.get('type') as string;
+    
+    
+    
 
     if (!file || !type) {
       return NextResponse.json(
@@ -40,18 +41,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload file to Blob Storage
-    const filename = `${user.id}-${type}-${Date.now()}-${file.name}`;
-    const fileUrl = await uploadToBlob(file, filename);
+    
+    
 
     // Start transaction
     await client.query('BEGIN');
 
     // Check if document of this type already exists
-    const existingDoc = await client.query(
-      `SELECT id, document_url FROM document_submissions 
-       WHERE user_id = $1 AND document_type = $2`,
-      [user.id, type]
-    );
+    
 
     let result;
     if (existingDoc.rows.length > 0) {
@@ -81,7 +78,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Error uploading document:', error);
+    logger.error('Error uploading document:', error);
     return NextResponse.json(
       { message: error instanceof Error ? error.message : 'Failed to upload document' },
       { status: 500 }

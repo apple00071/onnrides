@@ -1,62 +1,37 @@
+import logger from '@/lib/logger';
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { toast } from 'react-hot-toast';
-import {
-  HomeIcon,
-  UsersIcon,
-  TruckIcon,
-  CalendarIcon,
-  DocumentTextIcon,
-  ChartBarIcon,
-  BellIcon,
-  UserCircleIcon,
-  Bars3Icon,
-  XMarkIcon,
-  ArrowLeftOnRectangleIcon
-} from '@heroicons/react/24/outline';
+
+
+
+
 
 export default function AdminDashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const router = useRouter();
+  
+  
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const sidebarItems = [
-    { name: 'Dashboard', href: '/admin', icon: HomeIcon },
-    { name: 'Vehicles', href: '/admin/vehicles', icon: TruckIcon },
-    { name: 'Users', href: '/admin/users', icon: UsersIcon },
-    { name: 'Bookings', href: '/admin/bookings', icon: CalendarIcon },
-    { name: 'Documents', href: '/admin/documents', icon: DocumentTextIcon },
-    { name: 'Reports', href: '/admin/reports', icon: ChartBarIcon },
-  ];
+  
 
-  const currentPage = sidebarItems.find(item => item.href === pathname);
+  
 
-  const handleSignOut = async () => {
-    try {
-      const response = await fetch('/api/auth/admin/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+  
 
       if (response.ok) {
         toast.success('Logged out successfully');
         router.push('/admin/login');
         router.refresh();
       } else {
-        const data = await response.json();
+        
         throw new Error(data.error || 'Failed to logout');
       }
     } catch (error) {
-      console.error('Error signing out:', error);
+      logger.error('Error signing out:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to logout');
     }
   };
@@ -98,7 +73,7 @@ export default function AdminDashboardLayout({
           </div>
           <nav className="flex-1 mt-6 px-3 space-y-1">
             {sidebarItems.map((item) => {
-              const isActive = pathname === item.href;
+              
               return (
                 <Link
                   key={item.name}
@@ -147,7 +122,7 @@ export default function AdminDashboardLayout({
           </div>
           <nav className="flex-1 mt-6 px-3 space-y-1">
             {sidebarItems.map((item) => {
-              const isActive = pathname === item.href;
+              
               return (
                 <Link
                   key={item.name}

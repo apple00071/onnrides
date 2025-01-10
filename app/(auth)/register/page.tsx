@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
-import { toast } from 'react-hot-toast'
+import { useState, FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 import Image from 'next/image'
 import Link from 'next/link'
 

@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import logger from '@/lib/logger';
 
-export const dynamic = 'force-dynamic';
+import pool from '@/lib/db';
+
+
+export 
 
 export async function GET(request: NextRequest) {
-  const client = await pool.connect();
+  
   try {
     // Check if user is authenticated
-    const currentUser = await getCurrentUser(request.cookies);
+    
     if (!currentUser) {
       return NextResponse.json(
         { message: 'Authentication required' },
@@ -17,8 +18,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Get query parameters
-    const url = new URL(request.url);
-    const status = url.searchParams.get('status');
+    
+    
 
     // Build the query
     let query = `
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
       JOIN vehicles v ON b.vehicle_id = v.id
       WHERE b.user_id = $1
     `;
-    const params: any[] = [currentUser.id];
+    const params: unknown[] = [currentUser.id];
 
     if (status) {
       query += ' AND b.status = $2';
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     query += ' ORDER BY b.created_at DESC';
 
-    const result = await client.query(query, params);
+    
 
     return NextResponse.json({
       bookings: result.rows.map(booking => ({
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
       }))
     });
   } catch (error) {
-    console.error('Failed to fetch bookings:', error);
+    logger.error('Failed to fetch bookings:', error);
     return NextResponse.json(
       { message: 'Failed to fetch bookings. Please try again.' },
       { status: 500 }

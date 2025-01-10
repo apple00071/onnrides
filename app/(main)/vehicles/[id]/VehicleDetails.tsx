@@ -1,16 +1,17 @@
+import logger from '@/lib/logger';
 'use client';
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+
+
 import Image from 'next/image';
-import { toast } from 'react-hot-toast';
-import { VehicleDetailsProps } from './types';
-import { useAuth } from '@/providers/AuthProvider';
+
+
+
 
 export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
   const { user } = useAuth();
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  
+  
   const [bookingDetails, setBookingDetails] = useState({
     pickupDate: '',
     dropoffDate: '',
@@ -18,10 +19,7 @@ export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
     dropoffTime: ''
   });
 
-  const handleBook = async () => {
-    // First check if user is logged in
-    if (!user) {
-      router.push('/login');
+  
       return;
     }
 
@@ -33,9 +31,9 @@ export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
     }
 
     // Get the booking details from URL params
-    const pickup = searchParams.get('pickup');
-    const dropoff = searchParams.get('dropoff');
-    const location = searchParams.get('location');
+    
+    
+    
 
     if (!pickup || !dropoff || !location) {
       toast.error('Please select pickup and drop-off dates and times');
@@ -44,10 +42,10 @@ export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
 
     try {
       // If all checks pass, proceed to booking
-      const bookingUrl = `/booking?vehicleId=${vehicle.id}&pickup=${pickup}&dropoff=${dropoff}&location=${location}`;
+      
       router.push(bookingUrl);
     } catch (error) {
-      console.error('Booking error:', error);
+      logger.error('Booking error:', error);
       toast.error('Something went wrong. Please try again.');
     }
   };

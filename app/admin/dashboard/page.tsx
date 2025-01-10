@@ -1,14 +1,10 @@
+import logger from '@/lib/logger';
 'use client';
 
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
-import {
-  UsersIcon,
-  CurrencyRupeeIcon,
-  TruckIcon,
-  DocumentTextIcon
-} from '@heroicons/react/24/outline';
+import { UsersIcon, CurrencyRupeeIcon, TruckIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 
 interface DashboardStats {
   total_users: number;
@@ -41,13 +37,15 @@ export default function DashboardPage() {
   const fetchStats = async () => {
     try {
       const response = await fetch('/api/admin/dashboard');
+      
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard stats');
       }
+      
       const data = await response.json();
       setStats(data);
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error('Failed to fetch dashboard stats');
     } finally {
       setLoading(false);

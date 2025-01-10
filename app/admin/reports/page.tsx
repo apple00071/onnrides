@@ -1,8 +1,9 @@
+import logger from '@/lib/logger';
 'use client';
 
-import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
-import { format } from 'date-fns';
+
+
+
 
 interface Report {
   id: string;
@@ -19,16 +20,14 @@ export default function ReportsPage() {
     fetchReports();
   }, []);
 
-  const fetchReports = async () => {
-    try {
-      const response = await fetch('/api/admin/reports');
+  
       if (!response.ok) {
         throw new Error('Failed to fetch reports');
       }
-      const data = await response.json();
+      
       setReports(data);
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error('Failed to fetch reports');
     } finally {
       setLoading(false);

@@ -1,6 +1,7 @@
+import logger from '@/lib/logger';
 require('dotenv').config();
-import { Pool, QueryResult } from 'pg';
-const pool = require('@/lib/db').default;
+
+
 
 interface Column {
   column_name: string;
@@ -22,9 +23,9 @@ interface Index {
 }
 
 async function checkTables() {
-  const client = await pool.connect();
+  
   try {
-    console.log('Checking database tables...\n');
+    logger.debug('Checking database tables...\n');
 
     // Get all tables
     const tables: QueryResult<{ tablename: string }> = await client.query(`
@@ -34,8 +35,8 @@ async function checkTables() {
     `);
 
     for (const table of tables.rows) {
-      const tableName = table.tablename;
-      console.log(`\n📋 Checking table: ${tableName}`);
+      
+      logger.debug(`\n📋 Checking table: ${tableName}`);
 
       // Get columns for each table
       const columns: QueryResult<Column> = await client.query(`
@@ -69,12 +70,12 @@ async function checkTables() {
 
       // Print column details
       columns.rows.forEach((column: Column) => {
-        const fk = foreignKeys.rows.find((fk: ForeignKey) => fk.column_name === column.column_name);
-        const nullable = column.is_nullable === 'YES' ? 'NULL' : 'NOT NULL';
-        const defaultVal = column.column_default ? `DEFAULT ${column.column_default}` : '';
-        const fkInfo = fk ? ` -> References ${fk.foreign_table_name}(${fk.foreign_column_name})` : '';
         
-        console.log(`  ├─ ${column.column_name}: ${column.data_type}${
+        
+        
+        
+        
+        logger.debug(`  ├─ ${column.column_name}: ${column.data_type}${
           column.character_maximum_length ? `(${column.character_maximum_length})` : ''
         } ${nullable} ${defaultVal}${fkInfo}`);
       });
@@ -87,16 +88,16 @@ async function checkTables() {
       `, [tableName]);
 
       if (indexes.rows.length > 0) {
-        console.log('\n  Indexes:');
+        logger.debug('\n  Indexes:');
         indexes.rows.forEach((index: Index) => {
-          console.log(`  └─ ${index.indexname}`);
+          logger.debug(`  └─ ${index.indexname}`);
         });
       }
     }
 
-    console.log('\n✅ Database schema check completed successfully!');
+    logger.debug('\n✅ Database schema check completed successfully!');
   } catch (error) {
-    console.error('Error checking tables:', error);
+    logger.error('Error checking tables:', error);
     throw error;
   } finally {
     client.release();
@@ -105,6 +106,6 @@ async function checkTables() {
 
 checkTables()
   .catch((err) => {
-    console.error('Failed to check tables:', err);
+    logger.error('Failed to check tables:', err);
     process.exit(1);
   }); 

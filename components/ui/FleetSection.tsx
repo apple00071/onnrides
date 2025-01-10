@@ -2,32 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 export default function FleetSection() {
-  const fleetCategories = [
-    {
-      title: 'Premium Bikes',
-      image: '/bikes/premium.jpg',
-      description: 'High-performance bikes for the ultimate riding experience',
-      vehicles: ['Royal Enfield Classic 350', 'Harley Davidson Street 750']
-    },
-    {
-      title: 'Sports Bikes',
-      image: '/bikes/sports.jpg',
-      description: 'Sleek and fast bikes for thrill-seekers',
-      vehicles: ['KTM Duke 390', 'Yamaha R15']
-    },
-    {
-      title: 'Scooters',
-      image: '/bikes/scooter.jpg',
-      description: 'Comfortable and efficient rides for city commuting',
-      vehicles: ['Honda Activa', 'TVS Jupiter']
-    },
-    {
-      title: 'Luxury Cars',
-      image: '/cars/luxury.jpg',
-      description: 'Premium cars for special occasions',
-      vehicles: ['Mercedes C-Class', 'BMW 3 Series']
-    }
-  ];
+  
 
   return (
     <section className="py-16">

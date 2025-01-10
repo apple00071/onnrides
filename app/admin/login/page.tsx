@@ -3,6 +3,7 @@
 import { useState, FormEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
+import logger from '@/lib/logger';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -17,7 +18,7 @@ export default function AdminLoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/admin/login', {
+      const response = await fetch('/api/auth/admin/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -26,14 +27,14 @@ export default function AdminLoginPage() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to login');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to login');
       }
 
       toast.success('Login successful');
       router.push('/admin/dashboard');
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error('Login error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to login');
     } finally {
       setIsLoading(false);

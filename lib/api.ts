@@ -1,3 +1,4 @@
+import logger from '@/lib/logger';
 // Types for bookings
 export interface Booking {
   id: string;
@@ -24,17 +25,17 @@ export interface Vehicle {
 }
 
 // Mock local storage key
-const BOOKINGS_STORAGE_KEY = 'userBookings';
+
 
 // Mock local storage key for vehicles
-const VEHICLES_STORAGE_KEY = 'userVehicles';
+
 
 // Generate a unique ID
 function generateId(): string {
   return Math.random().toString(36).substr(2, 9);
 }
 
-// Check if we're in a browser environment
+// Check if we&apos;re in a browser environment
 function isBrowser(): boolean {
   return typeof window !== 'undefined';
 }
@@ -44,7 +45,7 @@ export function getBookings(userId?: string): Booking[] {
   if (!isBrowser()) return [];
 
   try {
-    const storedBookings = localStorage.getItem(BOOKINGS_STORAGE_KEY);
+    
     const bookings: Booking[] = storedBookings 
       ? JSON.parse(storedBookings) 
       : [];
@@ -54,7 +55,7 @@ export function getBookings(userId?: string): Booking[] {
       ? bookings.filter(booking => booking.user_id === userId)
       : bookings;
   } catch (error) {
-    console.error('Error fetching bookings:', error);
+    logger.error('Error fetching bookings:', error);
     return [];
   }
 }
@@ -64,7 +65,7 @@ export function createBooking(bookingData: Omit<Booking, 'id' | 'created_at'>): 
   if (!isBrowser()) throw new Error('Booking can only be created in a browser');
 
   try {
-    const storedBookings = localStorage.getItem(BOOKINGS_STORAGE_KEY);
+    
     const bookings: Booking[] = storedBookings 
       ? JSON.parse(storedBookings) 
       : [];
@@ -80,7 +81,7 @@ export function createBooking(bookingData: Omit<Booking, 'id' | 'created_at'>): 
 
     return newBooking;
   } catch (error) {
-    console.error('Error creating booking:', error);
+    logger.error('Error creating booking:', error);
     throw error;
   }
 }
@@ -90,15 +91,15 @@ export function updateBooking(bookingId: string, updates: Partial<Booking>): Boo
   if (!isBrowser()) return null;
 
   try {
-    const storedBookings = localStorage.getItem(BOOKINGS_STORAGE_KEY);
-    let bookings: Booking[] = storedBookings 
+    
+    const bookings: Booking[] = storedBookings 
       ? JSON.parse(storedBookings) 
       : [];
 
-    const bookingIndex = bookings.findIndex(b => b.id === bookingId);
+    
 
     if (bookingIndex === -1) {
-      console.error('Booking not found');
+      logger.error('Booking not found');
       return null;
     }
 
@@ -112,7 +113,7 @@ export function updateBooking(bookingId: string, updates: Partial<Booking>): Boo
 
     return bookings[bookingIndex];
   } catch (error) {
-    console.error('Error updating booking:', error);
+    logger.error('Error updating booking:', error);
     throw error;
   }
 }
@@ -122,23 +123,23 @@ export function deleteBooking(bookingId: string): boolean {
   if (!isBrowser()) return false;
 
   try {
-    const storedBookings = localStorage.getItem(BOOKINGS_STORAGE_KEY);
+    
     let bookings: Booking[] = storedBookings 
       ? JSON.parse(storedBookings) 
       : [];
 
-    const initialLength = bookings.length;
+    
     bookings = bookings.filter(b => b.id !== bookingId);
 
     if (bookings.length === initialLength) {
-      console.error('Booking not found');
+      logger.error('Booking not found');
       return false;
     }
 
     localStorage.setItem(BOOKINGS_STORAGE_KEY, JSON.stringify(bookings));
     return true;
   } catch (error) {
-    console.error('Error deleting booking:', error);
+    logger.error('Error deleting booking:', error);
     return false;
   }
 }
@@ -148,7 +149,7 @@ export function getVehicles(filters?: Partial<Vehicle>): Vehicle[] {
   if (!isBrowser()) return [];
 
   try {
-    const storedVehicles = localStorage.getItem(VEHICLES_STORAGE_KEY);
+    
     let vehicles: Vehicle[] = storedVehicles 
       ? JSON.parse(storedVehicles) 
       : [];
@@ -162,7 +163,7 @@ export function getVehicles(filters?: Partial<Vehicle>): Vehicle[] {
 
     return vehicles;
   } catch (error) {
-    console.error('Error fetching vehicles:', error);
+    logger.error('Error fetching vehicles:', error);
     return [];
   }
 }
@@ -172,7 +173,7 @@ export function createVehicle(vehicleData: Omit<Vehicle, 'id'>): Vehicle {
   if (!isBrowser()) throw new Error('Vehicle can only be created in a browser');
 
   try {
-    const storedVehicles = localStorage.getItem(VEHICLES_STORAGE_KEY);
+    
     const vehicles: Vehicle[] = storedVehicles 
       ? JSON.parse(storedVehicles) 
       : [];
@@ -187,7 +188,7 @@ export function createVehicle(vehicleData: Omit<Vehicle, 'id'>): Vehicle {
 
     return newVehicle;
   } catch (error) {
-    console.error('Error creating vehicle:', error);
+    logger.error('Error creating vehicle:', error);
     throw error;
   }
 }
@@ -197,15 +198,15 @@ export function updateVehicle(vehicleId: string, updates: Partial<Vehicle>): Veh
   if (!isBrowser()) return null;
 
   try {
-    const storedVehicles = localStorage.getItem(VEHICLES_STORAGE_KEY);
-    let vehicles: Vehicle[] = storedVehicles 
+    
+    const vehicles: Vehicle[] = storedVehicles 
       ? JSON.parse(storedVehicles) 
       : [];
 
-    const vehicleIndex = vehicles.findIndex(v => v.id === vehicleId);
+    
 
     if (vehicleIndex === -1) {
-      console.error('Vehicle not found');
+      logger.error('Vehicle not found');
       return null;
     }
 
@@ -219,7 +220,7 @@ export function updateVehicle(vehicleId: string, updates: Partial<Vehicle>): Veh
 
     return vehicles[vehicleIndex];
   } catch (error) {
-    console.error('Error updating vehicle:', error);
+    logger.error('Error updating vehicle:', error);
     throw error;
   }
 }
@@ -229,23 +230,23 @@ export function deleteVehicle(vehicleId: string): boolean {
   if (!isBrowser()) return false;
 
   try {
-    const storedVehicles = localStorage.getItem(VEHICLES_STORAGE_KEY);
+    
     let vehicles: Vehicle[] = storedVehicles 
       ? JSON.parse(storedVehicles) 
       : [];
 
-    const initialLength = vehicles.length;
+    
     vehicles = vehicles.filter(v => v.id !== vehicleId);
 
     if (vehicles.length === initialLength) {
-      console.error('Vehicle not found');
+      logger.error('Vehicle not found');
       return false;
     }
 
     localStorage.setItem(VEHICLES_STORAGE_KEY, JSON.stringify(vehicles));
     return true;
   } catch (error) {
-    console.error('Error deleting vehicle:', error);
+    logger.error('Error deleting vehicle:', error);
     return false;
   }
 }

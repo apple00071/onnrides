@@ -35,7 +35,7 @@ export default function Footer() {
                 Contact Us
               </Link>
               <Link href="/faq" className="block text-sm text-gray-600 hover:text-[#f26e24]">
-                FAQ's
+                FAQ&apos;s
               </Link>
             </div>
           </div>

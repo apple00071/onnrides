@@ -1,10 +1,8 @@
+import logger from '@/lib/logger';
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { toast } from 'react-hot-toast';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useAuth } from '@/providers/AuthProvider';
 
 interface Profile {
   id: string;
@@ -48,48 +46,26 @@ export default function ProfilePage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchProfile = useCallback(async () => {
-    try {
-      const response = await fetch('/api/profile', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
-
+  
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to fetch profile');
+                throw new Error(error.message || 'Failed to fetch profile');
       }
 
-      const data = await response.json();
-      setProfile(data);
+            setProfile(data);
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to fetch profile');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const fetchDocuments = useCallback(async () => {
-    try {
-      const response = await fetch('/api/user/documents', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
-
+  
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to fetch documents');
+                throw new Error(error.message || 'Failed to fetch documents');
       }
 
-      const data = await response.json();
-      setDocuments(data.documents || []);
+            setDocuments(data.documents || []);
       
       if (profile && data.is_verified !== profile.is_documents_verified) {
         setProfile(prev => prev ? {
@@ -99,7 +75,7 @@ export default function ProfilePage() {
         } : null);
       }
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to fetch documents');
     }
   }, [profile]);
@@ -118,68 +94,42 @@ export default function ProfilePage() {
     }
   }, [profile]);
 
-  const handleUpdateProfile = async (field: 'phone' | 'email', value: string) => {
-    try {
-      const response = await fetch('/api/profile', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ [field]: value }),
-      });
-
+  
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || `Failed to update ${field}`);
+                throw new Error(error.message || `Failed to update ${field}`);
       }
       
-      const updatedProfile = await response.json();
-      setProfile(updatedProfile);
+            setProfile(updatedProfile);
       toast.success(`${field.charAt(0).toUpperCase() + field.slice(1)} updated successfully`);
       
       if (field === 'phone') setIsEditingPhone(false);
       if (field === 'email') setIsEditingEmail(false);
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error(error instanceof Error ? error.message : `Failed to update ${field}`);
     }
   };
 
-  const handleFileUpload = async (type: string, file: File) => {
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+      try {
+            formData.append('file', file);
       formData.append('type', type);
 
-      const uploadResponse = await fetch('/api/user/documents/upload', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
-
+      
       if (!uploadResponse.ok) {
-        const error = await uploadResponse.json();
-        throw new Error(error.message || 'Failed to upload document');
+                throw new Error(error.message || 'Failed to upload document');
       }
 
       // Fetch updated documents
       await fetchDocuments();
 
       // Calculate step based on document types
-      const documentTypes = ['dl_front', 'dl_back', 'aadhar_front', 'aadhar_back'];
-      const uploadedCount = documentTypes.filter(docType => 
-        documents.some(doc => doc.document_type === docType)
-      ).length;
-
+            
       // Set step based on number of documents uploaded (step 1 is profile, so add 1)
-      const newStep = Math.min(uploadedCount + 1, 5);
-      setCurrentStep(newStep);
+            setCurrentStep(newStep);
 
       toast.success('Document uploaded successfully');
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to upload document');
     } finally {
       setUploading(false);
@@ -187,20 +137,18 @@ export default function ProfilePage() {
   };
 
   // Helper function to get document URL
-  const getDocumentUrl = (doc: Document) => {
-    if (!doc?.file_url) return '';
-    try {
-      // If it's a base64 string
+      try {
+      // If it&apos;s a base64 string
       if (doc.file_url.startsWith('data:')) {
         return doc.file_url;
       }
       
-      // If it's a relative URL starting with /api or /uploads
+      // If it&apos;s a relative URL starting with /api or /uploads
       if (doc.file_url.startsWith('/api') || doc.file_url.startsWith('/uploads')) {
         return `${window.location.origin}${doc.file_url}`;
       }
       
-      // If it's a storage URL (e.g., from your storage service)
+      // If it&apos;s a storage URL (e.g., from your storage service)
       if (doc.file_url.startsWith('http')) {
         return doc.file_url;
       }
@@ -208,16 +156,13 @@ export default function ProfilePage() {
       // For any other case, prepend the API endpoint
       return `${window.location.origin}/api/user/documents/view/${doc.id}`;
     } catch (error) {
-      console.error('Error formatting document URL:', error);
+      logger.error('Error formatting document URL:', error);
       return '';
     }
   };
 
   // Update the document viewing section
-  const renderDocument = (type: string, label: string) => {
-    const doc = documents.find(d => d.document_type === type);
-    const isRejected = doc?.status === 'rejected';
-
+      
     return (
       <div key={type} className="relative">
         {doc ? (
@@ -229,14 +174,13 @@ export default function ProfilePage() {
                 rel="noopener noreferrer"
                 className="text-[#f26e24] hover:underline mb-2"
                 onClick={(e) => {
-                  const url = getDocumentUrl(doc);
-                  if (!url) {
+                                    if (!url) {
                     e.preventDefault();
                     toast.error('Document URL not available');
                     return;
                   }
                   // For debugging
-                  console.log('Document URL:', url);
+                  logger.debug('Document URL:', url);
                 }}
               >
                 View {label}
@@ -276,11 +220,7 @@ export default function ProfilePage() {
     );
   };
 
-  const handleSubmitDocuments = async () => {
-    const requiredDocuments = ['dl_front', 'dl_back', 'aadhar_front', 'aadhar_back'];
-    const uploadedTypes = documents.map(doc => doc.document_type);
-    const missingDocuments = requiredDocuments.filter(type => !uploadedTypes.includes(type));
-
+          
     if (missingDocuments.length > 0) {
       toast.error(`Please upload all required documents. Missing: ${missingDocuments.join(', ')}`);
       return;
@@ -288,24 +228,16 @@ export default function ProfilePage() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/user/documents/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include'
-      });
-
+      
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to submit documents');
+                throw new Error(error.message || 'Failed to submit documents');
       }
       
       toast.success('Documents submitted successfully');
       setCurrentStep(6); // Final step after successful submission
       await fetchDocuments();
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to submit documents');
     } finally {
       setIsSubmitting(false);

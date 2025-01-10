@@ -1,14 +1,15 @@
-import { config } from 'dotenv';
+import logger from '@/lib/logger';
+
 import pool from '@/lib/db';
 
 // Load environment variables
 config();
 
 async function createTables() {
-  const client = await pool.connect();
+  
   try {
-    console.log('Creating tables...');
-    console.log('Database URL:', process.env.POSTGRES_URL_NON_POOLING ? 'Found' : 'Not found');
+    logger.debug('Creating tables...');
+    logger.debug('Database URL:', process.env.POSTGRES_URL_NON_POOLING ? 'Found' : 'Not found');
 
     // Create users table
     await client.query(`
@@ -21,7 +22,7 @@ async function createTables() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('Users table created successfully');
+    logger.debug('Users table created successfully');
 
     // Create profiles table
     await client.query(`
@@ -37,7 +38,7 @@ async function createTables() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('Profiles table created successfully');
+    logger.debug('Profiles table created successfully');
 
     // Create vehicles table
     await client.query(`
@@ -63,7 +64,7 @@ async function createTables() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('Vehicles table created successfully');
+    logger.debug('Vehicles table created successfully');
 
     // Create bookings table
     await client.query(`
@@ -82,7 +83,7 @@ async function createTables() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('Bookings table created successfully');
+    logger.debug('Bookings table created successfully');
 
     // Create document_submissions table
     await client.query(`
@@ -97,7 +98,7 @@ async function createTables() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('Document submissions table created successfully');
+    logger.debug('Document submissions table created successfully');
 
     // Create payments table
     await client.query(`
@@ -113,7 +114,7 @@ async function createTables() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('Payments table created successfully');
+    logger.debug('Payments table created successfully');
 
     // Create reviews table
     await client.query(`
@@ -128,11 +129,11 @@ async function createTables() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('Reviews table created successfully');
+    logger.debug('Reviews table created successfully');
 
-    console.log('All tables created successfully');
+    logger.debug('All tables created successfully');
   } catch (error) {
-    console.error('Error creating tables:', error);
+    logger.error('Error creating tables:', error);
     throw error;
   } finally {
     // Release the client back to the pool
@@ -142,6 +143,6 @@ async function createTables() {
 
 createTables()
   .catch((err) => {
-    console.error('Failed to create tables:', err);
+    logger.error('Failed to create tables:', err);
     process.exit(1);
   }); 

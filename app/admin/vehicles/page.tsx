@@ -1,10 +1,11 @@
+import logger from '@/lib/logger';
 /* eslint-disable indent */
 'use client';
 
-import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
-import { format } from 'date-fns';
-import { FaTrash, FaEdit } from 'react-icons/fa';
+
+
+;
+
 import Image from 'next/image';
 
 interface Vehicle {
@@ -36,63 +37,45 @@ export default function VehiclesPage() {
     image: null as File | null
   });
 
-  const locations = [
-    'Eragadda',
-    'Madhapur'
-  ];
+  
 
   useEffect(() => {
     fetchVehicles();
   }, []);
 
-  const fetchVehicles = async () => {
-    try {
-      const response = await fetch('/api/admin/vehicles');
+  
       if (!response.ok) {
         throw new Error('Failed to fetch vehicles');
       }
-      const data = await response.json();
+      
       setVehicles(data);
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error('Failed to fetch vehicles');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
+  
     setFormData(prev => ({
       ...prev,
       [name]: type === 'number' ? parseFloat(value) : value
     }));
   };
 
-  const handleLocationChange = (location: string) => {
-    setFormData(prev => ({
-      ...prev,
-      location: prev.location.includes(location)
-        ? prev.location.filter(loc => loc !== location)
-        : [...prev.location, location]
-    }));
+  
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFormData(prev => ({
-        ...prev,
-        image: e.target.files![0]
-      }));
+  
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  
     setLoading(true);
 
     try {
-      const formDataToSend = new FormData();
+      
       
       formDataToSend.append('name', formData.name);
       formDataToSend.append('type', formData.type);
@@ -106,17 +89,12 @@ export default function VehiclesPage() {
         formDataToSend.append('image', formData.image);
       }
 
-      const url = editingVehicle
-        ? `/api/admin/vehicles/${editingVehicle.id}`
-        : '/api/admin/vehicles';
       
-      const response = await fetch(url, {
-        method: editingVehicle ? 'PUT' : 'POST',
-        body: formDataToSend
-      });
+      
+      
 
       if (!response.ok) {
-        const errorData = await response.json();
+        
         throw new Error(errorData.error || 'Failed to save vehicle');
       }
 
@@ -125,22 +103,18 @@ export default function VehiclesPage() {
       setEditingVehicle(null);
       fetchVehicles();
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to save vehicle');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (vehicleId: string) => {
-    if (!confirm('Are you sure you want to delete this vehicle?')) {
-      return;
+  
     }
 
     try {
-      const response = await fetch(`/api/admin/vehicles/${vehicleId}`, {
-        method: 'DELETE'
-      });
+      
 
       if (!response.ok) {
         throw new Error('Failed to delete vehicle');
@@ -149,13 +123,12 @@ export default function VehiclesPage() {
       toast.success('Vehicle deleted successfully');
       fetchVehicles();
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error('Failed to delete vehicle');
     }
   };
 
-  const handleEdit = (vehicle: Vehicle) => {
-    setEditingVehicle(vehicle);
+  
     setFormData({
       name: vehicle.name,
       type: vehicle.type,
@@ -169,20 +142,15 @@ export default function VehiclesPage() {
     setShowAddModal(true);
   };
 
-  const handleToggleAvailability = async (vehicleId: string, currentStatus: boolean) => {
-    try {
-      const newStatus = !currentStatus;
-      const formData = new FormData();
+  
+      
       formData.append('is_available', newStatus.toString());
       formData.append('status', newStatus ? 'active' : 'unavailable');
 
-      const response = await fetch(`/api/admin/vehicles/${vehicleId}`, {
-        method: 'PUT',
-        body: formData
-      });
+      
 
       if (!response.ok) {
-        const errorData = await response.json();
+        
         throw new Error(errorData.error || 'Failed to update vehicle availability');
       }
 
@@ -200,7 +168,7 @@ export default function VehiclesPage() {
 
       toast.success('Vehicle availability updated');
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update vehicle availability');
     }
   };

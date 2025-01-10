@@ -1,10 +1,7 @@
+import logger from '@/lib/logger';
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { format, differenceInHours, parseISO, differenceInMinutes } from 'date-fns';
-import { toast } from 'react-hot-toast';
 
 interface Vehicle {
   id: string;
@@ -17,87 +14,51 @@ interface Vehicle {
 }
 
 export default function VehiclesPage() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+      const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('bike');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [sortBy, setSortBy] = useState('relevance');
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
 
-  const pickupDate = searchParams.get('pickup') || new Date().toISOString();
-  const dropoffDate = searchParams.get('dropoff') || new Date().toISOString();
-
-  const formatDateTime = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    return {
+    
+      return {
       time: format(date, 'HH:mm'),
       date: format(date, 'dd MMM yyyy')
     };
   };
 
-  const pickup = formatDateTime(pickupDate);
-  const dropoff = formatDateTime(dropoffDate);
-
-  const calculateDuration = (startDate: string, endDate: string) => {
-    const totalMinutes = differenceInMinutes(parseISO(endDate), parseISO(startDate));
-    const days = Math.floor(totalMinutes / (24 * 60));
-    const remainingMinutes = totalMinutes % (24 * 60);
-    const hours = Math.floor(remainingMinutes / 60);
-    const minutes = remainingMinutes % 60;
-
-    const parts = [];
-    if (days > 0) parts.push(`${days} ${days === 1 ? 'Day' : 'Days'}`);
+    
+                  
+        if (days > 0) parts.push(`${days} ${days === 1 ? 'Day' : 'Days'}`);
     if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'Hour' : 'Hours'}`);
     if (minutes > 0) parts.push(`${minutes} ${minutes === 1 ? 'Minute' : 'Minutes'}`);
 
     return parts.join(' and ');
   };
 
-  const duration = calculateDuration(pickupDate, dropoffDate);
-
-  const calculateTotalAmount = (pricePerDay: number) => {
-    const totalMinutes = differenceInMinutes(parseISO(dropoffDate), parseISO(pickupDate));
-    const totalDays = totalMinutes / (24 * 60);
-    return Math.round(pricePerDay * totalDays);
+  
+          return Math.round(pricePerDay * totalDays);
   };
 
   useEffect(() => {
     fetchVehicles();
   }, []);
 
-  const fetchVehicles = async () => {
-    try {
-      const response = await fetch('/api/vehicles');
-      if (!response.ok) throw new Error('Failed to fetch vehicles');
-      const data = await response.json();
-      setVehicles(data);
+        if (!response.ok) throw new Error('Failed to fetch vehicles');
+            setVehicles(data);
     } catch (error) {
-      console.error('Error:', error);
+      logger.error('Error:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const locations = [
-    'Eragadda',
-    'Madhapur'
-  ];
-
-  const handleBooking = (vehicleId: string, selectedLocation: string) => {
-    if (!selectedLocation) {
-      toast.error('Please select a location');
-      return;
+  
+        return;
     }
 
-    const bookingParams = new URLSearchParams({
-      vehicleId,
-      location: selectedLocation,
-      pickup: pickupDate,
-      dropoff: dropoffDate
-    });
-
+    
     router.push(`/booking?${bookingParams.toString()}`);
   };
 

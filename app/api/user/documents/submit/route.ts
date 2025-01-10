@@ -1,13 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth';
+import logger from '@/lib/logger';
+
+
+
 import pool from '@/lib/db';
 
 export async function POST(request: NextRequest) {
-  const client = await pool.connect();
+  
   try {
     // Get user from token
-    const token = cookies().get('token')?.value;
+    
     if (!token) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await verifyToken(token);
+    
     if (!user?.id) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -27,16 +28,11 @@ export async function POST(request: NextRequest) {
     await client.query('BEGIN');
 
     // Check if all required documents are uploaded
-    const result = await client.query(
-      `SELECT document_type 
-       FROM document_submissions 
-       WHERE user_id = $1`,
-      [user.id]
-    );
+    
 
-    const uploadedDocuments = result.rows.map(row => row.document_type);
-    const requiredDocuments = ['dl_front', 'dl_back', 'aadhar_front', 'aadhar_back'];
-    const missingDocuments = requiredDocuments.filter(doc => !uploadedDocuments.includes(doc));
+    
+    
+    
 
     if (missingDocuments.length > 0) {
       await client.query('ROLLBACK');
@@ -49,7 +45,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update user's documents_submitted status
+    // Update user&apos;s documents_submitted status
     await client.query(
       `UPDATE users 
        SET documents_submitted = true 
@@ -64,7 +60,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Error submitting documents:', error);
+    logger.error('Error submitting documents:', error);
     return NextResponse.json(
       { message: 'Failed to submit documents' },
       { status: 500 }

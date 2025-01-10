@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import logger from '@/lib/logger';
+
 import pool from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+
 
 export async function GET(request: NextRequest) {
-  const client = await pool.connect();
+  
   try {
     // Check if user is authenticated
-    const currentUser = await getCurrentUser(request.cookies);
+    
     if (!currentUser) {
       return NextResponse.json(
         { message: 'Authentication required' },
@@ -15,8 +16,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Get query parameters
-    const url = new URL(request.url);
-    const status = url.searchParams.get('status');
+    
+    
 
     // Build the query
     let query = `
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
       JOIN vehicles v ON b.vehicle_id = v.id
       WHERE b.user_id = $1
     `;
-    const params: any[] = [currentUser.id];
+    const params: unknown[] = [currentUser.id];
 
     if (status) {
       query += ' AND b.status = $2';
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     query += ' ORDER BY b.created_at DESC';
 
-    const result = await client.query(query, params);
+    
 
     return NextResponse.json({
       bookings: result.rows.map(booking => ({
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
       }))
     });
   } catch (error) {
-    console.error('Failed to fetch bookings:', error);
+    logger.error('Failed to fetch bookings:', error);
     return NextResponse.json(
       { message: 'Failed to fetch bookings. Please try again.' },
       { status: 500 }
@@ -70,10 +71,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const client = await pool.connect();
+  
   try {
     // Check if user is authenticated
-    const currentUser = await getCurrentUser(request.cookies);
+    
     if (!currentUser) {
       return NextResponse.json(
         { message: 'Authentication required' },
@@ -100,13 +101,7 @@ export async function POST(request: NextRequest) {
     await client.query('BEGIN');
 
     // Check if vehicle is available for the selected dates
-    const availabilityCheck = await client.query(`
-      SELECT COUNT(*) as booking_count
-      FROM bookings
-      WHERE vehicle_id = $1
-      AND status NOT IN ('cancelled', 'rejected')
-      AND (pickup_datetime, dropoff_datetime) OVERLAPS ($2, $3)
-    `, [vehicle_id, pickup_datetime, dropoff_datetime]);
+    
 
     if (parseInt(availabilityCheck.rows[0].booking_count) > 0) {
       await client.query('ROLLBACK');
@@ -117,26 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create booking
-    const result = await client.query(`
-      INSERT INTO bookings (
-        user_id,
-        vehicle_id,
-        pickup_datetime,
-        dropoff_datetime,
-        total_amount,
-        status,
-        created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      RETURNING *
-    `, [
-      currentUser.id,
-      vehicle_id,
-      pickup_datetime,
-      dropoff_datetime,
-      total_amount,
-      'pending'
-    ]);
+    
 
     await client.query('COMMIT');
 
@@ -153,7 +129,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Failed to create booking:', error);
+    logger.error('Failed to create booking:', error);
     return NextResponse.json(
       { message: 'Failed to create booking. Please try again.' },
       { status: 500 }

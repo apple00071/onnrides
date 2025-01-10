@@ -25,9 +25,11 @@ export default function DocumentsPage() {
   const fetchDocuments = async () => {
     try {
       const response = await fetch('/api/user/documents');
+      
       if (!response.ok) {
         throw new Error('Failed to fetch documents');
       }
+      
       const data = await response.json();
       setDocuments(data);
     } catch (error) {
@@ -37,8 +39,8 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return;
 
     const formData = new FormData();
@@ -48,7 +50,7 @@ export default function DocumentsPage() {
     try {
       const response = await fetch('/api/user/documents/upload', {
         method: 'POST',
-        body: formData
+        body: formData,
       });
 
       if (!response.ok) {

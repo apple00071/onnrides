@@ -1,10 +1,11 @@
+import logger from '@/lib/logger';
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+
+
 import Link from 'next/link';
-import { toast } from 'react-hot-toast';
-import { useAuth } from '@/providers/AuthProvider';
+
+
 
 interface AuthFormProps {
   mode: 'login' | 'signup' | 'admin-login';
@@ -16,23 +17,22 @@ export default function AuthForm({ mode }: AuthFormProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  
   const { signIn, signUp } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  
     setLoading(true);
 
     try {
       if (mode === 'signup') {
-        const result = await signUp(email, password, name, phone);
+        
         if (result.success) {
           router.push('/login');
         } else {
           throw new Error(result.message);
         }
       } else {
-        const result = await signIn(email, password);
+        
         if (result.success) {
           if (result.isAdmin) {
             router.push('/admin/dashboard');
@@ -44,7 +44,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
         }
       }
     } catch (error: any) {
-      console.error('Auth error:', error);
+      logger.error('Auth error:', error);
       toast.error(error.message || 'Authentication failed');
     } finally {
       setLoading(false);
