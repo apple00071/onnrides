@@ -4,6 +4,7 @@ import logger from '@/lib/logger';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { Switch } from '@/components/ui/switch';
 
 interface Vehicle {
   id: string;
@@ -94,19 +95,16 @@ export default function VehiclesPage() {
               <p>Model: {vehicle.model}</p>
               <p>Year: {vehicle.year}</p>
               <p>Price per day: ₹{vehicle.price_per_day}</p>
-              <p>Status: {vehicle.is_available ? 'Available' : 'Not Available'}</p>
             </div>
-            <div className="mt-4">
-              <button
-                onClick={() => handleUpdateAvailability(vehicle.id, !vehicle.is_available)}
-                className={`px-4 py-2 rounded-md w-full ${
-                  vehicle.is_available
-                    ? 'bg-red-500 hover:bg-red-600'
-                    : 'bg-green-500 hover:bg-green-600'
-                } text-white transition-colors`}
-              >
-                {vehicle.is_available ? 'Mark as Unavailable' : 'Mark as Available'}
-              </button>
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">
+                {vehicle.is_available ? 'Available' : 'Not Available'}
+              </span>
+              <Switch
+                checked={vehicle.is_available}
+                onCheckedChange={(checked) => handleUpdateAvailability(vehicle.id, checked)}
+                className="z-50"
+              />
             </div>
           </div>
         ))}
