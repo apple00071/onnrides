@@ -1,10 +1,14 @@
 {
-  "extends": ["next/core-web-vitals"],
+  "extends": [
+    "next",
+    "next/core-web-vitals"
+  ],
   "rules": {
     "indent": ["error", 2],
     "semi": "off",
     "quotes": ["error", "single"],
     "no-unused-vars": "warn",
-    "no-console": "warn"
+    "no-console": "warn",
+    "react/no-unescaped-entities": "off"
   }
 } 
