@@ -5,11 +5,9 @@ import { authOptions } from '@/lib/auth';
 import pool from '@/lib/db';
 import { put } from '@vercel/blob';
 
-export const config = {
-  api: {
-    bodyParser: false
-  }
-};
+// New route segment config format
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   let client;
