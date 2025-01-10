@@ -1,12 +1,11 @@
+import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-
 import pool from '@/lib/db';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { cookies } from 'next/headers';
 
-export 
-
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
 
@@ -21,124 +20,149 @@ export async function POST(request: Request) {
     logger.debug('Attempting login for:', email);
 
     // Get user from database
-    
-
-    
-
-    if (!user) {
-      logger.error('User not found:', email);
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
+    const client = await pool.connect();
+    try {
+      const result = await client.query(
+        'SELECT * FROM users WHERE email = $1',
+        [email]
       );
-    }
+      const user = result.rows[0];
 
-    // Verify password
-    
-    if (!isValidPassword) {
-      logger.error('Invalid password for user:', email);
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
+      if (!user) {
+        logger.error('User not found:', email);
+        return NextResponse.json(
+          { error: 'Invalid credentials' },
+          { status: 401 }
+        );
+      }
+
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, user.password_hash);
+      if (!isValidPassword) {
+        logger.error('Invalid password for user:', email);
+        return NextResponse.json(
+          { error: 'Invalid credentials' },
+          { status: 401 }
+        );
+      }
+
+      // Check if user is an admin
+      if (user.role !== 'admin') {
+        logger.error('User is not an admin:', email);
+        return NextResponse.json(
+          { error: 'Unauthorized: Admin access required' },
+          { status: 403 }
+        );
+      }
+
+      // Create session token
+      const token = jwt.sign(
+        { userId: user.id, email: user.email, role: user.role },
+        process.env.JWT_SECRET!,
+        { expiresIn: '24h' }
       );
+
+      // Create response
+      const response = NextResponse.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role
+        }
+      });
+
+      // Set cookie in response
+      response.cookies.set({
+        name: 'admin_session',
+        value: token,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/admin',
+        maxAge: 60 * 60 * 24 // 24 hours
+      });
+
+      return response;
+    } finally {
+      client.release();
     }
-
-    // Check if user is an admin
-    if (user.role !== 'admin') {
-      logger.error('User is not an admin:', email);
-      return NextResponse.json(
-        { error: 'Unauthorized: Admin access required' },
-        { status: 403 }
-      );
-    }
-
-    // Get profile data
-    
-
-    
-    if (!profile) {
-      logger.error('No profile found for user:', user.id);
-      return NextResponse.json(
-        { error: 'Profile not found' },
-        { status: 404 }
-      );
-    }
-
-    // Create session token
-    
-
-    // Create response with cookie
-    
-
-    // Set cookie in response
-    response.cookies.set({
-      name: 'admin_session',
-      value: token,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/admin',
-      maxAge: 60 * 60 * 24 // 24 hours
-    });
-
-    return response;
-    
   } catch (error) {
     logger.error('Unexpected error:', error);
-    
+    const response = NextResponse.json(
+      { error: 'An unexpected error occurred' },
+      { status: 500 }
+    );
     response.cookies.delete('admin_session');
     return response;
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    // Get session token from cookie header
-    
-    ')
-      .find(c => c.trim().startsWith('admin_session='))
-      ?.split('=')[1];
-    
+    const cookieStore = cookies();
+    const sessionToken = cookieStore.get('admin_session')?.value;
+
     if (!sessionToken) {
-      
+      const response = NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
       response.cookies.delete('admin_session');
       return response;
     }
 
     // Verify token
-    
+    const decoded = jwt.verify(sessionToken, process.env.JWT_SECRET!) as {
+      userId: string;
       email: string;
       role: string;
     };
 
     // Get user profile
-    
+    const client = await pool.connect();
+    try {
+      const result = await client.query(
+        'SELECT id, email, role FROM users WHERE id = $1',
+        [decoded.userId]
+      );
+      const profile = result.rows[0];
 
-    
-    if (!profile) {
-      
-      response.cookies.delete('admin_session');
-      return response;
-    }
-
-    if (profile.role !== 'admin') {
-      
-      response.cookies.delete('admin_session');
-      return response;
-    }
-
-    return NextResponse.json({
-      success: true,
-      profile: {
-        id: profile.id,
-        email: profile.email,
-        role: profile.role
+      if (!profile) {
+        const response = NextResponse.json(
+          { error: 'Profile not found' },
+          { status: 404 }
+        );
+        response.cookies.delete('admin_session');
+        return response;
       }
-    });
 
+      if (profile.role !== 'admin') {
+        const response = NextResponse.json(
+          { error: 'Unauthorized: Admin access required' },
+          { status: 403 }
+        );
+        response.cookies.delete('admin_session');
+        return response;
+      }
+
+      return NextResponse.json({
+        success: true,
+        profile: {
+          id: profile.id,
+          email: profile.email,
+          role: profile.role
+        }
+      });
+    } finally {
+      client.release();
+    }
   } catch (error) {
     logger.error('Session verification error:', error);
-    
+    const response = NextResponse.json(
+      { error: 'Invalid or expired session' },
+      { status: 401 }
+    );
     response.cookies.delete('admin_session');
     return response;
   }

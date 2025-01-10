@@ -1,7 +1,8 @@
+import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-
 import pool from '@/lib/db';
-
+import { cookies } from 'next/headers';
+import { verifyAuth } from '@/lib/auth';
 
 interface DashboardStats {
   total_users: number;
@@ -23,13 +24,12 @@ interface DashboardStats {
   }>;
 }
 
-export 
-
 export async function GET(request: NextRequest) {
-  
+  const client = await pool.connect();
   
   try {
-    
+    const cookieStore = cookies();
+    const user = await verifyAuth(cookieStore);
     
     if (!user) {
       return NextResponse.json(
@@ -49,19 +49,47 @@ export async function GET(request: NextRequest) {
     await client.query('BEGIN');
 
     // Get total users
-    
+    const usersResult = await client.query(`
+      SELECT COUNT(*) as total FROM users WHERE role != 'admin'
+    `);
     
     // Get total revenue
-    
+    const revenueResult = await client.query(`
+      SELECT COALESCE(SUM(total_amount), 0) as total FROM bookings
+      WHERE status = 'completed'
+    `);
     
     // Get total vehicles
-    
+    const vehiclesResult = await client.query(`
+      SELECT COUNT(*) as total FROM vehicles
+    `);
     
     // Get pending documents
-    
+    const documentsResult = await client.query(`
+      SELECT COUNT(*) as total FROM user_documents
+      WHERE status = 'pending' OR status = 'submitted'
+    `);
     
     // Get recent bookings
-    
+    const bookingsResult = await client.query(`
+      SELECT 
+        b.id,
+        u.name as user_name,
+        u.email as user_email,
+        v.name as vehicle_name,
+        b.total_amount as amount,
+        b.status,
+        b.created_at,
+        b.pickup_datetime,
+        b.dropoff_datetime,
+        b.pickup_location,
+        b.drop_location
+      FROM bookings b
+      JOIN users u ON b.user_id = u.id
+      JOIN vehicles v ON b.vehicle_id = v.id
+      ORDER BY b.created_at DESC
+      LIMIT 5
+    `);
 
     // Commit the transaction
     await client.query('COMMIT');
