@@ -1,19 +1,44 @@
 'use client';
 
-
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 
-export default function TestimonialsSection() {
-  
+const testimonials = [
+  {
+    name: 'John Doe',
+    role: 'Business Owner',
+    image: '/testimonials/person1.jpg',
+    comment: 'The service was exceptional! The car was in perfect condition and the rental process was smooth.',
+    rating: 5
+  },
+  {
+    name: 'Jane Smith',
+    role: 'Travel Enthusiast',
+    image: '/testimonials/person2.jpg',
+    comment: 'I love how easy it is to book a car. The prices are competitive and the vehicles are always clean.',
+    rating: 5
+  },
+  {
+    name: 'Mike Johnson',
+    role: 'Frequent Traveler',
+    image: '/testimonials/person3.jpg',
+    comment: 'Great selection of vehicles and excellent customer service. Will definitely use again!',
+    rating: 5
+  }
+];
 
+export default function TestimonialsSection() {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    
+    const timer = setInterval(() => {
+      setCurrentIndex((prevIndex) => 
+        prevIndex === testimonials.length - 1 ? 0 : prevIndex + 1
+      );
     }, 5000);
 
     return () => clearInterval(timer);
-  }, [testimonials.length]);
+  }, []);
 
   return (
     <section className="py-16 bg-gray-50">
