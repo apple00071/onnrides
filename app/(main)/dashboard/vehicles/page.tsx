@@ -1,10 +1,9 @@
-import logger from '@/lib/logger';
-import Image from 'next/image';
 'use client';
 
-
-
-;
+import logger from '@/lib/logger';
+import Image from 'next/image';
+import { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 
 interface Vehicle {
   id: string;
@@ -29,11 +28,13 @@ export default function VehiclesPage() {
     fetchVehicles();
   }, []);
 
-  
+  const fetchVehicles = async () => {
+    try {
+      const response = await fetch('/api/admin/vehicles');
       if (!response.ok) {
         throw new Error('Failed to fetch vehicles');
       }
-      
+      const data = await response.json();
       setVehicles(data);
     } catch (error) {
       logger.error('Error:', error);
@@ -43,16 +44,24 @@ export default function VehiclesPage() {
     }
   };
 
-  
+  const handleUpdateAvailability = async (vehicleId: string, isAvailable: boolean) => {
+    try {
+      const response = await fetch(`/api/admin/vehicles/${vehicleId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ is_available: isAvailable }),
+      });
 
       if (!response.ok) {
         throw new Error('Failed to update vehicle availability');
       }
-
-      toast.success('Vehicle availability updated');
-      fetchVehicles(); // Refresh the list
+      
+      await fetchVehicles(); // Refresh the list
+      toast.success('Vehicle availability updated successfully');
     } catch (error) {
-      logger.error('Error:', error);
+      logger.error('Error updating vehicle availability:', error);
       toast.error('Failed to update vehicle availability');
     }
   };
@@ -67,88 +76,40 @@ export default function VehiclesPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">My Vehicles</h1>
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Vehicle
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Details
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Price
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {vehicles.map((vehicle) => (
-              <tr key={vehicle.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="h-10 w-10 flex-shrink-0">
-                      <img
-                        className="h-10 w-10 rounded-full object-cover"
-                        src={vehicle.image_url}
-                        alt={vehicle.name}
-                      />
-                    </div>
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {vehicle.name}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {vehicle.type}
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    {vehicle.brand} {vehicle.model} {vehicle.year}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {vehicle.color} • {vehicle.registration_number}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  ₹{vehicle.price_per_day}/day
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    vehicle.is_available
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {vehicle.is_available ? 'Available' : 'Unavailable'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
-                    onClick={() =>
-                      handleToggleAvailability(vehicle.id, !vehicle.is_available)
-                    }
-                    className={`text-${
-                      vehicle.is_available ? 'red' : 'green'
-                    }-600 hover:text-${
-                      vehicle.is_available ? 'red' : 'green'
-                    }-900`}
-                  >
-                    {vehicle.is_available ? 'Mark Unavailable' : 'Mark Available'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <h1 className="text-2xl font-bold mb-6">Manage Vehicles</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {vehicles.map((vehicle) => (
+          <div key={vehicle.id} className="bg-white rounded-lg shadow-md p-6">
+            <div className="relative h-48 mb-4">
+              <Image
+                src={vehicle.image_url || '/placeholder-vehicle.jpg'}
+                alt={vehicle.name}
+                fill
+                className="rounded-lg object-cover"
+              />
+            </div>
+            <h2 className="text-xl font-semibold mb-2">{vehicle.name}</h2>
+            <div className="space-y-2 text-gray-600">
+              <p>Brand: {vehicle.brand}</p>
+              <p>Model: {vehicle.model}</p>
+              <p>Year: {vehicle.year}</p>
+              <p>Price per day: ₹{vehicle.price_per_day}</p>
+              <p>Status: {vehicle.is_available ? 'Available' : 'Not Available'}</p>
+            </div>
+            <div className="mt-4">
+              <button
+                onClick={() => handleUpdateAvailability(vehicle.id, !vehicle.is_available)}
+                className={`px-4 py-2 rounded-md w-full ${
+                  vehicle.is_available
+                    ? 'bg-red-500 hover:bg-red-600'
+                    : 'bg-green-500 hover:bg-green-600'
+                } text-white transition-colors`}
+              >
+                {vehicle.is_available ? 'Mark as Unavailable' : 'Mark as Available'}
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
