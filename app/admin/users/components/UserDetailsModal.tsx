@@ -1,12 +1,48 @@
-import logger from '@/lib/logger';
-import Image from 'next/image';
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'react-hot-toast';
+import { FaCheck, FaTimes } from 'react-icons/fa';
+import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
+import logger from '@/lib/logger';
+import Image from 'next/image';
+import { format } from 'date-fns';
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address?: string;
+  is_blocked: boolean;
+  is_verified: boolean;
+  created_at: string;
+}
 
+interface UserDocument {
+  id: string;
+  type: string;
+  status: 'pending' | 'submitted' | 'approved' | 'rejected';
+  document_url: string;
+  created_at: string;
+}
 
-
-
+interface Booking {
+  id: string;
+  status: string;
+  created_at: string;
+  vehicle: {
+    id: string;
+    name: string;
+    model: string;
+    year: number;
+    type: string;
+    image_url: string;
+  };
+  start_date: string;
+  end_date: string;
+  total_amount: number;
+}
 
 interface UserDetailsModalProps {
   user: User | null;
@@ -20,20 +56,23 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
   const [documents, setDocuments] = useState<UserDocument[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
 
-  
+  const fetchUserData = useCallback(async () => {
+    if (!user) return;
 
     try {
-      // Fetch documents
-      
+      const [docsResponse, bookingsResponse] = await Promise.all([
+        fetch(`/api/admin/users/${user.id}/documents`),
+        fetch(`/api/admin/users/${user.id}/bookings`)
+      ]);
+
+      const docsData = await docsResponse.json();
+      const bookingsData = await bookingsResponse.json();
+
       if (docsResponse.ok) {
-        
         setDocuments(docsData);
       }
 
-      // Fetch bookings
-      
       if (bookingsResponse.ok) {
-        
         setBookings(bookingsData);
       }
     } catch (error) {
@@ -46,23 +85,31 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
     if (isOpen && user) {
       fetchUserData();
     } else {
-      // Reset state when modal closes or user changes
       setDocuments([]);
       setBookings([]);
     }
   }, [isOpen, user, fetchUserData]);
 
-  
+  const handleBlockUser = async () => {
+    if (!user) return;
 
     try {
       setLoading(true);
-      
+      const response = await fetch(`/api/admin/users/${user.id}/block`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ blocked: !user.is_blocked })
+      });
+
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error('Failed to update user block status');
       }
 
-      
+      const updatedUser = { ...user, is_blocked: !user.is_blocked };
       onUserUpdated(updatedUser);
       toast.success(`User successfully ${user.is_blocked ? 'unblocked' : 'blocked'}`);
     } catch (error) {
@@ -73,29 +120,32 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
     }
   };
 
-  
+  const handleDocumentStatus = async (documentId: string, status: 'approved' | 'rejected') => {
     try {
-      
+      const response = await fetch(`/api/admin/documents/${documentId}/status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status })
+      });
+
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error('Failed to update document status');
       }
 
-      
-      
-      // Update the documents list with the new status
       setDocuments(prevDocs => 
         prevDocs.map(doc => 
           doc.id === documentId ? { ...doc, status } : doc
         )
       );
 
-      // Show success message
       toast.success(`Document ${status} successfully`);
 
-      // Update the user data if it was returned
-      if (result.user) {
-        onUserUpdated(result.user);
+      if (data.user) {
+        onUserUpdated(data.user);
       }
     } catch (error) {
       logger.error('Error updating document status:', error);
@@ -103,10 +153,11 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
     }
   };
 
-  
-  };
-
   if (!user) return null;
+
+  const formatDate = (date: string) => {
+    return format(new Date(date), 'MMM d, yyyy HH:mm:ss');
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

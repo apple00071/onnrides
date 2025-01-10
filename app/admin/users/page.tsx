@@ -1,13 +1,26 @@
-import logger from '@/lib/logger';
 'use client';
 
-
-
-
-
+import { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
+import { Loader2 } from 'lucide-react';
+import { FaEye } from 'react-icons/fa';
+import { Button, type ButtonProps } from '@/components/ui/button';
+import logger from '@/lib/logger';
 import UserDetailsModal from './components/UserDetailsModal';
 
-
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  is_blocked: boolean;
+  is_verified: boolean;
+  created_at: string;
+  documents_status?: {
+    approved: number;
+    total: number;
+  };
+}
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -19,10 +32,10 @@ export default function UsersPage() {
     fetchUsers();
   }, []);
 
-  
-      
-      
-      
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('/api/admin/users');
+      const data = await response.json();
       
       if (!response.ok) {
         throw new Error(data.message || 'Failed to fetch users');
@@ -37,11 +50,12 @@ export default function UsersPage() {
     }
   };
 
-  
+  const handleViewUser = (user: User) => {
+    setSelectedUser(user);
     setIsModalOpen(true);
   };
 
-  
+  const handleUserUpdated = (updatedUser: User) => {
     setSelectedUser(updatedUser);
   };
 
@@ -104,6 +118,7 @@ export default function UsersPage() {
                       size="sm"
                       onClick={() => handleViewUser(user)}
                       className="flex items-center gap-2"
+                      asChild={false}
                     >
                       <FaEye className="w-4 h-4" />
                       View
