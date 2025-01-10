@@ -1,38 +1,42 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import toast from 'react-hot-toast'
-import { useAuth } from '@/providers/AuthProvider'
+import { toast } from 'react-hot-toast'
 import Image from 'next/image'
+import Link from 'next/link'
 
 export default function LoginPage() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const { signIn } = useAuth()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    setIsLoading(true)
 
     try {
-      const formData = new FormData(e.currentTarget as HTMLFormElement)
-      const email = formData.get('email') as string
-      const password = formData.get('password') as string
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      })
 
-      const result = await signIn(email, password)
-
-      if (!result.success) {
-        throw new Error(result.message || 'Login failed')
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Login failed')
       }
 
-      router.push('/')
+      toast.success('Login successful')
+      router.push('/dashboard')
     } catch (error) {
       console.error('Login error:', error)
-      toast.error(error instanceof Error ? error.message : 'Login failed. Please check your credentials.')
+      toast.error(error instanceof Error ? error.message : 'Login failed')
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
@@ -74,6 +78,8 @@ export default function LoginPage() {
                   autoComplete="email"
                   required
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] sm:text-sm"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
             </div>
@@ -90,6 +96,8 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   required
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] sm:text-sm"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
             </div>
@@ -105,10 +113,10 @@ export default function LoginPage() {
             <div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={isLoading}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#f26e24] hover:bg-[#e05d13] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24] disabled:opacity-50"
               >
-                {loading ? 'Signing in...' : 'Sign in'}
+                {isLoading ? 'Signing in...' : 'Sign in'}
               </button>
             </div>
           </form>

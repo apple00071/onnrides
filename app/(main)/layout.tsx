@@ -1,31 +1,22 @@
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import '../globals.css';
-import Navbar from '@/app/(main)/components/Navbar';
-import Footer from '@/app/(main)/components/Footer';
+import { ReactNode } from 'react'
+import { Inter } from 'next/font/google'
+import Navbar from './components/Navbar'
+import '../globals.css'
 
 const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-inter'
-});
+  display: 'swap'
+})
 
-export const metadata: Metadata = {
-  title: 'OnnRides - Book Your Next Ride',
-  description: 'Book bikes and scooters for your next ride'
-};
+interface MainLayoutProps {
+  children: ReactNode
+}
 
-export default function MainLayout({
-  children
-}: {
-  children: React.ReactNode
-}) {
+export default function MainLayout({ children }: MainLayoutProps) {
   return (
-    <div className={`${inter.className} flex flex-col min-h-screen`}>
+    <div className={inter.className}>
       <Navbar />
-      <main className="flex-1 pt-16">
-        {children}
-      </main>
-      <Footer />
+      <main>{children}</main>
     </div>
-  );
+  )
 } 

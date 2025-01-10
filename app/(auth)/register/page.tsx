@@ -1,46 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import Image from 'next/image'
 import Link from 'next/link'
 
-interface FormData {
-  name: string
-  email: string
-  phone: string
-  password: string
-  confirmPassword: string
-}
-
 export default function RegisterPage() {
-  const [formData, setFormData] = useState<FormData>({
-    name: '',
+  const [formData, setFormData] = useState({
     email: '',
-    phone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    name: '',
+    phone: ''
   })
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
+  const handleChange = (e: FormEvent<HTMLInputElement>) => {
+    const { name, value } = e.currentTarget
     setFormData(prev => ({
       ...prev,
       [name]: value
     }))
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match')
-      return
-    }
-
     setIsLoading(true)
 
     try {
@@ -49,25 +35,19 @@ export default function RegisterPage() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password
-        })
+        body: JSON.stringify(formData)
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to register')
+        const error = await response.json()
+        throw new Error(error.message || 'Registration failed')
       }
 
-      toast.success(data.message || 'Registration successful')
+      toast.success('Registration successful')
       router.push('/login')
     } catch (error) {
       console.error('Registration error:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to register')
+      toast.error(error instanceof Error ? error.message : 'Registration failed')
     } finally {
       setIsLoading(false)
     }
