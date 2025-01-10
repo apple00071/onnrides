@@ -1,8 +1,8 @@
-import logger from '@/lib/logger';
 'use client';
 
-import Image from 'next/image';
-import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
+import logger from '@/lib/logger';
 
 interface Profile {
   id: string;
@@ -27,562 +27,77 @@ interface Document {
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isEditingPhone, setIsEditingPhone] = useState(false);
-  const [isEditingEmail, setIsEditingEmail] = useState(false);
-  const [editedPhone, setEditedPhone] = useState('');
-  const [editedEmail, setEditedEmail] = useState('');
-  const [documentFiles, setDocumentFiles] = useState({
-    profile_photo: null,
-    dl_front: null,
-    dl_back: null,
-    aadhar_front: null,
-    aadhar_back: null
-  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const response = await fetch('/api/user/profile');
+      const data = await response.json();
+
       if (!response.ok) {
-                throw new Error(error.message || 'Failed to fetch profile');
+        throw new Error(data.error || 'Failed to fetch profile');
       }
 
-            setProfile(data);
+      setProfile(data);
     } catch (error) {
       logger.error('Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to fetch profile');
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  
-      if (!response.ok) {
-                throw new Error(error.message || 'Failed to fetch documents');
-      }
-
-            setDocuments(data.documents || []);
-      
-      if (profile && data.is_verified !== profile.is_documents_verified) {
-        setProfile(prev => prev ? {
-          ...prev,
-          is_documents_verified: data.is_verified,
-          documents_submitted: data.documents_submitted
-        } : null);
-      }
-    } catch (error) {
-      logger.error('Error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to fetch documents');
-    }
-  }, [profile]);
-
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-      fetchDocuments();
-    }
-  }, [user, fetchProfile, fetchDocuments]);
-
-  useEffect(() => {
-    if (profile) {
-      setEditedPhone(profile.phone || '');
-      setEditedEmail(profile.email || '');
-    }
-  }, [profile]);
-
-  
-      if (!response.ok) {
-                throw new Error(error.message || `Failed to update ${field}`);
-      }
-      
-            setProfile(updatedProfile);
-      toast.success(`${field.charAt(0).toUpperCase() + field.slice(1)} updated successfully`);
-      
-      if (field === 'phone') setIsEditingPhone(false);
-      if (field === 'email') setIsEditingEmail(false);
-    } catch (error) {
-      logger.error('Error:', error);
-      toast.error(error instanceof Error ? error.message : `Failed to update ${field}`);
-    }
   };
-
-      try {
-            formData.append('file', file);
-      formData.append('type', type);
-
-      
-      if (!uploadResponse.ok) {
-                throw new Error(error.message || 'Failed to upload document');
-      }
-
-      // Fetch updated documents
-      await fetchDocuments();
-
-      // Calculate step based on document types
-            
-      // Set step based on number of documents uploaded (step 1 is profile, so add 1)
-            setCurrentStep(newStep);
-
-      toast.success('Document uploaded successfully');
-    } catch (error) {
-      logger.error('Error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to upload document');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  // Helper function to get document URL
-      try {
-      // If it&apos;s a base64 string
-      if (doc.file_url.startsWith('data:')) {
-        return doc.file_url;
-      }
-      
-      // If it&apos;s a relative URL starting with /api or /uploads
-      if (doc.file_url.startsWith('/api') || doc.file_url.startsWith('/uploads')) {
-        return `${window.location.origin}${doc.file_url}`;
-      }
-      
-      // If it&apos;s a storage URL (e.g., from your storage service)
-      if (doc.file_url.startsWith('http')) {
-        return doc.file_url;
-      }
-      
-      // For any other case, prepend the API endpoint
-      return `${window.location.origin}/api/user/documents/view/${doc.id}`;
-    } catch (error) {
-      logger.error('Error formatting document URL:', error);
-      return '';
-    }
-  };
-
-  // Update the document viewing section
-      
-    return (
-      <div key={type} className="relative">
-        {doc ? (
-          <div className="border-2 border-gray-200 rounded-lg p-4 text-center">
-            <div className="flex flex-col items-center">
-              <a 
-                href={getDocumentUrl(doc)}
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-[#f26e24] hover:underline mb-2"
-                onClick={(e) => {
-                                    if (!url) {
-                    e.preventDefault();
-                    toast.error('Document URL not available');
-                    return;
-                  }
-                  // For debugging
-                  logger.debug('Document URL:', url);
-                }}
-              >
-                View {label}
-              </a>
-              {isRejected && (
-                <label className="cursor-pointer text-red-500 hover:text-red-600">
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="image/jpeg,image/png,application/pdf"
-                    onChange={(e) => e.target.files?.[0] && handleFileUpload(type, e.target.files[0])}
-                  />
-                  Replace Document
-                </label>
-              )}
-              <span className={`text-xs mt-1 ${
-                doc.status === 'verified' ? 'text-green-500' :
-                  doc.status === 'rejected' ? 'text-red-500' :
-                    'text-yellow-500'
-              }`}>
-                {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <label className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center cursor-pointer hover:border-[#f26e24] block">
-            <input
-              type="file"
-              className="hidden"
-              accept="image/jpeg,image/png,application/pdf"
-              onChange={(e) => e.target.files?.[0] && handleFileUpload(type, e.target.files[0])}
-            />
-            <p className="text-sm font-medium">Upload {label}</p>
-          </label>
-        )}
-      </div>
-    );
-  };
-
-          
-    if (missingDocuments.length > 0) {
-      toast.error(`Please upload all required documents. Missing: ${missingDocuments.join(', ')}`);
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      
-      if (!response.ok) {
-                throw new Error(error.message || 'Failed to submit documents');
-      }
-      
-      toast.success('Documents submitted successfully');
-      setCurrentStep(6); // Final step after successful submission
-      await fetchDocuments();
-    } catch (error) {
-      logger.error('Error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to submit documents');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (!user) {
-    return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-semibold text-gray-700">User not found</h2>
-        <p className="text-gray-500 mt-2">The user you&apos;re looking for doesn&apos;t exist.</p>
-      </div>
-    );
-  }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#f26e24]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
       </div>
     );
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Mobile Profile Section */}
-      <div className="md:hidden space-y-6">
-        {/* Profile Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex flex-col items-center space-y-4">
-            <div className="relative">
-              <div className="h-24 w-24 rounded-full bg-gray-100 flex items-center justify-center text-2xl font-semibold text-gray-600">
-                {profile?.name?.[0]?.toUpperCase() || 'P'}
-              </div>
-              <button className="absolute bottom-0 right-0 bg-[#f26e24] rounded-full p-2 text-white">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                </svg>
-              </button>
-            </div>
-            <h1 className="text-xl font-semibold">{profile?.name || 'User'}</h1>
-            <div className="text-sm text-[#f26e24]">
-              Account Status: {profile?.is_documents_verified ? 'Verified' : 'Awaiting Document Upload'}
-            </div>
-          </div>
-        </div>
-
-        {/* Contact Information */}
-        <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
-          <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-            </svg>
-            <div className="flex-1">
-              {isEditingPhone ? (
-                <input
-                  type="tel"
-                  value={editedPhone}
-                  onChange={(e) => setEditedPhone(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md"
-                  placeholder="Enter phone number"
-                />
-              ) : (
-                <span>{profile?.phone || 'Add Phone Number'}</span>
-              )}
-            </div>
-            <button
-              onClick={() => {
-                if (isEditingPhone) {
-                  handleUpdateProfile('phone', editedPhone);
-                } else {
-                  setIsEditingPhone(true);
-                }
-              }}
-              className="text-[#f26e24]"
-            >
-              {isEditingPhone ? 'Save' : 'Edit'}
-            </button>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            <div className="flex-1">
-              {isEditingEmail ? (
-                <input
-                  type="email"
-                  value={editedEmail}
-                  onChange={(e) => setEditedEmail(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md"
-                  placeholder="Enter email"
-                />
-              ) : (
-                <span>{profile?.email || 'Add Email'}</span>
-              )}
-            </div>
-            <button
-              onClick={() => {
-                if (isEditingEmail) {
-                  handleUpdateProfile('email', editedEmail);
-                } else {
-                  setIsEditingEmail(true);
-                }
-              }}
-              className="text-[#f26e24]"
-            >
-              {isEditingEmail ? 'Save' : 'Edit'}
-            </button>
-          </div>
-        </div>
-
-        {/* Document Verification Section */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold mb-4">Document Verification</h2>
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600">Please upload the following documents:</p>
-            <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
-              <li>Driving License/International Driving Permit</li>
-              <li>Identification Proof</li>
-            </ul>
-            
-            <p className="text-sm text-gray-600">
-              Accepted forms of ID that can be uploaded are: Aadhaar Card, Passport. For international users, a passport along with a valid visa.
-            </p>
-            
-            <div className="flex justify-between items-center mt-6">
-              <div className="flex items-center space-x-4">
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 1 ? 'bg-[#f26e24] text-white' : 'bg-gray-200'}`}>1</div>
-                  <span className="text-xs mt-1">Profile</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 2 ? 'bg-[#f26e24] text-white' : 'bg-gray-200'}`}>2</div>
-                  <span className="text-xs mt-1">DL Front</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 3 ? 'bg-[#f26e24] text-white' : 'bg-gray-200'}`}>3</div>
-                  <span className="text-xs mt-1">DL Back</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 4 ? 'bg-[#f26e24] text-white' : 'bg-gray-200'}`}>4</div>
-                  <span className="text-xs mt-1">Aadhar Front</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 5 ? 'bg-[#f26e24] text-white' : 'bg-gray-200'}`}>5</div>
-                  <span className="text-xs mt-1">Aadhar Back</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 6 ? 'bg-[#f26e24] text-white' : 'bg-gray-200'}`}>6</div>
-                  <span className="text-xs mt-1">Submit</span>
-                </div>
+      <h1 className="text-2xl font-bold mb-6">My Profile</h1>
+      {profile && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Personal Information</h2>
+              <div className="space-y-3">
+                <p><span className="font-medium">Name:</span> {profile.name}</p>
+                <p><span className="font-medium">Email:</span> {profile.email}</p>
+                <p><span className="font-medium">Phone:</span> {profile.phone}</p>
+                <p><span className="font-medium">Address:</span> {profile.address || 'Not provided'}</p>
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-4 mt-6">
-              {renderDocument('dl_front', 'DL Front')}
-              {renderDocument('dl_back', 'DL Back')}
-              {renderDocument('aadhar_front', 'Aadhar Front')}
-              {renderDocument('aadhar_back', 'Aadhar Back')}
-            </div>
-
-            {/* Submit button */}
-            {!profile?.is_documents_verified && !profile?.documents_submitted && documents.length === 4 && (
-              <button
-                onClick={handleSubmitDocuments}
-                disabled={isSubmitting}
-                className="mt-6 w-full py-2 px-4 rounded-md bg-[#f26e24] text-white hover:bg-[#e05d13] disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Documents for Verification'}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop Layout */}
-      <div className="hidden md:flex justify-center gap-8 max-w-6xl mx-auto">
-        {/* Profile Card - Left side */}
-        <div className="w-[345px]">
-          <div className="bg-white rounded-lg p-6 shadow-sm">
-            <div className="flex flex-col items-center">
-              <div className="relative">
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center">
-                  <span className="text-2xl font-semibold text-gray-700">
-                    {profile?.name?.[0]?.toUpperCase() || 'P'}
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Account Status</h2>
+              <div className="space-y-3">
+                <p>
+                  <span className="font-medium">Documents Status:</span>{' '}
+                  <span className={`${
+                    profile.is_documents_verified ? 'text-green-600' : 'text-yellow-600'
+                  }`}>
+                    {profile.is_documents_verified ? 'Verified' : 'Pending Verification'}
                   </span>
-                </div>
-                <button className="absolute bottom-0 right-0 bg-[#f26e24] p-2 rounded-full text-white">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </button>
-              </div>
-
-              <h2 className="mt-4 text-xl font-semibold">{profile?.name || 'User'}</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Account Status: {' '}
-                <span className={profile?.is_documents_verified ? 'text-green-600' : 'text-yellow-600'}>
-                  {profile?.is_documents_verified ? 'Verified' : 
-                    profile?.documents_submitted ? 'Documents Under Review' : 
-                      'Awaiting Document Upload'}
-                </span>
-              </p>
-            </div>
-
-            <div className="mt-6 space-y-4">
-              <div className="relative">
-                <div className="flex items-center border rounded-lg p-3">
-                  <span className="text-gray-500 mr-3">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                  </span>
-                  {isEditingPhone ? (
-                    <input
-                      type="tel"
-                      value={editedPhone}
-                      onChange={(e) => setEditedPhone(e.target.value)}
-                      className="flex-1 outline-none"
-                      placeholder="Phone Number"
-                    />
-                  ) : (
-                    <span className="flex-1">{profile?.phone || 'Add Phone Number'}</span>
-                  )}
-                  <button 
-                    onClick={() => {
-                      if (isEditingPhone) {
-                        handleUpdateProfile('phone', editedPhone);
-                      } else {
-                        setIsEditingPhone(true);
-                      }
-                    }}
-                    className="text-[#f26e24]"
-                  >
-                    {isEditingPhone ? 'Save' : 'Edit'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="relative">
-                <div className="flex items-center border rounded-lg p-3">
-                  <span className="text-gray-500 mr-3">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </span>
-                  {isEditingEmail ? (
-                    <input
-                      type="email"
-                      value={editedEmail}
-                      onChange={(e) => setEditedEmail(e.target.value)}
-                      className="flex-1 outline-none"
-                      placeholder="Email"
-                    />
-                  ) : (
-                    <span className="flex-1">{profile?.email || 'Add Email'}</span>
-                  )}
-                  <button 
-                    onClick={() => {
-                      if (isEditingEmail) {
-                        handleUpdateProfile('email', editedEmail);
-                      } else {
-                        setIsEditingEmail(true);
-                      }
-                    }}
-                    className="text-[#f26e24]"
-                  >
-                    {isEditingEmail ? 'Save' : 'Edit'}
-                  </button>
-                </div>
+                </p>
+                <p>
+                  <span className="font-medium">Documents Submitted:</span>{' '}
+                  {profile.documents_submitted ? 'Yes' : 'No'}
+                </p>
+                <p><span className="font-medium">Member Since:</span> {new Date(profile.created_at).toLocaleDateString()}</p>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Document Verification Card - Right side */}
-        <div className="flex-1 max-w-[700px] bg-white rounded-lg p-6 shadow-sm">
-          <h2 className="text-xl font-semibold mb-4">Document Verification</h2>
-          
-          <div className="space-y-4">
-            <div className="text-sm text-gray-600">
-              <p className="mb-2">Please upload the following documents:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>Driving License/International Driving Permit</li>
-                <li>Identification Proof</li>
-              </ul>
-            </div>
-
-            <div className="text-sm text-gray-600">
-              <p>Accepted forms of ID that can be uploaded are: Aadhaar Card, Passport. For international users, a passport along with a valid visa.</p>
-              <p className="mt-2">For bulk bookings, contact our support team.</p>
-              <p className="mt-2">Ensure to upload pictures of original documents only.</p>
-              <p className="mt-2">Learner license is not applicable for renting a vehicle with us.</p>
-            </div>
-
-            <div className="flex justify-between items-center mt-6">
-              <div className="flex items-center space-x-4">
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 1 ? 'bg-[#f26e24] text-white' : 'bg-gray-200'}`}>1</div>
-                  <span className="text-xs mt-1">Profile</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 2 ? 'bg-[#f26e24] text-white' : 'bg-gray-200'}`}>2</div>
-                  <span className="text-xs mt-1">DL Front</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 3 ? 'bg-[#f26e24] text-white' : 'bg-gray-200'}`}>3</div>
-                  <span className="text-xs mt-1">DL Back</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 4 ? 'bg-[#f26e24] text-white' : 'bg-gray-200'}`}>4</div>
-                  <span className="text-xs mt-1">Aadhar Front</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 5 ? 'bg-[#f26e24] text-white' : 'bg-gray-200'}`}>5</div>
-                  <span className="text-xs mt-1">Aadhar Back</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 6 ? 'bg-[#f26e24] text-white' : 'bg-gray-200'}`}>6</div>
-                  <span className="text-xs mt-1">Submit</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mt-6">
-              {renderDocument('dl_front', 'DL Front')}
-              {renderDocument('dl_back', 'DL Back')}
-              {renderDocument('aadhar_front', 'Aadhar Front')}
-              {renderDocument('aadhar_back', 'Aadhar Back')}
-            </div>
-
-            {/* Submit button */}
-            {!profile?.is_documents_verified && !profile?.documents_submitted && documents.length === 4 && (
-              <button
-                onClick={handleSubmitDocuments}
-                disabled={isSubmitting}
-                className="mt-6 w-full py-2 px-4 rounded-md bg-[#f26e24] text-white hover:bg-[#e05d13] disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Documents for Verification'}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 } 
