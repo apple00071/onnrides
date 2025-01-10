@@ -31,7 +31,6 @@ export default function DocumentsPage() {
       const data = await response.json();
       setDocuments(data);
     } catch (error) {
-      console.error('Error:', error);
       toast.error('Failed to fetch documents');
     } finally {
       setLoading(false);
@@ -59,7 +58,6 @@ export default function DocumentsPage() {
       toast.success('Document uploaded successfully');
       fetchDocuments(); // Refresh the list
     } catch (error) {
-      console.error('Error:', error);
       toast.error('Failed to upload document');
     }
   };

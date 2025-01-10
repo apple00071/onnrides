@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'react-hot-toast'
-import Link from 'next/link'
+import Image from 'next/image'
 import { differenceInMinutes } from 'date-fns'
 
 interface Vehicle {
@@ -47,7 +47,6 @@ export default function BookingPage() {
 
       setVehicle(vehicle)
     } catch (error) {
-      console.error('Error fetching vehicle:', error)
       toast.error('Failed to load vehicle details')
     } finally {
       setLoading(false)
@@ -132,11 +131,15 @@ export default function BookingPage() {
           <h1 className="text-2xl font-bold mb-6">SUMMARY</h1>
           <div className="flex flex-col md:flex-row gap-8">
             <div className="w-full md:w-1/3">
-              <img
-                src={vehicle.image_url}
-                alt={vehicle.name}
-                className="w-full object-contain"
-              />
+              <div className="relative w-full h-48">
+                <Image
+                  src={vehicle.image_url}
+                  alt={vehicle.name}
+                  fill
+                  className="object-contain"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                />
+              </div>
               <h2 className="text-xl font-bold mt-4">{vehicle.name}</h2>
             </div>
             <div className="w-full md:w-2/3">

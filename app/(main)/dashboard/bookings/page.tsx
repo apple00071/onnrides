@@ -31,7 +31,6 @@ export default function BookingsPage() {
       const data = await response.json();
       setBookings(data);
     } catch (error) {
-      console.error('Error:', error);
       toast.error('Failed to fetch bookings');
     } finally {
       setLoading(false);
@@ -55,7 +54,6 @@ export default function BookingsPage() {
       toast.success('Booking cancelled successfully');
       fetchBookings(); // Refresh the list
     } catch (error) {
-      console.error('Error:', error);
       toast.error('Failed to cancel booking');
     }
   };
