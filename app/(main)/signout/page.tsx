@@ -2,20 +2,18 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/providers/AuthProvider';
+import { signOut } from 'next-auth/react';
 import { toast } from 'react-hot-toast';
 import logger from '@/lib/logger';
 
 export default function SignOut() {
   const router = useRouter();
-  const { signOut } = useAuth();
 
   useEffect(() => {
     const performSignOut = async () => {
       try {
-        await signOut();
+        await signOut({ callbackUrl: '/login' });
         toast.success('Signed out successfully');
-        router.push('/login');
       } catch (error) {
         logger.error('Sign out error:', error);
         toast.error('Failed to sign out. Please try again.');
@@ -24,7 +22,7 @@ export default function SignOut() {
     };
 
     performSignOut();
-  }, [router, signOut]);
+  }, [router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
