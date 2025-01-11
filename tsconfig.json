@@ -24,7 +24,10 @@
     ],
     "paths": {
       "@/*": [
-        "./*"
+        "./app/*"
+      ],
+      "@/components/*": [
+        "./components/*"
       ]
     },
     "forceConsistentCasingInFileNames": true,
