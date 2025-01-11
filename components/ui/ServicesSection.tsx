@@ -8,34 +8,34 @@ interface Service {
 
 const services: Service[] = [
   {
-    title: "24/7 Customer Support",
-    description: "Round-the-clock assistance for all your rental needs and queries.",
-    icon: "/icons/support.svg"
+    title: '24/7 Customer Support',
+    description: 'Round-the-clock assistance for all your rental needs and queries.',
+    icon: '/icons/support.svg'
   },
   {
-    title: "Flexible Rentals",
-    description: "Choose from hourly, daily, weekly, or monthly rental options.",
-    icon: "/icons/calendar.svg"
+    title: 'Flexible Rentals',
+    description: 'Choose from hourly, daily, weekly, or monthly rental options.',
+    icon: '/icons/calendar.svg'
   },
   {
-    title: "Wide Vehicle Selection",
-    description: "From economy cars to luxury vehicles, find the perfect ride for your needs.",
-    icon: "/icons/car.svg"
+    title: 'Wide Vehicle Selection',
+    description: 'From economy cars to luxury vehicles, find the perfect ride for your needs.',
+    icon: '/icons/car.svg'
   },
   {
-    title: "Doorstep Delivery",
-    description: "Get your rental vehicle delivered right to your location.",
-    icon: "/icons/delivery.svg"
+    title: 'Doorstep Delivery',
+    description: 'Get your rental vehicle delivered right to your location.',
+    icon: '/icons/delivery.svg'
   },
   {
-    title: "Insurance Coverage",
-    description: "Comprehensive insurance options for worry-free rentals.",
-    icon: "/icons/shield.svg"
+    title: 'Insurance Coverage',
+    description: 'Comprehensive insurance options for worry-free rentals.',
+    icon: '/icons/shield.svg'
   },
   {
-    title: "Easy Booking Process",
-    description: "Simple and quick online booking system with instant confirmation.",
-    icon: "/icons/booking.svg"
+    title: 'Easy Booking Process',
+    description: 'Simple and quick online booking system with instant confirmation.',
+    icon: '/icons/booking.svg'
   }
 ];
 
