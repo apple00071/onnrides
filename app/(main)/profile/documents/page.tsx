@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
+import Image from 'next/image';
 import logger from '@/lib/logger';
 
 interface Document {
@@ -66,8 +67,6 @@ export default function DocumentsPage() {
         throw new Error('Failed to upload document');
       }
 
-      const data = await response.json();
-      
       setDocuments(prev => ({
         ...prev,
         [type]: {
@@ -96,10 +95,11 @@ export default function DocumentsPage() {
             <div className="space-y-4">
               {doc.preview && (
                 <div className="relative h-48 bg-gray-100 rounded-lg overflow-hidden">
-                  <img
+                  <Image
                     src={doc.preview}
                     alt={`Preview of ${key}`}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
                   />
                 </div>
               )}

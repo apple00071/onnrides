@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import logger from '@/lib/logger';
@@ -24,7 +24,7 @@ export default function PaymentPage() {
   const [paymentRef, setPaymentRef] = useState<string>('');
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
 
-  const initializePayment = async () => {
+  const initializePayment = useCallback(async () => {
     try {
       const response = await fetch('/api/payments/initialize', {
         method: 'POST',
@@ -53,11 +53,11 @@ export default function PaymentPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
   useEffect(() => {
     initializePayment();
-  }, [router]);
+  }, [initializePayment]);
 
   if (loading) {
     return (

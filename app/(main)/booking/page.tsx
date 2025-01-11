@@ -23,8 +23,8 @@ export default function BookingPage() {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [couponCode, setCouponCode] = useState('');
-  const [pickupDateTime, setPickupDateTime] = useState<string | null>(searchParams.get('pickup'));
-  const [dropoffDateTime, setDropoffDateTime] = useState<string | null>(searchParams.get('dropoff'));
+  const [pickupDateTime, _setPickupDateTime] = useState<string | null>(searchParams.get('pickup'));
+  const [dropoffDateTime, _setDropoffDateTime] = useState<string | null>(searchParams.get('dropoff'));
   const [locationDetails, setLocationDetails] = useState({ main: '', sub: '' });
 
   useEffect(() => {

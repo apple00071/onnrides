@@ -28,9 +28,9 @@ interface Document {
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [_documents, _setDocuments] = useState<Document[]>([]);
+  const [_isSubmitting, _setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchProfile();

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
+import Image from 'next/image';
 import logger from '@/lib/logger';
 import { format } from 'date-fns';
 
@@ -129,8 +130,6 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
         body: JSON.stringify({ status })
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
         throw new Error('Failed to update document status');
       }
@@ -143,8 +142,9 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
 
       toast.success(`Document ${status} successfully`);
 
-      if (data.user) {
-        onUserUpdated(data.user);
+      const updatedData = await response.json();
+      if (updatedData.user) {
+        onUserUpdated(updatedData.user);
       }
     } catch (error) {
       logger.error('Error updating document status:', error);
@@ -320,11 +320,14 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="h-10 w-10 flex-shrink-0">
-                                <img
-                                  className="h-10 w-10 rounded-full object-cover"
-                                  src={booking.vehicle.image_url}
-                                  alt={booking.vehicle.name}
-                                />
+                                <div className="relative h-10 w-10 rounded-full overflow-hidden">
+                                  <Image
+                                    src={booking.vehicle.image_url}
+                                    alt={booking.vehicle.name}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                </div>
                               </div>
                               <div className="ml-4">
                                 <div className="text-sm font-medium text-gray-900">{booking.vehicle.name}</div>
