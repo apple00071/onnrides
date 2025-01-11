@@ -1,5 +1,5 @@
+import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-
 import crypto from 'crypto';
 import pool from '@/lib/db';
 
@@ -14,14 +14,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const client = await pool.connect();
     
     try {
       // Generate reset token
-      
-       // 1 hour from now
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
 
       // Update user with reset token
-      
+      const result = await client.query(
+        `UPDATE users 
+         SET reset_token = $1, reset_token_expiry = $2 
+         WHERE email = $3 
+         RETURNING id`,
+        [resetToken, resetTokenExpiry, email]
+      );
 
       if (result.rows.length === 0) {
         return NextResponse.json(
@@ -31,7 +38,7 @@ export async function POST(request: NextRequest) {
       }
 
       // In a real application, you would send an email here
-      // For development, we&apos;ll just return the token
+      // For development, we'll just return the token
       return NextResponse.json({
         message: 'Password reset instructions sent',
         // Remove this in production

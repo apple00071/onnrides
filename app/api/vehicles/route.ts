@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
       id: vehicleId,
       name,
       description,
-      type,
+      type: type as 'car' | 'bike',
       model,
       year,
       color,

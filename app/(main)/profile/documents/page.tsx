@@ -128,11 +128,15 @@ export default function DocumentsPage() {
               )}
               <div className="flex items-center space-x-2">
                 <span className="text-sm">Status:</span>
-                <span className={`text-sm font-medium ${
-                  doc.status === 'approved' ? 'text-green-600' :
-                  doc.status === 'rejected' ? 'text-red-600' :
-                  'text-yellow-600'
-                }`}>
+                <span 
+                  className={`text-sm font-medium ${
+                    doc.status === 'approved' 
+                      ? 'text-green-600' 
+                      : doc.status === 'rejected'
+                        ? 'text-red-600'
+                        : 'text-yellow-600'
+                  }`}
+                >
                   {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
                 </span>
               </div>
