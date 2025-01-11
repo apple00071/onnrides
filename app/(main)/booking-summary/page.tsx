@@ -1,10 +1,12 @@
 'use client'
 
-
-
-
-
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
+import { useAuth } from '../../../hooks/useAuth'
+import { toast } from 'react-hot-toast'
+import { signIn } from 'next-auth/react'
+import type { SignInResponse } from 'next-auth/react'
 
 interface BookingDetails {
   vehicleId: string
@@ -19,11 +21,11 @@ interface BookingDetails {
 }
 
 export default function BookingSummaryPage() {
-  const { user, loading, signIn } = useAuth()
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [showLoginForm, setShowLoginForm] = useState(false)
-  const [authLoading, setAuthLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -55,15 +57,25 @@ export default function BookingSummaryPage() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
-    setAuthLoading(true)
+    setIsSubmitting(true)
+    
     try {
-      const result = await signIn(formData.email, formData.password)
-      if (result.success) {
-        toast.success('Successfully signed in!')
+      const result = await signIn('credentials', {
+        redirect: false,
+        email: formData.email,
+        password: formData.password
+      })
+
+      if (!result?.error) {
+        toast.success('Logged in successfully')
         setShowLoginForm(false)
+      } else {
+        toast.error(result.error)
       }
+    } catch (error) {
+      toast.error('Failed to sign in')
     } finally {
-      setAuthLoading(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -132,7 +144,7 @@ export default function BookingSummaryPage() {
     }
   }
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#f26e24]"></div>
@@ -245,10 +257,10 @@ export default function BookingSummaryPage() {
                   <div className="flex gap-3">
                     <button
                       type="submit"
-                      disabled={authLoading}
+                      disabled={isSubmitting}
                       className="flex-1 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#f26e24] hover:bg-[#e05d13] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24]"
                     >
-                      {authLoading ? 'Signing in...' : 'Sign in'}
+                      {isSubmitting ? 'Signing in...' : 'Sign in'}
                     </button>
                     <button
                       type="button"
