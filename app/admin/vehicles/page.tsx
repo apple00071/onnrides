@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import Image from 'next/image';
 import logger from '@/lib/logger';
 
 interface Vehicle {
@@ -21,18 +20,6 @@ interface Vehicle {
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    type: 'car',
-    location: [] as string[],
-    quantity: 1,
-    price_per_day: 0,
-    is_available: true,
-    status: 'active',
-    image: null as File | null
-  });
 
   useEffect(() => {
     fetchVehicles();

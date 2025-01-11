@@ -5,7 +5,6 @@ import { toast } from 'react-hot-toast';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
 import logger from '@/lib/logger';
-import Image from 'next/image';
 import { format } from 'date-fns';
 
 interface User {

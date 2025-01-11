@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import logger from '@/lib/logger';
 import { toast } from 'react-hot-toast';
 
@@ -22,10 +23,6 @@ export default function PaymentPage() {
   const [qrCode, setQrCode] = useState<string>('');
   const [paymentRef, setPaymentRef] = useState<string>('');
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
-
-  useEffect(() => {
-    initializePayment();
-  }, []);
 
   const initializePayment = async () => {
     try {
@@ -58,6 +55,10 @@ export default function PaymentPage() {
     }
   };
 
+  useEffect(() => {
+    initializePayment();
+  }, [router]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -80,7 +81,14 @@ export default function PaymentPage() {
         )}
         {qrCode && (
           <div className="flex flex-col items-center space-y-4">
-            <img src={qrCode} alt="Payment QR Code" className="w-64 h-64" />
+            <div className="relative w-64 h-64">
+              <Image
+                src={qrCode}
+                alt="Payment QR Code"
+                fill
+                className="object-contain"
+              />
+            </div>
             <p className="text-sm text-gray-600">Scan QR code to complete payment</p>
             <p className="text-xs text-gray-500">Reference: {paymentRef}</p>
           </div>

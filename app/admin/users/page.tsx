@@ -118,7 +118,7 @@ export default function UsersPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleViewUser(user)}
-                      className={cn("flex items-center gap-2")}
+                      className={cn('flex items-center gap-2')}
                     >
                       <FaEye className="w-4 h-4" />
                       View

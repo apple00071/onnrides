@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { put } from '@vercel/blob';
 import { kv } from '@vercel/kv';
 import logger from '@/lib/logger';
 import { COLLECTIONS, generateId, findMany, set } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
-import type { Vehicle, User } from '@/lib/types';
+import type { Vehicle } from '@/lib/types';
 
 interface CreateVehicleBody {
   name: string;
   description: string;
-  type: string;
+  type: 'car' | 'bike';
   brand: string;
   model: string;
   year: number;
@@ -91,6 +90,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate vehicle type
+    if (type !== 'car' && type !== 'bike') {
+      return NextResponse.json(
+        { error: 'Invalid vehicle type. Must be either "car" or "bike"' },
+        { status: 400 }
+      );
+    }
+
     // Check if license plate is unique
     const existingVehicle = await findMany<Vehicle>(COLLECTIONS.VEHICLES, 'licensePlate', licensePlate);
     if (existingVehicle.length > 0) {
@@ -101,25 +108,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Create vehicle
-    const vehicleId = generateId('veh');
+    const vehicleId = generateId();
     const vehicle: Vehicle = {
       id: vehicleId,
       name,
       description,
       type,
-      brand,
       model,
       year,
       color,
-      licensePlate,
-      seats,
+      registrationNumber: licensePlate,
       transmission,
       fuelType,
+      mileage: 0,
+      seatingCapacity: seats,
       pricePerDay,
+      imageUrl: images[0] || '',
       location,
-      images,
       isAvailable: true,
-      owner_id: authResult.id,
       createdAt: new Date(),
       updatedAt: new Date()
     };

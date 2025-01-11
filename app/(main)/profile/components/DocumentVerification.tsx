@@ -18,7 +18,7 @@ interface DocumentVerificationProps {
 }
 
 const documentTypes = [
-  { key: 'drivers_license', label: "Driver's License" },
+  { key: 'drivers_license', label: 'Driver\'s License' },
   { key: 'national_id', label: 'National ID' },
   { key: 'proof_of_address', label: 'Proof of Address' }
 ];

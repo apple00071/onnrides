@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
 
@@ -20,7 +20,6 @@ interface Vehicle {
 
 export default function BookingPage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [couponCode, setCouponCode] = useState('');
