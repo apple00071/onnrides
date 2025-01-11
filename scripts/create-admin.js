@@ -3,11 +3,14 @@ const bcrypt = require('bcryptjs');
 
 // Create a new pool using the connection string from the environment variable
 const pool = new Pool({
-  user: 'postgres',
-  password: 'Sulochana8%',
-  host: 'localhost',
+  user: "neondb_owner",
+  password: "fpBXEsTct9g1",
+  host: "ep-long-dream-a6avbuml-pooler.us-west-2.aws.neon.tech",
   port: 5432,
-  database: 'onnrides'
+  database: "neondb",
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 async function createAdmin() {

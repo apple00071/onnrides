@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
 import logger from '@/lib/logger';
-import { COLLECTIONS, generateId, findMany, set } from '@/lib/db';
+import { COLLECTIONS, generateId, findAll, findManyBy, insertOne } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 import type { Vehicle } from '@/lib/types';
 
@@ -19,24 +18,13 @@ interface CreateVehicleBody {
   fuelType: string;
   pricePerDay: number;
   location: string;
-  images: string[];
+  imageUrl: string;
 }
 
 // GET /api/vehicles - List all vehicles
 export async function GET() {
   try {
-    // Get all vehicles from KV store
-    const pattern = `${COLLECTIONS.VEHICLES}:*`;
-    const keys = await kv.keys(pattern);
-    const vehicles: Vehicle[] = [];
-
-    // Fetch each vehicle
-    for (const key of keys) {
-      const data = await kv.get<string>(key);
-      if (data) {
-        vehicles.push(JSON.parse(data));
-      }
-    }
+    const vehicles = await findAll<Vehicle>(COLLECTIONS.VEHICLES);
 
     return NextResponse.json({
       success: true,
@@ -52,7 +40,7 @@ export async function GET() {
   }
 }
 
-// POST /api/vehicles - Create a new vehicle
+// POST /api/vehicles - Create vehicle
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication and admin role
@@ -65,42 +53,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json() as CreateVehicleBody;
-    const {
-      name,
-      description,
-      type,
-      brand,
-      model,
-      year,
-      color,
-      licensePlate,
-      seats,
-      transmission,
-      fuelType,
-      pricePerDay,
-      location,
-      images
-    } = body;
-
-    // Validate required fields
-    if (!name || !type || !brand || !model || !year || !licensePlate || !pricePerDay || !location) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    // Validate vehicle type
-    if (type !== 'car' && type !== 'bike') {
-      return NextResponse.json(
-        { error: 'Invalid vehicle type. Must be either "car" or "bike"' },
-        { status: 400 }
-      );
-    }
+    const { licensePlate } = body;
 
     // Check if license plate is unique
-    const existingVehicle = await findMany<Vehicle>(COLLECTIONS.VEHICLES, 'licensePlate', licensePlate);
-    if (existingVehicle.length > 0) {
+    const existingVehicles = await findManyBy<Vehicle>(COLLECTIONS.VEHICLES, 'licensePlate', licensePlate);
+    if (existingVehicles.length > 0) {
       return NextResponse.json(
         { error: 'Vehicle with this license plate already exists' },
         { status: 400 }
@@ -108,31 +65,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Create vehicle
-    const vehicleId = generateId();
-    const vehicle: Vehicle = {
-      id: vehicleId,
-      name,
-      description,
-      type: type as 'car' | 'bike',
-      model,
-      year,
-      color,
-      registrationNumber: licensePlate,
-      transmission,
-      fuelType,
+    const vehicleData: Omit<Vehicle, 'id'> = {
+      ...body,
+      seatingCapacity: body.seats,
+      registrationNumber: body.licensePlate,
       mileage: 0,
-      seatingCapacity: seats,
-      pricePerDay,
-      imageUrl: images[0] || '',
-      location,
       isAvailable: true,
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
-    await set(COLLECTIONS.VEHICLES, vehicle);
-
-    logger.debug('Vehicle created successfully:', { vehicleId });
+    const vehicle = await insertOne<Vehicle>(COLLECTIONS.VEHICLES, vehicleData);
 
     return NextResponse.json({
       success: true,

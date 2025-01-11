@@ -16,6 +16,17 @@ declare module '@vercel/blob' {
     size: number;
   }
 
+  export interface ListResponse {
+    blobs: {
+      pathname: string;
+      contentType: string | null;
+      contentDisposition: string | null;
+      size: number;
+      uploadedAt: string;
+    }[];
+    cursor?: string;
+  }
+
   export function put(
     pathname: string,
     body: string | Buffer | ArrayBuffer | Blob | File | ReadableStream,
@@ -23,4 +34,11 @@ declare module '@vercel/blob' {
   ): Promise<PutResponse>;
 
   export function del(urlOrPathname: string, token?: string): Promise<void>;
+
+  export function list(options?: {
+    prefix?: string;
+    limit?: number;
+    cursor?: string;
+    token?: string;
+  }): Promise<ListResponse>;
 } 

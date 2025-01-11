@@ -8,6 +8,8 @@ export interface BaseEntity {
 // User Types
 export interface User extends BaseEntity {
   email: string;
+  name: string;
+  phone: string;
   role: 'user' | 'admin';
   passwordHash: string;
 }

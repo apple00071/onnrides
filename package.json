@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "migrate": "node scripts/run-migrations.js"
+    "migrate": "cross-env NODE_ENV=development ts-node --project tsconfig.json -r tsconfig-paths/register app/lib/migrations/run-migrations.ts",
+    "seed": "cross-env NODE_ENV=development ts-node --project tsconfig.json -r tsconfig-paths/register app/lib/seed.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.1.1",
@@ -34,6 +35,7 @@
     "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cross-env": "^7.0.3",
     "crypto-browserify": "^3.12.1",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
@@ -56,6 +58,7 @@
     "stream-browserify": "^3.0.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "tsconfig-paths": "^4.2.0",
     "uuid": "^11.0.3"
   },
   "devDependencies": {

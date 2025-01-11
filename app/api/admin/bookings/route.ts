@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { kv } from '@vercel/kv';
 import logger from '@/lib/logger';
-import { COLLECTIONS, get, findMany, update } from '@/lib/db';
+import { COLLECTIONS, get, findMany, update, findOneBy } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 import type { Booking, Vehicle, User } from '@/lib/types';
 
@@ -40,8 +40,8 @@ export async function GET(request: NextRequest) {
 
         // Apply filters
         if (status && booking.status !== status) continue;
-        if (userId && booking.user_id !== userId) continue;
-        if (vehicleId && booking.vehicle_id !== vehicleId) continue;
+        if (userId && booking.userId !== userId) continue;
+        if (vehicleId && booking.vehicleId !== vehicleId) continue;
 
         bookings.push(booking);
       }
@@ -54,8 +54,8 @@ export async function GET(request: NextRequest) {
     const bookingsWithDetails = await Promise.all(
       bookings.map(async (booking) => {
         const [vehicle, user] = await Promise.all([
-          get<Vehicle>(COLLECTIONS.VEHICLES, booking.vehicle_id),
-          get<User>(COLLECTIONS.USERS, booking.user_id)
+          findOneBy<Vehicle>(COLLECTIONS.VEHICLES, 'id', booking.vehicleId),
+          findOneBy<User>(COLLECTIONS.USERS, 'id', booking.userId)
         ]);
 
         return {
@@ -63,9 +63,7 @@ export async function GET(request: NextRequest) {
           vehicle,
           user: user ? {
             id: user.id,
-            name: user.name,
-            email: user.email,
-            phone: user.phone
+            email: user.email
           } : null
         };
       })
@@ -108,7 +106,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get booking
-    const booking = await get<Booking>(COLLECTIONS.BOOKINGS, id);
+    const booking = await findOneBy<Booking>(COLLECTIONS.BOOKINGS, 'id', id);
     if (!booking) {
       return NextResponse.json(
         { error: 'Booking not found' },
@@ -131,10 +129,10 @@ export async function PUT(request: NextRequest) {
     });
 
     // Get updated booking with details
-    const updatedBooking = await get<Booking>(COLLECTIONS.BOOKINGS, id);
+    const updatedBooking = await findOneBy<Booking>(COLLECTIONS.BOOKINGS, 'id', id);
     const [vehicle, user] = await Promise.all([
-      get<Vehicle>(COLLECTIONS.VEHICLES, booking.vehicle_id),
-      get<User>(COLLECTIONS.USERS, booking.user_id)
+      findOneBy<Vehicle>(COLLECTIONS.VEHICLES, 'id', booking.vehicleId),
+      findOneBy<User>(COLLECTIONS.USERS, 'id', booking.userId)
     ]);
 
     return NextResponse.json({
@@ -145,9 +143,7 @@ export async function PUT(request: NextRequest) {
         vehicle,
         user: user ? {
           id: user.id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone
+          email: user.email
         } : null
       }
     });

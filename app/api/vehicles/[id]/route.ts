@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { del } from '@vercel/blob';
 import logger from '@/lib/logger';
-import { COLLECTIONS, get, update, remove } from '@/lib/db';
+import { COLLECTIONS, get, update, remove, findOneBy } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 import type { Vehicle } from '@/lib/types';
 
@@ -29,7 +29,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const vehicle = await get<Vehicle>(COLLECTIONS.VEHICLES, params.id);
+    const vehicle = await findOneBy<Vehicle>(COLLECTIONS.VEHICLES, 'id', params.id);
     if (!vehicle) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
@@ -66,8 +66,8 @@ export async function PATCH(
       );
     }
 
-    // Get existing vehicle
-    const vehicle = await get<Vehicle>(COLLECTIONS.VEHICLES, params.id);
+    // Get vehicle
+    const vehicle = await findOneBy<Vehicle>(COLLECTIONS.VEHICLES, 'id', params.id);
     if (!vehicle) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
@@ -84,7 +84,7 @@ export async function PATCH(
     });
 
     // Get updated vehicle
-    const updatedVehicle = await get<Vehicle>(COLLECTIONS.VEHICLES, params.id);
+    const updatedVehicle = await findOneBy<Vehicle>(COLLECTIONS.VEHICLES, 'id', params.id);
 
     return NextResponse.json({
       success: true,
@@ -117,7 +117,7 @@ export async function DELETE(
     }
 
     // Get vehicle
-    const vehicle = await get<Vehicle>(COLLECTIONS.VEHICLES, params.id);
+    const vehicle = await findOneBy<Vehicle>(COLLECTIONS.VEHICLES, 'id', params.id);
     if (!vehicle) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
@@ -126,11 +126,11 @@ export async function DELETE(
     }
 
     // Delete vehicle images from blob storage
-    for (const imageUrl of vehicle.images) {
-      await del(imageUrl);
+    if (vehicle.imageUrl) {
+      await del(vehicle.imageUrl);
     }
 
-    // Delete vehicle from KV store
+    // Delete vehicle from database
     await remove(COLLECTIONS.VEHICLES, params.id);
 
     return NextResponse.json({

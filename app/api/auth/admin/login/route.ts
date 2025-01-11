@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 interface User {
   id: string;
   email: string;
-  password: string;
+  password_hash: string;
   role: string;
 }
 
@@ -61,8 +61,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Verify password
-      const isValid = await bcrypt.compare(password, user.password);
-      
+      const isValid = await bcrypt.compare(password, user.password_hash);
       if (!isValid) {
         return NextResponse.json(
           { error: 'Invalid email or password' },
@@ -72,7 +71,7 @@ export async function POST(request: NextRequest) {
 
       // Get admin profile
       const profileResult = await client.query(
-        'SELECT * FROM admin_profiles WHERE user_id = $1',
+        'SELECT * FROM profiles WHERE user_id = $1',
         [user.id]
       );
       const profile = profileResult.rows[0];
