@@ -26,7 +26,7 @@ export async function GET(
     }
 
     // Get booking
-    const booking = await get<Booking>(COLLECTIONS.BOOKINGS, params.id);
+    const booking = await get<Booking>(COLLECTIONS.BOOKINGS, 'id', params.id);
     if (!booking) {
       return NextResponse.json(
         { error: 'Booking not found' },
@@ -36,8 +36,8 @@ export async function GET(
 
     // Get vehicle and user details
     const [vehicle, user] = await Promise.all([
-      get<Vehicle>(COLLECTIONS.VEHICLES, booking.vehicle_id),
-      get<User>(COLLECTIONS.USERS, booking.user_id)
+      get<Vehicle>(COLLECTIONS.VEHICLES, 'id', booking.vehicleId),
+      get<User>(COLLECTIONS.USERS, 'id', booking.userId)
     ]);
 
     return NextResponse.json({
@@ -47,9 +47,8 @@ export async function GET(
         vehicle,
         user: user ? {
           id: user.id,
-          name: user.name,
           email: user.email,
-          phone: user.phone
+          role: user.role
         } : null
       }
     });
@@ -79,7 +78,7 @@ export async function PATCH(
     }
 
     // Get booking
-    const booking = await get<Booking>(COLLECTIONS.BOOKINGS, params.id);
+    const booking = await get<Booking>(COLLECTIONS.BOOKINGS, 'id', params.id);
     if (!booking) {
       return NextResponse.json(
         { error: 'Booking not found' },
@@ -107,10 +106,10 @@ export async function PATCH(
     });
 
     // Get updated booking with details
-    const updatedBooking = await get<Booking>(COLLECTIONS.BOOKINGS, params.id);
+    const updatedBooking = await get<Booking>(COLLECTIONS.BOOKINGS, 'id', params.id);
     const [vehicle, user] = await Promise.all([
-      get<Vehicle>(COLLECTIONS.VEHICLES, booking.vehicle_id),
-      get<User>(COLLECTIONS.USERS, booking.user_id)
+      get<Vehicle>(COLLECTIONS.VEHICLES, 'id', booking.vehicleId),
+      get<User>(COLLECTIONS.USERS, 'id', booking.userId)
     ]);
 
     return NextResponse.json({
@@ -121,9 +120,8 @@ export async function PATCH(
         vehicle,
         user: user ? {
           id: user.id,
-          name: user.name,
           email: user.email,
-          phone: user.phone
+          role: user.role
         } : null
       }
     });
