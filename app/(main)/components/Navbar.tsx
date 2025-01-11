@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/providers/AuthProvider';
+import { useAuth } from '../../../hooks/useAuth';
 import { Bars3Icon, XMarkIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 
 export default function Navbar() {
@@ -31,23 +31,20 @@ export default function Navbar() {
 
   // Close dropdown when clicking outside
   const handleClickOutside = () => {
-    setMobileMenuOpen(false);
     setProfileDropdownOpen(false);
   };
 
   // Handle navigation with menu closing
   const handleNavigation = (path: string) => {
+    router.push(path);
     setMobileMenuOpen(false);
     setProfileDropdownOpen(false);
-    router.push(path);
   };
 
   // Handle sign out with menu closing
   const handleSignOut = async () => {
-    setMobileMenuOpen(false);
-    setProfileDropdownOpen(false);
     await signOut();
-    router.push('/login');
+    setProfileDropdownOpen(false);
   };
 
   return (

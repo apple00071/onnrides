@@ -1,8 +1,45 @@
 import Image from 'next/image';
 
-export default function ServicesSection() {
-  
+interface Service {
+  title: string;
+  description: string;
+  icon: string;
+}
 
+const services: Service[] = [
+  {
+    title: "24/7 Customer Support",
+    description: "Round-the-clock assistance for all your rental needs and queries.",
+    icon: "/icons/support.svg"
+  },
+  {
+    title: "Flexible Rentals",
+    description: "Choose from hourly, daily, weekly, or monthly rental options.",
+    icon: "/icons/calendar.svg"
+  },
+  {
+    title: "Wide Vehicle Selection",
+    description: "From economy cars to luxury vehicles, find the perfect ride for your needs.",
+    icon: "/icons/car.svg"
+  },
+  {
+    title: "Doorstep Delivery",
+    description: "Get your rental vehicle delivered right to your location.",
+    icon: "/icons/delivery.svg"
+  },
+  {
+    title: "Insurance Coverage",
+    description: "Comprehensive insurance options for worry-free rentals.",
+    icon: "/icons/shield.svg"
+  },
+  {
+    title: "Easy Booking Process",
+    description: "Simple and quick online booking system with instant confirmation.",
+    icon: "/icons/booking.svg"
+  }
+];
+
+export default function ServicesSection() {
   return (
     <section className="py-16 bg-gray-50">
       <div className="container mx-auto px-4">

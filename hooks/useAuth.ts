@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { Session } from 'next-auth';
 
 interface ExtendedSession extends Session {
@@ -35,6 +35,7 @@ export function useAuth() {
   return {
     user,
     isLoading: status === 'loading',
-    isAuthenticated: status === 'authenticated'
+    isAuthenticated: status === 'authenticated',
+    signOut: () => signOut({ callbackUrl: '/' })
   };
 } 
