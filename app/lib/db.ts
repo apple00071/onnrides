@@ -146,4 +146,16 @@ export async function executeQuery<T>(query: string, params: any[] = []): Promis
   }
 }
 
+// Alias functions for better readability
+export const get = findOneBy;
+export const set = insertOne;
+export const update = updateOne;
+export const remove = deleteOne;
+export const findMany = findManyBy;
+
+// Generate a unique ID
+export function generateId(): string {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+}
+
 export default pool; 
