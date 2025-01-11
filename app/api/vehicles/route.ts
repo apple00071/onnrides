@@ -1,175 +1,144 @@
-import logger from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { put } from '@vercel/blob';
+import { kv } from '@vercel/kv';
+import logger from '@/lib/logger';
+import { COLLECTIONS, generateId, findMany, set } from '@/lib/db';
+import { verifyAuth } from '@/lib/auth';
+import type { Vehicle, User } from '@/lib/types';
 
-interface Vehicle {
-  id: string;
+interface CreateVehicleBody {
   name: string;
+  description: string;
   type: string;
   brand: string;
   model: string;
   year: number;
   color: string;
-  registration_number: string;
-  price_per_day: number;
-  is_available: boolean;
-  image_url: string;
-  created_at: string;
+  licensePlate: string;
+  seats: number;
+  transmission: 'manual' | 'automatic';
+  fuelType: string;
+  pricePerDay: number;
+  location: string;
+  images: string[];
 }
 
-export async function GET(request: NextRequest) {
-  let client;
+// GET /api/vehicles - List all vehicles
+export async function GET() {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const type = searchParams.get('type');
-    const location = searchParams.get('location');
-    const pickup = searchParams.get('pickup');
-    const dropoff = searchParams.get('dropoff');
+    // Get all vehicles from KV store
+    const pattern = `${COLLECTIONS.VEHICLES}:*`;
+    const keys = await kv.keys(pattern);
+    const vehicles: Vehicle[] = [];
 
-    // Get database connection
-    client = await pool.connect();
-
-    const queryParams: unknown[] = [];
-    const conditions: string[] = ['v.status = \'active\''];
-
-    if (type) {
-      conditions.push('LOWER(v.type) = LOWER($' + (queryParams.length + 1) + ')');
-      queryParams.push(type);
+    // Fetch each vehicle
+    for (const key of keys) {
+      const data = await kv.get<string>(key);
+      if (data) {
+        vehicles.push(JSON.parse(data));
+      }
     }
 
-    if (location) {
-      conditions.push('LOWER(v.location) = LOWER($' + (queryParams.length + 1) + ')');
-      queryParams.push(location);
-    }
+    return NextResponse.json({
+      success: true,
+      vehicles: vehicles.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    });
 
-    // Add booking date filter if both pickup and dropoff are provided
-    if (pickup && dropoff) {
-      conditions.push(`
-        NOT EXISTS (
-          SELECT 1 FROM bookings b 
-          WHERE b.vehicle_id = v.id 
-          AND b.status = 'confirmed'
-          AND (
-            (b.pickup_datetime <= $${queryParams.length + 1} AND b.dropoff_datetime >= $${queryParams.length + 1})
-            OR (b.pickup_datetime <= $${queryParams.length + 2} AND b.dropoff_datetime >= $${queryParams.length + 2})
-            OR (b.pickup_datetime >= $${queryParams.length + 1} AND b.dropoff_datetime <= $${queryParams.length + 2})
-          )
-        )
-      `);
-      queryParams.push(pickup, dropoff);
-    }
-
-    // Build and execute query
-    const query = `
-      SELECT 
-        v.*,
-        COALESCE(
-          (SELECT COUNT(*) FROM bookings WHERE vehicle_id = v.id AND status = 'completed'),
-          0
-        ) as total_rides
-      FROM vehicles v
-      WHERE ${conditions.join(' AND ')}
-      ORDER BY v.created_at DESC
-    `;
-
-    const result = await client.query<Vehicle>(query, queryParams);
-    return NextResponse.json(result.rows);
   } catch (error) {
-    logger.error('Error fetching vehicles:', error);
+    logger.error('Failed to fetch vehicles:', error);
     return NextResponse.json(
       { error: 'Failed to fetch vehicles' },
       { status: 500 }
     );
-  } finally {
-    if (client) client.release();
   }
 }
 
+// POST /api/vehicles - Create a new vehicle
 export async function POST(request: NextRequest) {
-  let client;
   try {
-    // Check if user is authenticated and is admin
-    const session = await getServerSession(authOptions);
-    const user = session?.user;
-
-    if (!user || user.role !== 'admin') {
+    // Verify authentication and admin role
+    const authResult = await verifyAuth(request);
+    if (!authResult || authResult.role !== 'admin') {
       return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 
-    const data = await request.json();
-    const requiredFields = [
-      'name',
-      'type',
-      'brand',
-      'model',
-      'year',
-      'color',
-      'registration_number',
-      'price_per_day',
-      'image_url'
-    ];
+    const body = await request.json() as CreateVehicleBody;
+    const {
+      name,
+      description,
+      type,
+      brand,
+      model,
+      year,
+      color,
+      licensePlate,
+      seats,
+      transmission,
+      fuelType,
+      pricePerDay,
+      location,
+      images
+    } = body;
 
     // Validate required fields
-    for (const field of requiredFields) {
-      if (!data[field]) {
-        return NextResponse.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 }
-        );
-      }
+    if (!name || !type || !brand || !model || !year || !licensePlate || !pricePerDay || !location) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
     }
 
-    // Get database connection
-    client = await pool.connect();
+    // Check if license plate is unique
+    const existingVehicle = await findMany<Vehicle>(COLLECTIONS.VEHICLES, 'licensePlate', licensePlate);
+    if (existingVehicle.length > 0) {
+      return NextResponse.json(
+        { error: 'Vehicle with this license plate already exists' },
+        { status: 400 }
+      );
+    }
 
-    // Start transaction
-    await client.query('BEGIN');
+    // Create vehicle
+    const vehicleId = generateId('veh');
+    const vehicle: Vehicle = {
+      id: vehicleId,
+      name,
+      description,
+      type,
+      brand,
+      model,
+      year,
+      color,
+      licensePlate,
+      seats,
+      transmission,
+      fuelType,
+      pricePerDay,
+      location,
+      images,
+      isAvailable: true,
+      owner_id: authResult.id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
 
-    // Insert vehicle
-    const result = await client.query(`
-      INSERT INTO vehicles (
-        name,
-        type,
-        brand,
-        model,
-        year,
-        color,
-        registration_number,
-        price_per_day,
-        is_available,
-        image_url,
-        status
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, true, $9, 'active'
-      )
-      RETURNING *
-    `, [
-      data.name,
-      data.type,
-      data.brand,
-      data.model,
-      data.year,
-      data.color,
-      data.registration_number,
-      data.price_per_day,
-      data.image_url
-    ]);
+    await set(COLLECTIONS.VEHICLES, vehicle);
 
-    await client.query('COMMIT');
-    return NextResponse.json(result.rows[0]);
+    logger.debug('Vehicle created successfully:', { vehicleId });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Vehicle created successfully',
+      vehicle
+    });
+
   } catch (error) {
-    if (client) await client.query('ROLLBACK');
-    logger.error('Error creating vehicle:', error);
+    logger.error('Failed to create vehicle:', error);
     return NextResponse.json(
       { error: 'Failed to create vehicle' },
       { status: 500 }
     );
-  } finally {
-    if (client) client.release();
   }
 } 

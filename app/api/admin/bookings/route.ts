@@ -1,39 +1,83 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { kv } from '@vercel/kv';
 import logger from '@/lib/logger';
-import pool from '@/lib/db';
-import { cookies } from 'next/headers';
+import { COLLECTIONS, get, findMany, update } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
+import type { Booking, Vehicle, User } from '@/lib/types';
 
-interface User {
-  id: string;
-  role: string;
+interface UpdateBookingBody {
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
 }
 
+// GET /api/admin/bookings - List all bookings
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const user = await verifyAuth(cookieStore);
-    
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Verify authentication and admin role
+    const authResult = await verifyAuth(request);
+    if (!authResult || authResult.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const client = await pool.connect();
-    try {
-      const result = await client.query(`
-        SELECT b.*, u.name as user_name, u.email as user_email, v.name as vehicle_name
-        FROM bookings b
-        JOIN users u ON b.user_id = u.id
-        JOIN vehicles v ON b.vehicle_id = v.id
-        ORDER BY b.created_at DESC
-      `);
+    // Get query parameters
+    const searchParams = request.nextUrl.searchParams;
+    const status = searchParams.get('status');
+    const userId = searchParams.get('userId');
+    const vehicleId = searchParams.get('vehicleId');
 
-      return NextResponse.json(result.rows);
-    } finally {
-      client.release();
+    // Get all bookings
+    const pattern = `${COLLECTIONS.BOOKINGS}:*`;
+    const keys = await kv.keys(pattern);
+    let bookings: Booking[] = [];
+
+    // Fetch each booking
+    for (const key of keys) {
+      const data = await kv.get<string>(key);
+      if (data) {
+        const booking = JSON.parse(data) as Booking;
+
+        // Apply filters
+        if (status && booking.status !== status) continue;
+        if (userId && booking.user_id !== userId) continue;
+        if (vehicleId && booking.vehicle_id !== vehicleId) continue;
+
+        bookings.push(booking);
+      }
     }
+
+    // Sort bookings by creation date
+    bookings = bookings.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    // Get vehicle and user details for each booking
+    const bookingsWithDetails = await Promise.all(
+      bookings.map(async (booking) => {
+        const [vehicle, user] = await Promise.all([
+          get<Vehicle>(COLLECTIONS.VEHICLES, booking.vehicle_id),
+          get<User>(COLLECTIONS.USERS, booking.user_id)
+        ]);
+
+        return {
+          ...booking,
+          vehicle,
+          user: user ? {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone
+          } : null
+        };
+      })
+    );
+
+    return NextResponse.json({
+      success: true,
+      bookings: bookingsWithDetails
+    });
+
   } catch (error) {
-    logger.error('Error fetching bookings:', error);
+    logger.error('Failed to fetch bookings:', error);
     return NextResponse.json(
       { error: 'Failed to fetch bookings' },
       { status: 500 }
@@ -41,16 +85,20 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// PUT /api/admin/bookings - Update booking status
 export async function PUT(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const user = await verifyAuth(cookieStore);
-    
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Verify authentication and admin role
+    const authResult = await verifyAuth(request);
+    if (!authResult || authResult.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const { id, status } = await request.json();
+    const body = await request.json() as UpdateBookingBody & { id: string };
+    const { id, status } = body;
 
     if (!id || !status) {
       return NextResponse.json(
@@ -59,29 +107,68 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const client = await pool.connect();
-    try {
-      const result = await client.query(
-        'UPDATE bookings SET status = $1 WHERE id = $2 RETURNING *',
-        [status, id]
+    // Get booking
+    const booking = await get<Booking>(COLLECTIONS.BOOKINGS, id);
+    if (!booking) {
+      return NextResponse.json(
+        { error: 'Booking not found' },
+        { status: 404 }
       );
-
-      if (result.rowCount === 0) {
-        return NextResponse.json(
-          { error: 'Booking not found' },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json(result.rows[0]);
-    } finally {
-      client.release();
     }
+
+    // Validate status transition
+    if (!isValidStatusTransition(booking.status, status)) {
+      return NextResponse.json(
+        { error: 'Invalid status transition' },
+        { status: 400 }
+      );
+    }
+
+    // Update booking
+    await update(COLLECTIONS.BOOKINGS, id, {
+      status,
+      updatedAt: new Date()
+    });
+
+    // Get updated booking with details
+    const updatedBooking = await get<Booking>(COLLECTIONS.BOOKINGS, id);
+    const [vehicle, user] = await Promise.all([
+      get<Vehicle>(COLLECTIONS.VEHICLES, booking.vehicle_id),
+      get<User>(COLLECTIONS.USERS, booking.user_id)
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Booking updated successfully',
+      booking: {
+        ...updatedBooking,
+        vehicle,
+        user: user ? {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone
+        } : null
+      }
+    });
+
   } catch (error) {
-    logger.error('Error updating booking:', error);
+    logger.error('Failed to update booking:', error);
     return NextResponse.json(
       { error: 'Failed to update booking' },
       { status: 500 }
     );
   }
+}
+
+// Helper function to validate booking status transitions
+function isValidStatusTransition(currentStatus: string, newStatus: string): boolean {
+  const validTransitions: Record<string, string[]> = {
+    pending: ['confirmed', 'cancelled'],
+    confirmed: ['completed', 'cancelled'],
+    cancelled: [],
+    completed: []
+  };
+
+  return validTransitions[currentStatus]?.includes(newStatus) || false;
 } 

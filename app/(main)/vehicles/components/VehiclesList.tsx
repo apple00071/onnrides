@@ -1,8 +1,8 @@
 'use client';
 
-
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-
 
 interface Vehicle {
   id: string;
@@ -28,31 +28,31 @@ export default function VehiclesList() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   
-  
-  
-  
-  
-  
-  
-  
+  const type = searchParams.get('type');
+  const location = searchParams.get('location');
+  const pickup = searchParams.get('pickup');
+  const dropoff = searchParams.get('dropoff');
 
   useEffect(() => {
-    
+    const fetchVehicles = async () => {
+      try {
         setError(null);
-        
+        const queryParams = new URLSearchParams();
         
         if (type) queryParams.set('type', type);
         if (location) queryParams.set('location', location);
         if (pickup) queryParams.set('pickup', pickup);
         if (dropoff) queryParams.set('dropoff', dropoff);
         
-        
+        const response = await fetch(`/api/vehicles?${queryParams.toString()}`);
         if (!response.ok) {
           throw new Error('Failed to fetch vehicles');
         }
         
-        
+        const data = await response.json();
         setVehicles(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');

@@ -1,76 +1,55 @@
+import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
+import { COLLECTIONS, findOneBy, updateOne } from '@/lib/db';
+import type { Booking } from '@/lib/types';
 
-import pool from '@/lib/db';
-
-
+// POST /api/payments/success - Handle successful payment
 export async function POST(request: NextRequest) {
   try {
-    // Check if user is authenticated
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const body = await request.json();
+    const { bookingId, paymentId, paymentReference } = body;
 
-    const { paymentRef } = await request.json();
-    if (!paymentRef) {
+    if (!bookingId || !paymentId || !paymentReference) {
       return NextResponse.json(
-        { error: 'Payment reference is required' },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    
-    try {
-      // Start transaction
-      await client.query('BEGIN');
-
-      // Get booking by payment reference
-      
-
-      if (bookingResult.rowCount === 0) {
-        return NextResponse.json(
-          { error: 'Booking not found' },
-          { status: 404 }
-        );
-      }
-
-      
-
-      // Generate booking ID (format: B-YYYYMMDD-XXXXX)
-      
-      
-      
-      
-
-      // Update booking status and add booking number
-      await client.query(`
-        UPDATE bookings 
-        SET payment_status = 'completed',
-            status = 'confirmed',
-            booking_number = $1,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `, [bookingNumber, booking.id]);
-
-      // Commit transaction
-      await client.query('COMMIT');
-
-      return NextResponse.json({
-        success: true,
-        bookingNumber,
-        message: 'Payment successful'
-      });
-    } catch (error) {
-      // Rollback transaction on error
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+    // Get booking
+    const booking = await findOneBy<Booking>(COLLECTIONS.BOOKINGS, 'id', bookingId);
+    if (!booking) {
+      logger.error('Booking not found:', { bookingId });
+      return NextResponse.json(
+        { error: 'Booking not found' },
+        { status: 404 }
+      );
     }
+
+    // Update booking status
+    await updateOne(COLLECTIONS.BOOKINGS, bookingId, {
+      status: 'confirmed',
+      paymentStatus: 'paid',
+      paymentId,
+      paymentReference,
+      updatedAt: new Date()
+    });
+
+    logger.debug('Payment processed successfully:', {
+      bookingId,
+      paymentId,
+      paymentReference
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Payment processed successfully'
+    });
+
   } catch (error) {
-    logger.error('Error processing payment success:', error);
+    logger.error('Failed to process payment:', error);
     return NextResponse.json(
-      { error: 'Failed to process payment success' },
+      { error: 'Failed to process payment' },
       { status: 500 }
     );
   }

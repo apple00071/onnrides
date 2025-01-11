@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import { Toaster } from 'react-hot-toast';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 
 import './globals.css';
 import './responsive.css';
 
-
-
-
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'OnnRides - Your Trusted Vehicle Rental Platform',

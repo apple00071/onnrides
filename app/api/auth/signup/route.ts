@@ -1,79 +1,70 @@
-import logger from '@/lib/logger';
-
-import pool from '@/lib/db';
+import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import logger from '@/lib/logger';
+import { COLLECTIONS, generateId, findOneBy, set } from '@/lib/db';
+import type { User } from '@/lib/types';
 
+interface SignupBody {
+  email: string;
+  password: string;
+  name: string;
+  phone?: string;
+}
 
 export async function POST(request: NextRequest) {
-  
-  
   try {
-    const { email, password, name, phone } = await request.json();
+    const body = await request.json() as SignupBody;
+    const { email, password, name, phone } = body;
 
     // Validate input
-    if (!email || !password || !name || !phone) {
+    if (!email || !password || !name) {
       return NextResponse.json(
-        { message: 'All fields are required' },
+        { error: 'Email, password and name are required' },
         { status: 400 }
       );
     }
 
-    await client.query('BEGIN');
+    // Check if user already exists
+    const existingUser = await findOneBy<User>(COLLECTIONS.USERS, 'email', email);
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'User already exists' },
+        { status: 400 }
+      );
+    }
 
     // Hash password
-    
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Check if email exists
-    
+    // Create user
+    const userId = generateId('usr');
+    const user: User = {
+      id: userId,
+      email,
+      password: hashedPassword,
+      name,
+      phone,
+      role: 'user',
+      isVerified: false,
+      isDocumentsVerified: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
 
-    if (emailCheck.rows.length > 0) {
-      return NextResponse.json(
-        { message: 'Email already exists' },
-        { status: 400 }
-      );
-    }
+    await set(COLLECTIONS.USERS, user);
 
-    // Create user account
-    
+    logger.debug('User created successfully:', { userId, email });
 
-    
-
-    // Split name into first_name and last_name
-    const [firstName, ...lastNameParts] = name.trim().split(' ');
-    
-
-    // Create user profile
-    await client.query(
-      'INSERT INTO profiles (user_id, first_name, last_name, phone_number) VALUES ($1, $2, $3, $4)',
-      [user.id, firstName, lastName || null, phone]
-    );
-
-    await client.query('COMMIT');
-
-    // Generate token
-    
-
-    // Create response
-    
-
-    // Set cookie
-    response.cookies.set('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60 // 24 hours
+    return NextResponse.json({
+      success: true,
+      message: 'User created successfully'
     });
 
-    return response;
-  } catch (error: any) {
-    await client.query('ROLLBACK');
+  } catch (error) {
     logger.error('Signup error:', error);
-    
     return NextResponse.json(
-      { message: 'Internal server error', error: error.message },
+      { error: 'Failed to create user' },
       { status: 500 }
     );
-  } finally {
-    client.release();
   }
 } 

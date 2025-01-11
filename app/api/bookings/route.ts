@@ -1,140 +1,151 @@
+import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
+import { COLLECTIONS, generateId, findMany, set, get } from '@/lib/db';
+import { verifyAuth } from '@/lib/auth';
+import type { Booking, Vehicle } from '@/lib/types';
 
-import pool from '@/lib/db';
+interface CreateBookingBody {
+  vehicle_id: string;
+  startDate: string;
+  endDate: string;
+}
 
-
+// GET /api/bookings - List user's bookings
 export async function GET(request: NextRequest) {
-  
   try {
-    // Check if user is authenticated
-    
-    if (!currentUser) {
+    // Verify authentication
+    const authResult = await verifyAuth(request);
+    if (!authResult) {
       return NextResponse.json(
-        { message: 'Authentication required' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Get query parameters
-    
-    
+    // Get user's bookings
+    const bookings = await findMany<Booking>(COLLECTIONS.BOOKINGS, 'user_id', authResult.id);
 
-    // Build the query
-    let query = `
-      SELECT 
-        b.*,
-        v.name as vehicle_name,
-        v.type as vehicle_type,
-        v.image_url as vehicle_image,
-        v.location as vehicle_location
-      FROM bookings b
-      JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.user_id = $1
-    `;
-    const params: unknown[] = [currentUser.id];
-
-    if (status) {
-      query += ' AND b.status = $2';
-      params.push(status);
-    }
-
-    query += ' ORDER BY b.created_at DESC';
-
-    
+    // Get vehicle details for each booking
+    const bookingsWithVehicles = await Promise.all(
+      bookings.map(async (booking) => {
+        const vehicle = await get<Vehicle>(COLLECTIONS.VEHICLES, booking.vehicle_id);
+        return {
+          ...booking,
+          vehicle
+        };
+      })
+    );
 
     return NextResponse.json({
-      bookings: result.rows.map(booking => ({
-        id: booking.id,
-        vehicle_id: booking.vehicle_id,
-        pickup_datetime: booking.pickup_datetime,
-        dropoff_datetime: booking.dropoff_datetime,
-        total_amount: parseFloat(booking.total_amount),
-        status: booking.status,
-        created_at: booking.created_at,
-        vehicle: {
-          name: booking.vehicle_name,
-          type: booking.vehicle_type,
-          image_url: booking.vehicle_image,
-          location: booking.vehicle_location
-        }
-      }))
+      success: true,
+      bookings: bookingsWithVehicles.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     });
+
   } catch (error) {
     logger.error('Failed to fetch bookings:', error);
     return NextResponse.json(
-      { message: 'Failed to fetch bookings. Please try again.' },
+      { error: 'Failed to fetch bookings' },
       { status: 500 }
     );
-  } finally {
-    client.release();
   }
 }
 
+// POST /api/bookings - Create a new booking
 export async function POST(request: NextRequest) {
-  
   try {
-    // Check if user is authenticated
-    
-    if (!currentUser) {
+    // Verify authentication
+    const authResult = await verifyAuth(request);
+    if (!authResult) {
       return NextResponse.json(
-        { message: 'Authentication required' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const {
-      vehicle_id,
-      pickup_datetime,
-      dropoff_datetime,
-      total_amount
-    } = await request.json();
+    const body = await request.json() as CreateBookingBody;
+    const { vehicle_id, startDate, endDate } = body;
 
     // Validate required fields
-    if (!vehicle_id || !pickup_datetime || !dropoff_datetime || !total_amount) {
+    if (!vehicle_id || !startDate || !endDate) {
       return NextResponse.json(
-        { message: 'Missing required fields' },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Start transaction
-    await client.query('BEGIN');
-
-    // Check if vehicle is available for the selected dates
-    
-
-    if (parseInt(availabilityCheck.rows[0].booking_count) > 0) {
-      await client.query('ROLLBACK');
+    // Get vehicle
+    const vehicle = await get<Vehicle>(COLLECTIONS.VEHICLES, vehicle_id);
+    if (!vehicle) {
       return NextResponse.json(
-        { message: 'Vehicle is not available for the selected dates' },
+        { error: 'Vehicle not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if vehicle is available
+    if (!vehicle.isAvailable) {
+      return NextResponse.json(
+        { error: 'Vehicle is not available' },
         { status: 400 }
       );
     }
+
+    // Check if dates are valid
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const now = new Date();
+
+    if (start < now) {
+      return NextResponse.json(
+        { error: 'Start date must be in the future' },
+        { status: 400 }
+      );
+    }
+
+    if (end <= start) {
+      return NextResponse.json(
+        { error: 'End date must be after start date' },
+        { status: 400 }
+      );
+    }
+
+    // Calculate total price
+    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const totalPrice = days * vehicle.pricePerDay;
 
     // Create booking
-    
+    const bookingId = generateId('bkg');
+    const booking: Booking = {
+      id: bookingId,
+      user_id: authResult.id,
+      vehicle_id,
+      startDate: start,
+      endDate: end,
+      totalPrice,
+      status: 'pending',
+      paymentStatus: 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
 
-    await client.query('COMMIT');
+    await set(COLLECTIONS.BOOKINGS, booking);
+
+    logger.debug('Booking created successfully:', { bookingId });
 
     return NextResponse.json({
+      success: true,
+      message: 'Booking created successfully',
       booking: {
-        id: result.rows[0].id,
-        vehicle_id: result.rows[0].vehicle_id,
-        pickup_datetime: result.rows[0].pickup_datetime,
-        dropoff_datetime: result.rows[0].dropoff_datetime,
-        total_amount: parseFloat(result.rows[0].total_amount),
-        status: result.rows[0].status,
-        created_at: result.rows[0].created_at
+        ...booking,
+        vehicle
       }
     });
+
   } catch (error) {
-    await client.query('ROLLBACK');
     logger.error('Failed to create booking:', error);
     return NextResponse.json(
-      { message: 'Failed to create booking. Please try again.' },
+      { error: 'Failed to create booking' },
       { status: 500 }
     );
-  } finally {
-    client.release();
   }
 } 

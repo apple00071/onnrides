@@ -1,16 +1,39 @@
-import logger from '@/lib/logger';
 'use client';
 
-
-
+import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import { toast } from 'react-hot-toast';
+import { useAuth } from '@/hooks/useAuth';
+import logger from '@/lib/logger';
 
+interface Vehicle {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  brand: string;
+  model: string;
+  year: number;
+  color: string;
+  transmission: string;
+  fuel_type: string;
+  mileage: number;
+  seating_capacity: number;
+  price_per_day: number;
+  is_available: boolean;
+  image_url: string;
+  location: string;
+}
 
-
+interface VehicleDetailsProps {
+  vehicle: Vehicle;
+}
 
 export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
   const { user } = useAuth();
-  
+  const router = useRouter();
+  const searchParams = useSearchParams();
   
   const [bookingDetails, setBookingDetails] = useState({
     pickupDate: '',
@@ -19,7 +42,11 @@ export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
     dropoffTime: ''
   });
 
-  
+  const handleBook = async () => {
+    // First check if user is logged in
+    if (!user) {
+      toast.error('Please login to book a vehicle');
+      router.push('/login');
       return;
     }
 
@@ -31,9 +58,9 @@ export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
     }
 
     // Get the booking details from URL params
-    
-    
-    
+    const pickup = `${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`;
+    const dropoff = `${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`;
+    const location = searchParams.get('location') || vehicle.location;
 
     if (!pickup || !dropoff || !location) {
       toast.error('Please select pickup and drop-off dates and times');
@@ -42,7 +69,7 @@ export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
 
     try {
       // If all checks pass, proceed to booking
-      
+      const bookingUrl = `/vehicles/${vehicle.id}/booking?pickup=${encodeURIComponent(pickup)}&dropoff=${encodeURIComponent(dropoff)}&location=${encodeURIComponent(location)}`;
       router.push(bookingUrl);
     } catch (error) {
       logger.error('Booking error:', error);

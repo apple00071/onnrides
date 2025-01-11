@@ -1,38 +1,49 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { del } from '@vercel/blob';
 import logger from '@/lib/logger';
+import { COLLECTIONS, get, update, remove } from '@/lib/db';
+import { verifyAuth } from '@/lib/auth';
+import type { Vehicle } from '@/lib/types';
 
-import pool from '@/lib/db';
+interface UpdateVehicleBody {
+  name?: string;
+  description?: string;
+  type?: string;
+  brand?: string;
+  model?: string;
+  year?: number;
+  color?: string;
+  licensePlate?: string;
+  seats?: number;
+  transmission?: 'manual' | 'automatic';
+  fuelType?: string;
+  pricePerDay?: number;
+  location?: string;
+  images?: string[];
+  isAvailable?: boolean;
+}
 
-
+// GET /api/vehicles/[id] - Get vehicle by ID
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    
-    if (!vehicleId) {
+    const vehicle = await get<Vehicle>(COLLECTIONS.VEHICLES, params.id);
+    if (!vehicle) {
       return NextResponse.json(
-        { error: 'Vehicle ID is required' },
-        { status: 400 }
+        { error: 'Vehicle not found' },
+        { status: 404 }
       );
     }
 
-    
-    try {
-      
+    return NextResponse.json({
+      success: true,
+      vehicle
+    });
 
-      if (result.rowCount === 0) {
-        return NextResponse.json(
-          { error: 'Vehicle not found' },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json(result.rows[0]);
-    } finally {
-      client.release();
-    }
   } catch (error) {
-    logger.error('Error fetching vehicle:', error);
+    logger.error('Failed to fetch vehicle:', error);
     return NextResponse.json(
       { error: 'Failed to fetch vehicle' },
       { status: 500 }
@@ -40,61 +51,49 @@ export async function GET(
   }
 }
 
-export async function PUT(
+// PATCH /api/vehicles/[id] - Update vehicle
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check if user is authenticated and is an admin
-    
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    
-    if (!vehicleId) {
+    // Verify authentication and admin role
+    const authResult = await verifyAuth(request);
+    if (!authResult || authResult.role !== 'admin') {
       return NextResponse.json(
-        { error: 'Vehicle ID is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 
-    
-    const {
-      name,
-      description,
-      type,
-      brand,
-      model,
-      year,
-      color,
-      transmission,
-      fuel_type,
-      mileage,
-      seating_capacity,
-      price_per_day,
-      is_available,
-      image_url,
-      location
-    } = body;
-
-    
-    try {
-      
-
-      if (result.rowCount === 0) {
-        return NextResponse.json(
-          { error: 'Vehicle not found' },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json(result.rows[0]);
-    } finally {
-      client.release();
+    // Get existing vehicle
+    const vehicle = await get<Vehicle>(COLLECTIONS.VEHICLES, params.id);
+    if (!vehicle) {
+      return NextResponse.json(
+        { error: 'Vehicle not found' },
+        { status: 404 }
+      );
     }
+
+    const body = await request.json() as UpdateVehicleBody;
+
+    // Update vehicle
+    await update(COLLECTIONS.VEHICLES, params.id, {
+      ...body,
+      updatedAt: new Date()
+    });
+
+    // Get updated vehicle
+    const updatedVehicle = await get<Vehicle>(COLLECTIONS.VEHICLES, params.id);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Vehicle updated successfully',
+      vehicle: updatedVehicle
+    });
+
   } catch (error) {
-    logger.error('Error updating vehicle:', error);
+    logger.error('Failed to update vehicle:', error);
     return NextResponse.json(
       { error: 'Failed to update vehicle' },
       { status: 500 }
@@ -102,101 +101,45 @@ export async function PUT(
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    
-    if (!vehicleId) {
-      return NextResponse.json(
-        { error: 'Vehicle ID is required' },
-        { status: 400 }
-      );
-    }
-
-    
-    const { location } = body;
-
-    if (!location) {
-      return NextResponse.json(
-        { error: 'Location is required' },
-        { status: 400 }
-      );
-    }
-
-    
-    try {
-      // Update the vehicle location
-      
-
-      if (result.rowCount === 0) {
-        return NextResponse.json(
-          { error: 'Vehicle not found' },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json(result.rows[0]);
-    } finally {
-      client.release();
-    }
-  } catch (error) {
-    logger.error('Error updating vehicle location:', error);
-    return NextResponse.json(
-      { error: 'Failed to update vehicle location' },
-      { status: 500 }
-    );
-  }
-}
-
+// DELETE /api/vehicles/[id] - Delete vehicle
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Check if user is authenticated and is an admin
-    
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    
-    if (!vehicleId) {
+    // Verify authentication and admin role
+    const authResult = await verifyAuth(request);
+    if (!authResult || authResult.role !== 'admin') {
       return NextResponse.json(
-        { error: 'Vehicle ID is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
 
-    
-    try {
-      // First check if there are any active bookings for this vehicle
-      
-
-      if (parseInt(bookingsResult.rows[0].count) > 0) {
-        return NextResponse.json(
-          { error: 'Cannot delete vehicle with active bookings' },
-          { status: 400 }
-        );
-      }
-
-      // Delete the vehicle
-      
-
-      if (result.rowCount === 0) {
-        return NextResponse.json(
-          { error: 'Vehicle not found' },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json({ message: 'Vehicle deleted successfully' });
-    } finally {
-      client.release();
+    // Get vehicle
+    const vehicle = await get<Vehicle>(COLLECTIONS.VEHICLES, params.id);
+    if (!vehicle) {
+      return NextResponse.json(
+        { error: 'Vehicle not found' },
+        { status: 404 }
+      );
     }
+
+    // Delete vehicle images from blob storage
+    for (const imageUrl of vehicle.images) {
+      await del(imageUrl);
+    }
+
+    // Delete vehicle from KV store
+    await remove(COLLECTIONS.VEHICLES, params.id);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Vehicle deleted successfully'
+    });
+
   } catch (error) {
-    logger.error('Error deleting vehicle:', error);
+    logger.error('Failed to delete vehicle:', error);
     return NextResponse.json(
       { error: 'Failed to delete vehicle' },
       { status: 500 }

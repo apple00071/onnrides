@@ -1,73 +1,82 @@
-import logger from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import pool from '@/lib/db';
+import logger from '@/lib/logger';
+import { COLLECTIONS, findOneBy, set } from '@/lib/db';
+import type { User, Session } from '@/lib/types';
 
-interface User {
-  id: string;
+interface LoginBody {
   email: string;
   password: string;
-  role: string;
 }
 
 export async function POST(request: NextRequest) {
-  let client;
   try {
-    const { email, password } = await request.json();
+    const body = await request.json() as LoginBody;
+    const { email, password } = body;
 
+    // Validate input
     if (!email || !password) {
       return NextResponse.json(
-        { message: 'Email and password are required' },
+        { error: 'Email and password are required' },
         { status: 400 }
       );
     }
 
-    // Get database connection
-    client = await pool.connect();
-
-    // Get user with profile data
-    const userResult = await client.query(
-      'SELECT u.*, p.* FROM users u LEFT JOIN user_profiles p ON u.id = p.user_id WHERE u.email = $1',
-      [email]
-    );
-    const user: User | undefined = userResult.rows[0];
-
+    // Find user
+    const user = await findOneBy<User>(COLLECTIONS.USERS, 'email', email);
     if (!user) {
       return NextResponse.json(
-        { message: 'Invalid email or password' },
+        { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password);
-
     if (!isValidPassword) {
       return NextResponse.json(
-        { message: 'Invalid email or password' },
+        { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
 
-    // Generate token
+    // Generate JWT token
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET is not set');
+    }
+
     const token = jwt.sign(
-      { 
-        userId: user.id,
+      {
+        id: user.id,
         email: user.email,
         role: user.role
       },
-      process.env.JWT_SECRET || 'default-secret',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // Create response with user data
+    // Create session
+    const session: Session = {
+      id: `sess_${Date.now()}`,
+      user_id: user.id,
+      token,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    await set(COLLECTIONS.SESSIONS, session);
+
+    // Create response
     const response = NextResponse.json({
+      success: true,
       user: {
         id: user.id,
         email: user.email,
+        name: user.name,
         role: user.role,
-        profile: userResult.rows[0]
+        isDocumentsVerified: user.isDocumentsVerified
       }
     });
 
@@ -81,19 +90,12 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
+
   } catch (error) {
     logger.error('Login error:', error);
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
-  } finally {
-    if (client) {
-      try {
-        client.release();
-      } catch (releaseError) {
-        logger.error('Error releasing client:', releaseError);
-      }
-    }
   }
 } 

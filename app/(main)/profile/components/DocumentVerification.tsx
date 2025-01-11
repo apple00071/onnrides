@@ -1,9 +1,9 @@
-import logger from '@/lib/logger';
 'use client';
 
-
-
-
+import { useState } from 'react';
+import { Upload } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import logger from '@/lib/logger';
 
 interface DocumentVerificationProps {
   isVerified: boolean;
@@ -17,11 +17,23 @@ interface DocumentVerificationProps {
   }>;
 }
 
+const documentTypes = [
+  { key: 'drivers_license', label: "Driver's License" },
+  { key: 'national_id', label: 'National ID' },
+  { key: 'proof_of_address', label: 'Proof of Address' }
+];
 
+const DocumentVerification = ({
+  isVerified,
+  documentsSubmitted,
+  onUpload,
+  onSubmit,
+  documents
+}: DocumentVerificationProps) => {
+  const [uploading, setUploading] = useState(false);
 
-  
-
-  
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
+    const file = e.target.files?.[0];
     if (!file) return;
 
     try {
@@ -35,11 +47,14 @@ interface DocumentVerificationProps {
     }
   };
 
-  
+  const getDocumentStatus = (type: string) => {
+    const doc = documents.find(d => d.document_type === type);
     return doc?.status || 'not_uploaded';
   };
 
-  
+  const allDocumentsUploaded = documentTypes.every(
+    ({ key }) => getDocumentStatus(key) !== 'not_uploaded'
+  );
 
   return (
     <div className="bg-white rounded-lg shadow p-6 mt-6">
@@ -65,8 +80,8 @@ interface DocumentVerificationProps {
 
       <div className="space-y-4">
         {documentTypes.map(({ key, label }) => {
-          
-          
+          const status = getDocumentStatus(key);
+          const isUploaded = status !== 'not_uploaded';
 
           return (
             <div key={key} className="border rounded-lg p-4">

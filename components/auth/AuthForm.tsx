@@ -1,46 +1,58 @@
-import logger from '@/lib/logger';
 'use client';
 
-
-
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
-
+import { toast } from 'react-hot-toast';
+import { signIn } from 'next-auth/react';
+import logger from '@/lib/logger';
 
 interface AuthFormProps {
   mode: 'login' | 'signup' | 'admin-login';
 }
 
 export default function AuthForm({ mode }: AuthFormProps) {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
-  
-  const { signIn, signUp } = useAuth();
 
-  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
 
     try {
       if (mode === 'signup') {
+        const response = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, phone })
+        });
+        const result = await response.json();
         
         if (result.success) {
+          toast.success('Account created successfully! Please log in.');
           router.push('/login');
         } else {
-          throw new Error(result.message);
+          throw new Error(result.message || 'Failed to create account');
         }
       } else {
-        
-        if (result.success) {
-          if (result.isAdmin) {
-            router.push('/admin/dashboard');
-          } else {
-            router.push('/dashboard');
-          }
-        } else {
-          throw new Error(result.message);
+        const endpoint = mode === 'admin-login' ? '/api/auth/admin/login' : '/api/auth/login';
+        const response = await signIn('credentials', {
+          redirect: false,
+          email,
+          password,
+          callbackUrl: mode === 'admin-login' ? '/admin/dashboard' : '/dashboard'
+        });
+
+        if (response?.error) {
+          throw new Error(response.error);
+        }
+
+        if (response?.url) {
+          router.push(response.url);
         }
       }
     } catch (error: any) {
@@ -59,12 +71,14 @@ export default function AuthForm({ mode }: AuthFormProps) {
           {mode === 'signup' && 'Create a new account'}
           {mode === 'admin-login' && 'Admin Login'}
         </h2>
-        <p className="text-sm text-gray-500">
-          Don&apos;t have an account?
-        </p>
-        <Link href="/signup" className="font-medium text-[#f26e24] hover:text-[#e05d13]">
-          Sign up
-        </Link>
+        {mode === 'login' && (
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Don&apos;t have an account?{' '}
+            <Link href="/signup" className="font-medium text-[#f26e24] hover:text-[#e05d13]">
+              Sign up
+            </Link>
+          </p>
+        )}
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
