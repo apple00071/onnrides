@@ -62,4 +62,13 @@ export interface Payment extends BaseEntity {
   reference: string;
   provider: string;
   metadata?: Record<string, any>;
+}
+
+// Auth Types
+export interface TokenPayload {
+  id: string;
+  email: string;
+  role: string;
+  iat?: number;
+  exp?: number;
 } 
