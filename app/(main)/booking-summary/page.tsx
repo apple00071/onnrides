@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
-import { useAuth } from '../../../hooks/useAuth'
+import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'react-hot-toast'
 import { signIn } from 'next-auth/react'
 import type { SignInResponse } from 'next-auth/react'
