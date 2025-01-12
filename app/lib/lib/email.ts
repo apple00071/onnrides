@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import logger from './logger';
+import logger from '@/lib/logger';
 
 // Configure email transporter
 const transporter = nodemailer.createTransport({

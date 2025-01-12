@@ -1,5 +1,5 @@
-import { insertOne } from './db';
-import { COLLECTIONS } from './db';
+import { insertOne } from '@/lib/db';
+import { COLLECTIONS } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import type { User } from './types';
 

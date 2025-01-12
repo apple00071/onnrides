@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { COLLECTIONS, generateId, findAll, findManyBy, insertOne } from '@/lib/db';
+import pool, { COLLECTIONS, findAll, insertOne } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
-import type { Vehicle } from '@/lib/types';
+import type { Vehicle } from '@/app/lib/types';
 
 interface CreateVehicleBody {
   name: string;
@@ -22,14 +22,55 @@ interface CreateVehicleBody {
 }
 
 // GET /api/vehicles - List all vehicles
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const vehicles = await findAll<Vehicle>(COLLECTIONS.VEHICLES);
+    // Get query parameters for filtering
+    const { searchParams } = new URL(request.url);
+    const pickupDate = searchParams.get('pickupDate');
+    const dropoffDate = searchParams.get('dropoffDate');
 
-    return NextResponse.json({
-      success: true,
-      vehicles: vehicles.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    });
+    // Fetch all vehicles with availability check
+    const query = `
+      SELECT v.* 
+      FROM ${COLLECTIONS.VEHICLES} v
+      WHERE v.is_available = true
+      ${pickupDate && dropoffDate ? `
+        AND v.id NOT IN (
+          SELECT vehicle_id 
+          FROM ${COLLECTIONS.BOOKINGS}
+          WHERE status = 'confirmed'
+          AND (
+            (pickup_datetime <= $1 AND dropoff_datetime >= $1)
+            OR (pickup_datetime <= $2 AND dropoff_datetime >= $2)
+            OR (pickup_datetime >= $1 AND dropoff_datetime <= $2)
+          )
+        )
+      ` : ''}
+      ORDER BY v.created_at DESC
+    `;
+
+    const params = pickupDate && dropoffDate ? [new Date(pickupDate), new Date(dropoffDate)] : [];
+    const result = await pool.query<Vehicle>(query, params);
+
+    // Transform the data to match frontend expectations
+    const transformedVehicles = result.rows.map((vehicle: Vehicle) => ({
+      id: vehicle.id,
+      name: vehicle.name,
+      type: vehicle.type,
+      location: Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location],
+      price_per_day: vehicle.pricePerDay,
+      is_available: vehicle.isAvailable,
+      image_url: vehicle.imageUrl,
+      brand: vehicle.model.split(' ')[0], // Assuming brand is first part of model
+      model: vehicle.model.split(' ').slice(1).join(' '), // Rest is model
+      year: vehicle.year,
+      color: vehicle.color,
+      transmission: vehicle.transmission,
+      fuel_type: vehicle.fuelType,
+      seating_capacity: vehicle.seatingCapacity
+    }));
+
+    return NextResponse.json(transformedVehicles);
 
   } catch (error) {
     logger.error('Failed to fetch vehicles:', error);
@@ -53,34 +94,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json() as CreateVehicleBody;
-    const { licensePlate } = body;
-
-    // Check if license plate is unique
-    const existingVehicles = await findManyBy<Vehicle>(COLLECTIONS.VEHICLES, 'licensePlate', licensePlate);
-    if (existingVehicles.length > 0) {
-      return NextResponse.json(
-        { error: 'Vehicle with this license plate already exists' },
-        { status: 400 }
-      );
-    }
 
     // Create vehicle
-    const vehicleData: Omit<Vehicle, 'id'> = {
+    const vehicleData = {
+      id: crypto.randomUUID(),
       ...body,
       seatingCapacity: body.seats,
       registrationNumber: body.licensePlate,
-      mileage: 0,
       isAvailable: true,
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
-    const vehicle = await insertOne<Vehicle>(COLLECTIONS.VEHICLES, vehicleData);
+    await insertOne(COLLECTIONS.VEHICLES, vehicleData);
 
     return NextResponse.json({
       success: true,
       message: 'Vehicle created successfully',
-      vehicle
+      vehicle: vehicleData
     });
 
   } catch (error) {

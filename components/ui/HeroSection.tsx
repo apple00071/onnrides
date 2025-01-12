@@ -16,8 +16,22 @@ export default function HeroSection() {
   // Generate time options with 30-minute intervals
   const timeOptions = (() => {
     const options: string[] = [];
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const selectedDate = pickupDate ? new Date(pickupDate) : null;
+    const isToday = selectedDate ? 
+      selectedDate.toDateString() === now.toDateString() : 
+      false;
+
     for (let hour = 0; hour < 24; hour++) {
       for (const minute of ['00', '30']) {
+        // Skip past times if it's today
+        if (isToday) {
+          if (hour < currentHour || (hour === currentHour && parseInt(minute) <= currentMinute)) {
+            continue;
+          }
+        }
         const time = `${hour.toString().padStart(2, '0')}:${minute}`;
         options.push(time);
       }
@@ -45,6 +59,19 @@ export default function HeroSection() {
   };
 
   const handleDropoffTimeChange = (time: string) => {
+    if (!pickupDate || !pickupTime) {
+      toast.error('Please select pickup date and time first');
+      return;
+    }
+
+    const pickupDateTime = new Date(`${pickupDate}T${pickupTime}`);
+    const dropoffDateTime = new Date(`${dropoffDate}T${time}`);
+
+    if (dropoffDateTime <= pickupDateTime) {
+      toast.error('Drop-off time must be after pickup time');
+      return;
+    }
+
     setDropoffTime(time);
     setShowTimePicker(null);
   };
@@ -69,7 +96,7 @@ export default function HeroSection() {
       return;
     }
 
-    router.push(`/vehicles?pickup=${pickupDate}T${pickupTime}&dropoff=${dropoffDate}T${dropoffTime}`);
+    router.push(`/vehicles?pickupDate=${pickupDate}&pickupTime=${pickupTime}&dropoffDate=${dropoffDate}&dropoffTime=${dropoffTime}`);
   };
 
   return (

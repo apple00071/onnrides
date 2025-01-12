@@ -1,6 +1,6 @@
 import { kv } from '@vercel/kv';
 import { nanoid } from 'nanoid';
-import logger from './logger';
+import logger from '@/lib/logger';
 
 export const COLLECTIONS = {
   USERS: 'users',

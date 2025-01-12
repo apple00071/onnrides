@@ -1,63 +1,73 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import logger from '@/lib/logger';
-
 import pool from '@/lib/db';
 
-
 export async function GET(request: NextRequest) {
+  let client;
   
   try {
-    // Get user from token instead of headers
+    // Get user from session
+    const session = await getServerSession(authOptions);
     
-    if (!user) {
+    if (!session?.user) {
       return NextResponse.json(
-        { message: 'Unauthorized' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // First check if profile exists
-    
+    client = await pool.connect();
 
-    // If profile doesn&apos;t exist, create one with minimal data
-    if (profileCheck.rows.length === 0) {
-      
-      
-      if (createProfile.rows.length === 0) {
-        throw new Error('Failed to create profile');
-      }
-    }
-
-    // Get user data with profile
-    
+    // Get user profile data
+    const result = await client.query(
+      `SELECT 
+        u.id,
+        u.email,
+        u.role,
+        up.name,
+        up.phone,
+        up.address,
+        up.is_documents_verified,
+        up.documents_submitted,
+        u.created_at,
+        u.updated_at
+      FROM users u
+      LEFT JOIN user_profiles up ON u.id = up.user_id
+      WHERE u.id = $1`,
+      [session.user.id]
+    );
 
     if (result.rows.length === 0) {
       return NextResponse.json(
-        { message: 'Profile not found' },
+        { error: 'Profile not found' },
         { status: 404 }
       );
     }
 
-    // Combine first_name and last_name for backward compatibility
-    
-
-    return NextResponse.json(profile);
+    return NextResponse.json(result.rows[0]);
   } catch (error) {
     logger.error('Error fetching profile:', error);
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 }
 
 export async function PATCH(request: NextRequest) {
+  let client;
   
   try {
-    // Get user from token instead of headers
+    // Get user from session
+    const session = await getServerSession(authOptions);
     
-    if (!user) {
+    if (!session?.user) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
@@ -75,10 +85,15 @@ export async function PATCH(request: NextRequest) {
       lastName = lastParts.join(' ') || null;
     }
 
-    // First check if profile exists
-    
+    client = await pool.connect();
 
-    // If profile doesn&apos;t exist, create one
+    // First check if profile exists
+    const profileCheck = await client.query(
+      'SELECT * FROM profiles WHERE user_id = $1',
+      [session.user.id]
+    );
+
+    // If profile doesn't exist, create one
     if (profileCheck.rows.length === 0) {
       await client.query(
         `INSERT INTO profiles (
@@ -88,11 +103,22 @@ export async function PATCH(request: NextRequest) {
           phone_number,
           is_documents_verified
         ) VALUES ($1, $2, $3, $4, false)`,
-        [user.id, firstName, lastName, phone]
+        [session.user.id, firstName, lastName, phone]
       );
     }
 
-    
+    // Update the profile
+    const result = await client.query(
+      `UPDATE profiles 
+       SET first_name = $1, 
+           last_name = $2, 
+           phone_number = $3,
+           address = $4,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $5
+       RETURNING *`,
+      [firstName, lastName, phone, address, session.user.id]
+    );
 
     if (result.rows.length === 0) {
       return NextResponse.json(
@@ -102,10 +128,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Get full user data with updated profile
-    
-
-    // Combine first_name and last_name for backward compatibility
-    
+    const profile = {
+      ...result.rows[0],
+      name: `${result.rows[0].first_name} ${result.rows[0].last_name || ''}`.trim(),
+      email: session.user.email
+    };
 
     return NextResponse.json(profile);
   } catch (error) {
@@ -115,6 +142,8 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     );
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 } 

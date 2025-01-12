@@ -23,9 +23,67 @@ export default function BookingPage() {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [couponCode, setCouponCode] = useState('');
-  const [pickupDateTime, _setPickupDateTime] = useState<string | null>(searchParams.get('pickup'));
-  const [dropoffDateTime, _setDropoffDateTime] = useState<string | null>(searchParams.get('dropoff'));
+  const [pickupDateTime, setPickupDateTime] = useState<string | null>(searchParams.get('pickup'));
+  const [dropoffDateTime, setDropoffDateTime] = useState<string | null>(searchParams.get('dropoff'));
   const [locationDetails, setLocationDetails] = useState({ main: '', sub: '' });
+
+  // Function to validate and format time
+  const validateAndFormatTime = (dateTimeStr: string | null): string | null => {
+    if (!dateTimeStr) return null;
+    
+    const now = new Date();
+    const selectedDate = new Date(dateTimeStr);
+    
+    // If selected time is in the past, return null
+    if (selectedDate < now) {
+      return null;
+    }
+
+    // Round minutes to nearest 30
+    const minutes = selectedDate.getMinutes();
+    const roundedMinutes = Math.ceil(minutes / 30) * 30;
+    selectedDate.setMinutes(roundedMinutes);
+    
+    // If rounding pushed us to the next hour
+    if (roundedMinutes === 60) {
+      selectedDate.setHours(selectedDate.getHours() + 1);
+      selectedDate.setMinutes(0);
+    }
+
+    return selectedDate.toISOString();
+  };
+
+  // Update pickup time state with validation
+  const setPickupTime = (time: string | null) => {
+    const validatedTime = validateAndFormatTime(time);
+    if (!validatedTime) {
+      toast.error('Please select a future time');
+      return;
+    }
+    setPickupDateTime(validatedTime);
+  };
+
+  // Update dropoff time state with validation
+  const setDropoffTime = (time: string | null) => {
+    const validatedTime = validateAndFormatTime(time);
+    if (!validatedTime) {
+      toast.error('Please select a future time');
+      return;
+    }
+    if (pickupDateTime && new Date(validatedTime) <= new Date(pickupDateTime)) {
+      toast.error('Drop-off time must be after pickup time');
+      return;
+    }
+    setDropoffDateTime(validatedTime);
+  };
+
+  useEffect(() => {
+    const pickup = searchParams.get('pickup');
+    const dropoff = searchParams.get('dropoff');
+    
+    if (pickup) setPickupTime(pickup);
+    if (dropoff) setDropoffTime(dropoff);
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchVehicle = async () => {

@@ -4,77 +4,41 @@ import type { NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request });
+  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
+  const isAdminLoginRoute = request.nextUrl.pathname === '/admin/login';
+  const isAuthRoute = request.nextUrl.pathname.startsWith('/auth');
 
-  // Public paths that don't require authentication
-  const publicPaths = [
-    '/',
-    '/home',
-    '/vehicles',
-    '/about',
-    '/contact',
-    '/auth/signin',
-    '/auth/signup',
-    '/auth/forgot-password',
-    '/auth/reset-password',
-    '/api/auth'
-  ];
-
-  // Check if the path is public
-  const isPublicPath = publicPaths.some(path => 
-    request.nextUrl.pathname === path || 
-    request.nextUrl.pathname.startsWith('/api/auth/') ||
-    request.nextUrl.pathname.startsWith('/api/vehicles') // Allow public access to vehicle API
-  );
-
-  // Allow public paths and static files
-  if (isPublicPath || request.nextUrl.pathname.match(/\.(jpg|jpeg|png|gif|ico|svg|css|js)$/)) {
+  // Allow access to auth routes
+  if (isAuthRoute) {
     return NextResponse.next();
   }
 
-  // Protected API routes
-  if (request.nextUrl.pathname.startsWith('/api/')) {
+  // Handle admin login route
+  if (isAdminLoginRoute) {
+    // If already logged in as admin, redirect to admin dashboard
+    if (token?.role === 'admin') {
+      return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // Protect other admin routes
+  if (isAdminRoute && !isAdminLoginRoute) {
     if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      // Redirect to admin login instead of general signin
+      return NextResponse.redirect(new URL('/admin/login', request.url));
     }
 
-    // Admin-only routes
-    if (request.nextUrl.pathname.startsWith('/api/admin/') && token.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
+    if (token.role !== 'admin') {
+      // If logged in but not admin, redirect to home
+      return NextResponse.redirect(new URL('/', request.url));
     }
-
-    return NextResponse.next();
-  }
-
-  // Protected pages
-  if (!token) {
-    const signInUrl = new URL('/auth/signin', request.url);
-    signInUrl.searchParams.set('callbackUrl', request.nextUrl.pathname);
-    return NextResponse.redirect(signInUrl);
-  }
-
-  // Admin-only pages
-  if (request.nextUrl.pathname.startsWith('/admin/') && token.role !== 'admin') {
-    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return NextResponse.next();
 }
 
+// Update matcher to include both admin and auth routes
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * 1. /_next/ (Next.js internals)
-     * 2. /static (static files)
-     * 3. /_vercel (Vercel internals)
-     * 4. /favicon.ico, /robots.txt (static files)
-     */
-    '/((?!_next|static|_vercel|favicon.ico|robots.txt).*)'
-  ]
+  matcher: ['/admin/:path*', '/auth/:path*']
 };  

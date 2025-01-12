@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import logger from './logger';
+import logger from '@/lib/logger';
 
 // Parse connection string into connection object
 function parseConnectionString(connectionString: string) {

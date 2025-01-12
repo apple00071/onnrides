@@ -16,14 +16,11 @@ interface Vehicle {
   type: string;
 }
 
-interface PageProps {
-  params: {
-    id: string;
-  };
-  searchParams: { [key: string]: string | string[] | undefined };
+interface BookingFormProps {
+  vehicleId: string;
 }
 
-export default function BookingSummaryPage({ params, searchParams }: PageProps) {
+export default function BookingForm({ vehicleId }: BookingFormProps) {
   const router = useRouter();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,7 +28,7 @@ export default function BookingSummaryPage({ params, searchParams }: PageProps) 
   useEffect(() => {
     const fetchVehicle = async () => {
       try {
-        const response = await fetch(`/api/vehicles/${params.id}`);
+        const response = await fetch(`/api/vehicles/${vehicleId}`);
         const data = await response.json();
 
         if (!response.ok) {
@@ -48,7 +45,7 @@ export default function BookingSummaryPage({ params, searchParams }: PageProps) 
     };
 
     fetchVehicle();
-  }, [params.id]);
+  }, [vehicleId]);
 
   if (loading) {
     return (

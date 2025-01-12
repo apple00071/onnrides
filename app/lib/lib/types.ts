@@ -1,4 +1,4 @@
-import { BaseItem } from './db';
+import { BaseItem } from '@/lib/db';
 
 export interface User extends BaseItem {
   email: string;
