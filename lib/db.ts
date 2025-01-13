@@ -1,12 +1,7 @@
-<<<<<<< HEAD:app/lib/db.ts
 import Database from 'better-sqlite3';
-import logger from './logger';
+import logger from '@/lib/logger';
 import path from 'path';
 import { nanoid } from 'nanoid';
-=======
-import { Pool } from 'pg';
-import logger from '@/lib/logger';
->>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a:lib/db.ts
 
 // Initialize SQLite database
 const dbPath = path.join(process.cwd(), 'data', 'onnrides.db');
@@ -26,9 +21,6 @@ export const COLLECTIONS = {
 
 // Initialize database schema
 function initializeDatabase() {
-  // Drop existing tables if they exist
-  db.exec(`DROP TABLE IF EXISTS ${COLLECTIONS.VEHICLES}`);
-
   // Create vehicles table
   db.exec(`
     CREATE TABLE IF NOT EXISTS ${COLLECTIONS.VEHICLES} (
@@ -53,10 +45,13 @@ function initializeDatabase() {
       name TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
       phone TEXT,
+      address TEXT,
       role TEXT NOT NULL,
-      passwordHash TEXT NOT NULL,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
+      password_hash TEXT NOT NULL,
+      is_documents_verified BOOLEAN DEFAULT FALSE,
+      documents_submitted BOOLEAN DEFAULT FALSE,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     )
   `);
 
@@ -64,16 +59,16 @@ function initializeDatabase() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS ${COLLECTIONS.BOOKINGS} (
       id TEXT PRIMARY KEY,
-      userId TEXT NOT NULL,
-      vehicleId TEXT NOT NULL,
-      startDate TEXT NOT NULL,
-      endDate TEXT NOT NULL,
-      totalAmount REAL NOT NULL,
+      user_id TEXT NOT NULL,
+      vehicle_id TEXT NOT NULL,
+      start_date TEXT NOT NULL,
+      end_date TEXT NOT NULL,
+      total_amount REAL NOT NULL,
       status TEXT NOT NULL,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL,
-      FOREIGN KEY (userId) REFERENCES users(id),
-      FOREIGN KEY (vehicleId) REFERENCES vehicles(id)
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
     )
   `);
 
@@ -81,13 +76,13 @@ function initializeDatabase() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS ${COLLECTIONS.DOCUMENTS} (
       id TEXT PRIMARY KEY,
-      userId TEXT NOT NULL,
+      user_id TEXT NOT NULL,
       type TEXT NOT NULL,
       url TEXT NOT NULL,
       status TEXT NOT NULL,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL,
-      FOREIGN KEY (userId) REFERENCES users(id)
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id)
     )
   `);
 
@@ -95,13 +90,13 @@ function initializeDatabase() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS ${COLLECTIONS.PAYMENTS} (
       id TEXT PRIMARY KEY,
-      bookingId TEXT NOT NULL,
+      booking_id TEXT NOT NULL,
       amount REAL NOT NULL,
       status TEXT NOT NULL,
-      transactionId TEXT,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL,
-      FOREIGN KEY (bookingId) REFERENCES bookings(id)
+      transaction_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (booking_id) REFERENCES bookings(id)
     )
   `);
 }
@@ -130,7 +125,7 @@ function convertDatesToISOString(obj: any): any {
 
 // Helper function to parse ISO strings back to dates
 function parseDatesFromISOString(obj: any): any {
-  const dateFields = ['createdAt', 'updatedAt', 'startDate', 'endDate'];
+  const dateFields = ['created_at', 'updated_at', 'start_date', 'end_date'];
   const result = { ...obj };
   for (const field of dateFields) {
     if (result[field] && typeof result[field] === 'string') {
@@ -177,7 +172,14 @@ export async function findManyBy<T>(collection: string, field: string, value: an
 export async function insertOne<T extends { id?: string }>(collection: string, data: Partial<T>): Promise<T> {
   try {
     const id = data.id || `${collection.slice(0, 3)}_${nanoid()}`;
-    const processedData = convertDatesToISOString({ ...data, id });
+    const now = new Date().toISOString();
+    const processedData = convertDatesToISOString({ 
+      ...data, 
+      id,
+      created_at: now,
+      updated_at: now
+    });
+    
     const fields = Object.keys(processedData);
     const values = Object.values(processedData);
     const placeholders = Array(fields.length).fill('?').join(', ');
@@ -201,7 +203,11 @@ export async function insertOne<T extends { id?: string }>(collection: string, d
 
 export async function updateOne<T>(collection: string, id: string | number, data: Partial<T>): Promise<T | null> {
   try {
-    const processedData = convertDatesToISOString(data);
+    const processedData = convertDatesToISOString({
+      ...data,
+      updated_at: new Date().toISOString()
+    });
+    
     const fields = Object.keys(processedData);
     const values = Object.values(processedData);
     const setClause = fields.map(field => `${field} = ?`).join(', ');
@@ -252,7 +258,7 @@ export async function executeQuery<T>(query: string, params: any[] = []): Promis
     const results = stmt.all(...params) as T[];
     return results.map(parseDatesFromISOString);
   } catch (error) {
-    logger.error('Error executing query:', error);
+    logger.error('Error in executeQuery:', error);
     throw error;
   }
 }

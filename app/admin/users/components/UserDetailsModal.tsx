@@ -3,8 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { FaCheck, FaTimes } from 'react-icons/fa';
-<<<<<<< HEAD
-=======
 import {
   Dialog,
   DialogContent,
@@ -12,7 +10,6 @@ import {
   DialogTitle
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
->>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a
 import Image from 'next/image';
 import logger from '@/lib/logger';
 import { format } from 'date-fns';
@@ -168,17 +165,9 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
   };
 
   return (
-<<<<<<< HEAD
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-        
-        <div className="relative w-full max-w-4xl bg-white rounded-lg shadow-lg">
-=======
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-4xl translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg">
         <div className="max-h-[90vh] overflow-y-auto">
->>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a
           {/* Header */}
           <div className="sticky top-0 bg-white px-6 py-4 border-b flex items-center justify-between">
             <h2 className="text-xl font-semibold">User Details</h2>
@@ -250,71 +239,59 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
               <div className="p-6 pb-4 border-b">
                 <h3 className="text-lg font-semibold">Documents</h3>
               </div>
-              {documents.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-gray-50 border-b">
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
-                      {documents.map((doc) => (
-                        <tr key={doc.id} className="hover:bg-gray-50/80 transition-colors duration-200">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{doc.type}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                              doc.status === 'approved' ? 'bg-green-100 text-green-800' :
-                              doc.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                              'bg-yellow-100 text-yellow-800'
+              <div className="p-6">
+                {documents.length === 0 ? (
+                  <p className="text-gray-500">No documents found</p>
+                ) : (
+                  <div className="space-y-4">
+                    {documents.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{doc.type}</p>
+                          <p className="text-sm text-gray-500">{formatDate(doc.created_at)}</p>
+                          <div className="mt-1">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              doc.status === 'approved'
+                                ? 'bg-green-100 text-green-800'
+                                : doc.status === 'rejected'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
                             }`}>
                               {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
                             </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(doc.created_at)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="flex items-center space-x-3">
-                              <a
-                                href={doc.document_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800"
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <a
+                            href={doc.document_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            View Document
+                          </a>
+                          {doc.status === 'submitted' && (
+                            <>
+                              <button
+                                onClick={() => handleDocumentStatus(doc.id, 'approved')}
+                                className="p-2 text-green-600 hover:text-green-800"
                               >
-                                View
-                              </a>
-                              {doc.status === 'submitted' && (
-                                <>
-                                  <button
-                                    onClick={() => handleDocumentStatus(doc.id, 'approved')}
-                                    className="text-green-600 hover:text-green-800"
-                                  >
-                                    <FaCheck className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDocumentStatus(doc.id, 'rejected')}
-                                    className="text-red-600 hover:text-red-800"
-                                  >
-                                    <FaTimes className="w-4 h-4" />
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="p-6 text-center text-gray-500">
-                  No documents submitted yet
-                </div>
-              )}
+                                <FaCheck className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDocumentStatus(doc.id, 'rejected')}
+                                className="p-2 text-red-600 hover:text-red-800"
+                              >
+                                <FaTimes className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Bookings Section */}
@@ -322,70 +299,52 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
               <div className="p-6 pb-4 border-b">
                 <h3 className="text-lg font-semibold">Bookings</h3>
               </div>
-              {bookings.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-gray-50 border-b">
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
-                      {bookings.map((booking) => (
-                        <tr key={booking.id} className="hover:bg-gray-50/80 transition-colors duration-200">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="h-10 w-10 flex-shrink-0">
-                                <div className="relative h-10 w-10 rounded-full overflow-hidden">
-                                  <Image
-                                    src={booking.vehicle.image_url}
-                                    alt={booking.vehicle.name}
-                                    fill
-                                    className="object-cover"
-                                  />
-                                </div>
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">{booking.vehicle.name}</div>
-                                <div className="text-sm text-gray-500">{booking.vehicle.type}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              <div>From: {formatDate(booking.start_date)}</div>
-                              <div>To: {formatDate(booking.end_date)}</div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                              booking.status === 'completed' ? 'bg-green-100 text-green-800' :
-                              booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                              'bg-yellow-100 text-yellow-800'
+              <div className="p-6">
+                {bookings.length === 0 ? (
+                  <p className="text-gray-500">No bookings found</p>
+                ) : (
+                  <div className="space-y-6">
+                    {bookings.map((booking) => (
+                      <div key={booking.id} className="flex space-x-4">
+                        <div className="relative w-24 h-24 flex-shrink-0">
+                          <Image
+                            src={booking.vehicle.image_url}
+                            alt={booking.vehicle.name}
+                            fill
+                            className="object-cover rounded-lg"
+                          />
+                        </div>
+                        <div className="flex-grow">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium">
+                              {booking.vehicle.name} {booking.vehicle.model} {booking.vehicle.year}
+                            </h4>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              booking.status === 'completed'
+                                ? 'bg-green-100 text-green-800'
+                                : booking.status === 'cancelled'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
                             }`}>
                               {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                             </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            ₹{booking.total_amount}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="p-6 text-center text-gray-500">
-                  No bookings found
-                </div>
-              )}
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {formatDate(booking.start_date)} - {formatDate(booking.end_date)}
+                          </p>
+                          <p className="text-sm font-medium mt-1">
+                            Total Amount: ₹{booking.total_amount.toLocaleString('en-IN')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 } 

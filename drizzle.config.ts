@@ -7,11 +7,19 @@ if (!process.env.POSTGRES_URL) {
   throw new Error('POSTGRES_URL is not defined');
 }
 
+const url = new URL(process.env.POSTGRES_URL);
+const [user, password] = url.username ? [url.username, url.password] : [];
+const database = url.pathname.slice(1).split('?')[0];
+
 export default {
   schema: './app/lib/lib/schema.ts',
   out: './app/lib/lib/migrations',
-  driver: 'pg',
+  dialect: 'postgresql',
   dbCredentials: {
-    connectionString: process.env.POSTGRES_URL,
+    host: url.hostname,
+    user,
+    password,
+    database,
+    ssl: true
   },
 } satisfies Config; 

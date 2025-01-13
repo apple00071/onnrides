@@ -1,7 +1,6 @@
 import NextAuth, { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { findOneBy } from '@/lib/db';
-import { COLLECTIONS } from '@/lib/db';
+import { findUserByEmail } from '@/app/lib/lib/db';
 import * as bcrypt from 'bcryptjs';
 import logger from '@/lib/logger';
 
@@ -9,9 +8,11 @@ import logger from '@/lib/logger';
 interface DbUser {
   id: string;
   email: string;
-  role: 'user' | 'admin';
-  password_hash: string;
-  name: string;
+  role: string | null;
+  password: string | null;
+  name: string | null;
+  is_blocked: boolean | null;
+  is_verified: boolean | null;
 }
 
 // Custom user type with required fields
@@ -19,7 +20,7 @@ interface CustomUser {
   id: string;
   email: string;
   role: 'user' | 'admin';
-  name: string;
+  name: string | null;
 }
 
 declare module 'next-auth' {
@@ -50,17 +51,23 @@ export const authOptions: NextAuthOptions = {
           }
 
           // Get user from database
-          const user = await findOneBy<DbUser>(COLLECTIONS.USERS, 'email', credentials.email);
+          const user = await findUserByEmail(credentials.email);
           
-          if (!user?.password_hash) {
+          if (!user?.password) {
             logger.warn('Login attempt with non-existent email:', credentials.email);
             return null;
           }
 
           // Verify password
-          const isValid = await bcrypt.compare(credentials.password, user.password_hash);
+          const isValid = await bcrypt.compare(credentials.password, user.password);
           if (!isValid) {
             logger.warn('Invalid password attempt for email:', credentials.email);
+            return null;
+          }
+
+          // Check if user is blocked
+          if (user.is_blocked) {
+            logger.warn('Blocked user attempted to login:', credentials.email);
             return null;
           }
 
@@ -70,11 +77,14 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          logger.info('User logged in successfully:', user.email, 'Role:', user.role);
+          // Convert role to proper type
+          const role = user.role === 'admin' ? 'admin' : 'user';
+
+          logger.info('User logged in successfully:', user.email, 'Role:', role);
           return {
             id: user.id,
             email: user.email,
-            role: user.role,
+            role,
             name: user.name
           };
         } catch (error) {
@@ -104,52 +114,30 @@ export const authOptions: NextAuthOptions = {
           name: token.name
         }
       };
-    },
-    async redirect({ url, baseUrl }) {
-      // Handle admin routes
-      if (url.startsWith('/admin')) {
-        return url;
-      }
-      // Default redirect
-      return baseUrl;
     }
   },
   pages: {
     signIn: '/auth/signin',
+    signOut: '/auth/signin',
     error: '/auth/error'
   },
-<<<<<<< HEAD
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = user.role;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.role = token.role;
-      }
-      return session;
-    },
-    async redirect({ url, baseUrl }) {
-      // If it's an admin route, keep it
-      if (url.startsWith('/admin')) {
-        return url;
-      }
-      return url;
-    }
-  }
-});
-=======
   session: {
     strategy: 'jwt',
     maxAge: 24 * 60 * 60, // 24 hours
   },
+  events: {
+    async signOut() {
+      try {
+        // Clear any server-side session data if needed
+        logger.info('User signed out successfully');
+      } catch (error) {
+        logger.error('Error during sign out:', error);
+      }
+    }
+  },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development',
+  debug: false, // Disable debug mode in production
 };
->>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST }; 

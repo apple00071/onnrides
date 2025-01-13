@@ -1,34 +1,17 @@
 'use client';
 
-<<<<<<< HEAD
-import { useState, FormEvent, ChangeEvent } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { toast } from 'react-hot-toast';
-import logger from '@/lib/logger';
-import Image from 'next/image';
-import Link from 'next/link';
-import { signIn } from 'next-auth/react';
-=======
 import { useState, useEffect } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
->>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-<<<<<<< HEAD
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams?.get('callbackUrl') || '/admin/dashboard';
-=======
   const [loading, setLoading] = useState(false);
->>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a
 
   // Redirect if already authenticated as admin
   useEffect(() => {
@@ -45,89 +28,47 @@ export default function AdminLoginPage() {
       const result = await signIn('credentials', {
         email,
         password,
-<<<<<<< HEAD
-        redirect: false,
-        callbackUrl
-      });
-
-      if (result?.error) {
-        throw new Error(result.error);
-      }
-
-      toast.success('Login successful');
-      router.push(callbackUrl);
-=======
         isAdmin: 'true',
         redirect: false,
       });
 
       if (!result) {
-        toast.error('An error occurred. Please try again.');
-        return;
+        throw new Error('Authentication failed');
       }
 
       if (result.error) {
-        toast.error(result.error === 'CredentialsSignin' 
-          ? 'Invalid email or password' 
-          : 'Failed to sign in. Please try again.'
-        );
-      } else {
-        toast.success('Welcome back, admin!');
-        router.push('/admin/dashboard');
-        router.refresh();
+        toast.error(result.error);
+        return;
       }
->>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a
+
+      toast.success('Login successful');
+      router.push('/admin/dashboard');
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('An error occurred. Please try again.');
+      toast.error('Failed to login');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-<<<<<<< HEAD
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <Image
-            src="/logo.png"
-            alt="OnnRides Logo"
-            width={150}
-            height={150}
-            className="mb-8"
-          />
-        </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Admin Login
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Not an admin?{' '}
-          <Link href="/" className="font-medium text-[#f26e24] hover:text-[#e05d13]">
-            Back to main site
-=======
-    <div className="min-h-screen flex items-center justify-center bg-[#fff8f0] py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
         <div>
           <Link href="/" className="flex justify-center">
-            <h1 className="text-4xl font-bold text-[#f26e24] font-goodtimes">ONNRIDES</h1>
->>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a
+            <div className="w-12 h-12 bg-[#f26e24] rounded-full flex items-center justify-center text-white text-2xl font-bold">
+              O
+            </div>
           </Link>
-          <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Admin Login
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Not an admin?{' '}
-            <Link href="/auth/signin" className="font-medium text-[#f26e24] hover:text-[#e05d13]">
-              Sign in as user
-            </Link>
-          </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4">
+          <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Admin Email
+              <label htmlFor="email" className="sr-only">
+                Email address
               </label>
               <input
                 id="email"
@@ -137,13 +78,13 @@ export default function AdminLoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] sm:text-sm"
-                placeholder="Enter admin email"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] focus:z-10 sm:text-sm"
+                placeholder="Email address"
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Admin Password
+              <label htmlFor="password" className="sr-only">
+                Password
               </label>
               <input
                 id="password"
@@ -153,8 +94,8 @@ export default function AdminLoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] sm:text-sm"
-                placeholder="Enter admin password"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] focus:z-10 sm:text-sm"
+                placeholder="Password"
               />
             </div>
           </div>
@@ -163,9 +104,9 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#f26e24] hover:bg-[#e05d13] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24] disabled:opacity-50 transition-colors"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-[#f26e24] hover:bg-[#e05d13] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Signing in...' : 'Sign in as Admin'}
+              {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
         </form>

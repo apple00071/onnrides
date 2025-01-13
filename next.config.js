@@ -21,6 +21,7 @@ const nextConfig = {
       }
     ]
   },
+  serverExternalPackages: [],
   output: 'standalone'
 }
 
