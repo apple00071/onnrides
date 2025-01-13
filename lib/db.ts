@@ -1,7 +1,12 @@
+<<<<<<< HEAD:app/lib/db.ts
 import Database from 'better-sqlite3';
 import logger from './logger';
 import path from 'path';
 import { nanoid } from 'nanoid';
+=======
+import { Pool } from 'pg';
+import logger from '@/lib/logger';
+>>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a:lib/db.ts
 
 // Initialize SQLite database
 const dbPath = path.join(process.cwd(), 'data', 'onnrides.db');

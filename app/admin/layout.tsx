@@ -1,21 +1,54 @@
-'use client'
+'use client';
 
+<<<<<<< HEAD
 import { useSession, signOut } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Bell } from 'lucide-react';
+=======
+import { useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import AdminDashboardLayout from '@/components/admin/AdminDashboardLayout';
+>>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a
 
-export default function AdminLayout({
-  children,
-}: {
+interface AdminLayoutProps {
   children: React.ReactNode;
-}) {
-  const { data: session, status } = useSession();
+}
 
+export default function AdminLayout({ children }: AdminLayoutProps) {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const childrenString = children?.toString() || '';
+  const isLoginPage = childrenString.includes('AdminLoginPage');
+
+  useEffect(() => {
+    if (status === 'loading') return;
+
+    // For login page, redirect to dashboard if already authenticated
+    if (isLoginPage && session?.user?.role === 'admin') {
+      router.push('/admin/dashboard');
+      return;
+    }
+
+    // For all other admin pages, require admin authentication
+    if (!isLoginPage && (!session?.user || session.user.role !== 'admin')) {
+      router.push('/admin/login');
+      return;
+    }
+  }, [session, status, router, isLoginPage]);
+
+  // If it's the login page, don't show the admin layout
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
+
+  // Show loading state while checking authentication
   if (status === 'loading') {
     return <div>Loading...</div>;
   }
 
+<<<<<<< HEAD
   if (!session || session.user.role !== 'admin') {
     redirect('/auth/signin');
   }
@@ -106,4 +139,7 @@ export default function AdminLayout({
       </div>
     </div>
   );
+=======
+  return <AdminDashboardLayout>{children}</AdminDashboardLayout>;
+>>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a
 } 

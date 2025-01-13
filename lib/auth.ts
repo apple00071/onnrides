@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { jwtVerify, JWTPayload } from 'jose';
-import * as db from './db';
+import * as db from '@/lib/db';
 import type { User, TokenPayload } from './types';
 
 export async function verifyAuth(request: NextRequest): Promise<TokenPayload | null> {

@@ -39,19 +39,24 @@ export default function AuthForm({ mode }: AuthFormProps) {
           throw new Error(result.message || 'Failed to create account');
         }
       } else {
-        const endpoint = mode === 'admin-login' ? '/api/auth/admin/login' : '/api/auth/login';
         const response = await signIn('credentials', {
           redirect: false,
           email,
           password,
+          isAdmin: mode === 'admin-login' ? 'true' : 'false',
           callbackUrl: mode === 'admin-login' ? '/admin/dashboard' : '/dashboard'
         });
 
         if (response?.error) {
-          throw new Error(response.error);
+          if (mode === 'admin-login') {
+            throw new Error('Invalid admin credentials');
+          } else {
+            throw new Error('Invalid email or password');
+          }
         }
 
         if (response?.url) {
+          toast.success(mode === 'admin-login' ? 'Welcome back, admin!' : 'Welcome back!');
           router.push(response.url);
         }
       }
@@ -138,6 +143,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] sm:text-sm"
+                  placeholder={mode === 'admin-login' ? 'Admin email' : 'Email'}
                 />
               </div>
             </div>
@@ -156,6 +162,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] sm:text-sm"
+                  placeholder={mode === 'admin-login' ? 'Admin password' : 'Password'}
                 />
               </div>
             </div>
@@ -187,7 +194,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
                   <>
                     {mode === 'login' && 'Sign in'}
                     {mode === 'signup' && 'Sign up'}
-                    {mode === 'admin-login' && 'Login'}
+                    {mode === 'admin-login' && 'Admin Login'}
                   </>
                 )}
               </button>

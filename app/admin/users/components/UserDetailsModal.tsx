@@ -3,6 +3,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { FaCheck, FaTimes } from 'react-icons/fa';
+<<<<<<< HEAD
+=======
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+>>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a
 import Image from 'next/image';
 import logger from '@/lib/logger';
 import { format } from 'date-fns';
@@ -158,11 +168,17 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
   };
 
   return (
+<<<<<<< HEAD
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/50" onClick={onClose} />
         
         <div className="relative w-full max-w-4xl bg-white rounded-lg shadow-lg">
+=======
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-4xl translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg">
+        <div className="max-h-[90vh] overflow-y-auto">
+>>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a
           {/* Header */}
           <div className="sticky top-0 bg-white px-6 py-4 border-b flex items-center justify-between">
             <h2 className="text-xl font-semibold">User Details</h2>

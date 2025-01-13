@@ -1,0 +1,127 @@
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import Database from 'better-sqlite3';
+import { users, sessions, resetTokens, vehicles, bookings, documents, profiles } from './schema';
+
+// Initialize SQLite database
+const sqlite = new Database('local.db');
+const db = drizzle(sqlite);
+
+// Run migrations
+async function main() {
+  console.log('Running migrations...');
+  
+  try {
+    await migrate(db, {
+      migrationsFolder: './migrations',
+    });
+    console.log('Migrations completed successfully');
+
+    // Create tables if they don't exist
+    db.run(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        email TEXT UNIQUE,
+        email_verified INTEGER,
+        image TEXT,
+        password TEXT,
+        role TEXT DEFAULT 'user',
+        created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
+        updated_at INTEGER DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        expires INTEGER NOT NULL,
+        session_token TEXT UNIQUE NOT NULL,
+        created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
+        updated_at INTEGER DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS reset_tokens (
+        id TEXT PRIMARY KEY,
+        token TEXT UNIQUE NOT NULL,
+        user_id TEXT NOT NULL,
+        expires INTEGER NOT NULL,
+        created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS vehicles (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        model TEXT NOT NULL,
+        year INTEGER NOT NULL,
+        license_plate TEXT UNIQUE NOT NULL,
+        capacity INTEGER NOT NULL,
+        available INTEGER DEFAULT 1,
+        price_per_day INTEGER NOT NULL,
+        location TEXT,
+        image_url TEXT,
+        created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
+        updated_at INTEGER DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS bookings (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        vehicle_id TEXT NOT NULL,
+        start_date INTEGER NOT NULL,
+        end_date INTEGER NOT NULL,
+        total_price INTEGER NOT NULL,
+        status TEXT DEFAULT 'pending',
+        payment_status TEXT DEFAULT 'pending',
+        created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
+        updated_at INTEGER DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS documents (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        url TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
+        updated_at INTEGER DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS profiles (
+        id TEXT PRIMARY KEY,
+        user_id TEXT UNIQUE NOT NULL,
+        address TEXT,
+        phone TEXT,
+        driving_license TEXT,
+        verification_status TEXT DEFAULT 'pending',
+        created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
+        updated_at INTEGER DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+
+    console.log('Database tables created successfully');
+  } catch (error) {
+    console.error('Migration failed:', error);
+    process.exit(1);
+  }
+}
+
+main(); 

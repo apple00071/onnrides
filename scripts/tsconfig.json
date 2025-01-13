@@ -6,6 +6,7 @@
     "skipLibCheck": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
+<<<<<<< HEAD
     "noEmit": true,
     "esModuleInterop": true,
     "module": "commonjs",
@@ -14,6 +15,13 @@
     "isolatedModules": true,
     "incremental": true,
     "rootDir": ".."
+=======
+    "outDir": "dist",
+    "baseUrl": "..",
+    "paths": {
+      "@/*": ["./*"]
+    }
+>>>>>>> 5a6f20b58703b8cab668293ed267069313eed56a
   },
   "include": [
     "./**/*.ts",

@@ -16,7 +16,14 @@ interface Vehicle {
   type: string;
 }
 
-export default function BookingSummaryPage({ params }: { params: { id: string } }) {
+interface PageProps {
+  params: {
+    id: string;
+  };
+  searchParams: { [key: string]: string | string[] | undefined };
+}
+
+export default function BookingSummaryPage({ params, searchParams }: PageProps) {
   const router = useRouter();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);

@@ -1,66 +1,39 @@
 import { NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
 import type { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
 export async function middleware(request: NextRequest) {
-  const token = await getToken({ req: request });
+  // Get the pathname of the request
+  const path = request.nextUrl.pathname;
 
-  // Public paths that don't require authentication
-  const publicPaths = [
-    '/',
-    '/home',
-    '/vehicles',
-    '/about',
-    '/contact',
-    '/auth/signin',
-    '/auth/signup',
-    '/auth/forgot-password',
-    '/auth/reset-password',
-    '/api/auth'
-  ];
-
-  // Check if the path is public
-  const isPublicPath = publicPaths.some(path => 
-    request.nextUrl.pathname === path || 
-    request.nextUrl.pathname.startsWith('/api/auth/') ||
-    request.nextUrl.pathname.startsWith('/api/vehicles') // Allow public access to vehicle API
-  );
-
-  // Allow public paths and static files
-  if (isPublicPath || request.nextUrl.pathname.match(/\.(jpg|jpeg|png|gif|ico|svg|css|js)$/)) {
-    return NextResponse.next();
+  // Redirect /admin-login to /admin/login
+  if (path === '/admin-login') {
+    return NextResponse.redirect(new URL('/admin/login', request.url));
   }
 
-  // Protected API routes
-  if (request.nextUrl.pathname.startsWith('/api/')) {
+  // Redirect /admin/user to /admin/users
+  if (path === '/admin/user') {
+    return NextResponse.redirect(new URL('/admin/users', request.url));
+  }
+
+  // Check auth status for admin routes
+  if (path.startsWith('/admin') && path !== '/admin/login') {
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET
+    });
+
+    // Redirect to login if not authenticated
     if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      const url = new URL('/admin/login', request.url);
+      url.searchParams.set('callbackUrl', path);
+      return NextResponse.redirect(url);
     }
 
-    // Admin-only routes
-    if (request.nextUrl.pathname.startsWith('/api/admin/') && token.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
+    // Redirect to home if not an admin
+    if (token.role !== 'admin') {
+      return NextResponse.redirect(new URL('/', request.url));
     }
-
-    return NextResponse.next();
-  }
-
-  // Protected pages
-  if (!token) {
-    const signInUrl = new URL('/auth/signin', request.url);
-    signInUrl.searchParams.set('callbackUrl', request.nextUrl.pathname);
-    return NextResponse.redirect(signInUrl);
-  }
-
-  // Admin-only pages
-  if (request.nextUrl.pathname.startsWith('/admin/') && token.role !== 'admin') {
-    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return NextResponse.next();
@@ -68,13 +41,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * 1. /_next/ (Next.js internals)
-     * 2. /static (static files)
-     * 3. /_vercel (Vercel internals)
-     * 4. /favicon.ico, /robots.txt (static files)
-     */
-    '/((?!_next|static|_vercel|favicon.ico|robots.txt).*)'
-  ]
+    '/admin-login',
+    '/admin/user',
+    '/admin/:path*'
+  ],
 };  
