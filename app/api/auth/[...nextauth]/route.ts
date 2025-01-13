@@ -10,7 +10,7 @@ interface DbUser {
   id: string;
   email: string;
   role: 'user' | 'admin';
-  passwordHash: string;
+  password_hash: string;
   name: string;
 }
 
@@ -52,13 +52,13 @@ export const authOptions: NextAuthOptions = {
           // Get user from database
           const user = await findOneBy<DbUser>(COLLECTIONS.USERS, 'email', credentials.email);
           
-          if (!user?.passwordHash) {
+          if (!user?.password_hash) {
             logger.warn('Login attempt with non-existent email:', credentials.email);
             return null;
           }
 
           // Verify password
-          const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
+          const isValid = await bcrypt.compare(credentials.password, user.password_hash);
           if (!isValid) {
             logger.warn('Invalid password attempt for email:', credentials.email);
             return null;

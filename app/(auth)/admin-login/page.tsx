@@ -1,24 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { signIn, useSession } from 'next-auth/react';
+import { useState } from 'react';
+import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { data: session } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // Redirect if already authenticated as admin
-  useEffect(() => {
-    if (session?.user?.role === 'admin') {
-      router.push('/admin/dashboard');
-    }
-  }, [session, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +37,6 @@ export default function AdminLoginPage() {
       } else {
         toast.success('Welcome back, admin!');
         router.push('/admin/dashboard');
-        router.refresh();
       }
     } catch (error) {
       console.error('Login error:', error);
