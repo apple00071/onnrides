@@ -1,15 +1,12 @@
-import { pgTable, text, timestamp, boolean, integer, serial, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, integer, serial, uuid, jsonb } from 'drizzle-orm/pg-core';
 
 // Users table
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
   name: text('name'),
   email: text('email').unique().notNull(),
-  phone: text('phone'),
-  password: text('password'),
+  password_hash: text('password_hash').notNull(),
   role: text('role').default('user'),
-  is_blocked: boolean('is_blocked').default(false),
-  is_verified: boolean('is_verified').default(false),
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
 });
@@ -27,9 +24,10 @@ export const vehicles = pgTable('vehicles', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   type: text('type').notNull(),
-  quantity: integer('quantity').notNull(),
+  quantity: integer('quantity').default(1),
   price_per_day: integer('price_per_day').notNull(),
-  image_url: text('image_url').default('/cars/default.jpg'),
+  location: jsonb('location').notNull(),
+  images: jsonb('images').notNull(),
   is_available: boolean('is_available').default(true),
   status: text('status').default('active'),
   created_at: timestamp('created_at').defaultNow(),
@@ -49,7 +47,7 @@ export const documents = pgTable('documents', {
   id: text('id').primaryKey(),
   user_id: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   type: text('type').notNull(),
-  file_url: text('file_url').notNull(),
+  url: text('url').notNull(),
   status: text('status').default('pending'),
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
@@ -62,8 +60,11 @@ export const bookings = pgTable('bookings', {
   vehicle_id: uuid('vehicle_id').references(() => vehicles.id, { onDelete: 'cascade' }).notNull(),
   start_date: timestamp('start_date').notNull(),
   end_date: timestamp('end_date').notNull(),
-  total_amount: integer('total_amount').notNull(),
+  total_price: integer('total_price').notNull(),
   status: text('status').default('pending'),
+  payment_status: text('payment_status').default('pending'),
+  payment_intent_id: text('payment_intent_id'),
+  notes: text('notes'),
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
 }); 

@@ -9,12 +9,12 @@ interface Vehicle {
   id: string;
   name: string;
   type: string;
-  location: string[];
   quantity: number;
   price_per_day: number;
+  location: string[];
+  images: string[];
   is_available: boolean;
-  status: 'available' | 'booked' | 'maintenance';
-  image_url: string;
+  status: 'active' | 'maintenance' | 'deleted';
   created_at: string;
   updated_at: string;
 }
@@ -47,15 +47,16 @@ export default function EditVehicleModal({ vehicle, isOpen, onClose, onVehicleUp
         body: JSON.stringify(formData),
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        throw new Error('Failed to update vehicle');
+        throw new Error(data.error || 'Failed to update vehicle');
       }
 
       toast.success('Vehicle updated successfully');
       onVehicleUpdated();
     } catch (error) {
       logger.error('Error:', error);
-      toast.error('Failed to update vehicle');
+      toast.error(error instanceof Error ? error.message : 'Failed to update vehicle');
     } finally {
       setLoading(false);
     }
@@ -97,7 +98,32 @@ export default function EditVehicleModal({ vehicle, isOpen, onClose, onVehicleUp
               required
             >
               <option value="Car">Car</option>
+              <option value="Bike">Bike</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Quantity</label>
+            <input
+              type="number"
+              value={formData.quantity}
+              onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f26e24] focus:ring-[#f26e24]"
+              required
+              min="1"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Price per day (₹)</label>
+            <input
+              type="number"
+              value={formData.price_per_day}
+              onChange={(e) => setFormData({ ...formData, price_per_day: parseInt(e.target.value) })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f26e24] focus:ring-[#f26e24]"
+              required
+              min="0"
+            />
           </div>
 
           <div>
@@ -135,30 +161,6 @@ export default function EditVehicleModal({ vehicle, isOpen, onClose, onVehicleUp
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Quantity</label>
-            <input
-              type="number"
-              value={formData.quantity}
-              onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f26e24] focus:ring-[#f26e24]"
-              required
-              min="1"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Price per day (₹)</label>
-            <input
-              type="number"
-              value={formData.price_per_day}
-              onChange={(e) => setFormData({ ...formData, price_per_day: parseInt(e.target.value) })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f26e24] focus:ring-[#f26e24]"
-              required
-              min="0"
-            />
-          </div>
-
-          <div>
             <label className="block text-sm font-medium text-gray-700">Image</label>
             <input
               type="file"
@@ -177,7 +179,7 @@ export default function EditVehicleModal({ vehicle, isOpen, onClose, onVehicleUp
                     if (!response.ok) throw new Error('Upload failed');
                     
                     const data = await response.json();
-                    setFormData(prev => ({ ...prev, image_url: data.url }));
+                    setFormData(prev => ({ ...prev, images: [...prev.images, data.url] }));
                   } catch (error) {
                     toast.error('Failed to upload image');
                     logger.error('Error uploading image:', error);
@@ -197,13 +199,13 @@ export default function EditVehicleModal({ vehicle, isOpen, onClose, onVehicleUp
             <label className="block text-sm font-medium text-gray-700">Status</label>
             <select
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'available' | 'booked' | 'maintenance' })}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'maintenance' | 'deleted' })}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f26e24] focus:ring-[#f26e24]"
               required
             >
-              <option value="available">Available</option>
-              <option value="booked">Booked</option>
+              <option value="active">Active</option>
               <option value="maintenance">Maintenance</option>
+              <option value="deleted">Deleted</option>
             </select>
           </div>
 

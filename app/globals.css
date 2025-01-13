@@ -3,12 +3,16 @@
 @tailwind utilities;
 
 @font-face {
-  font-family: 'Good Times';
-  src: url('/fonts/good-times.woff2') format('woff2'),
-       url('/fonts/good-times.woff') format('woff');
+  font-family: 'Goodtimes';
+  src: url('/fonts/goodtimes.woff2') format('woff2'),
+       url('/fonts/goodtimes.woff') format('woff');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
+}
+
+.font-goodtimes {
+  font-family: 'Goodtimes', sans-serif;
 }
 
 @layer base {

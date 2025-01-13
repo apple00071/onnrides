@@ -16,12 +16,12 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
   const [formData, setFormData] = useState({
     name: '',
     type: 'Car',
-    location: [] as string[],
     quantity: 1,
     price_per_day: 0,
+    location: [] as string[],
+    images: [] as string[],
     is_available: true,
-    status: 'available' as const,
-    image_url: '',
+    status: 'active' as const,
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -64,12 +64,13 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
         },
         body: JSON.stringify({
           ...formData,
-          image_url: imageUrl,
+          images: imageUrl ? [imageUrl] : [],
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to add vehicle');
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to add vehicle');
       }
 
       toast.success('Vehicle added successfully');
@@ -77,7 +78,7 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
       resetForm();
     } catch (error) {
       logger.error('Error:', error);
-      toast.error('Failed to add vehicle');
+      toast.error(error instanceof Error ? error.message : 'Failed to add vehicle');
     } finally {
       setLoading(false);
     }
@@ -87,12 +88,12 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
     setFormData({
       name: '',
       type: 'Car',
-      location: [],
       quantity: 1,
       price_per_day: 0,
+      location: [],
+      images: [],
       is_available: true,
-      status: 'available',
-      image_url: '',
+      status: 'active',
     });
     setSelectedFile(null);
   };
@@ -133,31 +134,8 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
               required
             >
               <option value="Car">Car</option>
+              <option value="Bike">Bike</option>
             </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Locations</label>
-            <div className="space-y-2">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.location.includes('Eragadda')}
-                  onChange={() => handleLocationChange('Eragadda')}
-                  className="rounded border-gray-300 text-[#f26e24] focus:ring-[#f26e24]"
-                />
-                <span className="ml-2">Eragadda</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.location.includes('Madhapur')}
-                  onChange={() => handleLocationChange('Madhapur')}
-                  className="rounded border-gray-300 text-[#f26e24] focus:ring-[#f26e24]"
-                />
-                <span className="ml-2">Madhapur</span>
-              </label>
-            </div>
           </div>
 
           <div>
@@ -182,6 +160,30 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
               required
               min="0"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Locations</label>
+            <div className="space-y-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.location.includes('Eragadda')}
+                  onChange={() => handleLocationChange('Eragadda')}
+                  className="rounded border-gray-300 text-[#f26e24] focus:ring-[#f26e24]"
+                />
+                <span className="ml-2">Eragadda</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.location.includes('Madhapur')}
+                  onChange={() => handleLocationChange('Madhapur')}
+                  className="rounded border-gray-300 text-[#f26e24] focus:ring-[#f26e24]"
+                />
+                <span className="ml-2">Madhapur</span>
+              </label>
+            </div>
           </div>
 
           <div>

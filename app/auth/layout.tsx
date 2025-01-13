@@ -1,21 +1,22 @@
-import { getServerSession } from 'next-auth';
-import { redirect } from 'next/navigation';
+import type { Metadata } from 'next';
+import Navbar from '@/app/components/Navbar';
 
-export default async function AuthLayout({
+export const metadata: Metadata = {
+  title: 'Authentication - OnnRides',
+  description: 'Login or register for OnnRides',
+};
+
+export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession();
-
-  // If user is already logged in, redirect to home page
-  if (session) {
-    redirect('/');
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {children}
-    </div>
+    <>
+      <Navbar />
+      <main className="pt-16">
+        {children}
+      </main>
+    </>
   );
 } 

@@ -1,54 +1,37 @@
-import logger from '@/lib/logger';
+import 'dotenv/config';
+import { db } from '../app/lib/lib/db';
+import { users } from '../app/lib/lib/schema';
+import * as bcrypt from 'bcryptjs';
+import { sql } from 'drizzle-orm';
+import { randomUUID } from 'crypto';
 
-import pool from '@/lib/db';
-import bcrypt from 'bcrypt';
-
-// Load environment variables
-config();
-
-async function createAdminUser() {
-  
+async function createAdmin() {
   try {
-    logger.debug('Creating admin user...');
-
-    // Hash the password
-    
-    
-    
-
     // Check if admin user already exists
-    
+    const existingAdmin = await db.select().from(users).where(sql`${users.email} = 'admin@onnrides.com'`);
 
-    if (checkResult.rows.length > 0) {
-      logger.debug('Admin user already exists');
+    if (existingAdmin.length > 0) {
+      console.log('Admin user already exists');
       return;
     }
 
-    // Insert admin user
-    
+    // Create admin user
+    const passwordHash = await bcrypt.hash('admin123', 10);
+    await db.insert(users).values({
+      id: randomUUID(),
+      name: 'Admin User',
+      email: 'admin@onnrides.com',
+      password_hash: passwordHash,
+      role: 'admin',
+    });
 
-    
-
-    // Insert admin profile
-    await client.query(
-      `INSERT INTO profiles (user_id, first_name, last_name)
-       VALUES ($1, $2, $3)`,
-      [userId, 'Admin', 'User']
-    );
-
-    logger.debug('Admin user created successfully');
-    logger.debug('Email: admin@onnrides.com');
-    logger.debug('Password: admin123');
+    console.log('Admin user created successfully');
+    console.log('Email: admin@onnrides.com');
+    console.log('Password: admin123');
   } catch (error) {
-    logger.error('Error creating admin user:', error);
-    throw error;
-  } finally {
-    client.release();
+    console.error('Error creating admin user:', error);
+    process.exit(1);
   }
 }
 
-createAdminUser()
-  .catch((err) => {
-    logger.error('Failed to create admin user:', err);
-    process.exit(1);
-  }); 
+createAdmin(); 

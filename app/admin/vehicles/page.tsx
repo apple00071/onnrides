@@ -23,12 +23,12 @@ interface Vehicle {
   id: string;
   name: string;
   type: string;
-  location: string[];
   quantity: number;
   price_per_day: number;
+  location: string[];
+  images: string[];
   is_available: boolean;
-  status: 'available' | 'booked' | 'maintenance';
-  image_url: string;
+  status: 'active' | 'maintenance' | 'deleted';
   created_at: string;
   updated_at: string;
 }
@@ -47,16 +47,16 @@ export default function VehiclesPage() {
   const fetchVehicles = async () => {
     try {
       const response = await fetch('/api/admin/vehicles');
+      const data = await response.json();
+      
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to fetch vehicles');
+        throw new Error(data.error || 'Failed to fetch vehicles');
       }
       
-      const data = await response.json();
       setVehicles(data);
     } catch (error) {
       logger.error('Error:', error);
-      toast.error('Failed to fetch vehicles');
+      toast.error(error instanceof Error ? error.message : 'Failed to fetch vehicles');
     } finally {
       setLoading(false);
     }
@@ -69,17 +69,17 @@ export default function VehiclesPage() {
       const response = await fetch(`/api/admin/vehicles/${id}`, {
         method: 'DELETE',
       });
+      const data = await response.json();
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to delete vehicle');
+        throw new Error(data.error || 'Failed to delete vehicle');
       }
 
       toast.success('Vehicle deleted successfully');
       fetchVehicles();
     } catch (error) {
       logger.error('Error:', error);
-      toast.error('Failed to delete vehicle');
+      toast.error(error instanceof Error ? error.message : 'Failed to delete vehicle');
     }
   };
 
@@ -127,11 +127,9 @@ export default function VehiclesPage() {
               <TableHead>Image</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Locations</TableHead>
               <TableHead>Quantity</TableHead>
               <TableHead>Price/Day</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Created At</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -141,7 +139,7 @@ export default function VehiclesPage() {
                 <TableCell>
                   <div className="relative h-12 w-12">
                     <Image
-                      src={vehicle.image_url || '/placeholder-vehicle.jpg'}
+                      src={vehicle.images[0] || '/placeholder-vehicle.jpg'}
                       alt={vehicle.name}
                       fill
                       className="object-cover rounded"
@@ -150,23 +148,14 @@ export default function VehiclesPage() {
                 </TableCell>
                 <TableCell>{vehicle.name}</TableCell>
                 <TableCell>{vehicle.type}</TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {vehicle.location.map((loc) => (
-                      <Badge key={loc} variant="secondary">
-                        {loc}
-                      </Badge>
-                    ))}
-                  </div>
-                </TableCell>
                 <TableCell>{vehicle.quantity}</TableCell>
                 <TableCell>₹{vehicle.price_per_day}/day</TableCell>
                 <TableCell>
                   <Badge
                     variant={
-                      vehicle.status === 'available'
+                      vehicle.status === 'active'
                         ? 'success'
-                        : vehicle.status === 'booked'
+                        : vehicle.status === 'maintenance'
                         ? 'warning'
                         : 'destructive'
                     }
@@ -174,7 +163,6 @@ export default function VehiclesPage() {
                     {vehicle.status}
                   </Badge>
                 </TableCell>
-                <TableCell>{formatDate(vehicle.created_at)}</TableCell>
                 <TableCell>
                   <div className="flex space-x-2">
                     <Button

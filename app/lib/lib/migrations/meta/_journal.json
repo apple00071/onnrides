@@ -8,6 +8,13 @@
       "when": "1710336000000",
       "tag": "0000_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1736776290265,
+      "tag": "0001_hesitant_speed_demon",
+      "breakpoints": true
     }
   ]
-} 
+}

@@ -7,12 +7,12 @@ import logger from '@/lib/logger';
 // Database user type
 interface DbUser {
   id: string;
+  name: string | null;
   email: string;
   role: string | null;
-  password: string | null;
-  name: string | null;
-  is_blocked: boolean | null;
-  is_verified: boolean | null;
+  password_hash: string;
+  created_at: Date | null;
+  updated_at: Date | null;
 }
 
 // Custom user type with required fields
@@ -47,34 +47,30 @@ export const authOptions: NextAuthOptions = {
         try {
           if (!credentials?.email || !credentials?.password) {
             logger.warn('Missing email or password');
-            return null;
+            throw new Error('Email and password are required');
           }
 
           // Get user from database
           const user = await findUserByEmail(credentials.email);
           
-          if (!user?.password) {
+          if (!user?.password_hash) {
             logger.warn('Login attempt with non-existent email:', credentials.email);
-            return null;
+            throw new Error('Invalid email or password');
           }
 
           // Verify password
-          const isValid = await bcrypt.compare(credentials.password, user.password);
+          const isValid = await bcrypt.compare(credentials.password, user.password_hash);
           if (!isValid) {
             logger.warn('Invalid password attempt for email:', credentials.email);
-            return null;
-          }
-
-          // Check if user is blocked
-          if (user.is_blocked) {
-            logger.warn('Blocked user attempted to login:', credentials.email);
-            return null;
+            throw new Error('Invalid email or password');
           }
 
           // For admin login, verify admin role
-          if (credentials.isAdmin === 'true' && user.role !== 'admin') {
-            logger.warn('Non-admin user attempted admin login:', credentials.email);
-            return null;
+          if (credentials.isAdmin === 'true') {
+            if (user.role !== 'admin') {
+              logger.warn('Non-admin user attempted admin login:', credentials.email);
+              throw new Error('Unauthorized: Admin access required');
+            }
           }
 
           // Convert role to proper type
@@ -89,7 +85,8 @@ export const authOptions: NextAuthOptions = {
           };
         } catch (error) {
           logger.error('Auth error:', error);
-          return null;
+          // Pass through the error message
+          throw error instanceof Error ? error : new Error('Authentication failed');
         }
       }
     })
@@ -125,18 +122,8 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
     maxAge: 24 * 60 * 60, // 24 hours
   },
-  events: {
-    async signOut() {
-      try {
-        // Clear any server-side session data if needed
-        logger.info('User signed out successfully');
-      } catch (error) {
-        logger.error('Error during sign out:', error);
-      }
-    }
-  },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: false, // Disable debug mode in production
+  debug: process.env.NODE_ENV === 'development',
 };
 
 const handler = NextAuth(authOptions);

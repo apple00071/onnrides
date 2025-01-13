@@ -33,19 +33,26 @@ export default function AdminLoginPage() {
       });
 
       if (!result) {
-        throw new Error('Authentication failed');
-      }
-
-      if (result.error) {
-        toast.error(result.error);
+        toast.error('Authentication failed. Please try again.');
         return;
       }
 
-      toast.success('Login successful');
+      if (result.error) {
+        // Handle specific error messages
+        const errorMessage = result.error === 'CredentialsSignin' 
+          ? 'Invalid email or password'
+          : result.error;
+        
+        toast.error(errorMessage);
+        return;
+      }
+
+      toast.success('Welcome back, admin!');
       router.push('/admin/dashboard');
+      router.refresh();
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('Failed to login');
+      toast.error('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
