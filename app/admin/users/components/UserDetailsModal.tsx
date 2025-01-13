@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { FaCheck, FaTimes } from 'react-icons/fa';
-import { Dialog, DialogContent, DialogOverlay } from '@/components/ui/dialog';
 import Image from 'next/image';
 import logger from '@/lib/logger';
 import { format } from 'date-fns';
@@ -152,20 +151,24 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
     }
   };
 
-  if (!user) return null;
+  if (!user || !isOpen) return null;
 
   const formatDate = (date: string) => {
     return format(new Date(date), 'MMM d, yyyy HH:mm:ss');
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogOverlay />
-      <DialogContent className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-4xl translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg">
-        <div className="max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+        
+        <div className="relative w-full max-w-4xl bg-white rounded-lg shadow-lg">
           {/* Header */}
-          <div className="sticky top-0 bg-white px-6 py-4 border-b">
+          <div className="sticky top-0 bg-white px-6 py-4 border-b flex items-center justify-between">
             <h2 className="text-xl font-semibold">User Details</h2>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+              <FaTimes className="w-5 h-5" />
+            </button>
           </div>
 
           {/* Content */}
@@ -248,43 +251,43 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{doc.type}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                              doc.status === 'approved' ? 'bg-green-100 text-green-800 border border-green-200' :
-                                doc.status === 'rejected' ? 'bg-red-100 text-red-800 border border-red-200' :
-                                  'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                              doc.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              doc.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
                             }`}>
-                              {doc.status === 'submitted' ? 'Pending' : 
-                                doc.status === 'pending' ? 'Pending' : 
-                                  doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                              {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(doc.created_at)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                            <a
-                              href={doc.document_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-200 mr-4"
-                            >
-                              View
-                            </a>
-                            {(doc.status === 'pending' || doc.status === 'submitted') && (
-                              <>
-                                <button
-                                  onClick={() => handleDocumentStatus(doc.id, 'approved')}
-                                  className="text-green-600 hover:text-green-800 transition-colors duration-200 p-1 rounded-full hover:bg-green-50"
-                                  title="Approve Document"
-                                >
-                                  <FaCheck className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDocumentStatus(doc.id, 'rejected')}
-                                  className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
-                                  title="Reject Document"
-                                >
-                                  <FaTimes className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(doc.created_at)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex items-center space-x-3">
+                              <a
+                                href={doc.document_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                View
+                              </a>
+                              {doc.status === 'submitted' && (
+                                <>
+                                  <button
+                                    onClick={() => handleDocumentStatus(doc.id, 'approved')}
+                                    className="text-green-600 hover:text-green-800"
+                                  >
+                                    <FaCheck className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDocumentStatus(doc.id, 'rejected')}
+                                    className="text-red-600 hover:text-red-800"
+                                  >
+                                    <FaTimes className="w-4 h-4" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -336,21 +339,21 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{formatDate(booking.start_date)}</div>
-                            <div className="text-sm text-gray-500">to</div>
-                            <div className="text-sm text-gray-900">{formatDate(booking.end_date)}</div>
+                            <div className="text-sm text-gray-900">
+                              <div>From: {formatDate(booking.start_date)}</div>
+                              <div>To: {formatDate(booking.end_date)}</div>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                              booking.status === 'completed' ? 'bg-green-100 text-green-800 border border-green-200' :
-                                booking.status === 'cancelled' ? 'bg-red-100 text-red-800 border border-red-200' :
-                                  booking.status === 'active' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                                    'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                              booking.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
                             }`}>
                               {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             ₹{booking.total_amount}
                           </td>
                         </tr>
@@ -365,18 +368,8 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
               )}
             </div>
           </div>
-
-          {/* Footer */}
-          <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors duration-200"
-            >
-              Close
-            </button>
-          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 } 

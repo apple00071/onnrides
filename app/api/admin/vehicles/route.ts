@@ -1,25 +1,13 @@
+import { NextResponse } from 'next/server';
+import { nanoid } from 'nanoid';
 import logger from '@/lib/logger';
+import { insertOne, findAll, deleteOne } from '@/lib/db';
+import { COLLECTIONS } from '@/lib/db';
 
-import pool from '@/lib/db';
-
-
-
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Check if user is authenticated and is an admin
-    
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    
-    try {
-      
-
-      return NextResponse.json(result.rows);
-    } finally {
-      client.release();
-    }
+    const vehicles = await findAll(COLLECTIONS.VEHICLES);
+    return NextResponse.json(vehicles);
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
     return NextResponse.json(
@@ -29,21 +17,16 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    // Check if user is authenticated and is an admin
-    
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    
+    const data = await request.json();
+    logger.info('Received vehicle data:', data);
     
     // Validate required fields
-    
-    
+    const requiredFields = ['name', 'type', 'location', 'quantity', 'price_per_day'];
     for (const field of requiredFields) {
-      if (!formData.get(field)) {
+      if (!data[field]) {
+        logger.error(`Missing required field: ${field}`);
         return NextResponse.json(
           { error: `Missing required field: ${field}` },
           { status: 400 }
@@ -51,57 +34,66 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Parse and validate price
-    
-    
-    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+    // Validate price and quantity
+    if (isNaN(data.price_per_day) || data.price_per_day <= 0) {
+      logger.error('Invalid price:', data.price_per_day);
       return NextResponse.json(
         { error: 'Invalid price' },
         { status: 400 }
       );
     }
 
-    // Parse and validate quantity
-    
-    if (isNaN(quantity) || quantity <= 0) {
+    if (isNaN(data.quantity) || data.quantity <= 0) {
+      logger.error('Invalid quantity:', data.quantity);
       return NextResponse.json(
         { error: 'Invalid quantity' },
         { status: 400 }
       );
     }
 
-    // Parse locations array
-    let locations;
-    try {
-      locations = JSON.parse(formData.get('location') as string);
-      if (!Array.isArray(locations) || locations.length === 0) {
-        throw new Error('Invalid locations');
-      }
-    } catch (error) {
+    // Validate locations array
+    if (!Array.isArray(data.location) || data.location.length === 0) {
+      logger.error('Invalid locations:', data.location);
       return NextResponse.json(
         { error: 'Invalid locations format' },
         { status: 400 }
       );
     }
 
-    // Handle image upload
-    let image_url = '';
-    
-    if (image) {
-      
-      image_url = await uploadToBlob(image, filename);
-    }
+    const vehicleData = {
+      id: nanoid(),
+      name: data.name,
+      type: data.type,
+      location: JSON.stringify(data.location),
+      quantity: data.quantity,
+      price_per_day: data.price_per_day,
+      is_available: 1,
+      status: data.status || 'available',
+      image_url: data.image_url || '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
 
-    
-    try {
-      
+    logger.info('Prepared vehicle data:', vehicleData);
 
-      return NextResponse.json(result.rows[0]);
-    } finally {
-      client.release();
-    }
+    const vehicle = await insertOne(COLLECTIONS.VEHICLES, vehicleData);
+    logger.info('Vehicle created:', vehicle);
+    
+    return NextResponse.json({
+      ...vehicle,
+      location: JSON.parse(vehicle.location as string),
+      is_available: Boolean(vehicle.is_available)
+    });
   } catch (error) {
     logger.error('Error creating vehicle:', error);
+    // Log the full error details
+    if (error instanceof Error) {
+      logger.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+    }
     return NextResponse.json(
       { error: 'Failed to create vehicle' },
       { status: 500 }
@@ -109,120 +101,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+export async function DELETE(request: Request) {
   try {
-    // Check if user is authenticated and is an admin
-    
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
 
-    // Get vehicle ID from URL
-    
-    if (!vehicleId) {
+    if (!id) {
       return NextResponse.json(
         { error: 'Vehicle ID is required' },
         { status: 400 }
       );
     }
 
-    
-    
-    
-    let locations;
-    try {
-      locations = JSON.parse(formData.get('location') as string);
-    } catch (error) {
-      locations = [];
-    }
-    
-    
-    
-    
-
-    // Handle image upload
-    let image_url;
-    
-    if (image) {
-      // TODO: Implement image upload to a storage service
-      image_url = '/cars/default.jpg';
-    }
-
-    
-    try {
-      
-      
-
-      if (image_url) {
-        updateFields.push('image_url = $9');
-        values.push(image_url);
-      }
-
-      
-
-      if (result.rowCount === 0) {
-        return NextResponse.json(
-          { error: 'Vehicle not found' },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json(result.rows[0]);
-    } finally {
-      client.release();
-    }
-  } catch (error) {
-    logger.error('Error updating vehicle:', error);
-    return NextResponse.json(
-      { error: 'Failed to update vehicle' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    // Check if user is authenticated and is an admin
-    
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get vehicle ID from URL
-    
-    if (!vehicleId) {
-      return NextResponse.json(
-        { error: 'Vehicle ID is required' },
-        { status: 400 }
-      );
-    }
-
-    
-    try {
-      // First check if there are any active bookings for this vehicle
-      
-
-      if (bookingsResult.rows[0].count > 0) {
-        return NextResponse.json(
-          { error: 'Cannot delete vehicle with active bookings' },
-          { status: 400 }
-        );
-      }
-
-      // Delete the vehicle
-      
-
-      if (result.rowCount === 0) {
-        return NextResponse.json(
-          { error: 'Vehicle not found' },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json({ message: 'Vehicle deleted successfully' });
-    } finally {
-      client.release();
-    }
+    await deleteOne(COLLECTIONS.VEHICLES, id);
+    return NextResponse.json({ message: 'Vehicle deleted successfully' });
   } catch (error) {
     logger.error('Error deleting vehicle:', error);
     return NextResponse.json(

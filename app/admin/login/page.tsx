@@ -1,38 +1,39 @@
 'use client';
 
 import { useState, FormEvent, ChangeEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import logger from '@/lib/logger';
 import Image from 'next/image';
 import Link from 'next/link';
+import { signIn } from 'next-auth/react';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams?.get('callbackUrl') || '/admin/dashboard';
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/admin/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+        callbackUrl
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to login');
+      if (result?.error) {
+        throw new Error(result.error);
       }
 
       toast.success('Login successful');
-      router.push('/admin/dashboard');
+      router.push(callbackUrl);
     } catch (error) {
       logger.error('Login error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to login');
@@ -64,8 +65,8 @@ export default function AdminLoginPage() {
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           Not an admin?{' '}
-          <Link href="/register" className="font-medium text-[#f26e24] hover:text-[#e05d13]">
-            Sign up as a user
+          <Link href="/" className="font-medium text-[#f26e24] hover:text-[#e05d13]">
+            Back to main site
           </Link>
         </p>
       </div>

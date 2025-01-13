@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
 import { FaEye } from 'react-icons/fa';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import logger from '@/lib/logger';
 import UserDetailsModal from './components/UserDetailsModal';
 
@@ -114,15 +112,13 @@ export default function UsersPage() {
                     {user.documents_status?.approved || 0}/{user.documents_status?.total || 0}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <Button
-                      variant="outline"
-                      size="sm"
+                    <button
                       onClick={() => handleViewUser(user)}
-                      className={cn('flex items-center gap-2')}
+                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24]"
                     >
-                      <FaEye className="w-4 h-4" />
+                      <FaEye className="w-4 h-4 mr-2" />
                       View
-                    </Button>
+                    </button>
                   </td>
                 </tr>
               ))}

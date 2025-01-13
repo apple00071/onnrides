@@ -78,6 +78,13 @@ const handler = NextAuth({
         session.user.role = token.role;
       }
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      // If it's an admin route, keep it
+      if (url.startsWith('/admin')) {
+        return url;
+      }
+      return url;
     }
   }
 });
