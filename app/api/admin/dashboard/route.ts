@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import pool from '@/lib/db';
+import { db } from '@/lib/db';
 import { cookies } from 'next/headers';
 import { verifyAuth } from '@/lib/auth';
+import { users, bookings, vehicles, documents } from '@/lib/schema';
+import { count, sum } from 'drizzle-orm';
+import { eq, ne, desc } from 'drizzle-orm';
 
 interface DashboardStats {
   total_users: number;
@@ -11,22 +14,20 @@ interface DashboardStats {
   pending_documents: number;
   recent_bookings: Array<{
     id: string;
-    user_name: string;
+    user_name: string | null;
     user_email: string;
     vehicle_name: string;
     amount: number;
     status: string;
-    created_at: string;
-    pickup_datetime: string;
-    dropoff_datetime: string;
+    created_at: Date;
+    pickup_datetime: Date;
+    dropoff_datetime: Date;
     pickup_location: string;
     drop_location: string;
   }>;
 }
 
 export async function GET(request: NextRequest) {
-  const client = await pool.connect();
-  
   try {
     const cookieStore = cookies();
     const user = await verifyAuth(cookieStore);
@@ -45,75 +46,69 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Start a transaction
-    await client.query('BEGIN');
-
-    // Get total users
-    const usersResult = await client.query(`
-      SELECT COUNT(*) as total FROM users WHERE role != 'admin'
-    `);
+    // Get total users (excluding admins)
+    const [usersResult] = await db
+      .select({ value: count() })
+      .from(users)
+      .where(ne(users.role, 'admin'));
     
-    // Get total revenue
-    const revenueResult = await client.query(`
-      SELECT COALESCE(SUM(total_amount), 0) as total FROM bookings
-      WHERE status = 'completed'
-    `);
+    // Get total revenue from completed bookings
+    const [revenueResult] = await db
+      .select({
+        value: sum(bookings.total_price)
+      })
+      .from(bookings)
+      .where(eq(bookings.status, 'completed'));
     
     // Get total vehicles
-    const vehiclesResult = await client.query(`
-      SELECT COUNT(*) as total FROM vehicles
-    `);
+    const [vehiclesResult] = await db
+      .select({ value: count() })
+      .from(vehicles);
     
     // Get pending documents
-    const documentsResult = await client.query(`
-      SELECT COUNT(*) as total FROM user_documents
-      WHERE status = 'pending' OR status = 'submitted'
-    `);
+    const [documentsResult] = await db
+      .select({ value: count() })
+      .from(documents)
+      .where(eq(documents.status, 'pending'));
     
     // Get recent bookings
-    const bookingsResult = await client.query(`
-      SELECT 
-        b.id,
-        u.name as user_name,
-        u.email as user_email,
-        v.name as vehicle_name,
-        b.total_amount as amount,
-        b.status,
-        b.created_at,
-        b.pickup_datetime,
-        b.dropoff_datetime,
-        b.pickup_location,
-        b.drop_location
-      FROM bookings b
-      JOIN users u ON b.user_id = u.id
-      JOIN vehicles v ON b.vehicle_id = v.id
-      ORDER BY b.created_at DESC
-      LIMIT 5
-    `);
-
-    // Commit the transaction
-    await client.query('COMMIT');
+    const recentBookings = await db
+      .select({
+        id: bookings.id,
+        user_name: users.name,
+        user_email: users.email,
+        vehicle_name: vehicles.name,
+        amount: bookings.total_price,
+        status: bookings.status,
+        created_at: bookings.created_at,
+        pickup_datetime: bookings.start_date,
+        dropoff_datetime: bookings.end_date,
+        pickup_location: vehicles.location,
+        drop_location: vehicles.location,
+      })
+      .from(bookings)
+      .innerJoin(users, eq(bookings.user_id, users.id))
+      .innerJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
+      .orderBy(desc(bookings.created_at))
+      .limit(5);
 
     const stats: DashboardStats = {
-      total_users: parseInt(usersResult.rows[0].total),
-      total_revenue: parseFloat(revenueResult.rows[0].total),
-      total_vehicles: parseInt(vehiclesResult.rows[0].total),
-      pending_documents: parseInt(documentsResult.rows[0].total),
-      recent_bookings: bookingsResult.rows
+      total_users: Number(usersResult.value),
+      total_revenue: Number(revenueResult.value),
+      total_vehicles: Number(vehiclesResult.value),
+      pending_documents: Number(documentsResult.value),
+      recent_bookings: recentBookings.map(booking => ({
+        ...booking,
+        amount: Number(booking.amount),
+      }))
     };
 
     return NextResponse.json(stats);
   } catch (error) {
-    // Rollback the transaction in case of error
-    await client.query('ROLLBACK');
-    
     logger.error('Dashboard stats error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch dashboard stats' },
       { status: 500 }
     );
-  } finally {
-    // Always release the client back to the pool
-    client.release();
   }
 } 

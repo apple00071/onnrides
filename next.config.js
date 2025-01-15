@@ -21,7 +21,9 @@ const nextConfig = {
       }
     ]
   },
-  serverExternalPackages: [],
+  experimental: {
+    serverComponentsExternalPackages: ['bcrypt']
+  },
   output: 'standalone'
 }
 

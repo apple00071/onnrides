@@ -1,8 +1,9 @@
 import NextAuth, { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { findUserByEmail } from '@/app/lib/lib/db';
+import { findUserByEmail } from '@/lib/db';
 import * as bcrypt from 'bcryptjs';
 import logger from '@/lib/logger';
+import type { User } from '@/lib/types';
 
 // Database user type
 interface DbUser {
@@ -37,93 +38,67 @@ declare module 'next-auth/jwt' {
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      name: 'Credentials',
+      name: 'credentials',
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-        isAdmin: { label: "Is Admin", type: "boolean", optional: true }
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' }
       },
-      async authorize(credentials): Promise<CustomUser | null> {
-        try {
-          if (!credentials?.email || !credentials?.password) {
-            logger.warn('Missing email or password');
-            throw new Error('Email and password are required');
-          }
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Missing credentials');
+        }
 
-          // Get user from database
+        try {
           const user = await findUserByEmail(credentials.email);
           
-          if (!user?.password_hash) {
-            logger.warn('Login attempt with non-existent email:', credentials.email);
-            throw new Error('Invalid email or password');
+          if (!user) {
+            throw new Error('Invalid credentials');
           }
 
-          // Verify password
+          if (user.is_blocked) {
+            throw new Error('User is blocked');
+          }
+
           const isValid = await bcrypt.compare(credentials.password, user.password_hash);
+          
           if (!isValid) {
-            logger.warn('Invalid password attempt for email:', credentials.email);
-            throw new Error('Invalid email or password');
+            throw new Error('Invalid credentials');
           }
 
-          // For admin login, verify admin role
-          if (credentials.isAdmin === 'true') {
-            if (user.role !== 'admin') {
-              logger.warn('Non-admin user attempted admin login:', credentials.email);
-              throw new Error('Unauthorized: Admin access required');
-            }
-          }
-
-          // Convert role to proper type
-          const role = user.role === 'admin' ? 'admin' : 'user';
-
-          logger.info('User logged in successfully:', user.email, 'Role:', role);
           return {
             id: user.id,
             email: user.email,
-            role,
-            name: user.name
+            name: user.name,
+            role: user.role
           };
         } catch (error) {
           logger.error('Auth error:', error);
-          // Pass through the error message
-          throw error instanceof Error ? error : new Error('Authentication failed');
+          throw error;
         }
       }
     })
   ],
+  pages: {
+    signIn: '/login',
+    error: '/login'
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.email = user.email;
-        token.role = user.role;
-        token.name = user.name;
+        token.role = (user as any).role as User['role'];
       }
       return token;
     },
     async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          id: token.id,
-          email: token.email,
-          role: token.role,
-          name: token.name
-        }
-      };
+      if (token && session.user) {
+        session.user.role = token.role as User['role'];
+      }
+      return session;
     }
   },
-  pages: {
-    signIn: '/auth/signin',
-    signOut: '/auth/signin',
-    error: '/auth/error'
-  },
   session: {
-    strategy: 'jwt',
-    maxAge: 24 * 60 * 60, // 24 hours
-  },
-  secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development',
+    strategy: 'jwt'
+  }
 };
 
 const handler = NextAuth(authOptions);

@@ -1,75 +1,71 @@
-import { NextRequest } from 'next/server';
-import { jwtVerify, JWTPayload } from 'jose';
-import * as db from '@/lib/db';
-import type { User, TokenPayload } from './types';
+import { cookies } from 'next/headers';
+import { SignJWT, jwtVerify } from 'jose';
+import { db } from './db';
+import { findUserById } from './db';
+import type { User } from '@/lib/types';
 
-export async function verifyAuth(request: NextRequest): Promise<TokenPayload | null> {
+const secretKey = process.env.JWT_SECRET_KEY;
+if (!secretKey) {
+  throw new Error('JWT_SECRET_KEY is not set');
+}
+
+const key = new TextEncoder().encode(secretKey);
+
+export async function sign(payload: any): Promise<string> {
+  const iat = Math.floor(Date.now() / 1000);
+  const exp = iat + 60 * 60 * 24 * 7; // 7 days
+
+  return new SignJWT({ ...payload })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .setExpirationTime(exp)
+    .setIssuedAt(iat)
+    .setNotBefore(iat)
+    .sign(key);
+}
+
+export async function verify(token: string): Promise<any> {
+  const { payload } = await jwtVerify(token, key, {
+    algorithms: ['HS256'],
+  });
+  return payload;
+}
+
+export async function verifyAuth(cookieStore: any) {
+  const token = cookieStore.get('token')?.value;
+  if (!token) return null;
+
   try {
-    // Get token from cookie
-    const token = request.cookies.get('token')?.value;
-    if (!token) {
-      return null;
-    }
-
-    // Verify token
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET is not set');
-    }
-
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret);
-
-    // Verify payload has required fields
-    if (
-      typeof payload.id !== 'string' ||
-      typeof payload.email !== 'string' ||
-      typeof payload.role !== 'string'
-    ) {
-      return null;
-    }
-
-    const tokenPayload: TokenPayload = {
-      id: payload.id,
-      email: payload.email,
-      role: payload.role,
-      iat: payload.iat,
-      exp: payload.exp
-    };
-
-    // Verify user exists
-    const user = await db.findOneBy<User>(db.COLLECTIONS.USERS, 'id', tokenPayload.id);
-    if (!user) {
-      return null;
-    }
-
-    return tokenPayload;
-  } catch (error) {
+    const payload = await verify(token);
+    const user = await findUserById(payload.id);
+    if (!user || user.is_blocked) return null;
+    return user;
+  } catch {
     return null;
   }
 }
 
-export const authOptions = {
-  secret: process.env.JWT_SECRET,
-  session: {
-    strategy: 'jwt',
-    maxAge: 7 * 24 * 60 * 60, // 7 days
-  },
-  callbacks: {
-    async jwt({ token, user }: { token: any; user: any }) {
-      if (user) {
-        token.id = user.id;
-        token.email = user.email;
-        token.role = user.role;
-      }
-      return token;
-    },
-    async session({ session, token }: { session: any; token: any }) {
-      if (token) {
-        session.user.id = token.id;
-        session.user.email = token.email;
-        session.user.role = token.role;
-      }
-      return session;
-    },
-  },
-}; 
+export async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Buffer.from(hash).toString('hex');
+}
+
+export async function comparePasswords(password: string, hash: string): Promise<boolean> {
+  const hashedPassword = await hashPassword(password);
+  return hashedPassword === hash;
+}
+
+export function setAuthCookie(token: string) {
+  cookies().set('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+  });
+}
+
+export function clearAuthCookie() {
+  cookies().delete('token');
+} 

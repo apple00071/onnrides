@@ -1,18 +1,22 @@
+import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-;
-
-import pool from '@/lib/db';
+import { findUserByEmail, createUser } from '@/lib/db';
 import bcrypt from 'bcrypt';
 
 export async function POST(request: Request) {
   try {
-    // This should be properly secured in production
-    const { email, password } = await request.json();
+    const { email, password, name } = await request.json();
+
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: 'Email and password are required' },
+        { status: 400 }
+      );
+    }
 
     // Check if user already exists
-    
-
-    if (existingUser.rows.length > 0) {
+    const existingUser = await findUserByEmail(email);
+    if (existingUser) {
       return NextResponse.json(
         { error: 'User already exists' },
         { status: 400 }
@@ -20,23 +24,21 @@ export async function POST(request: Request) {
     }
 
     // Hash password
-    
-    
+    const password_hash = await bcrypt.hash(password, 10);
 
     // Create user with admin role
-    
-
-    
-
-    // Create profile with admin role
-    await pool.query(
-      'INSERT INTO profiles (user_id, role) VALUES ($1, $2)',
-      [userId, 'admin']
-    );
+    const user = await createUser({
+      email,
+      password_hash,
+      name: name || null,
+      role: 'admin',
+      created_at: new Date(),
+      updated_at: new Date()
+    });
 
     return NextResponse.json({ 
       message: 'Admin user created successfully',
-      userId: userId
+      userId: user.id
     });
 
   } catch (error) {

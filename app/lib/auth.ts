@@ -1,16 +1,17 @@
 import NextAuth from 'next-auth';
 import type { DefaultUser, NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { findOneBy } from '@/lib/db';
-import { COLLECTIONS } from '@/lib/db';
+import { findUserByEmail } from '@/lib/db';
 import * as bcrypt from 'bcryptjs';
+import { cookies } from 'next/headers';
+import { getToken } from 'next-auth/jwt';
 
 // Database user type
 interface DbUser {
   id: string;
   email: string;
   role: 'user' | 'admin';
-  passwordHash: string;
+  password_hash: string;
   name: string;
 }
 
@@ -48,10 +49,10 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const dbUser = await findOneBy<DbUser>(COLLECTIONS.USERS, 'email', credentials.email);
-          if (!dbUser?.passwordHash) return null;
+          const dbUser = await findUserByEmail(credentials.email);
+          if (!dbUser?.password_hash) return null;
 
-          const isValid = await bcrypt.compare(credentials.password, dbUser.passwordHash);
+          const isValid = await bcrypt.compare(credentials.password, dbUser.password_hash);
           if (!isValid) return null;
 
           // For admin login, verify admin role
@@ -62,8 +63,8 @@ export const authOptions: NextAuthOptions = {
           return {
             id: dbUser.id,
             email: dbUser.email,
-            role: dbUser.role,
-            name: dbUser.name
+            role: dbUser.role as 'user' | 'admin',
+            name: dbUser.name || ''
           };
         } catch (error) {
           console.error('Auth error:', error);
@@ -105,6 +106,31 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === 'development',
 };
+
+export async function verifyAuth(cookieStore: ReturnType<typeof cookies>) {
+  try {
+    const token = await getToken({
+      req: {
+        headers: {
+          cookie: cookieStore.toString(),
+        },
+      } as any,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
+
+    if (!token) return null;
+
+    return {
+      id: token.id as string,
+      email: token.email as string,
+      role: token.role as 'user' | 'admin',
+      name: token.name as string,
+    };
+  } catch (error) {
+    console.error('Auth verification error:', error);
+    return null;
+  }
+}
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST }; 

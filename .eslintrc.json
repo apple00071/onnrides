@@ -6,29 +6,31 @@
   "parser": "@typescript-eslint/parser",
   "plugins": ["@typescript-eslint"],
   "rules": {
-    "indent": ["error", 2],
+    "indent": "off",
     "semi": "off",
-    "quotes": ["error", "single"],
+    "quotes": "off",
     "no-unused-vars": "off",
     "@typescript-eslint/no-unused-vars": ["warn", {
       "argsIgnorePattern": "^_",
       "varsIgnorePattern": "^_",
       "ignoreRestSiblings": true
     }],
-    "no-console": ["error", {
+    "no-console": ["warn", {
       "allow": ["warn", "error"]
     }],
     "@next/next/no-img-element": "warn",
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-var-requires": "off",
     "react/no-unescaped-entities": "off",
-    "@typescript-eslint/no-this-alias": "off"
+    "@typescript-eslint/no-this-alias": "off",
+    "react-hooks/exhaustive-deps": "warn"
   },
   "overrides": [
     {
       "files": ["scripts/**/*"],
       "rules": {
-        "@typescript-eslint/no-var-requires": "off"
+        "@typescript-eslint/no-var-requires": "off",
+        "no-console": "off"
       }
     }
   ],

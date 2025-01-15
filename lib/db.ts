@@ -1,277 +1,307 @@
-import Database from 'better-sqlite3';
-import logger from '@/lib/logger';
-import path from 'path';
-import { nanoid } from 'nanoid';
+import { drizzle } from 'drizzle-orm/vercel-postgres';
+import { sql } from '@vercel/postgres';
+import { users, vehicles, bookings, documents } from './schema';
+import { eq, and, or, not, SQL, SQLWrapper, asc, desc } from 'drizzle-orm';
+import type { User, Vehicle, Booking, Document } from './types';
 
-// Initialize SQLite database
-const dbPath = path.join(process.cwd(), 'data', 'onnrides.db');
-const db = new Database(dbPath);
+export const db = drizzle(sql);
 
-// Enable foreign keys
-db.pragma('foreign_keys = ON');
-
-// Collection names
-export const COLLECTIONS = {
-  USERS: 'users',
-  VEHICLES: 'vehicles',
-  BOOKINGS: 'bookings',
-  DOCUMENTS: 'documents',
-  PAYMENTS: 'payments'
-} as const;
-
-// Initialize database schema
-function initializeDatabase() {
-  // Create vehicles table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS ${COLLECTIONS.VEHICLES} (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL,
-      location TEXT NOT NULL,
-      quantity INTEGER NOT NULL,
-      price_per_day REAL NOT NULL,
-      is_available INTEGER NOT NULL DEFAULT 1,
-      status TEXT NOT NULL DEFAULT 'available',
-      image_url TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
-  `);
-
-  // Create users table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS ${COLLECTIONS.USERS} (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      phone TEXT,
-      address TEXT,
-      role TEXT NOT NULL,
-      password_hash TEXT NOT NULL,
-      is_documents_verified BOOLEAN DEFAULT FALSE,
-      documents_submitted BOOLEAN DEFAULT FALSE,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
-  `);
-
-  // Create bookings table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS ${COLLECTIONS.BOOKINGS} (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      vehicle_id TEXT NOT NULL,
-      start_date TEXT NOT NULL,
-      end_date TEXT NOT NULL,
-      total_amount REAL NOT NULL,
-      status TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id),
-      FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
-    )
-  `);
-
-  // Create documents table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS ${COLLECTIONS.DOCUMENTS} (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      type TEXT NOT NULL,
-      url TEXT NOT NULL,
-      status TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-  `);
-
-  // Create payments table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS ${COLLECTIONS.PAYMENTS} (
-      id TEXT PRIMARY KEY,
-      booking_id TEXT NOT NULL,
-      amount REAL NOT NULL,
-      status TEXT NOT NULL,
-      transaction_id TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (booking_id) REFERENCES bookings(id)
-    )
-  `);
+export async function findUserByEmail(email: string): Promise<User | null> {
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  return result[0] || null;
 }
 
-// Initialize database on startup
-try {
-  initializeDatabase();
-  logger.info('Database initialized successfully');
-} catch (error) {
-  logger.error('Error initializing database:', error);
-  throw error;
+export async function findUserById(id: string): Promise<User | null> {
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1);
+  return result[0] || null;
 }
 
-// Helper function to convert dates to ISO strings
-function convertDatesToISOString(obj: any): any {
-  const result: any = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (value instanceof Date) {
-      result[key] = value.toISOString();
-    } else {
-      result[key] = value;
-    }
-  }
-  return result;
+export async function createUser(data: Partial<User>): Promise<User> {
+  const [user] = await db
+    .insert(users)
+    .values({
+      email: data.email!,
+      name: data.name || null,
+      password_hash: data.password_hash!,
+      role: data.role || 'user',
+      is_blocked: data.is_blocked || false,
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    .returning();
+  return user;
 }
 
-// Helper function to parse ISO strings back to dates
-function parseDatesFromISOString(obj: any): any {
-  const dateFields = ['created_at', 'updated_at', 'start_date', 'end_date'];
-  const result = { ...obj };
-  for (const field of dateFields) {
-    if (result[field] && typeof result[field] === 'string') {
-      result[field] = new Date(result[field]);
-    }
-  }
-  return result;
-}
-
-// Generic database operations
-export async function findAll<T>(collection: string): Promise<T[]> {
-  try {
-    const stmt = db.prepare(`SELECT * FROM ${collection}`);
-    const results = stmt.all() as T[];
-    return results.map(parseDatesFromISOString);
-  } catch (error) {
-    logger.error(`Error in findAll for ${collection}:`, error);
-    throw error;
-  }
-}
-
-export async function findOneBy<T>(collection: string, field: string, value: any): Promise<T | null> {
-  try {
-    const stmt = db.prepare(`SELECT * FROM ${collection} WHERE ${field} = ?`);
-    const result = stmt.get(value) as T | null;
-    return result ? parseDatesFromISOString(result) : null;
-  } catch (error) {
-    logger.error(`Error in findOneBy for ${collection}:`, error);
-    throw error;
-  }
-}
-
-export async function findManyBy<T>(collection: string, field: string, value: any): Promise<T[]> {
-  try {
-    const stmt = db.prepare(`SELECT * FROM ${collection} WHERE ${field} = ?`);
-    const results = stmt.all(value) as T[];
-    return results.map(parseDatesFromISOString);
-  } catch (error) {
-    logger.error(`Error in findManyBy for ${collection}:`, error);
-    throw error;
-  }
-}
-
-export async function insertOne<T extends { id?: string }>(collection: string, data: Partial<T>): Promise<T> {
-  try {
-    const id = data.id || `${collection.slice(0, 3)}_${nanoid()}`;
-    const now = new Date().toISOString();
-    const processedData = convertDatesToISOString({ 
-      ...data, 
-      id,
-      created_at: now,
-      updated_at: now
-    });
-    
-    const fields = Object.keys(processedData);
-    const values = Object.values(processedData);
-    const placeholders = Array(fields.length).fill('?').join(', ');
-    
-    const stmt = db.prepare(`
-      INSERT INTO ${collection} (${fields.join(', ')})
-      VALUES (${placeholders})
-    `);
-
-    const result = stmt.run(...values);
-    if (result.changes !== 1) {
-      throw new Error('Failed to insert record');
-    }
-
-    return { ...processedData, id } as T;
-  } catch (error) {
-    logger.error(`Error in insertOne for ${collection}:`, error);
-    throw error;
-  }
-}
-
-export async function updateOne<T>(collection: string, id: string | number, data: Partial<T>): Promise<T | null> {
-  try {
-    const processedData = convertDatesToISOString({
+export async function updateUser(id: string, data: Partial<User>): Promise<User | null> {
+  const [user] = await db
+    .update(users)
+    .set({
       ...data,
-      updated_at: new Date().toISOString()
-    });
-    
-    const fields = Object.keys(processedData);
-    const values = Object.values(processedData);
-    const setClause = fields.map(field => `${field} = ?`).join(', ');
-    
-    const stmt = db.prepare(`
-      UPDATE ${collection}
-      SET ${setClause}
-      WHERE id = ?
-    `);
+      updated_at: new Date(),
+    })
+    .where(eq(users.id, id))
+    .returning();
+  return user || null;
+}
 
-    const result = stmt.run(...values, id);
-    if (result.changes !== 1) {
-      return null;
+export async function findVehicleById(id: string): Promise<Vehicle | null> {
+  const result = await db
+    .select()
+    .from(vehicles)
+    .where(eq(vehicles.id, id))
+    .limit(1);
+  return result[0] || null;
+}
+
+export async function findVehicles(filters?: {
+  isAvailable?: boolean;
+  type?: string;
+  location?: string;
+  minPrice?: string;
+  maxPrice?: string;
+}): Promise<Vehicle[]> {
+  let conditions: SQLWrapper[] = [];
+
+  if (filters) {
+    if (typeof filters.isAvailable === 'boolean') {
+      conditions.push(eq(vehicles.is_available, filters.isAvailable));
     }
 
-    return findOneBy<T>(collection, 'id', id);
-  } catch (error) {
-    logger.error(`Error in updateOne for ${collection}:`, error);
-    throw error;
+    if (filters.type) {
+      conditions.push(eq(vehicles.type, filters.type));
+    }
+
+    if (filters.location) {
+      conditions.push(eq(vehicles.location, filters.location));
+    }
+
+    if (filters.minPrice) {
+      conditions.push(sql`CAST(${vehicles.price_per_day} AS DECIMAL) >= CAST(${sql.raw(filters.minPrice)} AS DECIMAL)`);
+    }
+
+    if (filters.maxPrice) {
+      conditions.push(sql`CAST(${vehicles.price_per_day} AS DECIMAL) <= CAST(${sql.raw(filters.maxPrice)} AS DECIMAL)`);
+    }
   }
+
+  const result = await db
+    .select()
+    .from(vehicles)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+  return result.map(vehicle => ({
+    ...vehicle,
+    price_per_day: vehicle.price_per_day.toString(),
+  }));
 }
 
-export async function deleteOne(collection: string, id: string | number): Promise<boolean> {
-  try {
-    const stmt = db.prepare(`DELETE FROM ${collection} WHERE id = ?`);
-    const result = stmt.run(id);
-    return result.changes === 1;
-  } catch (error) {
-    logger.error(`Error in deleteOne for ${collection}:`, error);
-    throw error;
+export async function createVehicle(data: Partial<Vehicle>): Promise<Vehicle> {
+  const [vehicle] = await db
+    .insert(vehicles)
+    .values({
+      name: data.name!,
+      type: data.type!,
+      quantity: data.quantity || 1,
+      price_per_day: data.price_per_day!,
+      location: data.location!,
+      images: data.images || [],
+      is_available: data.is_available ?? true,
+      status: data.status || 'active',
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    .returning();
+  return {
+    ...vehicle,
+    price_per_day: vehicle.price_per_day.toString(),
+  };
+}
+
+export async function updateVehicle(id: string, data: Partial<Vehicle>): Promise<Vehicle | null> {
+  const [vehicle] = await db
+    .update(vehicles)
+    .set({
+      ...data,
+      updated_at: new Date(),
+    })
+    .where(eq(vehicles.id, id))
+    .returning();
+  return vehicle ? {
+    ...vehicle,
+    price_per_day: vehicle.price_per_day.toString(),
+  } : null;
+}
+
+export async function deleteVehicle(id: string): Promise<boolean> {
+  const result = await db
+    .delete(vehicles)
+    .where(eq(vehicles.id, id))
+    .returning();
+  return result.length > 0;
+}
+
+export async function findBookingById(id: string): Promise<Booking | null> {
+  const result = await db
+    .select()
+    .from(bookings)
+    .where(eq(bookings.id, id))
+    .limit(1);
+  return result[0] ? {
+    ...result[0],
+    total_price: result[0].total_price.toString(),
+  } : null;
+}
+
+export async function findBookings(filters?: {
+  userId?: string;
+  vehicleId?: string;
+  status?: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+}): Promise<Booking[]> {
+  let conditions: SQLWrapper[] = [];
+
+  if (filters) {
+    if (filters.userId) {
+      conditions.push(eq(bookings.user_id, filters.userId));
+    }
+
+    if (filters.vehicleId) {
+      conditions.push(eq(bookings.vehicle_id, filters.vehicleId));
+    }
+
+    if (filters.status) {
+      conditions.push(eq(bookings.status, filters.status));
+    }
   }
+
+  const result = await db
+    .select()
+    .from(bookings)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+  return result.map(booking => ({
+    ...booking,
+    total_price: booking.total_price.toString(),
+  }));
 }
 
-export async function countBy(collection: string, field: string, value: any): Promise<number> {
-  try {
-    const stmt = db.prepare(`SELECT COUNT(*) as count FROM ${collection} WHERE ${field} = ?`);
-    const result = stmt.get(value) as { count: number };
-    return result.count;
-  } catch (error) {
-    logger.error(`Error in countBy for ${collection}:`, error);
-    throw error;
+export async function createBooking(data: Partial<Booking>): Promise<Booking> {
+  const [booking] = await db
+    .insert(bookings)
+    .values({
+      user_id: data.user_id!,
+      vehicle_id: data.vehicle_id!,
+      start_date: data.start_date!,
+      end_date: data.end_date!,
+      total_price: data.total_price!,
+      status: data.status || 'pending',
+      payment_status: data.payment_status || 'pending',
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    .returning();
+  return {
+    ...booking,
+    total_price: booking.total_price.toString(),
+  };
+}
+
+export async function updateBooking(id: string, data: Partial<Booking>): Promise<Booking | null> {
+  const [booking] = await db
+    .update(bookings)
+    .set({
+      ...data,
+      updated_at: new Date(),
+    })
+    .where(eq(bookings.id, id))
+    .returning();
+  return booking ? {
+    ...booking,
+    total_price: booking.total_price.toString(),
+  } : null;
+}
+
+export async function findDocumentById(id: string): Promise<Document | null> {
+  const result = await db
+    .select()
+    .from(documents)
+    .where(eq(documents.id, id))
+    .limit(1);
+  return result[0] ? {
+    ...result[0],
+    rejection_reason: result[0].rejection_reason || undefined,
+  } : null;
+}
+
+export async function findDocuments(filters?: {
+  userId?: string;
+  type?: 'license' | 'id_proof' | 'address_proof';
+  status?: 'pending' | 'approved' | 'rejected';
+}): Promise<Document[]> {
+  let conditions: SQLWrapper[] = [];
+
+  if (filters) {
+    if (filters.userId) {
+      conditions.push(eq(documents.user_id, filters.userId));
+    }
+
+    if (filters.type) {
+      conditions.push(eq(documents.type, filters.type));
+    }
+
+    if (filters.status) {
+      conditions.push(eq(documents.status, filters.status));
+    }
   }
+
+  const result = await db
+    .select()
+    .from(documents)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+  return result.map(doc => ({
+    ...doc,
+    rejection_reason: doc.rejection_reason || undefined,
+  }));
 }
 
-export async function executeQuery<T>(query: string, params: any[] = []): Promise<T[]> {
-  try {
-    const stmt = db.prepare(query);
-    const results = stmt.all(...params) as T[];
-    return results.map(parseDatesFromISOString);
-  } catch (error) {
-    logger.error('Error in executeQuery:', error);
-    throw error;
-  }
+export async function createDocument(data: Partial<Document>): Promise<Document> {
+  const [document] = await db
+    .insert(documents)
+    .values({
+      user_id: data.user_id!,
+      type: data.type!,
+      file_url: data.file_url!,
+      status: data.status || 'pending',
+      rejection_reason: data.rejection_reason,
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    .returning();
+  return {
+    ...document,
+    rejection_reason: document.rejection_reason || undefined,
+  };
 }
 
-export function generateId(prefix: string = ''): string {
-  return `${prefix}${nanoid()}`;
-}
-
-// Alias functions for backward compatibility
-export async function get<T>(collection: string, field: string, value: any): Promise<T | null> {
-  return findOneBy<T>(collection, field, value);
-}
-
-export async function update<T>(collection: string, id: string | number, data: Partial<T>): Promise<T | null> {
-  return updateOne<T>(collection, id, data);
+export async function updateDocument(id: string, data: Partial<Document>): Promise<Document | null> {
+  const [document] = await db
+    .update(documents)
+    .set({
+      ...data,
+      updated_at: new Date(),
+    })
+    .where(eq(documents.id, id))
+    .returning();
+  return document ? {
+    ...document,
+    rejection_reason: document.rejection_reason || undefined,
+  } : null;
 } 

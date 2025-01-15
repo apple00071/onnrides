@@ -1,133 +1,140 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/lib/lib/auth';
-import { db } from '@/app/lib/lib/db';
-import { vehicles } from '@/app/lib/lib/schema';
+import logger from '@/lib/logger';
+import { db } from '@/lib/db';
+import { cookies } from 'next/headers';
+import { verifyAuth } from '@/lib/auth';
+import { vehicles } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if user is authenticated and is an admin
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const cookieStore = cookies();
+    const user = await verifyAuth(cookieStore);
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    // Get all vehicles from the database
-    const allVehicles = await db.select().from(vehicles);
+    if (user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    // Get all vehicles
+    const allVehicles = await db
+      .select({
+        id: vehicles.id,
+        name: vehicles.name,
+        type: vehicles.type,
+        quantity: vehicles.quantity,
+        price_per_day: vehicles.price_per_day,
+        location: vehicles.location,
+        images: vehicles.images,
+        is_available: vehicles.is_available,
+        status: vehicles.status,
+        created_at: vehicles.created_at,
+        updated_at: vehicles.updated_at,
+      })
+      .from(vehicles);
 
     return NextResponse.json(allVehicles);
   } catch (error) {
-    console.error('Error fetching vehicles:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    logger.error('Failed to fetch vehicles:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch vehicles' },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if user is authenticated and is an admin
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get the vehicle data from the request body
-    const vehicleData = await request.json();
-
-    // Validate required fields
-    const requiredFields = [
-      'name',
-      'type',
-      'price_per_day',
-      'location'
-    ];
+    const cookieStore = cookies();
+    const user = await verifyAuth(cookieStore);
     
-    for (const field of requiredFields) {
-      if (!vehicleData[field]) {
-        return NextResponse.json({ error: `Missing required field: ${field}` }, { status: 400 });
-      }
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    // Insert the vehicle into the database
-    const [newVehicle] = await db.insert(vehicles).values({
-      name: vehicleData.name,
-      type: vehicleData.type,
-      quantity: vehicleData.quantity || 1,
-      price_per_day: vehicleData.price_per_day,
-      location: vehicleData.location,
-      images: vehicleData.images || [],
+    if (user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    const data = await request.json();
+
+    // Insert new vehicle
+    const result = await db.insert(vehicles).values({
+      name: data.name,
+      type: data.type,
+      quantity: data.quantity,
+      price_per_day: data.price_per_day,
+      location: data.location,
+      images: data.images,
       is_available: true,
-      status: 'active'
-    }).returning();
+      status: 'active',
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
 
-    return NextResponse.json(newVehicle);
+    return NextResponse.json({ message: 'Vehicle created successfully' });
   } catch (error) {
-    console.error('Error creating vehicle:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    // Check if user is authenticated and is an admin
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get the vehicle data and ID from the request body
-    const { id, ...updateData } = await request.json();
-    if (!id) {
-      return NextResponse.json({ error: 'Vehicle ID is required' }, { status: 400 });
-    }
-
-    // Update the vehicle in the database
-    const [updatedVehicle] = await db.update(vehicles)
-      .set({
-        ...updateData,
-        updated_at: new Date()
-      })
-      .where(eq(vehicles.id, id))
-      .returning();
-
-    if (!updatedVehicle) {
-      return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(updatedVehicle);
-  } catch (error) {
-    console.error('Error updating vehicle:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    logger.error('Failed to create vehicle:', error);
+    return NextResponse.json(
+      { error: 'Failed to create vehicle' },
+      { status: 500 }
+    );
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
-    // Check if user is authenticated and is an admin
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const cookieStore = cookies();
+    const user = await verifyAuth(cookieStore);
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    // Get the vehicle ID from the request URL
+    if (user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+
     if (!id) {
-      return NextResponse.json({ error: 'Vehicle ID is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Vehicle ID is required' },
+        { status: 400 }
+      );
     }
 
-    // Delete the vehicle from the database
-    const [deletedVehicle] = await db.delete(vehicles)
-      .where(eq(vehicles.id, id))
-      .returning();
+    // Delete vehicle
+    await db.delete(vehicles).where(eq(vehicles.id, id));
 
-    if (!deletedVehicle) {
-      return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ message: 'Vehicle deleted successfully' });
   } catch (error) {
-    console.error('Error deleting vehicle:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    logger.error('Failed to delete vehicle:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete vehicle' },
+      { status: 500 }
+    );
   }
 } 
