@@ -4,7 +4,7 @@ import logger from '@/lib/logger';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Switch } from '@/components/ui/switch';
+import { Switch } from '@/app/components/ui/switch';
 
 interface Vehicle {
   id: string;
