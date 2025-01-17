@@ -1,16 +1,19 @@
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import logger from '@/lib/logger';
-
-import pool from '@/lib/db';
-
+import { findDocuments, updateDocument } from '@/lib/db';
+import { eq } from 'drizzle-orm';
+import { documents } from '@/lib/schema';
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { userId: string } }
 ) {
   try {
     // Check if user is authenticated and is an admin
-    
-    if (!currentUser || currentUser.role !== 'admin') {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
       logger.debug('Unauthorized access attempt to user documents');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -23,18 +26,11 @@ export async function GET(
       );
     }
 
+    const userDocuments = await findDocuments();
+    const filteredDocuments = userDocuments.filter(doc => doc.user_id === userId);
+    logger.debug(`Successfully fetched documents for user ${userId}`);
+    return NextResponse.json(filteredDocuments);
     
-    try {
-      
-
-      // Transform the data to ensure all fields are properly typed
-      
-
-      logger.debug(`Successfully fetched ${documents.length} documents for user ${userId}`);
-      return NextResponse.json(documents);
-    } finally {
-      client.release();
-    }
   } catch (error) {
     logger.error('Error fetching user documents:', error);
     return NextResponse.json(
@@ -45,13 +41,13 @@ export async function GET(
 }
 
 export async function PATCH(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { userId: string } }
 ) {
   try {
     // Check if user is authenticated and is an admin
-    
-    if (!currentUser || currentUser.role !== 'admin') {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
       logger.debug('Unauthorized document approval attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -64,7 +60,7 @@ export async function PATCH(
       );
     }
 
-    
+    const data = await request.json();
     const { documentId, status } = data;
 
     if (!documentId || !status || !['approved', 'rejected'].includes(status)) {
@@ -74,16 +70,14 @@ export async function PATCH(
       );
     }
 
-    
     try {
-      // Start transaction
-      await client.query('BEGIN');
-
       // Update document status
-      
+      const updatedDocument = await updateDocument(documentId, {
+        status: status as 'approved' | 'rejected',
+        updated_at: new Date()
+      });
 
-      if (updateResult.rowCount === 0) {
-        await client.query('ROLLBACK');
+      if (!updatedDocument) {
         return NextResponse.json(
           { error: 'Document not found' },
           { status: 404 }
@@ -91,35 +85,18 @@ export async function PATCH(
       }
 
       // Check if all required documents are approved
-      
-
-      const { total_docs, approved_docs } = documentsCheck.rows[0];
-      
-
-      // Update profile verification status
-      await client.query(`
-        UPDATE profiles
-        SET 
-          is_verified = $1,
-          updated_at = NOW()
-        WHERE user_id = $2
-      `, [allDocsApproved, userId]);
-
-      // Commit transaction
-      await client.query('COMMIT');
+      const userDocuments = await findDocuments();
+      const filteredDocuments = userDocuments.filter(doc => doc.user_id === userId);
+      const allDocsApproved = filteredDocuments.every(doc => doc.status === 'approved');
 
       logger.debug(`Successfully updated document ${documentId} status to ${status}`);
       return NextResponse.json({
         message: `Document ${status} successfully`,
-        document: updateResult.rows[0],
+        document: updatedDocument,
         user_verified: allDocsApproved
       });
     } catch (error) {
-      // Rollback transaction on error
-      await client.query('ROLLBACK');
       throw error;
-    } finally {
-      client.release();
     }
   } catch (error) {
     logger.error('Error updating document status:', error);

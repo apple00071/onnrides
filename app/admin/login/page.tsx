@@ -1,130 +1,119 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
+import { signIn } from 'next-auth/react';
+import { toast } from 'react-hot-toast';
 
-export default function AdminLoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
+export default function AdminLogin() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+  });
+  const [loading, setLoading] = useState(false);
 
-  // Check if already authenticated
-  useEffect(() => {
-    async function checkAuth() {
-      try {
-        const response = await fetch('/api/auth/check');
-        const data = await response.json();
-
-        if (response.ok && data.user.role === 'admin') {
-          // Already authenticated as admin, redirect to dashboard
-          const from = searchParams.get('from') || '/admin';
-          router.push(from);
-          router.refresh();
-          return;
-        }
-      } catch (error) {
-        // Not authenticated, continue to show login form
-      } finally {
-        setChecking(false);
-      }
-    }
-
-    checkAuth();
-  }, [router, searchParams]);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/admin/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+      const result = await signIn('credentials', {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Invalid credentials');
-        return;
+      if (result?.error) {
+        toast.error(result.error);
+      } else {
+        // Get user data to check role
+        const userResponse = await fetch('/api/auth/session');
+        const userData = await userResponse.json();
+        
+        if (userData?.user?.role === 'admin') {
+          router.push('/admin');
+        } else {
+          toast.error('Access denied. Admin privileges required.');
+          signIn('credentials', { callbackUrl: '/' });
+        }
+        router.refresh();
       }
-
-      // Successfully logged in, redirect to original destination or admin dashboard
-      const from = searchParams.get('from') || '/admin';
-      router.push(from);
-      router.refresh();
     } catch (error) {
-      setError('An error occurred. Please try again.');
+      toast.error('Failed to sign in');
     } finally {
       setLoading(false);
     }
   };
 
-  if (checking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#f26e24] border-t-transparent"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center">Admin Login</CardTitle>
-          <p className="text-center text-sm text-muted-foreground">
-            Enter your credentials to access the admin panel
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+        <div>
+          <h1 className="text-center text-4xl font-bold text-[#f26e24] font-goodtimes">ONNRIDES</h1>
+          <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">
+            Admin Login
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Please sign in with your admin credentials
           </p>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
-                {error}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Input
+        </div>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email address
+              </label>
+              <input
                 id="email"
+                name="email"
                 type="email"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 required
-                className="w-full"
-              />
-              <Input
-                id="password"
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full"
+                value={formData.email}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] sm:text-sm"
+                placeholder="Enter your admin email"
               />
             </div>
-            <Button
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={formData.password}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] sm:text-sm"
+                placeholder="Enter your password"
+              />
+            </div>
+          </div>
+
+          <div>
+            <button
               type="submit"
-              className="w-full"
               disabled={loading}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#f26e24] hover:bg-[#e05d13] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24] disabled:opacity-50 transition-colors"
             >
               {loading ? 'Signing in...' : 'Sign in'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 } 

@@ -1,70 +1,63 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
-import { JWT_SECRET, COOKIE_NAME, AUTH_ROLES } from './lib/constants';
+
+const JWT_SECRET = process.env.JWT_SECRET || '';
 
 interface JWTPayload {
-  user?: {
+  user: {
     id: string;
     email: string;
-    name?: string;
     role: string;
   };
 }
 
 export async function middleware(request: NextRequest) {
-  // Skip middleware for public routes and static assets
-  if (
-    request.nextUrl.pathname.startsWith('/_next') ||
-    request.nextUrl.pathname.startsWith('/api/auth') ||
-    request.nextUrl.pathname.includes('.') ||
-    request.nextUrl.pathname === '/favicon.ico'
-  ) {
+  const pathname = request.nextUrl.pathname;
+
+  // Only run middleware for admin routes
+  if (!pathname.startsWith('/admin')) {
     return NextResponse.next();
   }
 
-  // Check if it's an admin route
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    // Skip middleware for login page
-    if (request.nextUrl.pathname === '/admin/login') {
-      return NextResponse.next();
-    }
-
-    const token = request.cookies.get(COOKIE_NAME)?.value;
-
-    if (!token) {
-      const url = new URL('/admin/login', request.url);
-      url.searchParams.set('from', request.nextUrl.pathname);
-      return NextResponse.redirect(url);
-    }
-
-    try {
-      const { payload } = await jwtVerify(
-        token,
-        new TextEncoder().encode(JWT_SECRET)
-      );
-
-      const { user } = payload as JWTPayload;
-
-      // Check if user is admin
-      if (!user || user.role !== AUTH_ROLES.ADMIN) {
-        const url = new URL('/admin/login', request.url);
-        url.searchParams.set('from', request.nextUrl.pathname);
-        return NextResponse.redirect(url);
-      }
-
-      return NextResponse.next();
-    } catch (error) {
-      // Invalid token
-      const url = new URL('/admin/login', request.url);
-      url.searchParams.set('from', request.nextUrl.pathname);
-      return NextResponse.redirect(url);
-    }
+  // Skip middleware for admin login page
+  if (pathname === '/admin/login') {
+    return NextResponse.next();
   }
 
-  return NextResponse.next();
+  try {
+    // Get token from cookie
+    const token = request.cookies.get('token')?.value;
+
+    if (!token) {
+      // Redirect to admin login if no token
+      const url = new URL('/admin/login', request.url);
+      url.searchParams.set('from', pathname);
+      return NextResponse.redirect(url);
+    }
+
+    // Verify token and check if user is admin
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET));
+    const jwtPayload = payload as unknown as JWTPayload;
+
+    if (!jwtPayload.user || jwtPayload.user.role !== 'admin') {
+      // Redirect to admin login if not admin
+      const url = new URL('/admin/login', request.url);
+      url.searchParams.set('from', pathname);
+      return NextResponse.redirect(url);
+    }
+
+    return NextResponse.next();
+  } catch (error) {
+    console.error('Middleware error:', error);
+    // Redirect to admin login on error
+    const url = new URL('/admin/login', request.url);
+    url.searchParams.set('from', pathname);
+    return NextResponse.redirect(url);
+  }
 }
 
+// Configure the paths that should be handled by this middleware
 export const config = {
-  matcher: ['/admin/:path*']
+  matcher: '/admin/:path*',
 };  

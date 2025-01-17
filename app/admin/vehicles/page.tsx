@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
 import Image from 'next/image';
-import logger from '@/lib/logger';
+import logger from '../../../lib/logger';
 import AddVehicleModal from './components/AddVehicleModal';
 import EditVehicleModal from './components/EditVehicleModal';
 import { Button } from '@/app/components/ui/button';
@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/app/components/ui/table';
 import { Badge } from '@/app/components/ui/badge';
-import { formatDate } from '@/lib/utils';
+import { formatDate } from '../../../lib/utils';
 
 interface Vehicle {
   id: string;
@@ -25,10 +25,11 @@ interface Vehicle {
   type: string;
   quantity: number;
   price_per_day: number;
-  location: string[];
+  location: {
+    name: string[];
+  };
+  status: string;
   images: string[];
-  is_available: boolean;
-  status: 'active' | 'maintenance' | 'deleted';
   created_at: string;
   updated_at: string;
 }
@@ -53,7 +54,7 @@ export default function VehiclesPage() {
         throw new Error(data.error || 'Failed to fetch vehicles');
       }
       
-      setVehicles(data);
+      setVehicles(data.vehicles);
     } catch (error) {
       logger.error('Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to fetch vehicles');
@@ -66,7 +67,7 @@ export default function VehiclesPage() {
     if (!confirm('Are you sure you want to delete this vehicle?')) return;
 
     try {
-      const response = await fetch(`/api/admin/vehicles/${id}`, {
+      const response = await fetch(`/api/admin/vehicles?id=${id}`, {
         method: 'DELETE',
       });
       const data = await response.json();
@@ -129,6 +130,7 @@ export default function VehiclesPage() {
               <TableHead>Type</TableHead>
               <TableHead>Quantity</TableHead>
               <TableHead>Price/Day</TableHead>
+              <TableHead>Locations</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -150,6 +152,7 @@ export default function VehiclesPage() {
                 <TableCell>{vehicle.type}</TableCell>
                 <TableCell>{vehicle.quantity}</TableCell>
                 <TableCell>₹{vehicle.price_per_day}/day</TableCell>
+                <TableCell>{vehicle.location.name.join(', ')}</TableCell>
                 <TableCell>
                   <Badge
                     variant={
@@ -160,7 +163,7 @@ export default function VehiclesPage() {
                         : 'destructive'
                     }
                   >
-                    {vehicle.status}
+                    {vehicle.status.charAt(0).toUpperCase() + vehicle.status.slice(1)}
                   </Badge>
                 </TableCell>
                 <TableCell>

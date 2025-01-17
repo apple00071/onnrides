@@ -104,7 +104,7 @@ export async function findBookings(where?: SQL<unknown>) {
   const bookings = await db
     .select()
     .from(schema.bookings)
-    .where(where);
+    .where(where || undefined);
   return bookings;
 }
 
@@ -125,6 +125,10 @@ export async function updateBooking(id: string, data: Partial<typeof schema.book
   return booking;
 }
 
+export async function findBookingsByUserId(userId: string) {
+  return await db.select().from(schema.bookings).where(eq(schema.bookings.user_id, userId));
+}
+
 // Documents
 export async function findDocumentById(id: string) {
   const [document] = await db
@@ -138,7 +142,7 @@ export async function findDocuments(where?: SQL<unknown>) {
   const documents = await db
     .select()
     .from(schema.documents)
-    .where(where);
+    .where(where || undefined);
   return documents;
 }
 

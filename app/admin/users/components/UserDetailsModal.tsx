@@ -11,43 +11,44 @@ import {
 } from '@/app/components/ui/dialog';
 import { Button } from '@/app/components/ui/button';
 import Image from 'next/image';
-import logger from '@/lib/logger';
+import logger from '../../../lib/logger';
 import { format } from 'date-fns';
 
 interface User {
   id: string;
   name: string;
   email: string;
-  phone: string;
-  address?: string;
-  is_blocked: boolean;
-  is_verified: boolean;
+  role: string;
   created_at: string;
+  documents_status?: {
+    approved: number;
+    total: number;
+  };
 }
 
 interface UserDocument {
   id: string;
   type: string;
-  status: 'pending' | 'submitted' | 'approved' | 'rejected';
-  document_url: string;
+  status: 'pending' | 'approved' | 'rejected';
+  url: string;
   created_at: string;
+  rejection_reason?: string;
 }
 
 interface Booking {
   id: string;
   status: string;
+  payment_status: string;
   created_at: string;
   vehicle: {
     id: string;
     name: string;
-    model: string;
-    year: number;
     type: string;
-    image_url: string;
+    images: string[];
   };
   start_date: string;
   end_date: string;
-  total_amount: number;
+  total_price: number;
 }
 
 interface UserDetailsModalProps {
@@ -75,11 +76,11 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
       const bookingsData = await bookingsResponse.json();
 
       if (docsResponse.ok) {
-        setDocuments(docsData);
+        setDocuments(docsData.documents);
       }
 
       if (bookingsResponse.ok) {
-        setBookings(bookingsData);
+        setBookings(bookingsData.bookings);
       }
     } catch (error) {
       logger.error('Error fetching user data:', error);
@@ -95,36 +96,6 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
       setBookings([]);
     }
   }, [isOpen, user, fetchUserData]);
-
-  const handleBlockUser = async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/admin/users/${user.id}/block`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ blocked: !user.is_blocked })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error('Failed to update user block status');
-      }
-
-      const updatedUser = { ...user, is_blocked: !user.is_blocked };
-      onUserUpdated(updatedUser);
-      toast.success(`User successfully ${user.is_blocked ? 'unblocked' : 'blocked'}`);
-    } catch (error) {
-      logger.error('Error updating user block status:', error);
-      toast.error('Failed to update user block status');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDocumentStatus = async (documentId: string, status: 'approved' | 'rejected') => {
     try {
@@ -191,45 +162,27 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                     <p className="mt-1">{user.email}</p>
                   </div>
                   <div>
-                    <h3 className="text-sm font-medium text-gray-500">Phone</h3>
-                    <p className="mt-1">{user.phone || 'N/A'}</p>
+                    <h3 className="text-sm font-medium text-gray-500">Role</h3>
+                    <p className="mt-1">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {user.role}
+                      </span>
+                    </p>
                   </div>
                   <div>
-                    <h3 className="text-sm font-medium text-gray-500">Address</h3>
-                    <p className="mt-1">{user.address || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Status</h3>
-                    <div className="mt-1 space-x-2">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.is_verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {user.is_verified ? 'Verified' : 'Unverified'}
+                    <h3 className="text-sm font-medium text-gray-500">Documents</h3>
+                    <p className="mt-1">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        {user.documents_status?.approved || 0}/{user.documents_status?.total || 0} Approved
                       </span>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.is_blocked ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                      }`}>
-                        {user.is_blocked ? 'Blocked' : 'Active'}
-                      </span>
-                    </div>
+                    </p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Joined</h3>
                     <p className="mt-1">{formatDate(user.created_at)}</p>
                   </div>
-                </div>
-                <div className="mt-4">
-                  <button
-                    onClick={handleBlockUser}
-                    disabled={loading}
-                    className={`px-4 py-2 rounded-md text-sm font-medium ${
-                      user.is_blocked
-                        ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                        : 'bg-red-50 text-red-700 hover:bg-red-100'
-                    }`}
-                  >
-                    {user.is_blocked ? 'Unblock User' : 'Block User'}
-                  </button>
                 </div>
               </div>
             </div>
@@ -247,30 +200,22 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                     {documents.map((doc) => (
                       <div key={doc.id} className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium">{doc.type}</p>
+                          <p className="font-medium capitalize">{doc.type}</p>
                           <p className="text-sm text-gray-500">{formatDate(doc.created_at)}</p>
-                          <div className="mt-1">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              doc.status === 'approved'
-                                ? 'bg-green-100 text-green-800'
-                                : doc.status === 'rejected'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
-                            </span>
-                          </div>
+                          {doc.rejection_reason && (
+                            <p className="text-sm text-red-500 mt-1">Reason: {doc.rejection_reason}</p>
+                          )}
                         </div>
                         <div className="flex items-center space-x-2">
                           <a
-                            href={doc.document_url}
+                            href={doc.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            className="text-blue-600 hover:text-blue-800 text-sm"
                           >
                             View Document
                           </a>
-                          {doc.status === 'submitted' && (
+                          {doc.status === 'pending' && (
                             <>
                               <button
                                 onClick={() => handleDocumentStatus(doc.id, 'approved')}
@@ -286,6 +231,15 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                               </button>
                             </>
                           )}
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            doc.status === 'approved'
+                              ? 'bg-green-100 text-green-800'
+                              : doc.status === 'rejected'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {doc.status}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -303,38 +257,57 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                 {bookings.length === 0 ? (
                   <p className="text-gray-500">No bookings found</p>
                 ) : (
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {bookings.map((booking) => (
-                      <div key={booking.id} className="flex space-x-4">
-                        <div className="relative w-24 h-24 flex-shrink-0">
-                          <Image
-                            src={booking.vehicle.image_url}
-                            alt={booking.vehicle.name}
-                            fill
-                            className="object-cover rounded-lg"
-                          />
+                      <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0">
+                        <div>
+                          <div className="flex items-center space-x-4">
+                            {booking.vehicle.images[0] && (
+                              <div className="relative w-16 h-16">
+                                <Image
+                                  src={booking.vehicle.images[0]}
+                                  alt={booking.vehicle.name}
+                                  fill
+                                  className="object-cover rounded-md"
+                                />
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium">{booking.vehicle.name}</p>
+                              <p className="text-sm text-gray-500">{booking.vehicle.type}</p>
+                            </div>
+                          </div>
+                          <div className="mt-2 space-y-1">
+                            <p className="text-sm">
+                              <span className="text-gray-500">From:</span> {formatDate(booking.start_date)}
+                            </p>
+                            <p className="text-sm">
+                              <span className="text-gray-500">To:</span> {formatDate(booking.end_date)}
+                            </p>
+                            <p className="text-sm">
+                              <span className="text-gray-500">Total:</span> ₹{booking.total_price}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-grow">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-medium">
-                              {booking.vehicle.name} {booking.vehicle.model} {booking.vehicle.year}
-                            </h4>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              booking.status === 'completed'
-                                ? 'bg-green-100 text-green-800'
-                                : booking.status === 'cancelled'
+                        <div className="flex flex-col items-end space-y-2">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            booking.status === 'completed'
+                              ? 'bg-green-100 text-green-800'
+                              : booking.status === 'cancelled'
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-500 mt-1">
-                            {formatDate(booking.start_date)} - {formatDate(booking.end_date)}
-                          </p>
-                          <p className="text-sm font-medium mt-1">
-                            Total Amount: ₹{booking.total_amount.toLocaleString('en-IN')}
-                          </p>
+                          }`}>
+                            {booking.status}
+                          </span>
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            booking.payment_status === 'completed'
+                              ? 'bg-green-100 text-green-800'
+                              : booking.payment_status === 'failed'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            Payment: {booking.payment_status}
+                          </span>
                         </div>
                       </div>
                     ))}

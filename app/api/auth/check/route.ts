@@ -1,20 +1,21 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { jwtVerify } from 'jose';
-import { JWT_SECRET, COOKIE_NAME } from '@/lib/constants';
+
+const JWT_SECRET = process.env.JWT_SECRET || '';
+const COOKIE_NAME = 'token';
 
 interface JWTPayload {
-  user?: {
+  user: {
     id: string;
     email: string;
-    name?: string;
     role: string;
   };
 }
 
 export async function GET() {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value;
 
     if (!token) {
@@ -29,17 +30,18 @@ export async function GET() {
       new TextEncoder().encode(JWT_SECRET)
     );
 
-    const { user } = payload as JWTPayload;
+    const jwtPayload = payload as unknown as JWTPayload;
 
-    if (!user) {
+    if (!jwtPayload.user) {
       return NextResponse.json(
         { error: 'Invalid token' },
         { status: 401 }
       );
     }
 
-    return NextResponse.json({ user });
+    return NextResponse.json({ user: jwtPayload.user });
   } catch (error) {
+    console.error('Auth check error:', error);
     return NextResponse.json(
       { error: 'Invalid token' },
       { status: 401 }

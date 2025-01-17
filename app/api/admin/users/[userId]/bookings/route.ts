@@ -1,16 +1,19 @@
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import logger from '@/lib/logger';
-
-import pool from '@/lib/db';
-
+import { db } from '@/lib/db';
+import { eq } from 'drizzle-orm';
+import { bookings } from '@/lib/schema';
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { userId: string } }
 ) {
   try {
     // Check if user is authenticated and is an admin
-    
-    if (!currentUser || currentUser.role !== 'admin') {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
       logger.debug('Unauthorized access attempt to user bookings');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -23,18 +26,14 @@ export async function GET(
       );
     }
 
+    const userBookings = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.user_id, userId));
+
+    logger.debug(`Successfully fetched ${userBookings.length} bookings for user ${userId}`);
+    return NextResponse.json(userBookings);
     
-    try {
-      
-
-      // Transform the data to ensure all fields are properly typed
-      
-
-      logger.debug(`Successfully fetched ${bookings.length} bookings for user ${userId}`);
-      return NextResponse.json(bookings);
-    } finally {
-      client.release();
-    }
   } catch (error) {
     logger.error('Error fetching user bookings:', error);
     return NextResponse.json(

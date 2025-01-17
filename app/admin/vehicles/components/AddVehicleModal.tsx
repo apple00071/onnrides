@@ -3,11 +3,17 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { FaTimes } from 'react-icons/fa';
-import logger from '@/lib/logger';
+import logger from '../../../../lib/logger';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
-import { Switch } from '@/app/components/ui/switch';
+import { Select } from '@/app/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/app/components/ui/dialog';
 
 interface AddVehicleModalProps {
   isOpen: boolean;
@@ -22,17 +28,23 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
     type: 'Car',
     quantity: 1,
     price_per_day: 0,
-    location: [] as string[],
+    location: {
+      name: ['Madhapur'],
+    },
+    status: 'active',
     images: [] as string[],
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const handleLocationChange = (location: string) => {
-    setFormData(prev => {
-      const newLocations = prev.location.includes(location)
-        ? prev.location.filter(loc => loc !== location)
-        : [...prev.location, location];
-      return { ...prev, location: newLocations };
+  const handleLocationChange = (locationName: string) => {
+    const currentLocations = formData.location.name;
+    const updatedLocations = currentLocations.includes(locationName)
+      ? currentLocations.filter(name => name !== locationName)
+      : [...currentLocations, locationName];
+    
+    setFormData({
+      ...formData,
+      location: { name: updatedLocations }
     });
   };
 
@@ -59,12 +71,6 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
         imageUrl = uploadResult.url;
       }
 
-      // Convert locations array to an object with location names as keys
-      const locationObject = formData.location.reduce((acc, loc) => {
-        acc[loc] = true;
-        return acc;
-      }, {} as Record<string, boolean>);
-
       const response = await fetch('/api/admin/vehicles', {
         method: 'POST',
         headers: {
@@ -72,7 +78,6 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
         },
         body: JSON.stringify({
           ...formData,
-          location: locationObject,
           images: imageUrl ? [imageUrl] : [],
         }),
       });
@@ -99,7 +104,10 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
       type: 'Car',
       quantity: 1,
       price_per_day: 0,
-      location: [],
+      location: {
+        name: ['Madhapur'],
+      },
+      status: 'active',
       images: [],
     });
     setSelectedFile(null);
@@ -108,18 +116,12 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Add New Vehicle</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <FaTimes className="w-5 h-5" />
-          </button>
-        </div>
-
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add New Vehicle</DialogTitle>
+        </DialogHeader>
+        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="name">Name</Label>
@@ -171,24 +173,47 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
 
           <div>
             <Label>Locations</Label>
-            <div className="space-y-2">
+            <div className="space-y-2 mt-1">
               <div className="flex items-center space-x-2">
-                <Switch
-                  id="eragadda"
-                  checked={formData.location.includes('Eragadda')}
-                  onCheckedChange={() => handleLocationChange('Eragadda')}
+                <input
+                  type="checkbox"
+                  id="location-madhapur"
+                  checked={formData.location.name.includes('Madhapur')}
+                  onChange={() => handleLocationChange('Madhapur')}
+                  className="h-4 w-4 rounded border-gray-300"
                 />
-                <Label htmlFor="eragadda">Eragadda</Label>
+                <label htmlFor="location-madhapur" className="text-sm text-gray-700">
+                  Madhapur
+                </label>
               </div>
               <div className="flex items-center space-x-2">
-                <Switch
-                  id="madhapur"
-                  checked={formData.location.includes('Madhapur')}
-                  onCheckedChange={() => handleLocationChange('Madhapur')}
+                <input
+                  type="checkbox"
+                  id="location-erragadda"
+                  checked={formData.location.name.includes('Erragadda')}
+                  onChange={() => handleLocationChange('Erragadda')}
+                  className="h-4 w-4 rounded border-gray-300"
                 />
-                <Label htmlFor="madhapur">Madhapur</Label>
+                <label htmlFor="location-erragadda" className="text-sm text-gray-700">
+                  Erragadda
+                </label>
               </div>
             </div>
+          </div>
+
+          <div>
+            <Label htmlFor="status">Status</Label>
+            <select
+              id="status"
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              className="w-full px-3 py-2 border rounded-md"
+              required
+            >
+              <option value="active">Active</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="inactive">Inactive</option>
+            </select>
           </div>
 
           <div>
@@ -230,7 +255,7 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 } 

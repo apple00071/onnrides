@@ -3,12 +3,17 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { FaTimes } from 'react-icons/fa';
-import logger from '@/lib/logger';
+import logger from '../../../../lib/logger';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Select } from '@/app/components/ui/select';
-import { Switch } from '@/app/components/ui/switch';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/app/components/ui/dialog';
 
 interface Vehicle {
   id: string;
@@ -16,10 +21,11 @@ interface Vehicle {
   type: string;
   quantity: number;
   price_per_day: number;
-  location: string[];
+  location: {
+    name: string[];
+  };
+  status: string;
   images: string[];
-  is_available: boolean;
-  status: 'active' | 'maintenance' | 'deleted';
   created_at: string;
   updated_at: string;
 }
@@ -44,7 +50,7 @@ export default function EditVehicleModal({ vehicle, isOpen, onClose, onVehicleUp
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/admin/vehicles/${vehicle.id}`, {
+      const response = await fetch(`/api/admin/vehicles?id=${vehicle.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -67,18 +73,27 @@ export default function EditVehicleModal({ vehicle, isOpen, onClose, onVehicleUp
     }
   };
 
+  const handleLocationChange = (locationName: string) => {
+    const currentLocations = formData.location.name;
+    const updatedLocations = currentLocations.includes(locationName)
+      ? currentLocations.filter(name => name !== locationName)
+      : [...currentLocations, locationName];
+    
+    setFormData({
+      ...formData,
+      location: { name: updatedLocations }
+    });
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Edit Vehicle</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <FaTimes className="w-5 h-5" />
-          </Button>
-        </div>
-
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Vehicle</DialogTitle>
+        </DialogHeader>
+        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label>Name</Label>
@@ -126,37 +141,52 @@ export default function EditVehicleModal({ vehicle, isOpen, onClose, onVehicleUp
 
           <div>
             <Label>Locations</Label>
-            <div className="mt-2 space-y-2">
+            <div className="space-y-2 mt-1">
               <div className="flex items-center space-x-2">
-                <Switch
-                  checked={formData.location.includes('Eragadda')}
-                  onCheckedChange={(checked) => {
-                    const locations = checked 
-                      ? [...formData.location, 'Eragadda']
-                      : formData.location.filter(loc => loc !== 'Eragadda');
-                    setFormData({ ...formData, location: locations });
-                  }}
+                <input
+                  type="checkbox"
+                  id="location-madhapur"
+                  checked={formData.location.name.includes('Madhapur')}
+                  onChange={() => handleLocationChange('Madhapur')}
+                  className="h-4 w-4 rounded border-gray-300"
                 />
-                <Label>Eragadda</Label>
+                <label htmlFor="location-madhapur" className="text-sm text-gray-700">
+                  Madhapur
+                </label>
               </div>
               <div className="flex items-center space-x-2">
-                <Switch
-                  checked={formData.location.includes('Madhapur')}
-                  onCheckedChange={(checked) => {
-                    const locations = checked 
-                      ? [...formData.location, 'Madhapur']
-                      : formData.location.filter(loc => loc !== 'Madhapur');
-                    setFormData({ ...formData, location: locations });
-                  }}
+                <input
+                  type="checkbox"
+                  id="location-erragadda"
+                  checked={formData.location.name.includes('Erragadda')}
+                  onChange={() => handleLocationChange('Erragadda')}
+                  className="h-4 w-4 rounded border-gray-300"
                 />
-                <Label>Madhapur</Label>
+                <label htmlFor="location-erragadda" className="text-sm text-gray-700">
+                  Erragadda
+                </label>
               </div>
             </div>
           </div>
 
           <div>
+            <Label>Status</Label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              className="w-full px-3 py-2 border rounded-md"
+              required
+            >
+              <option value="active">Active</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          <div>
             <Label>Image</Label>
             <Button
+              type="button"
               variant="outline"
               className="w-full"
               onClick={() => document.getElementById('file-upload')?.click()}
@@ -192,27 +222,6 @@ export default function EditVehicleModal({ vehicle, isOpen, onClose, onVehicleUp
             />
           </div>
 
-          <div>
-            <Label>Status</Label>
-            <Select
-              value={formData.status}
-              onValueChange={(value) => setFormData({ ...formData, status: value as 'active' | 'maintenance' | 'deleted' })}
-              required
-            >
-              <option value="active">Active</option>
-              <option value="maintenance">Maintenance</option>
-              <option value="deleted">Deleted</option>
-            </Select>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Switch
-              checked={formData.is_available}
-              onCheckedChange={(checked) => setFormData({ ...formData, is_available: checked })}
-            />
-            <Label>Available</Label>
-          </div>
-
           <div className="flex justify-end space-x-3 mt-6">
             <Button
               type="button"
@@ -229,7 +238,7 @@ export default function EditVehicleModal({ vehicle, isOpen, onClose, onVehicleUp
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 } 

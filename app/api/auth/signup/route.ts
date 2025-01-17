@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import logger from '@/lib/logger';
-import { COLLECTIONS, generateId, findOneBy, set } from '@/lib/db';
-import type { User } from '@/lib/types';
+import { createUser, findUserByEmail } from '@/lib/db';
+import { randomUUID } from 'crypto';
 
 interface SignupBody {
   email: string;
@@ -14,7 +14,7 @@ interface SignupBody {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json() as SignupBody;
-    const { email, password, name, phone } = body;
+    const { email, password, name } = body;
 
     // Validate input
     if (!email || !password || !name) {
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await findOneBy<User>(COLLECTIONS.USERS, 'email', email);
+    const existingUser = await findUserByEmail(email);
     if (existingUser) {
       return NextResponse.json(
         { error: 'User already exists' },
@@ -37,23 +37,17 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const userId = generateId('usr');
-    const user: User = {
-      id: userId,
+    const user = await createUser({
+      id: randomUUID(),
       email,
-      password: hashedPassword,
+      password_hash: hashedPassword,
       name,
-      phone,
       role: 'user',
-      isVerified: false,
-      isDocumentsVerified: false,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+      created_at: new Date(),
+      updated_at: new Date()
+    });
 
-    await set(COLLECTIONS.USERS, user);
-
-    logger.debug('User created successfully:', { userId, email });
+    logger.debug('User created successfully:', { userId: user.id, email });
 
     return NextResponse.json({
       success: true,

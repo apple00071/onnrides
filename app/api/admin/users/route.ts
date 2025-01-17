@@ -1,45 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server';
-import logger from '@/lib/logger';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { db } from '@/lib/db';
-import { cookies } from 'next/headers';
-import { verifyAuth } from '@/lib/auth';
-import { users, bookings, vehicles, documents } from '@/lib/schema';
-import { count, and, sql } from 'drizzle-orm';
-import { eq, ne } from 'drizzle-orm';
+import { users, documents, bookings } from '@/lib/schema';
+import { eq, ne, sql } from 'drizzle-orm';
+import logger from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const user = await verifyAuth(cookieStore);
-    
-    if (!user) {
+    // Check if user is authenticated and is an admin
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    if (user.role !== 'admin') {
+    if (session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }
       );
     }
 
-    // Get all users (excluding admins)
+    // Get all users except admins
     const allUsers = await db
       .select({
         id: users.id,
         name: users.name,
         email: users.email,
         role: users.role,
-        created_at: users.created_at,
-        updated_at: users.updated_at,
+        created_at: users.created_at
       })
       .from(users)
-      .where(ne(users.role, 'admin'));
+      .where(ne(users.role, 'admin'))
+      .orderBy(users.created_at);
 
-    return NextResponse.json(allUsers);
+    // Get document counts for each user
+    const usersWithDocuments = await Promise.all(
+      allUsers.map(async (user) => {
+        const userDocs = await db
+          .select()
+          .from(documents)
+          .where(eq(documents.user_id, user.id));
+        
+        const approvedDocs = userDocs.filter(doc => doc.status === 'approved').length;
+        
+        return {
+          ...user,
+          documents_status: {
+            approved: approvedDocs,
+            total: userDocs.length
+          }
+        };
+      })
+    );
+
+    return NextResponse.json({ users: usersWithDocuments });
   } catch (error) {
     logger.error('Failed to fetch users:', error);
     return NextResponse.json(
@@ -51,10 +69,9 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const user = await verifyAuth(cookieStore);
-    
-    if (!user || user.role !== 'admin') {
+    // Check if user is authenticated and is an admin
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
       logger.debug('Unauthorized delete attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
