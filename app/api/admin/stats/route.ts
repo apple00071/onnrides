@@ -1,84 +1,107 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { db } from '@/lib/db';
-import { users, vehicles, bookings } from '@/lib/schema';
-import { sql } from 'drizzle-orm';
+import { authOptions } from '@/lib/auth';
+import { sql } from '@vercel/postgres';
 import logger from '@/lib/logger';
+
+interface Booking {
+  id: string;
+  user_id: string;
+  vehicle_id: string;
+  start_date: Date;
+  end_date: Date;
+  total_price: string;
+  status: string;
+  created_at: Date;
+}
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if user is authenticated and is an admin
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    if (session.user.role !== 'admin') {
+    
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }
       );
     }
 
-    // Initialize default values
-    let vehiclesCount = 0;
     let usersCount = 0;
+    let vehiclesCount = 0;
     let bookingsCount = 0;
-    let revenue = 0;
+    let recentBookings: Booking[] = [];
 
     try {
+      // Get total users
+      const { rows: [userStats] } = await sql`
+        SELECT COUNT(*)::int as count FROM users
+      `;
+      usersCount = userStats?.count || 0;
+
       // Get total vehicles
-      const [vehiclesResult] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(vehicles);
-      vehiclesCount = vehiclesResult?.count || 0;
+      const { rows: [vehicleStats] } = await sql`
+        SELECT COUNT(*)::int as count FROM vehicles
+      `;
+      vehiclesCount = vehicleStats?.count || 0;
 
-      // Get total users (excluding admin)
-      const [usersResult] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(users)
-        .where(sql`${users.role} != 'admin'`);
-      usersCount = usersResult?.count || 0;
+      // Get total bookings and recent bookings
+      try {
+        const { rows: [bookingStats] } = await sql`
+          SELECT COUNT(*)::int as count FROM bookings
+        `;
+        bookingsCount = bookingStats?.count || 0;
 
-      // Get total bookings
-      const [bookingsResult] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(bookings);
-      bookingsCount = bookingsResult?.count || 0;
-
-      // Get total revenue
-      const [revenueResult] = await db
-        .select({
-          total: sql<number>`COALESCE(sum(${bookings.total_price}), 0)`,
-        })
-        .from(bookings)
-        .where(sql`${bookings.status} = 'completed'`);
-      revenue = revenueResult?.total || 0;
-
-      return NextResponse.json({
-        totalVehicles: vehiclesCount,
-        totalUsers: usersCount,
-        totalBookings: bookingsCount,
-        totalRevenue: revenue,
-      });
-    } catch (dbError) {
-      logger.error('Database error while fetching stats:', dbError);
-      // Return default values instead of throwing error
-      return NextResponse.json({
-        totalVehicles: vehiclesCount,
-        totalUsers: usersCount,
-        totalBookings: bookingsCount,
-        totalRevenue: revenue,
-      });
+        // Get recent bookings
+        const { rows } = await sql`
+          SELECT 
+            id::text,
+            user_id::text,
+            vehicle_id::text,
+            start_date::timestamp,
+            end_date::timestamp,
+            total_price::text,
+            status::text,
+            created_at::timestamp
+          FROM bookings
+          ORDER BY created_at DESC
+          LIMIT 5
+        `;
+        recentBookings = rows.map(row => ({
+          id: row.id,
+          user_id: row.user_id,
+          vehicle_id: row.vehicle_id,
+          start_date: new Date(row.start_date),
+          end_date: new Date(row.end_date),
+          total_price: row.total_price,
+          status: row.status,
+          created_at: new Date(row.created_at),
+        }));
+      } catch (error: any) {
+        if (error.code === '42P01') { // Table does not exist
+          logger.warn('Bookings table does not exist yet');
+          bookingsCount = 0;
+          recentBookings = [];
+        } else {
+          throw error;
+        }
+      }
+    } catch (error) {
+      logger.error('Database error while fetching stats:', error);
+      throw error;
     }
+
+    return NextResponse.json({
+      stats: {
+        total_users: usersCount,
+        total_vehicles: vehiclesCount,
+        total_bookings: bookingsCount,
+      },
+      recent_bookings: recentBookings,
+    });
   } catch (error) {
-    logger.error('Failed to fetch admin stats:', error);
+    logger.error('Error fetching admin stats:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch stats' },
+      { error: 'Failed to fetch admin stats' },
       { status: 500 }
     );
   }

@@ -3,40 +3,99 @@ import { sql } from '@vercel/postgres';
 import { users, vehicles, bookings, documents } from './schema';
 import { eq, and, or, not, SQL, SQLWrapper, asc, desc, gte, lte } from 'drizzle-orm';
 import type { User, Vehicle, Booking, Document } from './types';
+import logger from './logger';
 
-export const db = drizzle(sql);
+// Initialize database with error handling
+let db: ReturnType<typeof drizzle>;
+try {
+  db = drizzle(sql);
+  logger.info('Database connection initialized');
+} catch (error) {
+  logger.error('Failed to initialize database connection:', error);
+  throw error;
+}
+
+export { db };
+
+// Export collections
+export const COLLECTIONS = {
+  users,
+  vehicles,
+  bookings,
+  documents
+};
+
+// Export common database operations
+export const get = findDocumentById;
+export const findOneBy = findUserById;
+export const findMany = findBookings;
+export const findAll = findVehicles;
+export const set = createDocument;
+export const update = updateBooking;
+export const remove = deleteVehicle;
+export const insertOne = createVehicle;
+export const updateOne = updateBooking;
+export const generateId = () => crypto.randomUUID();
 
 export async function findUserByEmail(email: string): Promise<User | null> {
-  const result = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  return result[0] || null;
+  try {
+    logger.info('Finding user by email:', email);
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    logger.info('User search result:', result[0] ? 'Found' : 'Not found');
+    return result[0] || null;
+  } catch (error) {
+    logger.error('Error finding user by email:', error);
+    throw error;
+  }
 }
 
 export async function findUserById(id: string): Promise<User | null> {
-  const result = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, id))
-    .limit(1);
-  return result[0] || null;
+  try {
+    logger.info('Finding user by ID:', id);
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+    logger.info('User search result:', result[0] ? 'Found' : 'Not found');
+    return result[0] || null;
+  } catch (error) {
+    logger.error('Error finding user by ID:', error);
+    throw error;
+  }
 }
 
-export async function createUser(data: Partial<User>): Promise<User> {
-  const [user] = await db
-    .insert(users)
-    .values({
-      email: data.email!,
-      name: data.name || null,
-      password_hash: data.password_hash!,
-      role: data.role || 'user',
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
-    .returning();
-  return user;
+type CreateUserData = {
+  email: string;
+  password_hash: string;
+  name?: string | null;
+  role?: 'user' | 'admin';
+};
+
+export async function createUser(data: CreateUserData): Promise<User> {
+  try {
+    logger.info('Creating new user');
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: data.email,
+        password_hash: data.password_hash,
+        name: data.name || null,
+        role: data.role || 'user',
+        created_at: new Date(),
+        updated_at: new Date(),
+      })
+      .returning();
+    logger.info('User created successfully');
+    return user;
+  } catch (error) {
+    logger.error('Error creating user:', error);
+    throw error;
+  }
 }
 
 export async function updateUser(id: string, data: Partial<User>): Promise<User | null> {

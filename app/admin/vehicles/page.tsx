@@ -18,6 +18,8 @@ import {
 } from '@/app/components/ui/table';
 import { Badge } from '@/app/components/ui/badge';
 import { formatDate } from '../../../lib/utils';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 interface Vehicle {
   id: string;
@@ -25,16 +27,22 @@ interface Vehicle {
   type: string;
   quantity: number;
   price_per_day: number;
-  location: {
-    name: string[];
-  };
-  status: string;
+  location: string;
   images: string[];
+  is_available: boolean;
+  status: 'active' | 'maintenance' | 'retired';
   created_at: string;
   updated_at: string;
 }
 
 export default function VehiclesPage() {
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      router.push('/admin/login');
+    },
+  });
+  const router = useRouter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -42,12 +50,24 @@ export default function VehiclesPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
+    if (status === 'loading') return;
+    
+    if (session?.user?.role !== 'admin') {
+      router.push('/');
+      return;
+    }
+
     fetchVehicles();
-  }, []);
+  }, [session, status, router]);
 
   const fetchVehicles = async () => {
     try {
-      const response = await fetch('/api/admin/vehicles');
+      const response = await fetch('/api/admin/vehicles', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
       const data = await response.json();
       
       if (!response.ok) {
@@ -69,6 +89,10 @@ export default function VehiclesPage() {
     try {
       const response = await fetch(`/api/admin/vehicles?id=${id}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
       });
       const data = await response.json();
 
@@ -100,12 +124,16 @@ export default function VehiclesPage() {
     fetchVehicles();
   };
 
-  if (loading) {
+  if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
       </div>
     );
+  }
+
+  if (!session || session.user.role !== 'admin') {
+    return null;
   }
 
   return (
@@ -152,7 +180,7 @@ export default function VehiclesPage() {
                 <TableCell>{vehicle.type}</TableCell>
                 <TableCell>{vehicle.quantity}</TableCell>
                 <TableCell>₹{vehicle.price_per_day}/day</TableCell>
-                <TableCell>{vehicle.location.name.join(', ')}</TableCell>
+                <TableCell>{vehicle.location}</TableCell>
                 <TableCell>
                   <Badge
                     variant={
@@ -163,7 +191,7 @@ export default function VehiclesPage() {
                         : 'destructive'
                     }
                   >
-                    {vehicle.status.charAt(0).toUpperCase() + vehicle.status.slice(1)}
+                    {vehicle.status}
                   </Badge>
                 </TableCell>
                 <TableCell>

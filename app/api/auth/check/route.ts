@@ -1,49 +1,40 @@
-import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import logger from '@/lib/logger';
 
-const JWT_SECRET = process.env.JWT_SECRET || '';
-const COOKIE_NAME = 'token';
-
-interface JWTPayload {
-  user: {
-    id: string;
-    email: string;
-    role: string;
-  };
-}
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
+    const session = await getServerSession(authOptions);
+    logger.info('Auth check session:', session);
 
-    if (!token) {
+    if (!session?.user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const { payload } = await jwtVerify(
-      token,
-      new TextEncoder().encode(JWT_SECRET)
-    );
-
-    const jwtPayload = payload as unknown as JWTPayload;
-
-    if (!jwtPayload.user) {
+    // Check if user has admin role
+    if (session.user.role !== 'admin') {
       return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
+        { error: 'Admin access required' },
+        { status: 403 }
       );
     }
 
-    return NextResponse.json({ user: jwtPayload.user });
+    return NextResponse.json({
+      authenticated: true,
+      user: {
+        id: session.user.id,
+        email: session.user.email,
+        role: session.user.role,
+      },
+    });
   } catch (error) {
-    console.error('Auth check error:', error);
+    logger.error('Auth check error:', error);
     return NextResponse.json(
-      { error: 'Invalid token' },
+      { error: 'Authentication failed' },
       { status: 401 }
     );
   }

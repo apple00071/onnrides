@@ -35,21 +35,23 @@ export default function AdminLogin() {
 
       if (result?.error) {
         toast.error(result.error);
+        setLoading(false);
       } else {
         // Get user data to check role
         const userResponse = await fetch('/api/auth/session');
         const userData = await userResponse.json();
         
         if (userData?.user?.role === 'admin') {
-          router.push('/admin');
+          const from = searchParams.get('from') || '/admin';
+          router.push(from);
+          router.refresh();
         } else {
           toast.error('Access denied. Admin privileges required.');
-          signIn('credentials', { callbackUrl: '/' });
+          router.push('/');
         }
-        router.refresh();
       }
     } catch (error) {
-      toast.error('Failed to sign in');
+      toast.error('An error occurred during login.');
     } finally {
       setLoading(false);
     }

@@ -9,6 +9,12 @@ import {
   decimal,
 } from 'drizzle-orm/pg-core';
 
+export const DOCUMENT_TYPES = {
+  LICENSE: 'license',
+  ID_PROOF: 'id_proof',
+  ADDRESS_PROOF: 'address_proof'
+} as const;
+
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),

@@ -5,71 +5,157 @@ import { users } from './schema';
 import { eq } from 'drizzle-orm';
 import type { User } from './types';
 import { findUserById } from './db';
+import { NextResponse } from 'next/server';
+import { getServerSession, type AuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import bcrypt from 'bcryptjs';
+import logger from './logger';
 
-const secretKey = process.env.JWT_SECRET_KEY;
-if (!secretKey) {
-  throw new Error('JWT_SECRET_KEY is not set');
+declare module 'next-auth' {
+  interface Session {
+    user: {
+      id: string;
+      email: string;
+      name: string | null;
+      role: 'user' | 'admin';
+    }
+  }
+  interface User {
+    id: string;
+    email: string;
+    name: string | null;
+    role: 'user' | 'admin';
+  }
 }
 
-const key = new TextEncoder().encode(secretKey);
-
-export async function sign(payload: any): Promise<string> {
-  const iat = Math.floor(Date.now() / 1000);
-  const exp = iat + 60 * 60 * 24 * 7; // 7 days
-
-  return new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-    .setExpirationTime(exp)
-    .setIssuedAt(iat)
-    .setNotBefore(iat)
-    .sign(key);
+function getJwtKey() {
+  const secretKey = process.env.JWT_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error('JWT_SECRET_KEY is not set');
+  }
+  return new TextEncoder().encode(secretKey);
 }
 
-export async function verify(token: string): Promise<any> {
-  const { payload } = await jwtVerify(token, key, {
-    algorithms: ['HS256'],
-  });
-  return payload;
-}
+export const authOptions: AuthOptions = {
+  debug: process.env.NODE_ENV === 'development',
+  providers: [
+    CredentialsProvider({
+      name: 'Credentials',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' }
+      },
+      async authorize(credentials) {
+        try {
+          logger.info('Authorizing credentials:', { email: credentials?.email });
 
-export async function verifyAuth(cookieStore: any) {
-  const token = cookieStore.get('token')?.value;
-  if (!token) return null;
+          if (!credentials?.email || !credentials?.password) {
+            logger.warn('Missing credentials');
+            return null;
+          }
 
+          const user = await validateUser(credentials.email, credentials.password);
+          
+          if (!user) {
+            logger.warn('Invalid credentials for user:', { email: credentials.email });
+            return null;
+          }
+
+          logger.info('User authorized successfully:', { userId: user.id, email: user.email });
+          
+          const authUser = {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role
+          };
+          
+          return authUser;
+        } catch (error) {
+          logger.error('Authorization error:', { error: (error as Error).message });
+          return null;
+        }
+      }
+    }),
+  ],
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        logger.info('Setting JWT token with user data:', { 
+          userId: user.id,
+          userEmail: user.email,
+          userRole: user.role 
+        });
+        return {
+          ...token,
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        };
+      }
+      logger.debug('Using existing JWT token:', { 
+        tokenId: token.id,
+        tokenEmail: token.email,
+        tokenRole: token.role 
+      });
+      return token;
+    },
+    async session({ session, token }) {
+      logger.info('Creating session from token:', { 
+        tokenId: token.id,
+        tokenEmail: token.email,
+        tokenRole: token.role 
+      });
+      return {
+        ...session,
+        user: {
+          id: token.id as string,
+          email: token.email as string,
+          name: token.name as string | null,
+          role: token.role as 'user' | 'admin',
+        }
+      };
+    },
+  },
+  pages: {
+    signIn: '/login',
+  },
+  session: {
+    strategy: 'jwt' as const,
+    maxAge: 7 * 24 * 60 * 60, // 7 days
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+  logger: {
+    error(code, metadata) {
+      logger.error('NextAuth error:', { code, metadata });
+    },
+    warn(code) {
+      logger.warn('NextAuth warning:', { code });
+    },
+    debug(code, metadata) {
+      logger.debug('NextAuth debug:', { code, metadata });
+    },
+  },
+};
+
+export async function verifyAuth() {
   try {
-    const payload = await verify(token);
-    const user = await findUserById(payload.id);
-    if (!user) return null;
-    return user;
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return null;
+    return session.user as User;
   } catch {
     return null;
   }
 }
 
 export async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return Buffer.from(hash).toString('hex');
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(password, salt);
 }
 
 export async function comparePasswords(password: string, hash: string): Promise<boolean> {
-  const hashedPassword = await hashPassword(password);
-  return hashedPassword === hash;
-}
-
-export function setAuthCookie(token: string) {
-  cookies().set('token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-  });
-}
-
-export function clearAuthCookie() {
-  cookies().delete('token');
+  return bcrypt.compare(password, hash);
 }
 
 export async function findUserByEmail(email: string): Promise<User | null> {
@@ -84,5 +170,6 @@ export async function findUserByEmail(email: string): Promise<User | null> {
 export async function validateUser(email: string, password: string): Promise<User | null> {
   const user = await findUserByEmail(email);
   if (!user) return null;
-  return user;
+  const isValid = await comparePasswords(password, user.password_hash);
+  return isValid ? user : null;
 } 

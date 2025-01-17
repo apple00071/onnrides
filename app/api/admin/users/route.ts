@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { users, documents, bookings } from '@/lib/schema';
+import { users, documents } from '@/lib/schema';
 import { eq, ne, sql } from 'drizzle-orm';
 import logger from '@/lib/logger';
 
@@ -10,7 +10,9 @@ export async function GET(request: NextRequest) {
   try {
     // Check if user is authenticated and is an admin
     const session = await getServerSession(authOptions);
+    
     if (!session?.user) {
+      logger.warn('Unauthorized access attempt to users API');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -18,6 +20,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (session.user.role !== 'admin') {
+      logger.warn('Non-admin access attempt to users API:', { userEmail: session.user.email });
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }
@@ -31,35 +34,36 @@ export async function GET(request: NextRequest) {
         name: users.name,
         email: users.email,
         role: users.role,
-        created_at: users.created_at
+        created_at: users.created_at,
       })
       .from(users)
-      .where(ne(users.role, 'admin'))
-      .orderBy(users.created_at);
+      .where(ne(users.role, 'admin'));
 
     // Get document counts for each user
     const usersWithDocuments = await Promise.all(
       allUsers.map(async (user) => {
-        const userDocs = await db
-          .select()
+        const documentCounts = await db
+          .select({
+            total: sql<number>`count(*)`,
+            approved: sql<number>`sum(case when ${documents.status} = 'approved' then 1 else 0 end)`,
+          })
           .from(documents)
           .where(eq(documents.user_id, user.id));
-        
-        const approvedDocs = userDocs.filter(doc => doc.status === 'approved').length;
-        
+
         return {
           ...user,
           documents_status: {
-            approved: approvedDocs,
-            total: userDocs.length
-          }
+            total: Number(documentCounts[0].total) || 0,
+            approved: Number(documentCounts[0].approved) || 0,
+          },
         };
       })
     );
 
+    logger.info('Successfully fetched users data');
     return NextResponse.json({ users: usersWithDocuments });
   } catch (error) {
-    logger.error('Failed to fetch users:', error);
+    logger.error('Error fetching users:', error);
     return NextResponse.json(
       { error: 'Failed to fetch users' },
       { status: 500 }

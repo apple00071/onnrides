@@ -1,16 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { jwtVerify } from 'jose';
-
-const JWT_SECRET = process.env.JWT_SECRET || '';
-
-interface JWTPayload {
-  user: {
-    id: string;
-    email: string;
-    role: string;
-  };
-}
+import { getToken } from 'next-auth/jwt';
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -26,8 +16,11 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    // Get token from cookie
-    const token = request.cookies.get('token')?.value;
+    // Get NextAuth.js session token
+    const token = await getToken({ 
+      req: request, 
+      secret: process.env.NEXTAUTH_SECRET 
+    });
 
     if (!token) {
       // Redirect to admin login if no token
@@ -36,15 +29,10 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Verify token and check if user is admin
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(JWT_SECRET));
-    const jwtPayload = payload as unknown as JWTPayload;
-
-    if (!jwtPayload.user || jwtPayload.user.role !== 'admin') {
-      // Redirect to admin login if not admin
-      const url = new URL('/admin/login', request.url);
-      url.searchParams.set('from', pathname);
-      return NextResponse.redirect(url);
+    // Check if user is admin
+    if (token.role !== 'admin') {
+      // Redirect to home if not admin
+      return NextResponse.redirect(new URL('/', request.url));
     }
 
     return NextResponse.next();
@@ -57,7 +45,7 @@ export async function middleware(request: NextRequest) {
   }
 }
 
-// Configure the paths that should be handled by this middleware
+// Configure which paths the middleware should run on
 export const config = {
-  matcher: '/admin/:path*',
+  matcher: ['/admin/:path*']
 };  

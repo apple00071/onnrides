@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { toast } from 'react-hot-toast';
 import logger from '@/lib/logger';
+import { useRouter } from 'next/navigation';
 
 interface Profile {
   id: string;
@@ -17,26 +19,44 @@ interface Profile {
 }
 
 export default function ProfileClient() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    if (status === 'unauthenticated') {
+      router.push('/login');
+      return;
+    }
+
+    if (status === 'authenticated') {
+      fetchProfile();
+    }
+  }, [status, router]);
 
   const fetchProfile = async () => {
     try {
-      const response = await fetch('/api/user/profile');
-      const data = await response.json();
+      const response = await fetch('/api/user/profile', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
 
       if (!response.ok) {
+        const data = await response.json();
         throw new Error(data.error || 'Failed to fetch profile');
       }
 
+      const data = await response.json();
       setProfile(data);
     } catch (error) {
-      logger.error('Error:', error);
+      logger.error('Error fetching profile:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to fetch profile');
+      if (error instanceof Error && error.message === 'Authentication required') {
+        router.push('/login');
+      }
     } finally {
       setLoading(false);
     }
@@ -47,7 +67,7 @@ export default function ProfileClient() {
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
-  if (loading) {
+  if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
@@ -55,10 +75,14 @@ export default function ProfileClient() {
     );
   }
 
+  if (status === 'unauthenticated') {
+    return null; // Router will handle redirect
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">My Profile</h1>
-      {profile && (
+      {profile ? (
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -91,6 +115,10 @@ export default function ProfileClient() {
               </div>
             </div>
           </div>
+        </div>
+      ) : (
+        <div className="text-center text-gray-600">
+          Failed to load profile. Please try refreshing the page.
         </div>
       )}
     </div>

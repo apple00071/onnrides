@@ -11,7 +11,8 @@
     "db:migrate": "tsx drizzle/migrate.ts",
     "db:push": "drizzle-kit push:pg",
     "db:add-quantity": "tsx scripts/add-quantity-column.ts",
-    "update-db": "tsx scripts/update-vehicles-table.ts"
+    "update-db": "tsx scripts/update-vehicles-table.ts",
+    "db:setup": "node scripts/setup-db.js"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.26.0",
