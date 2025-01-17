@@ -1,39 +1,11 @@
 import NextAuth, { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { findUserByEmail } from '@/lib/db';
+import { db } from '@/lib/db';
+import { users } from '@/lib/schema';
+import { eq } from 'drizzle-orm';
 import * as bcrypt from 'bcryptjs';
 import logger from '@/lib/logger';
 import type { User } from '@/lib/types';
-
-// Database user type
-interface DbUser {
-  id: string;
-  name: string | null;
-  email: string;
-  role: string | null;
-  password_hash: string;
-  created_at: Date | null;
-  updated_at: Date | null;
-}
-
-// Custom user type with required fields
-interface CustomUser {
-  id: string;
-  email: string;
-  role: 'user' | 'admin';
-  name: string | null;
-}
-
-declare module 'next-auth' {
-  interface User extends CustomUser {}
-  interface Session {
-    user: User;
-  }
-}
-
-declare module 'next-auth/jwt' {
-  interface JWT extends CustomUser {}
-}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -43,26 +15,32 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Missing credentials');
         }
 
         try {
-          const user = await findUserByEmail(credentials.email);
+          const result = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, credentials.email))
+            .limit(1);
           
+          const user = result[0];
           if (!user) {
             throw new Error('Invalid credentials');
           }
 
-          if (user.is_blocked) {
-            throw new Error('User is blocked');
-          }
-
           const isValid = await bcrypt.compare(credentials.password, user.password_hash);
-          
           if (!isValid) {
             throw new Error('Invalid credentials');
+          }
+
+          // Check if this is an admin login attempt
+          const isAdminRoute = req?.headers?.referer?.includes('/admin');
+          if (isAdminRoute && user.role !== 'admin') {
+            throw new Error('Unauthorized');
           }
 
           return {
@@ -79,21 +57,29 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   pages: {
-    signIn: '/login',
-    error: '/login'
+    signIn: '/admin/login',
+    error: '/admin/login'
   },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as any).role as User['role'];
+        token.role = user.role;
+        token.name = user.name;
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.role = token.role as User['role'];
+        session.user.role = token.role;
+        session.user.name = token.name as string | null;
       }
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith('/admin')) {
+        return url;
+      }
+      return baseUrl;
     }
   },
   session: {

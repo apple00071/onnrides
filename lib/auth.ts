@@ -1,8 +1,10 @@
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
 import { db } from './db';
+import { users } from './schema';
+import { eq } from 'drizzle-orm';
+import type { User } from './types';
 import { findUserById } from './db';
-import type { User } from '@/lib/types';
 
 const secretKey = process.env.JWT_SECRET_KEY;
 if (!secretKey) {
@@ -37,7 +39,7 @@ export async function verifyAuth(cookieStore: any) {
   try {
     const payload = await verify(token);
     const user = await findUserById(payload.id);
-    if (!user || user.is_blocked) return null;
+    if (!user) return null;
     return user;
   } catch {
     return null;
@@ -68,4 +70,19 @@ export function setAuthCookie(token: string) {
 
 export function clearAuthCookie() {
   cookies().delete('token');
+}
+
+export async function findUserByEmail(email: string): Promise<User | null> {
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  return result[0] || null;
+}
+
+export async function validateUser(email: string, password: string): Promise<User | null> {
+  const user = await findUserByEmail(email);
+  if (!user) return null;
+  return user;
 } 

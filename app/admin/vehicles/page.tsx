@@ -7,7 +7,7 @@ import Image from 'next/image';
 import logger from '@/lib/logger';
 import AddVehicleModal from './components/AddVehicleModal';
 import EditVehicleModal from './components/EditVehicleModal';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/app/components/ui/button';
 import {
   Table,
   TableBody,
@@ -15,8 +15,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
+} from '@/app/components/ui/table';
+import { Badge } from '@/app/components/ui/badge';
 import { formatDate } from '@/lib/utils';
 
 interface Vehicle {
@@ -154,9 +154,9 @@ export default function VehiclesPage() {
                   <Badge
                     variant={
                       vehicle.status === 'active'
-                        ? 'success'
+                        ? 'default'
                         : vehicle.status === 'maintenance'
-                        ? 'warning'
+                        ? 'secondary'
                         : 'destructive'
                     }
                   >

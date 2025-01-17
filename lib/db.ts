@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/vercel-postgres';
 import { sql } from '@vercel/postgres';
 import { users, vehicles, bookings, documents } from './schema';
-import { eq, and, or, not, SQL, SQLWrapper, asc, desc } from 'drizzle-orm';
+import { eq, and, or, not, SQL, SQLWrapper, asc, desc, gte, lte } from 'drizzle-orm';
 import type { User, Vehicle, Booking, Document } from './types';
 
 export const db = drizzle(sql);
@@ -32,7 +32,6 @@ export async function createUser(data: Partial<User>): Promise<User> {
       name: data.name || null,
       password_hash: data.password_hash!,
       role: data.role || 'user',
-      is_blocked: data.is_blocked || false,
       created_at: new Date(),
       updated_at: new Date(),
     })
@@ -84,11 +83,11 @@ export async function findVehicles(filters?: {
     }
 
     if (filters.minPrice) {
-      conditions.push(sql`CAST(${vehicles.price_per_day} AS DECIMAL) >= CAST(${sql.raw(filters.minPrice)} AS DECIMAL)`);
+      conditions.push(gte(vehicles.price_per_day, filters.minPrice));
     }
 
     if (filters.maxPrice) {
-      conditions.push(sql`CAST(${vehicles.price_per_day} AS DECIMAL) <= CAST(${sql.raw(filters.maxPrice)} AS DECIMAL)`);
+      conditions.push(lte(vehicles.price_per_day, filters.maxPrice));
     }
   }
 

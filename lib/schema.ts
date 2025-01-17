@@ -15,7 +15,6 @@ export const users = pgTable('users', {
   name: text('name'),
   password_hash: text('password_hash').notNull(),
   role: text('role', { enum: ['user', 'admin'] }).notNull().default('user'),
-  is_blocked: boolean('is_blocked').notNull().default(false),
   created_at: timestamp('created_at').notNull().defaultNow(),
   updated_at: timestamp('updated_at').notNull().defaultNow(),
 });

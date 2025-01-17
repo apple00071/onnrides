@@ -4,7 +4,6 @@ export interface User {
   name: string | null;
   password_hash: string;
   role: 'user' | 'admin';
-  is_blocked: boolean;
   created_at: Date;
   updated_at: Date;
 }

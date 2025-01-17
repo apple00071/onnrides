@@ -4,6 +4,10 @@ import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { FaTimes } from 'react-icons/fa';
 import logger from '@/lib/logger';
+import { Button } from '@/app/components/ui/button';
+import { Input } from '@/app/components/ui/input';
+import { Label } from '@/app/components/ui/label';
+import { Switch } from '@/app/components/ui/switch';
 
 interface AddVehicleModalProps {
   isOpen: boolean;
@@ -20,8 +24,6 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
     price_per_day: 0,
     location: [] as string[],
     images: [] as string[],
-    is_available: true,
-    status: 'active' as const,
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -57,6 +59,12 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
         imageUrl = uploadResult.url;
       }
 
+      // Convert locations array to an object with location names as keys
+      const locationObject = formData.location.reduce((acc, loc) => {
+        acc[loc] = true;
+        return acc;
+      }, {} as Record<string, boolean>);
+
       const response = await fetch('/api/admin/vehicles', {
         method: 'POST',
         headers: {
@@ -64,6 +72,7 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
         },
         body: JSON.stringify({
           ...formData,
+          location: locationObject,
           images: imageUrl ? [imageUrl] : [],
         }),
       });
@@ -92,8 +101,6 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
       price_per_day: 0,
       location: [],
       images: [],
-      is_available: true,
-      status: 'active',
     });
     setSelectedFile(null);
   };
@@ -115,23 +122,23 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Name</label>
-            <input
+            <Label htmlFor="name">Name</Label>
+            <Input
+              id="name"
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f26e24] focus:ring-[#f26e24]"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Type</label>
+            <Label htmlFor="vehicle-type">Type</Label>
             <select
+              id="vehicle-type"
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f26e24] focus:ring-[#f26e24]"
-              required
+              className="w-full px-3 py-2 border rounded-md"
             >
               <option value="Car">Car</option>
               <option value="Bike">Bike</option>
@@ -139,65 +146,68 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Quantity</label>
-            <input
+            <Label htmlFor="quantity">Quantity</Label>
+            <Input
+              id="quantity"
               type="number"
               value={formData.quantity}
               onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f26e24] focus:ring-[#f26e24]"
               required
               min="1"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Price per Day (₹)</label>
-            <input
+            <Label htmlFor="price">Price per Day (₹)</Label>
+            <Input
+              id="price"
               type="number"
               value={formData.price_per_day}
               onChange={(e) => setFormData({ ...formData, price_per_day: parseInt(e.target.value) })}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#f26e24] focus:ring-[#f26e24]"
               required
               min="0"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Locations</label>
+            <Label>Locations</Label>
             <div className="space-y-2">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="eragadda"
                   checked={formData.location.includes('Eragadda')}
-                  onChange={() => handleLocationChange('Eragadda')}
-                  className="rounded border-gray-300 text-[#f26e24] focus:ring-[#f26e24]"
+                  onCheckedChange={() => handleLocationChange('Eragadda')}
                 />
-                <span className="ml-2">Eragadda</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
+                <Label htmlFor="eragadda">Eragadda</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="madhapur"
                   checked={formData.location.includes('Madhapur')}
-                  onChange={() => handleLocationChange('Madhapur')}
-                  className="rounded border-gray-300 text-[#f26e24] focus:ring-[#f26e24]"
+                  onCheckedChange={() => handleLocationChange('Madhapur')}
                 />
-                <span className="ml-2">Madhapur</span>
-              </label>
+                <Label htmlFor="madhapur">Madhapur</Label>
+              </div>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Image</label>
+            <Label htmlFor="image">Image</Label>
             <div className="mt-1 flex items-center">
-              <label className="cursor-pointer bg-[#f26e24] text-white px-4 py-2 rounded-md hover:bg-[#e05d13] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24]">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => document.getElementById('image')?.click()}
+              >
                 Choose File
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/*"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                />
-              </label>
+              </Button>
+              <input
+                id="image"
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+              />
               <span className="ml-3 text-sm text-gray-500">
                 {selectedFile ? selectedFile.name : 'No file chosen'}
               </span>
@@ -205,20 +215,19 @@ export default function AddVehicleModal({ isOpen, onClose, onVehicleAdded }: Add
           </div>
 
           <div className="flex justify-end space-x-3 mt-6">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24]"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-[#f26e24] text-white rounded-md hover:bg-[#e05d13] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24] disabled:opacity-50"
             >
-              Add
-            </button>
+              {loading ? 'Adding...' : 'Add'}
+            </Button>
           </div>
         </form>
       </div>

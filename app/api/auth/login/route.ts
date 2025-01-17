@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import logger from '@/lib/logger';
-import { COLLECTIONS, findOneBy, set } from '@/lib/db';
-import type { User, Session } from '@/lib/types';
+import { db } from '@/lib/db';
+import { users } from '@/lib/schema';
+import { eq } from 'drizzle-orm';
+import type { User } from '@/lib/types';
 
 interface LoginBody {
   email: string;
@@ -24,7 +26,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user
-    const user = await findOneBy<User>(COLLECTIONS.USERS, 'email', email);
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    
+    const user = result[0];
     if (!user) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
@@ -33,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
@@ -42,8 +50,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate JWT token
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET is not set');
+    if (!process.env.JWT_SECRET_KEY) {
+      throw new Error('JWT_SECRET_KEY is not set');
     }
 
     const token = jwt.sign(
@@ -52,21 +60,9 @@ export async function POST(request: NextRequest) {
         email: user.email,
         role: user.role
       },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET_KEY,
       { expiresIn: '7d' }
     );
-
-    // Create session
-    const session: Session = {
-      id: `sess_${Date.now()}`,
-      user_id: user.id,
-      token,
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    await set(COLLECTIONS.SESSIONS, session);
 
     // Create response
     const response = NextResponse.json({
@@ -75,8 +71,7 @@ export async function POST(request: NextRequest) {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
-        isDocumentsVerified: user.isDocumentsVerified
+        role: user.role
       }
     });
 

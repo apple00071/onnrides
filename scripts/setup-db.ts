@@ -5,8 +5,8 @@ import * as bcrypt from 'bcryptjs';
 // Load environment variables from .env file
 config({ path: resolve(__dirname, '../.env') });
 
-import { db } from '../app/lib/lib/db';
-import logger from '../app/lib/logger';
+import { db } from '../lib/db';
+import logger from '../lib/logger';
 import { sql } from 'drizzle-orm';
 
 async function setupDatabase() {
@@ -29,7 +29,6 @@ async function setupDatabase() {
         password_hash VARCHAR(255) NOT NULL,
         name VARCHAR(255),
         role VARCHAR(50) NOT NULL DEFAULT 'user',
-        is_verified BOOLEAN DEFAULT false,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
@@ -116,8 +115,8 @@ async function setupDatabase() {
     const adminPasswordHash = await bcrypt.hash(adminPassword, 10);
 
     await db.execute(sql`
-      INSERT INTO users (email, password_hash, role, is_verified, name)
-      VALUES (${adminEmail}, ${adminPasswordHash}, 'admin', true, 'Admin User')
+      INSERT INTO users (email, password_hash, role, name)
+      VALUES (${adminEmail}, ${adminPasswordHash}, 'admin', 'Admin User')
       ON CONFLICT (email) DO NOTHING;
     `);
 

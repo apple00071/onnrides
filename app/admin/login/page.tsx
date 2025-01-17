@@ -3,75 +3,68 @@
 import { useState, useEffect } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { toast } from 'react-hot-toast';
 
 export default function AdminLoginPage() {
-  const router = useRouter();
-  const { data: session } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const { data: session } = useSession();
 
   // Redirect if already authenticated as admin
   useEffect(() => {
     if (session?.user?.role === 'admin') {
-      router.push('/admin/dashboard');
+      router.push('/admin');
     }
   }, [session, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
 
     try {
       const result = await signIn('credentials', {
         email,
         password,
-        isAdmin: 'true',
         redirect: false,
+        callbackUrl: '/admin'
       });
 
-      if (!result) {
-        toast.error('Authentication failed. Please try again.');
+      if (result?.error) {
+        setError(result.error === 'Unauthorized' 
+          ? 'Only admin users can access this area' 
+          : 'Invalid credentials');
         return;
       }
 
-      if (result.error) {
-        // Handle specific error messages
-        const errorMessage = result.error === 'CredentialsSignin' 
-          ? 'Invalid email or password'
-          : result.error;
-        
-        toast.error(errorMessage);
-        return;
-      }
-
-      toast.success('Welcome back, admin!');
-      router.push('/admin/dashboard');
+      router.push('/admin');
       router.refresh();
     } catch (error) {
-      console.error('Login error:', error);
-      toast.error('An unexpected error occurred. Please try again.');
+      setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-lg">
         <div>
-          <Link href="/" className="flex justify-center">
-            <div className="w-12 h-12 bg-[#f26e24] rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              O
-            </div>
-          </Link>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Admin Login
           </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Please sign in with your admin credentials
+          </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && (
+            <div className="bg-red-50 text-red-500 p-3 rounded-md text-sm">
+              {error}
+            </div>
+          )}
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
               <label htmlFor="email" className="sr-only">

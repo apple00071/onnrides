@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { verifyAuth } from '@/lib/auth';
 import { vehicles } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
+import { sql } from '@vercel/postgres';
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,8 +36,6 @@ export async function GET(request: NextRequest) {
         price_per_day: vehicles.price_per_day,
         location: vehicles.location,
         images: vehicles.images,
-        is_available: vehicles.is_available,
-        status: vehicles.status,
         created_at: vehicles.created_at,
         updated_at: vehicles.updated_at,
       })
@@ -73,19 +72,22 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
 
-    // Insert new vehicle
-    const result = await db.insert(vehicles).values({
-      name: data.name,
-      type: data.type,
-      quantity: data.quantity,
-      price_per_day: data.price_per_day,
-      location: data.location,
-      images: data.images,
-      is_available: true,
-      status: 'active',
-      created_at: new Date(),
-      updated_at: new Date(),
-    });
+    // Ensure location and images are valid JSON objects
+    const location = typeof data.location === 'object' ? data.location : {};
+    const images = Array.isArray(data.images) ? data.images : [];
+    const now = new Date().toISOString();
+
+    // Insert new vehicle using raw SQL to ensure proper JSON formatting
+    const result = await sql`
+      INSERT INTO vehicles (
+        name, type, quantity, price_per_day, location, images, 
+        created_at, updated_at
+      ) VALUES (
+        ${data.name}, ${data.type}, ${data.quantity}, ${data.price_per_day},
+        ${JSON.stringify(location)}::jsonb, ${JSON.stringify(images)}::jsonb,
+        ${now}, ${now}
+      )
+    `;
 
     return NextResponse.json({ message: 'Vehicle created successfully' });
   } catch (error) {

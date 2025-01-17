@@ -1,7 +1,7 @@
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
-import { users, sessions, resetTokens, vehicles, bookings, documents, profiles } from './schema';
+import { users, vehicles, bookings, documents } from './schema';
 
 // Initialize SQLite database
 const sqlite = new Database('local.db');
@@ -21,55 +21,28 @@ async function main() {
     db.run(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
         name TEXT,
-        email TEXT UNIQUE,
-        email_verified INTEGER,
-        image TEXT,
-        password TEXT,
+        password_hash TEXT NOT NULL,
         role TEXT DEFAULT 'user',
         created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
         updated_at INTEGER DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
+    // Drop and recreate vehicles table with only required columns
+    db.run(`DROP TABLE IF EXISTS vehicles CASCADE`);
     db.run(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        expires INTEGER NOT NULL,
-        session_token TEXT UNIQUE NOT NULL,
-        created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
-        updated_at INTEGER DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-      )
-    `);
-
-    db.run(`
-      CREATE TABLE IF NOT EXISTS reset_tokens (
-        id TEXT PRIMARY KEY,
-        token TEXT UNIQUE NOT NULL,
-        user_id TEXT NOT NULL,
-        expires INTEGER NOT NULL,
-        created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-      )
-    `);
-
-    db.run(`
-      CREATE TABLE IF NOT EXISTS vehicles (
-        id TEXT PRIMARY KEY,
+      CREATE TABLE vehicles (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name TEXT NOT NULL,
         type TEXT NOT NULL,
-        model TEXT NOT NULL,
-        year INTEGER NOT NULL,
-        license_plate TEXT UNIQUE NOT NULL,
-        capacity INTEGER NOT NULL,
-        available INTEGER DEFAULT 1,
+        quantity INTEGER DEFAULT 1,
         price_per_day INTEGER NOT NULL,
-        location TEXT,
-        image_url TEXT,
-        created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
-        updated_at INTEGER DEFAULT CURRENT_TIMESTAMP
+        location JSONB NOT NULL,
+        images JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -80,7 +53,7 @@ async function main() {
         vehicle_id TEXT NOT NULL,
         start_date INTEGER NOT NULL,
         end_date INTEGER NOT NULL,
-        total_price INTEGER NOT NULL,
+        total_price DECIMAL(10,2) NOT NULL,
         status TEXT DEFAULT 'pending',
         payment_status TEXT DEFAULT 'pending',
         created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
@@ -95,22 +68,9 @@ async function main() {
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
         type TEXT NOT NULL,
-        url TEXT NOT NULL,
+        file_url TEXT NOT NULL,
         status TEXT DEFAULT 'pending',
-        created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
-        updated_at INTEGER DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-      )
-    `);
-
-    db.run(`
-      CREATE TABLE IF NOT EXISTS profiles (
-        id TEXT PRIMARY KEY,
-        user_id TEXT UNIQUE NOT NULL,
-        address TEXT,
-        phone TEXT,
-        driving_license TEXT,
-        verification_status TEXT DEFAULT 'pending',
+        rejection_reason TEXT,
         created_at INTEGER DEFAULT CURRENT_TIMESTAMP,
         updated_at INTEGER DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)

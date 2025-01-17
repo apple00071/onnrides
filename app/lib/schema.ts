@@ -28,8 +28,6 @@ export const vehicles = pgTable('vehicles', {
   price_per_day: integer('price_per_day').notNull(),
   location: jsonb('location').notNull(),
   images: jsonb('images').notNull(),
-  is_available: boolean('is_available').default(true),
-  status: text('status').default('active'),
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
 });
