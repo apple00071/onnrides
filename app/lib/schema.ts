@@ -40,13 +40,18 @@ export const vehicle_locations = pgTable('vehicle_locations', {
   created_at: timestamp('created_at').defaultNow(),
 });
 
+// Document types enum
+export const DOCUMENT_TYPES = ['license', 'id_proof', 'address_proof'] as const;
+export type DocumentType = typeof DOCUMENT_TYPES[number];
+
 // Documents table
 export const documents = pgTable('documents', {
   id: text('id').primaryKey(),
   user_id: text('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
-  type: text('type').notNull(),
+  type: text('type', { enum: DOCUMENT_TYPES }).notNull(),
   url: text('url').notNull(),
-  status: text('status').default('pending'),
+  status: text('status', { enum: ['pending', 'approved', 'rejected'] }).default('pending'),
+  rejection_reason: text('rejection_reason'),
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
 });

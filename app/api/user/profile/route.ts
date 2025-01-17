@@ -1,102 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { cookies } from 'next/headers';
+import { verifyAuth } from '@/lib/auth';
+import { db } from '@/lib/db';
 import logger from '@/lib/logger';
-import { findUserById, createUser, updateUser } from '@/app/lib/lib/db';
-
-interface UserProfile {
-  id: string;
-  name: string | null;
-  email: string;
-  phone: string | null;
-  role: string | null;
-  is_blocked: boolean | null;
-  is_verified: boolean | null;
-  created_at: Date | null;
-  updated_at: Date | null;
-}
+import { users } from '@/lib/schema';
+import { eq } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get user from session
-    const session = await getServerSession(authOptions);
+    const cookieStore = cookies();
+    const user = await verifyAuth(cookieStore);
     
-    if (!session?.user) {
+    if (!user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Get user profile data
-    const profile = await findUserById(session.user.id);
+    const profile = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1);
 
-    if (!profile) {
-      return NextResponse.json(
-        { error: 'Profile not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(profile);
+    return NextResponse.json(profile[0]);
   } catch (error) {
     logger.error('Error fetching profile:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to fetch profile' },
       { status: 500 }
     );
   }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function PUT(request: NextRequest) {
   try {
-    // Get user from session
-    const session = await getServerSession(authOptions);
+    const cookieStore = cookies();
+    const user = await verifyAuth(cookieStore);
     
-    if (!session?.user) {
+    if (!user) {
       return NextResponse.json(
-        { message: 'Unauthorized' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const body = await request.json();
-    const { name, phone } = body;
+    const data = await request.json();
+    const now = new Date();
 
-    // Get existing profile
-    let profile = await findUserById(session.user.id);
+    await db
+      .update(users)
+      .set({
+        ...data,
+        updated_at: now,
+      })
+      .where(eq(users.id, user.id));
 
-    if (!profile) {
-      // Create new profile if it doesn't exist
-      profile = await createUser({
-        id: session.user.id,
-        email: session.user.email!,
-        name: name || session.user.name || '',
-        phone: phone || null,
-        role: 'user',
-        is_blocked: false,
-        is_verified: false
-      });
-    } else {
-      // Update existing profile
-      profile = await updateUser(session.user.id, {
-        name: name || profile.name,
-        phone: phone || profile.phone
-      });
-    }
-
-    if (!profile) {
-      return NextResponse.json(
-        { message: 'Failed to update profile' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(profile);
+    return NextResponse.json({ message: 'Profile updated successfully' });
   } catch (error) {
     logger.error('Error updating profile:', error);
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { error: 'Failed to update profile' },
       { status: 500 }
     );
   }

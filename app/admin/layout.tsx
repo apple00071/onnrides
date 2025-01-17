@@ -1,33 +1,64 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import Sidebar from './components/Sidebar';
+
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+}
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session, status } = useSession();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (status === 'loading') return;
-
-    if (!session) {
-      router.push(`/admin/login?callbackUrl=${encodeURIComponent(pathname || '/admin')}`);
+    // Skip auth check for login page
+    if (pathname === '/admin/login') {
+      setLoading(false);
       return;
     }
 
-    if (session.user.role !== 'admin') {
-      router.push('/');
-    }
-  }, [session, status, router, pathname]);
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/auth/check');
+        const data = await response.json();
 
-  if (status === 'loading') {
+        if (!response.ok) {
+          if (pathname !== '/admin/login') {
+            router.push(`/admin/login?from=${encodeURIComponent(pathname || '/admin')}`);
+          }
+          return;
+        }
+
+        if (data.user.role !== 'admin') {
+          router.push('/');
+          return;
+        }
+
+        setUser(data.user);
+      } catch (error) {
+        if (pathname !== '/admin/login') {
+          router.push(`/admin/login?from=${encodeURIComponent(pathname || '/admin')}`);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    checkAuth();
+  }, [router, pathname]);
+
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#f26e24] border-t-transparent"></div>
@@ -35,7 +66,13 @@ export default function AdminLayout({
     );
   }
 
-  if (!session || session.user.role !== 'admin') {
+  // If we're on the login page, just render the children
+  if (pathname === '/admin/login') {
+    return <>{children}</>;
+  }
+
+  // For other admin pages, require authentication
+  if (!user || user.role !== 'admin') {
     return null;
   }
 
