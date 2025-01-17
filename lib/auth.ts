@@ -81,7 +81,7 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        logger.info('Setting JWT token with user data:', { 
+        logger.debug('Creating new JWT token for user:', { 
           userId: user.id,
           userEmail: user.email,
           userRole: user.role 
@@ -94,19 +94,16 @@ export const authOptions: AuthOptions = {
           role: user.role,
         };
       }
-      logger.debug('Using existing JWT token:', { 
-        tokenId: token.id,
-        tokenEmail: token.email,
-        tokenRole: token.role 
-      });
       return token;
     },
     async session({ session, token }) {
-      logger.info('Creating session from token:', { 
-        tokenId: token.id,
-        tokenEmail: token.email,
-        tokenRole: token.role 
-      });
+      if (!session.user?.id) {
+        logger.debug('Creating new session from token:', { 
+          tokenId: token.id,
+          tokenEmail: token.email,
+          tokenRole: token.role 
+        });
+      }
       return {
         ...session,
         user: {

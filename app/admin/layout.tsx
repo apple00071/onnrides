@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { FaHome, FaCar, FaUsers, FaBookmark, FaSignOutAlt } from 'react-icons/fa';
+import { useSession, signOut } from 'next-auth/react';
+import { IconType } from 'react-icons';
 
-interface User {
-  id: string;
-  email: string;
-  role: string;
+interface MenuItem {
+  href: string;
+  label: string;
+  icon: IconType;
 }
 
 export default function AdminLayout({
@@ -16,54 +18,23 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+  const { data: session, status } = useSession();
 
   useEffect(() => {
-    // Skip auth check for login page
-    if (pathname === '/admin/login') {
-      setLoading(false);
-      return;
+    if (status === 'unauthenticated' || (status === 'authenticated' && session?.user?.role !== 'admin')) {
+      router.push(`/admin/login?from=${encodeURIComponent(pathname || '/admin')}`);
     }
+  }, [status, session, router, pathname]);
 
-    async function checkAuth() {
-      try {
-        const response = await fetch('/api/auth/check');
-        const data = await response.json();
+  // If we're on the login page, just render the children
+  if (pathname === '/admin/login') {
+    return <>{children}</>;
+  }
 
-        if (!response.ok) {
-          router.push(`/admin/login?from=${encodeURIComponent(pathname || '/admin')}`);
-          return;
-        }
-
-        if (data.user.role !== 'admin') {
-          router.push('/');
-          return;
-        }
-
-        setUser(data.user);
-      } catch (error) {
-        router.push(`/admin/login?from=${encodeURIComponent(pathname || '/admin')}`);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    checkAuth();
-  }, [router, pathname]);
-
-  const handleSignOut = async () => {
-    try {
-      await fetch('/api/auth/signout', { method: 'POST' });
-      router.push('/admin/login');
-    } catch (error) {
-      console.error('Sign out error:', error);
-    }
-  };
-
-  if (loading) {
+  // Show loading state while checking session
+  if (status === 'loading' || status === 'unauthenticated') {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#f26e24] border-t-transparent"></div>
@@ -71,17 +42,12 @@ export default function AdminLayout({
     );
   }
 
-  // If we're on the login page, just render the children
-  if (pathname === '/admin/login') {
-    return <>{children}</>;
-  }
-
-  // For other admin pages, require authentication
-  if (!user || user.role !== 'admin') {
+  // Don't render admin UI if not admin
+  if (!session?.user || session.user.role !== 'admin') {
     return null;
   }
 
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     { href: '/admin', label: 'Dashboard', icon: FaHome },
     { href: '/admin/vehicles', label: 'Vehicles', icon: FaCar },
     { href: '/admin/users', label: 'Users', icon: FaUsers },
@@ -113,7 +79,7 @@ export default function AdminLayout({
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
-                  <Icon className="h-5 w-5" />
+                  {Icon && <Icon className="h-5 w-5" />}
                   <span>{item.label}</span>
                 </Link>
               );
@@ -123,7 +89,7 @@ export default function AdminLayout({
           {/* Sign Out Button */}
           <div className="border-t p-4">
             <button
-              onClick={handleSignOut}
+              onClick={() => signOut({ callbackUrl: '/admin/login' })}
               className="flex w-full items-center space-x-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
             >
               <FaSignOutAlt className="h-5 w-5" />

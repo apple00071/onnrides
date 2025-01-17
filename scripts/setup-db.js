@@ -11,10 +11,25 @@ async function runMigrations() {
     const migrationPath = path.join(__dirname, '../lib/migrations/001_initial_schema.sql');
     const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
 
-    // Run the migrations
-    await sql.query(migrationSQL);
+    // Split the migration into separate statements
+    const statements = migrationSQL
+      .split(';')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
 
-    console.log('Database migrations completed successfully');
+    // Run each statement separately
+    for (const statement of statements) {
+      try {
+        await sql.query(statement + ';');
+        console.log('Successfully executed:', statement.substring(0, 50) + '...');
+      } catch (error) {
+        console.error('Error executing statement:', statement.substring(0, 50) + '...');
+        console.error('Error details:', error);
+        // Continue with next statement instead of failing completely
+      }
+    }
+
+    console.log('Database migrations completed');
     process.exit(0);
   } catch (error) {
     console.error('Error running migrations:', error);

@@ -44,8 +44,18 @@ export async function GET(request: NextRequest) {
       })
       .from(vehicles);
 
+    // Ensure proper formatting of vehicle data
+    const formattedVehicles = allVehicles.map(vehicle => ({
+      ...vehicle,
+      status: vehicle.status || 'active',
+      images: Array.isArray(vehicle.images) ? vehicle.images : [],
+      price_per_day: Number(vehicle.price_per_day),
+      quantity: Number(vehicle.quantity),
+      is_available: Boolean(vehicle.is_available)
+    }));
+
     logger.info('Successfully fetched vehicles data');
-    return NextResponse.json({ vehicles: allVehicles });
+    return NextResponse.json({ vehicles: formattedVehicles });
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
     return NextResponse.json(

@@ -74,7 +74,18 @@ export default function VehiclesPage() {
         throw new Error(data.error || 'Failed to fetch vehicles');
       }
       
-      setVehicles(data.vehicles);
+      console.log('Raw vehicles data:', data.vehicles);
+      // Ensure vehicles have the correct shape
+      const formattedVehicles = data.vehicles.map((vehicle: any) => {
+        console.log('Processing vehicle:', vehicle);
+        return {
+          ...vehicle,
+          status: String(vehicle.status || 'active'),
+          images: Array.isArray(vehicle.images) ? vehicle.images : []
+        };
+      });
+      console.log('Formatted vehicles:', formattedVehicles);
+      setVehicles(formattedVehicles);
     } catch (error) {
       logger.error('Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to fetch vehicles');
@@ -168,12 +179,25 @@ export default function VehiclesPage() {
               <TableRow key={vehicle.id}>
                 <TableCell>
                   <div className="relative h-12 w-12">
-                    <Image
-                      src={vehicle.images[0] || '/placeholder-vehicle.jpg'}
-                      alt={vehicle.name}
-                      fill
-                      className="object-cover rounded"
-                    />
+                    {vehicle.images?.[0] ? (
+                      <Image
+                        src={vehicle.images[0]}
+                        alt={vehicle.name}
+                        fill
+                        className="object-cover rounded"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = '/placeholder-vehicle.jpg';
+                        }}
+                      />
+                    ) : (
+                      <Image
+                        src="/placeholder-vehicle.jpg"
+                        alt={vehicle.name}
+                        fill
+                        className="object-cover rounded"
+                      />
+                    )}
                   </div>
                 </TableCell>
                 <TableCell>{vehicle.name}</TableCell>
@@ -191,7 +215,7 @@ export default function VehiclesPage() {
                         : 'destructive'
                     }
                   >
-                    {vehicle.status}
+                    {String(vehicle.status).charAt(0).toUpperCase() + String(vehicle.status).slice(1)}
                   </Badge>
                 </TableCell>
                 <TableCell>

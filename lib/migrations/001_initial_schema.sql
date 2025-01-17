@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS vehicles (
   price_per_day DECIMAL(10,2) NOT NULL,
   location TEXT NOT NULL,
   images JSONB NOT NULL DEFAULT '[]',
-  is_available BOOLEAN NOT NULL DEFAULT true,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'maintenance', 'retired')),
+  is_available BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -51,11 +51,20 @@ CREATE TABLE IF NOT EXISTS documents (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Drop existing indexes if they exist
+DROP INDEX IF EXISTS idx_users_email;
+DROP INDEX IF EXISTS idx_vehicles_status;
+DROP INDEX IF EXISTS idx_bookings_user_id;
+DROP INDEX IF EXISTS idx_bookings_vehicle_id;
+DROP INDEX IF EXISTS idx_bookings_status;
+DROP INDEX IF EXISTS idx_documents_user_id;
+DROP INDEX IF EXISTS idx_documents_status;
+
 -- Create indexes
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_vehicles_status ON vehicles(status);
-CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
-CREATE INDEX IF NOT EXISTS idx_bookings_vehicle_id ON bookings(vehicle_id);
-CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
-CREATE INDEX IF NOT EXISTS idx_documents_user_id ON documents(user_id);
-CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status); 
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_vehicles_status ON vehicles(status);
+CREATE INDEX idx_bookings_user_id ON bookings(user_id);
+CREATE INDEX idx_bookings_vehicle_id ON bookings(vehicle_id);
+CREATE INDEX idx_bookings_status ON bookings(status);
+CREATE INDEX idx_documents_user_id ON documents(user_id);
+CREATE INDEX idx_documents_status ON documents(status); 
