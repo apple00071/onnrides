@@ -1,15 +1,18 @@
-import VehicleDetailsClient from './VehicleDetailsClient';
 import { Metadata } from 'next';
-import prisma from '../../../lib/prisma';
+import { db } from '@/lib/db';
+import { vehicles } from '@/lib/schema';
+import { eq } from 'drizzle-orm';
+import VehicleDetailsClient from './VehicleDetailsClient';
 
 export async function generateMetadata({ params: _params }: { params: { id: string } }): Promise<Metadata> {
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { id: _params.id }
-  });
+  const [vehicle] = await db
+    .select()
+    .from(vehicles)
+    .where(eq(vehicles.id, _params.id));
 
   return {
     title: vehicle?.name ? `${vehicle.name} - OnnRides` : 'Vehicle Details - OnnRides',
-    description: vehicle?.description || 'Book your next ride with OnnRides',
+    description: 'Book your next ride with OnnRides',
   };
 }
 

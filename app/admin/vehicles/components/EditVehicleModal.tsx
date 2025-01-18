@@ -15,31 +15,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/app/components/ui/dialog';
-
-interface Vehicle {
-  id: string;
-  name: string;
-  type: string;
-  quantity: number;
-  price_per_day: number;
-  location: string;
-  images: string[];
-  is_available: boolean;
-  status: 'active' | 'maintenance' | 'retired';
-  created_at: string;
-  updated_at: string;
-}
-
-interface FormData {
-  name: string;
-  type: string;
-  quantity: number;
-  price_per_day: number;
-  location: string;
-  status: 'active' | 'maintenance' | 'retired';
-  is_available: boolean;
-  images: string[];
-}
+import { Vehicle, FormData } from '../types';
 
 interface EditVehicleModalProps {
   vehicle: Vehicle;
@@ -48,7 +24,12 @@ interface EditVehicleModalProps {
   onVehicleUpdated: () => void;
 }
 
-export default function EditVehicleModal({ vehicle, isOpen, onClose, onVehicleUpdated }: EditVehicleModalProps) {
+export default function EditVehicleModal({
+  vehicle,
+  isOpen,
+  onClose,
+  onVehicleUpdated,
+}: EditVehicleModalProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     name: vehicle.name,
@@ -82,6 +63,8 @@ export default function EditVehicleModal({ vehicle, isOpen, onClose, onVehicleUp
         ? Number(value)
         : name === 'status'
         ? value as 'active' | 'maintenance' | 'retired'
+        : name === 'location'
+        ? { name: value.split(',').map(loc => loc.trim()) }
         : value
     }));
   };
@@ -173,13 +156,14 @@ export default function EditVehicleModal({ vehicle, isOpen, onClose, onVehicleUp
             />
           </div>
           <div>
-            <Label htmlFor="location">Location</Label>
+            <Label htmlFor="location">Locations (comma-separated)</Label>
             <Input
               id="location"
               name="location"
-              value={formData.location}
+              value={formData.location.name.join(', ')}
               onChange={handleChange}
               required
+              placeholder="e.g., Madhapur, Erragadda"
             />
           </div>
           <div>

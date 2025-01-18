@@ -27,7 +27,7 @@ interface Vehicle {
   type: string;
   quantity: number;
   price_per_day: number;
-  location: string;
+  location: { name: string[] };
   images: string[];
   is_available: boolean;
   status: 'active' | 'maintenance' | 'retired';
@@ -81,7 +81,10 @@ export default function VehiclesPage() {
         return {
           ...vehicle,
           status: String(vehicle.status || 'active'),
-          images: Array.isArray(vehicle.images) ? vehicle.images : []
+          images: Array.isArray(vehicle.images) ? vehicle.images : [],
+          location: typeof vehicle.location === 'string' 
+            ? { name: [vehicle.location] }
+            : vehicle.location
         };
       });
       console.log('Formatted vehicles:', formattedVehicles);
@@ -204,7 +207,7 @@ export default function VehiclesPage() {
                 <TableCell>{vehicle.type}</TableCell>
                 <TableCell>{vehicle.quantity}</TableCell>
                 <TableCell>₹{vehicle.price_per_day}/day</TableCell>
-                <TableCell>{vehicle.location}</TableCell>
+                <TableCell>{vehicle.location.name.join(', ')}</TableCell>
                 <TableCell>
                   <Badge
                     variant={
