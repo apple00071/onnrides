@@ -3,59 +3,34 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { vehicles } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import logger from '@/lib/logger';
+import { verifyAuth } from '@/lib/auth';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Check if user is authenticated and is an admin
-    const session = await getServerSession(authOptions);
+    const user = await verifyAuth();
     
-    if (!session?.user) {
-      logger.warn('Unauthorized access attempt to vehicles API');
+    if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    if (session.user.role !== 'admin') {
-      logger.warn('Non-admin access attempt to vehicles API:', { userEmail: session.user.email });
+    if (user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }
       );
     }
 
-    // Get all vehicles with specific fields
     const allVehicles = await db
-      .select({
-        id: vehicles.id,
-        name: vehicles.name,
-        type: vehicles.type,
-        quantity: vehicles.quantity,
-        price_per_day: vehicles.price_per_day,
-        location: vehicles.location,
-        images: vehicles.images,
-        is_available: vehicles.is_available,
-        status: vehicles.status,
-        created_at: vehicles.created_at,
-        updated_at: vehicles.updated_at,
-      })
-      .from(vehicles);
+      .select()
+      .from(vehicles)
+      .orderBy(desc(vehicles.created_at));
 
-    // Ensure proper formatting of vehicle data
-    const formattedVehicles = allVehicles.map(vehicle => ({
-      ...vehicle,
-      status: vehicle.status || 'active',
-      images: Array.isArray(vehicle.images) ? vehicle.images : [],
-      price_per_day: Number(vehicle.price_per_day),
-      quantity: Number(vehicle.quantity),
-      is_available: Boolean(vehicle.is_available)
-    }));
-
-    logger.info('Successfully fetched vehicles data');
-    return NextResponse.json({ vehicles: formattedVehicles });
+    return NextResponse.json(allVehicles);
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
     return NextResponse.json(

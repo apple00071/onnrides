@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import logger from '@/lib/logger';
 import Image from 'next/image';
@@ -53,7 +53,7 @@ export default function VehiclesPage() {
   const [vehicleType, setVehicleType] = useState<'car' | 'bike'>('car');
   const [searchDuration, setSearchDuration] = useState<string>('');
 
-  const calculateDuration = (pickupStr: string, dropoffStr: string) => {
+  const calculateDuration = useCallback((pickupStr: string, dropoffStr: string) => {
     const pickup = new Date(pickupStr);
     const dropoff = new Date(dropoffStr);
     const diff = dropoff.getTime() - pickup.getTime();
@@ -68,9 +68,9 @@ export default function VehiclesPage() {
     if (minutes > 0) duration += `${duration ? ' and ' : ''}${minutes} ${minutes === 1 ? 'Minute' : 'Minutes'}`;
 
     return duration || '0 Minutes';
-  };
+  }, []);
 
-  const fetchVehicles = async () => {
+  const fetchVehicles = useCallback(async () => {
     try {
       // Get search params
       const pickupDate = searchParams.get('pickupDate');
@@ -160,11 +160,11 @@ export default function VehiclesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchParams, sortBy, selectedLocations, vehicleType, calculateDuration]);
 
   useEffect(() => {
     fetchVehicles();
-  }, [searchParams, sortBy, selectedLocations, vehicleType]);
+  }, [fetchVehicles]);
 
   const handleLocationChange = (location: string) => {
     setSelectedLocations(prev => {

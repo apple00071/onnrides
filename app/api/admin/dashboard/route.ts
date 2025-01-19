@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import logger from '@/lib/logger';
+import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { cookies } from 'next/headers';
-import { verifyAuth } from '@/lib/auth';
 import { users, bookings, vehicles, documents } from '@/lib/schema';
 import { count, sum } from 'drizzle-orm';
 import { eq, ne, desc } from 'drizzle-orm';
+import { cookies } from 'next/headers';
+import { verifyAuth } from '@/lib/auth';
+import logger from '@/lib/logger';
 
 interface DashboardStats {
   total_users: number;
@@ -27,10 +27,9 @@ interface DashboardStats {
   }>;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const cookieStore = cookies();
-    const user = await verifyAuth(cookieStore);
+    const user = await verifyAuth();
     
     if (!user) {
       return NextResponse.json(

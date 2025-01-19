@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
@@ -28,7 +28,7 @@ export default function BookingPage() {
   const [locationDetails, setLocationDetails] = useState({ main: '', sub: '' });
 
   // Function to validate and format time
-  const validateAndFormatTime = (dateTimeStr: string | null): string | null => {
+  const validateAndFormatTime = useCallback((dateTimeStr: string | null): string | null => {
     if (!dateTimeStr) return null;
     
     const now = new Date();
@@ -51,20 +51,20 @@ export default function BookingPage() {
     }
 
     return selectedDate.toISOString();
-  };
+  }, []);
 
   // Update pickup time state with validation
-  const setPickupTime = (time: string | null) => {
+  const setPickupTime = useCallback((time: string | null) => {
     const validatedTime = validateAndFormatTime(time);
     if (!validatedTime) {
       toast.error('Please select a future time');
       return;
     }
     setPickupDateTime(validatedTime);
-  };
+  }, [validateAndFormatTime]);
 
   // Update dropoff time state with validation
-  const setDropoffTime = (time: string | null) => {
+  const setDropoffTime = useCallback((time: string | null) => {
     const validatedTime = validateAndFormatTime(time);
     if (!validatedTime) {
       toast.error('Please select a future time');
@@ -75,7 +75,7 @@ export default function BookingPage() {
       return;
     }
     setDropoffDateTime(validatedTime);
-  };
+  }, [validateAndFormatTime, pickupDateTime]);
 
   useEffect(() => {
     const pickup = searchParams.get('pickup');

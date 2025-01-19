@@ -3,8 +3,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import logger from '@/lib/logger';
 import { findDocuments, updateDocument } from '@/lib/db';
-import { eq } from 'drizzle-orm';
-import { documents } from '@/lib/schema';
 
 export async function GET(
   request: Request,
@@ -26,10 +24,9 @@ export async function GET(
       );
     }
 
-    const userDocuments = await findDocuments();
-    const filteredDocuments = userDocuments.filter(doc => doc.user_id === userId);
+    const userDocuments = await findDocuments({ userId });
     logger.debug(`Successfully fetched documents for user ${userId}`);
-    return NextResponse.json(filteredDocuments);
+    return NextResponse.json(userDocuments);
     
   } catch (error) {
     logger.error('Error fetching user documents:', error);
@@ -85,9 +82,8 @@ export async function PATCH(
       }
 
       // Check if all required documents are approved
-      const userDocuments = await findDocuments();
-      const filteredDocuments = userDocuments.filter(doc => doc.user_id === userId);
-      const allDocsApproved = filteredDocuments.every(doc => doc.status === 'approved');
+      const userDocuments = await findDocuments({ userId });
+      const allDocsApproved = userDocuments.every(doc => doc.status === 'approved');
 
       logger.debug(`Successfully updated document ${documentId} status to ${status}`);
       return NextResponse.json({

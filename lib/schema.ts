@@ -22,6 +22,8 @@ export const users = pgTable('users', {
   phone: text('phone'),
   password_hash: text('password_hash').notNull(),
   role: text('role', { enum: ['user', 'admin'] }).notNull().default('user'),
+  reset_token: text('reset_token'),
+  reset_token_expiry: timestamp('reset_token_expiry'),
   created_at: timestamp('created_at').notNull().defaultNow(),
   updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
