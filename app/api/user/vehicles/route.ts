@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { vehicles } from '@/lib/schema';
-import { eq, and, or, like } from 'drizzle-orm';
-import { verifyAuth } from '@/lib/auth';
+import { eq, and, like } from 'drizzle-orm';
 import logger from '@/lib/logger';
 
 export async function GET(request: Request) {
@@ -14,7 +13,7 @@ export async function GET(request: Request) {
     const maxPrice = searchParams.get('maxPrice');
     const isAvailable = searchParams.get('isAvailable');
 
-    let conditions = [];
+    const conditions = [];
 
     if (type) {
       conditions.push(eq(vehicles.type, type));

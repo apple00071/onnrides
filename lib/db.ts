@@ -126,7 +126,7 @@ export async function findVehicles(filters?: {
   minPrice?: string;
   maxPrice?: string;
 }): Promise<Vehicle[]> {
-  let conditions: SQLWrapper[] = [];
+  const conditions: SQLWrapper[] = [];
 
   if (filters) {
     if (typeof filters.isAvailable === 'boolean') {
@@ -223,7 +223,7 @@ export async function findBookings(filters?: {
   vehicleId?: string;
   status?: 'pending' | 'confirmed' | 'cancelled' | 'completed';
 }): Promise<Booking[]> {
-  let conditions: SQLWrapper[] = [];
+  const conditions: SQLWrapper[] = [];
 
   if (filters) {
     if (filters.userId) {
@@ -303,7 +303,7 @@ export async function findDocuments(filters?: {
   type?: 'license' | 'id_proof' | 'address_proof';
   status?: 'pending' | 'approved' | 'rejected';
 }): Promise<Document[]> {
-  let conditions: SQLWrapper[] = [];
+  const conditions: SQLWrapper[] = [];
 
   if (filters) {
     if (filters.userId) {
