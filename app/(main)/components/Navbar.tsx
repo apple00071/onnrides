@@ -145,13 +145,9 @@ export default function Navbar() {
                 <button className="focus:outline-none">
                   <div className="flex items-center space-x-3">
                     <Avatar>
-                      {session.user.image ? (
-                        <AvatarImage src={session.user.image} alt={session.user.name || ''} />
-                      ) : (
-                        <AvatarFallback className="bg-[#f26e24] text-white">
-                          {getInitials(session.user.name || '')}
-                        </AvatarFallback>
-                      )}
+                      <AvatarFallback className="bg-[#f26e24] text-white">
+                        {getInitials(session.user.name || '')}
+                      </AvatarFallback>
                     </Avatar>
                     <span className="text-sm font-medium text-gray-700">
                       {session.user.name || 'User'}

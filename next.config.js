@@ -22,7 +22,7 @@ const nextConfig = {
     ]
   },
   experimental: {
-    serverExternalPackages: ['bcrypt']
+    serverComponentsExternalPackages: ['bcrypt']
   },
   output: 'standalone'
 }
