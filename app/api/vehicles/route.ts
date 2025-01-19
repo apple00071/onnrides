@@ -4,7 +4,8 @@ import { db } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { vehicles } from '@/lib/schema';
-import { eq, and, inArray, ilike } from 'drizzle-orm';
+import { eq, and, inArray, ilike, gte, lte } from 'drizzle-orm';
+import { verifyAuth } from '@/lib/auth';
 
 interface Vehicle {
   id?: string;
@@ -46,90 +47,46 @@ interface CreateVehicleBody {
 // GET /api/vehicles - List all vehicles
 export async function GET(request: NextRequest) {
   try {
-    // Get query parameters for filtering
     const { searchParams } = new URL(request.url);
-    const pickupDate = searchParams.get('pickupDate');
-    const dropoffDate = searchParams.get('dropoffDate');
-    const locations = searchParams.get('locations')?.split(',').filter(Boolean);
     const type = searchParams.get('type');
+    const location = searchParams.get('location');
+    const minPrice = searchParams.get('minPrice');
+    const maxPrice = searchParams.get('maxPrice');
+    const isAvailable = searchParams.get('isAvailable');
 
-    // Build query conditions
-    let conditions = [];
+    const conditions = [];
 
-    // Filter by type if provided
     if (type) {
-      logger.info('Filtering by type:', type);
-      // First get all vehicles to check what types exist
-      const allVehicles = await db.select().from(vehicles);
-      logger.info('All vehicle types:', allVehicles.map(v => v.type));
-      
-      // Use case-insensitive comparison
-      conditions.push(ilike(vehicles.type, type));
+      conditions.push(eq(vehicles.type, type));
     }
 
-    // Filter by location if provided
-    if (locations && locations.length > 0) {
-      logger.info('Filtering by locations:', locations);
-      conditions.push(
-        inArray(
-          vehicles.location,
-          locations.map(loc => JSON.stringify([loc]))
-        )
-      );
+    if (location) {
+      conditions.push(eq(vehicles.location, location));
     }
 
-    // Filter by availability
-    conditions.push(eq(vehicles.is_available, true));
-    conditions.push(eq(vehicles.status, 'active' as const));
+    if (minPrice) {
+      conditions.push(gte(vehicles.price_per_day, minPrice));
+    }
 
-    logger.info('Query conditions:', conditions);
+    if (maxPrice) {
+      conditions.push(lte(vehicles.price_per_day, maxPrice));
+    }
 
-    // Fetch vehicles with conditions
-    const vehiclesList = await db
+    if (isAvailable === 'true') {
+      conditions.push(eq(vehicles.is_available, true));
+    }
+
+    const availableVehicles = await db
       .select()
       .from(vehicles)
-      .where(conditions.length > 0 ? and(...conditions) : undefined);
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(vehicles.created_at);
 
-    logger.info('Found vehicles:', vehiclesList);
-
-    // Format response data
-    const formattedVehicles = vehiclesList.map(vehicle => {
-      // Handle location parsing
-      let locationData: string[] = [];
-      try {
-        if (typeof vehicle.location === 'string') {
-          locationData = JSON.parse(vehicle.location);
-        } else if (typeof vehicle.location === 'object' && 'name' in vehicle.location) {
-          locationData = (vehicle.location as { name: string[] }).name;
-        } else if (Array.isArray(vehicle.location)) {
-          locationData = vehicle.location;
-        } else {
-          locationData = [String(vehicle.location)];
-        }
-      } catch (e) {
-        locationData = [String(vehicle.location)];
-      }
-
-      return {
-        ...vehicle,
-        location: locationData,
-        price_per_day: Number(vehicle.price_per_day),
-        price_12hrs: Number(vehicle.price_12hrs),
-        price_24hrs: Number(vehicle.price_24hrs),
-        price_7days: Number(vehicle.price_7days),
-        price_15days: Number(vehicle.price_15days),
-        price_30days: Number(vehicle.price_30days),
-        images: Array.isArray(vehicle.images) ? vehicle.images : []
-      };
-    });
-
-    logger.info('Formatted vehicles:', formattedVehicles);
-
-    return NextResponse.json(formattedVehicles);
+    return NextResponse.json(availableVehicles);
   } catch (error) {
-    logger.error('Failed to fetch vehicles:', error);
+    logger.error('Error fetching vehicles:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch vehicles', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to fetch vehicles' },
       { status: 500 }
     );
   }

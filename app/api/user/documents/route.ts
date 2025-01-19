@@ -1,132 +1,78 @@
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { documents } from '@/lib/schema';
+import { eq } from 'drizzle-orm';
+import { verifyAuth } from '@/lib/auth';
 import logger from '@/lib/logger';
-import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 
-interface Document {
-  id: string;
-  document_type: string;
-  file_url: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export async function GET(request: NextRequest) {
-  let client;
+export async function GET() {
   try {
-    // Get user from session
-    const session = await getServerSession(authOptions);
-    const user = session?.user;
-
+    const user = await verifyAuth();
     if (!user) {
       return NextResponse.json(
-        { message: 'Unauthorized' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Get database connection
-    client = await pool.connect();
+    const userDocuments = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.user_id, user.id))
+      .orderBy(documents.created_at);
 
-    // Fetch user's documents
-    const documentsResult = await client.query(`
-      SELECT 
-        id,
-        document_type,
-        file_url,
-        status,
-        created_at,
-        updated_at
-      FROM document_submissions
-      WHERE user_id = (SELECT id FROM users WHERE email = $1)
-      ORDER BY created_at DESC
-    `, [user.email]);
-
-    const documents: Document[] = documentsResult.rows;
-
-    // Check document verification status
-    const verificationResult = await client.query(`
-      SELECT 
-        COUNT(DISTINCT document_type) = 4 AND COUNT(*) = COUNT(CASE WHEN status = 'approved' THEN 1 END) as is_documents_verified,
-        COUNT(*) > 0 as documents_submitted
-      FROM document_submissions
-      WHERE user_id = (SELECT id FROM users WHERE email = $1)
-    `, [user.email]);
-
-    return NextResponse.json({
-      documents,
-      is_verified: verificationResult.rows[0]?.is_documents_verified || false,
-      documents_submitted: verificationResult.rows[0]?.documents_submitted || false
-    });
+    return NextResponse.json(userDocuments);
   } catch (error) {
-    logger.error('Error fetching documents:', error);
+    logger.error('Error fetching user documents:', error);
     return NextResponse.json(
-      { message: 'Failed to fetch documents' },
+      { error: 'Failed to fetch documents' },
       { status: 500 }
     );
-  } finally {
-    if (client) client.release();
   }
 }
 
-export async function POST(request: NextRequest) {
-  let client;
+export async function POST(request: Request) {
   try {
-    // Get user from session
-    const session = await getServerSession(authOptions);
-    const user = session?.user;
-
+    const user = await verifyAuth();
     if (!user) {
       return NextResponse.json(
-        { message: 'Unauthorized' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const { document_type, file_url } = await request.json();
+    const { type, file_url } = await request.json();
 
-    if (!document_type || !file_url) {
+    // Validate required fields
+    if (!type || !file_url) {
       return NextResponse.json(
-        { message: 'Document type and URL are required' },
+        { error: 'Document type and file URL are required' },
         { status: 400 }
       );
     }
 
-    // Get database connection
-    client = await pool.connect();
-
-    // Start transaction
-    await client.query('BEGIN');
-
-    // Insert document
-    const result = await client.query(`
-      INSERT INTO document_submissions (
-        user_id,
-        document_type,
+    // Create document
+    const [document] = await db
+      .insert(documents)
+      .values({
+        user_id: user.id,
+        type,
         file_url,
-        status
-      ) VALUES (
-        (SELECT id FROM users WHERE email = $1),
-        $2,
-        $3,
-        'pending'
-      )
-      RETURNING *
-    `, [user.email, document_type, file_url]);
+        status: 'pending',
+        created_at: new Date(),
+        updated_at: new Date()
+      })
+      .returning();
 
-    await client.query('COMMIT');
-
-    return NextResponse.json(result.rows[0]);
+    return NextResponse.json({
+      message: 'Document submitted successfully',
+      document
+    });
   } catch (error) {
-    if (client) await client.query('ROLLBACK');
-    logger.error('Error creating document:', error);
+    logger.error('Error submitting document:', error);
     return NextResponse.json(
-      { message: 'Failed to create document' },
+      { error: 'Failed to submit document' },
       { status: 500 }
     );
-  } finally {
-    if (client) client.release();
   }
 } 

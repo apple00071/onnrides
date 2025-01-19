@@ -1,96 +1,64 @@
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { bookings, vehicles } from '@/lib/schema';
+import { eq, desc, and } from 'drizzle-orm';
+import { verifyAuth } from '@/lib/auth';
 import logger from '@/lib/logger';
-import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 
-interface DashboardStats {
-  total_bookings: number;
-  total_spent: number;
-  total_vehicles: number;
-  pending_documents: number;
-  recent_bookings: Array<{
-    id: string;
-    vehicle_name: string;
-    total_amount: number;
-    status: string;
-    created_at: string;
-  }>;
-}
-
-export async function GET(request: NextRequest) {
-  let client;
+export async function GET() {
   try {
-    // Check if user is authenticated
-    const session = await getServerSession(authOptions);
-    const user = session?.user;
-
+    const user = await verifyAuth();
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    // Get database connection
-    client = await pool.connect();
+    // Get user's recent bookings
+    const recentBookings = await db
+      .select({
+        id: bookings.id,
+        vehicle_name: vehicles.name,
+        start_date: bookings.start_date,
+        end_date: bookings.end_date,
+        total_price: bookings.total_price,
+        status: bookings.status,
+        payment_status: bookings.payment_status,
+        created_at: bookings.created_at
+      })
+      .from(bookings)
+      .innerJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
+      .where(eq(bookings.user_id, user.id))
+      .orderBy(desc(bookings.created_at))
+      .limit(5);
 
-    try {
-      const stats: DashboardStats = {
-        total_bookings: 0,
-        total_spent: 0,
-        total_vehicles: 0,
-        pending_documents: 0,
-        recent_bookings: []
-      };
+    // Get total bookings count
+    const [bookingsCount] = await db
+      .select({ count: bookings.id })
+      .from(bookings)
+      .where(eq(bookings.user_id, user.id));
 
-      // Get total bookings and total spent
-      const bookingsResult = await client.query(`
-        SELECT COUNT(*) as total_bookings, SUM(total_amount) as total_spent
-        FROM bookings
-        WHERE user_id = (SELECT id FROM users WHERE email = $1)
-      `, [user.email]);
-      stats.total_bookings = parseInt(bookingsResult.rows[0].total_bookings);
-      stats.total_spent = parseFloat(bookingsResult.rows[0].total_spent) || 0;
+    // Get total amount spent
+    const [totalSpent] = await db
+      .select({ total: bookings.total_price })
+      .from(bookings)
+      .where(
+        and(
+          eq(bookings.user_id, user.id),
+          eq(bookings.status, 'completed')
+        )
+      );
 
-      // Get total vehicles (available for booking)
-      const vehiclesResult = await client.query(`
-        SELECT COUNT(*) as total_vehicles
-        FROM vehicles
-        WHERE is_available = true
-      `);
-      stats.total_vehicles = parseInt(vehiclesResult.rows[0].total_vehicles);
-
-      // Get pending documents
-      const documentsResult = await client.query(`
-        SELECT COUNT(*) as pending_docs
-        FROM document_submissions
-        WHERE user_id = (SELECT id FROM users WHERE email = $1)
-        AND status = 'pending'
-      `, [user.email]);
-      stats.pending_documents = parseInt(documentsResult.rows[0].pending_docs);
-
-      // Get recent bookings
-      const recentBookingsResult = await client.query(`
-        SELECT 
-          b.id,
-          v.name as vehicle_name,
-          b.total_amount,
-          b.status,
-          b.created_at
-        FROM bookings b
-        JOIN vehicles v ON b.vehicle_id = v.id
-        WHERE b.user_id = (SELECT id FROM users WHERE email = $1)
-        ORDER BY b.created_at DESC
-        LIMIT 5
-      `, [user.email]);
-      stats.recent_bookings = recentBookingsResult.rows;
-
-      return NextResponse.json(stats);
-    } finally {
-      client.release();
-    }
+    return NextResponse.json({
+      recent_bookings: recentBookings,
+      total_bookings: Number(bookingsCount?.count || 0),
+      total_spent: Number(totalSpent?.total || 0)
+    });
   } catch (error) {
-    logger.error('Error fetching dashboard stats:', error);
+    logger.error('Error fetching user dashboard:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch dashboard stats' },
+      { error: 'Failed to fetch dashboard data' },
       { status: 500 }
     );
   }

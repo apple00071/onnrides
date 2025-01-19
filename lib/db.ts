@@ -1,13 +1,21 @@
-import { drizzle } from 'drizzle-orm/neon-http';
-import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
+import { eq, and, gte, lte, SQLWrapper } from 'drizzle-orm';
 import { users, vehicles, bookings, documents } from './schema';
-import { eq, and, or, not, SQL, SQLWrapper, asc, desc, gte, lte } from 'drizzle-orm';
 import type { User, Vehicle, Booking, Document } from './types';
 import logger from './logger';
+import { env } from './env';
 
-// Initialize database with error handling
-const sql = neon(process.env.DATABASE_URL!);
-export const db = drizzle(sql);
+// Create a new pool instance
+const pool = new Pool({
+  connectionString: env.DATABASE_URL
+});
+
+// Create a new drizzle instance
+const db = drizzle(pool);
+
+export { db };
+export default db;
 
 // Export collections
 export const COLLECTIONS = {

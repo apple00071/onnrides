@@ -1,53 +1,48 @@
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { vehicles } from '@/lib/schema';
+import { eq, and, or, like } from 'drizzle-orm';
+import { verifyAuth } from '@/lib/auth';
 import logger from '@/lib/logger';
-import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 
-interface Vehicle {
-  id: string;
-  name: string;
-  type: string;
-  brand: string;
-  model: string;
-  year: number;
-  color: string;
-  registration_number: string;
-  price_per_day: number;
-  is_available: boolean;
-  image_url: string;
-  created_at: string;
-}
-
-export async function GET(request: NextRequest) {
-  let client;
+export async function GET(request: Request) {
   try {
-    // Check if user is authenticated
-    const session = await getServerSession(authOptions);
-    const user = session?.user;
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type');
+    const location = searchParams.get('location');
+    const minPrice = searchParams.get('minPrice');
+    const maxPrice = searchParams.get('maxPrice');
+    const isAvailable = searchParams.get('isAvailable');
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let conditions = [];
+
+    if (type) {
+      conditions.push(eq(vehicles.type, type));
     }
 
-    // Get database connection
-    client = await pool.connect();
-
-    try {
-      // Get vehicles owned by the user
-      const result = await client.query<Vehicle>(`
-        SELECT 
-          v.*
-        FROM vehicles v
-        JOIN user_vehicles uv ON v.id = uv.vehicle_id
-        WHERE uv.user_id = (SELECT id FROM users WHERE email = $1)
-        ORDER BY v.created_at DESC
-      `, [user.email]);
-
-      return NextResponse.json(result.rows);
-    } finally {
-      client.release();
+    if (location) {
+      conditions.push(like(vehicles.location, `%${location}%`));
     }
+
+    if (minPrice) {
+      conditions.push(eq(vehicles.price_per_day, minPrice));
+    }
+
+    if (maxPrice) {
+      conditions.push(eq(vehicles.price_per_day, maxPrice));
+    }
+
+    if (isAvailable === 'true') {
+      conditions.push(eq(vehicles.is_available, true));
+    }
+
+    const availableVehicles = await db
+      .select()
+      .from(vehicles)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(vehicles.created_at);
+
+    return NextResponse.json(availableVehicles);
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
     return NextResponse.json(

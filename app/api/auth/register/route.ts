@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import pool from '@/lib/db';
+import { db } from '@/lib/db';
+import { users } from '@/lib/schema';
+import { eq } from 'drizzle-orm';
+import { hashPassword } from '@/lib/auth';
 import logger from '@/lib/logger';
 
 interface RegisterBody {
@@ -11,100 +13,63 @@ interface RegisterBody {
 }
 
 export async function POST(request: NextRequest) {
-  let client;
-  
   try {
-    const body = await request.json() as RegisterBody;
-    const { email, password, name, phone } = body;
+    const { email, password, name } = await request.json();
 
-    // Validate input
-    if (!email || !password || !name || !phone) {
+    // Validate required fields
+    if (!email || !password) {
       return NextResponse.json(
-        { message: 'All fields are required' },
+        { error: 'Email and password are required' },
         { status: 400 }
       );
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    // Check if user already exists
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (existingUser.length > 0) {
       return NextResponse.json(
-        { message: 'Invalid email format' },
+        { error: 'Email already registered' },
         { status: 400 }
       );
     }
 
-    // Validate password strength
-    if (password.length < 8) {
-      return NextResponse.json(
-        { message: 'Password must be at least 8 characters long' },
-        { status: 400 }
-      );
-    }
+    // Hash password
+    const hashedPassword = await hashPassword(password);
 
-    // Get database connection
-    client = await pool.connect();
+    // Create new user
+    const [user] = await db
+      .insert(users)
+      .values({
+        email,
+        name: name || null,
+        password_hash: hashedPassword,
+        role: 'user',
+        created_at: new Date(),
+        updated_at: new Date()
+      })
+      .returning();
 
-    try {
-      // Check if email already exists
-      const existingUser = await client.query(
-        'SELECT id FROM users WHERE email = $1',
-        [email]
-      );
+    logger.info('New user registered:', { userId: user.id, email: user.email });
 
-      if (existingUser.rows.length > 0) {
-        return NextResponse.json(
-          { message: 'Email already registered' },
-          { status: 409 }
-        );
+    return NextResponse.json({
+      message: 'Registration successful',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
       }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Begin transaction
-      await client.query('BEGIN');
-
-      // Insert user
-      const userResult = await client.query(
-        'INSERT INTO users (email, password, role) VALUES ($1, $2, $3) RETURNING id',
-        [email, hashedPassword, 'user']
-      );
-
-      // Create user profile
-      await client.query(
-        'INSERT INTO user_profiles (user_id, name, phone) VALUES ($1, $2, $3)',
-        [userResult.rows[0].id, name, phone]
-      );
-
-      // Commit transaction
-      await client.query('COMMIT');
-
-      return NextResponse.json(
-        { message: 'Registration successful' },
-        { status: 201 }
-      );
-    } catch (error) {
-      // Rollback transaction on error
-      await client.query('ROLLBACK');
-      throw error;
-    }
+    });
   } catch (error) {
     logger.error('Registration error:', error);
     return NextResponse.json(
-      { 
-        message: 'Failed to register user',
-        details: process.env.NODE_ENV === 'development' ? String(error) : undefined
-      },
+      { error: 'Failed to register user' },
       { status: 500 }
     );
-  } finally {
-    if (client) {
-      try {
-        client.release();
-      } catch (releaseError) {
-        logger.error('Error releasing client:', releaseError);
-      }
-    }
   }
 } 
