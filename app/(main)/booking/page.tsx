@@ -83,7 +83,7 @@ export default function BookingPage() {
     
     if (pickup) setPickupTime(pickup);
     if (dropoff) setDropoffTime(dropoff);
-  }, [searchParams]);
+  }, [searchParams, setPickupTime, setDropoffTime]);
 
   useEffect(() => {
     const fetchVehicle = async () => {

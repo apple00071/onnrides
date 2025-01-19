@@ -6,17 +6,8 @@ import type { User, Vehicle, Booking, Document } from './types';
 import logger from './logger';
 
 // Initialize database with error handling
-let db: ReturnType<typeof drizzle>;
-try {
-  const sql = neon(process.env.DATABASE_URL!);
-  db = drizzle(sql);
-  logger.info('Database connection initialized');
-} catch (error) {
-  logger.error('Failed to initialize database connection:', error);
-  throw error;
-}
-
-export { db };
+const sql = neon(process.env.DATABASE_URL!);
+export const db = drizzle(sql);
 
 // Export collections
 export const COLLECTIONS = {

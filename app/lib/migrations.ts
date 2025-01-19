@@ -1,4 +1,4 @@
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { migrate as drizzleMigrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
 import { users, vehicles, bookings, documents } from './schema';
@@ -8,11 +8,11 @@ const sqlite = new Database('local.db');
 const db = drizzle(sqlite);
 
 // Run migrations
-async function main() {
+export async function migrate() {
   console.log('Running migrations...');
   
   try {
-    await migrate(db, {
+    await drizzleMigrate(db, {
       migrationsFolder: './migrations',
     });
     console.log('Migrations completed successfully');
@@ -80,8 +80,9 @@ async function main() {
     console.log('Database tables created successfully');
   } catch (error) {
     console.error('Migration failed:', error);
-    process.exit(1);
+    throw error;
   }
 }
 
-main(); 
+// Remove the immediate invocation
+// main(); 

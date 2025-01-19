@@ -1,15 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { signOut } from 'next-auth/react';
-import logger from '@/lib/logger';
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    await signOut({ redirect: false });
-    return NextResponse.json({ message: 'Logged out successfully' });
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+    return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error('Logout error:', error);
     return NextResponse.json(
-      { message: 'Error during logout' },
+      { error: 'Failed to logout' },
       { status: 500 }
     );
   }

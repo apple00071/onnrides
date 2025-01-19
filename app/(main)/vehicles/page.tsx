@@ -146,7 +146,7 @@ export default function VehiclesPage() {
       logger.info('Filtered vehicles:', filteredVehicles);
 
       // Sort vehicles based on selected option
-      let sortedVehicles = [...filteredVehicles];
+      const sortedVehicles = [...filteredVehicles];
       if (sortBy === 'price-low-high') {
         sortedVehicles.sort((a, b) => a.price_per_day - b.price_per_day);
       } else if (sortBy === 'price-high-low') {
