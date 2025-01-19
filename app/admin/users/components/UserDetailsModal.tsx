@@ -19,6 +19,7 @@ interface User {
   name: string;
   email: string;
   role: string;
+  phone: string | null;
   created_at: string;
   documents_status?: {
     approved: number;
@@ -140,11 +141,8 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
       <DialogContent className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-4xl translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg">
         <div className="max-h-[90vh] overflow-y-auto">
           {/* Header */}
-          <div className="sticky top-0 bg-white px-6 py-4 border-b flex items-center justify-between">
+          <div className="sticky top-0 bg-white px-6 py-4 border-b">
             <h2 className="text-xl font-semibold">User Details</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
-              <FaTimes className="w-5 h-5" />
-            </button>
           </div>
 
           {/* Content */}
@@ -160,6 +158,10 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Email</h3>
                     <p className="mt-1">{user.email}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Phone</h3>
+                    <p className="mt-1">{user.phone || 'Not provided'}</p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Role</h3>

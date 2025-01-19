@@ -90,4 +90,46 @@ export function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-export type { ClassValue } 
+export type { ClassValue }
+
+interface Vehicle {
+  price_per_day: number;
+  price_12hrs: number;
+  price_24hrs: number;
+  price_7days: number;
+  price_15days: number;
+  price_30days: number;
+  min_booking_hours: number;
+}
+
+export function calculateBookingPrice(
+  vehicle: Vehicle,
+  startDate: Date,
+  endDate: Date
+): number {
+  // Handle invalid dates
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    return 0;
+  }
+
+  const durationInHours = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)));
+  const perHourRate = Number(vehicle.price_per_day); // Get per-hour rate from vehicle data
+  const startDay = startDate.getDay(); // 0 = Sunday, 1 = Monday, ...
+  
+  // Check if it's a weekday (Mon-Wed) or weekend (Thu-Sun)
+  const isWeekend = startDay >= 4 || startDay === 0; // Thursday to Sunday
+  
+  if (isWeekend) {
+    // Weekend pricing: always charge for 24 hours
+    return 24 * perHourRate;
+  } else {
+    // Weekday pricing
+    if (durationInHours <= 12) {
+      // For durations up to 12 hours, charge for full 12 hours
+      return 12 * perHourRate;
+    } else {
+      // For durations over 12 hours, charge for actual hours
+      return durationInHours * perHourRate;
+    }
+  }
+} 

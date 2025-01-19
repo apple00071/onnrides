@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import logger from '@/lib/logger';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { calculateBookingPrice } from '@/lib/utils';
 
 interface Vehicle {
   id: string;
@@ -14,6 +15,12 @@ interface Vehicle {
   location: string;
   address: string;
   type: string;
+  price_12hrs: number;
+  price_24hrs: number;
+  price_7days: number;
+  price_15days: number;
+  price_30days: number;
+  min_booking_hours: number;
 }
 
 interface PageProps {
@@ -103,7 +110,14 @@ export default function BookingSummaryPage({ params, searchParams }: PageProps) 
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-900">Price</h3>
-                    <p className="text-2xl font-bold text-primary">₹{vehicle.price_per_day}/day</p>
+                    <p className="text-2xl font-bold text-primary">
+                      ₹{calculateBookingPrice(
+                        vehicle,
+                        new Date(Array.isArray(searchParams.pickupDate) ? searchParams.pickupDate[0] : searchParams.pickupDate || ''),
+                        new Date(Array.isArray(searchParams.dropoffDate) ? searchParams.dropoffDate[0] : searchParams.dropoffDate || '')
+                      )}
+                    </p>
+                    <p className="text-sm text-gray-500">Total for selected duration</p>
                   </div>
                 </div>
               </div>

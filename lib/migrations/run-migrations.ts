@@ -1,20 +1,34 @@
 import { sql } from '@vercel/postgres';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import logger from '../logger';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 
 async function runMigrations() {
   try {
     logger.info('Starting database migrations...');
 
-    // Read the migration file
-    const migrationPath = join(__dirname, '001_initial_schema.sql');
-    const migrationSQL = readFileSync(migrationPath, 'utf8');
+    // Get all SQL files in the migrations directory
+    const migrationsDir = __dirname;
+    const migrationFiles = readdirSync(migrationsDir)
+      .filter(file => file.endsWith('.sql'))
+      .sort(); // This ensures migrations run in order (001_, 002_, etc.)
 
-    // Run the migrations
-    await sql.query(migrationSQL);
+    // Run each migration file
+    for (const file of migrationFiles) {
+      logger.info(`Running migration: ${file}`);
+      const migrationPath = join(migrationsDir, file);
+      const migrationSQL = readFileSync(migrationPath, 'utf8');
 
-    logger.info('Database migrations completed successfully');
+      // Run the migration
+      await sql.query(migrationSQL);
+      logger.info(`Completed migration: ${file}`);
+    }
+
+    logger.info('All database migrations completed successfully');
   } catch (error) {
     logger.error('Error running migrations:', error);
     throw error;

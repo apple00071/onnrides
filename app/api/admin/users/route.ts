@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { users, documents } from '@/lib/schema';
+import { users, documents, bookings } from '@/lib/schema';
 import { eq, ne, sql } from 'drizzle-orm';
 import logger from '@/lib/logger';
 
@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
         id: users.id,
         name: users.name,
         email: users.email,
+        phone: users.phone,
         role: users.role,
         created_at: users.created_at,
       })

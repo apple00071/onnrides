@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { COLLECTIONS, generateId, findMany, set, get } from '@/lib/db';
-import { verifyAuth } from '@/lib/auth';
 import type { Booking, Vehicle } from '@/lib/types';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { bookings, vehicles } from '@/lib/schema';
+import { eq } from 'drizzle-orm';
+import { calculateBookingPrice } from '@/lib/utils';
 
-interface CreateBookingBody {
-  vehicle_id: string;
+interface BookingBody {
+  vehicleId: string;
   startDate: string;
   endDate: string;
 }
@@ -13,32 +17,33 @@ interface CreateBookingBody {
 // GET /api/bookings - List user's bookings
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult) {
+    // Check if user is authenticated
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Get user's bookings
-    const bookings = await findMany<Booking>(COLLECTIONS.BOOKINGS, 'user_id', authResult.id);
-
-    // Get vehicle details for each booking
-    const bookingsWithVehicles = await Promise.all(
-      bookings.map(async (booking) => {
-        const vehicle = await get<Vehicle>(COLLECTIONS.VEHICLES, booking.vehicle_id);
-        return {
-          ...booking,
-          vehicle
-        };
+    // Get user's bookings with vehicle details
+    const userBookings = await db
+      .select({
+        booking: bookings,
+        vehicle: vehicles
       })
+      .from(bookings)
+      .leftJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
+      .where(eq(bookings.user_id, session.user.id));
+
+    // Sort bookings by created_at date
+    const sortedBookings = userBookings.sort(
+      (a, b) => new Date(b.booking.created_at).getTime() - new Date(a.booking.created_at).getTime()
     );
 
     return NextResponse.json({
       success: true,
-      bookings: bookingsWithVehicles.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      bookings: sortedBookings
     });
 
   } catch (error) {
@@ -53,96 +58,81 @@ export async function GET(request: NextRequest) {
 // POST /api/bookings - Create a new booking
 export async function POST(request: NextRequest) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult) {
+    // Check if user is authenticated
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const body = await request.json() as CreateBookingBody;
-    const { vehicle_id, startDate, endDate } = body;
+    const body = await request.json() as BookingBody;
+    const { vehicleId, startDate, endDate } = body;
 
-    // Validate required fields
-    if (!vehicle_id || !startDate || !endDate) {
+    if (!vehicleId || !startDate || !endDate) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Get vehicle
-    const vehicle = await get<Vehicle>(COLLECTIONS.VEHICLES, vehicle_id);
-    if (!vehicle) {
+    // Get vehicle details
+    const vehicleResult = await db
+      .select()
+      .from(vehicles)
+      .where(eq(vehicles.id, vehicleId))
+      .limit(1);
+
+    if (!vehicleResult[0]) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }
       );
     }
 
-    // Check if vehicle is available
-    if (!vehicle.isAvailable) {
-      return NextResponse.json(
-        { error: 'Vehicle is not available' },
-        { status: 400 }
-      );
-    }
-
-    // Check if dates are valid
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const now = new Date();
-
-    if (start < now) {
-      return NextResponse.json(
-        { error: 'Start date must be in the future' },
-        { status: 400 }
-      );
-    }
-
-    if (end <= start) {
-      return NextResponse.json(
-        { error: 'End date must be after start date' },
-        { status: 400 }
-      );
-    }
-
-    // Calculate total price
-    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    const totalPrice = days * vehicle.pricePerDay;
-
-    // Create booking
-    const bookingId = generateId('bkg');
-    const booking: Booking = {
-      id: bookingId,
-      user_id: authResult.id,
-      vehicle_id,
-      startDate: start,
-      endDate: end,
-      totalPrice,
-      status: 'pending',
-      paymentStatus: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date()
+    const vehicle = {
+      ...vehicleResult[0],
+      price_per_day: Number(vehicleResult[0].price_per_day),
+      price_12hrs: vehicleResult[0].price_12hrs ? Number(vehicleResult[0].price_12hrs) : 0,
+      price_24hrs: vehicleResult[0].price_24hrs ? Number(vehicleResult[0].price_24hrs) : 0,
+      price_7days: vehicleResult[0].price_7days ? Number(vehicleResult[0].price_7days) : 0,
+      price_15days: vehicleResult[0].price_15days ? Number(vehicleResult[0].price_15days) : 0,
+      price_30days: vehicleResult[0].price_30days ? Number(vehicleResult[0].price_30days) : 0,
+      min_booking_hours: vehicleResult[0].min_booking_hours || 12,
     };
 
-    await set(COLLECTIONS.BOOKINGS, booking);
+    // Calculate total price using the new pricing structure
+    try {
+      const totalPrice = calculateBookingPrice(
+        vehicle,
+        new Date(startDate),
+        new Date(endDate)
+      );
 
-    logger.debug('Booking created successfully:', { bookingId });
+      // Create the booking
+      const [booking] = await db
+        .insert(bookings)
+        .values({
+          user_id: session.user.id,
+          vehicle_id: vehicleId,
+          start_date: new Date(startDate),
+          end_date: new Date(endDate),
+          total_price: totalPrice.toString(),
+          status: 'pending',
+          payment_status: 'pending',
+        })
+        .returning();
 
-    return NextResponse.json({
-      success: true,
-      message: 'Booking created successfully',
-      booking: {
-        ...booking,
-        vehicle
-      }
-    });
-
+      return NextResponse.json(booking);
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Failed to calculate price' },
+        { status: 400 }
+      );
+    }
   } catch (error) {
-    logger.error('Failed to create booking:', error);
+    logger.error('Error creating booking:', error);
     return NextResponse.json(
       { error: 'Failed to create booking' },
       { status: 500 }

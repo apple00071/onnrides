@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
 import logger from '@/lib/logger';
+import { calculateBookingPrice } from '@/lib/utils';
 
 interface Vehicle {
   id: string;
@@ -21,6 +22,12 @@ interface Vehicle {
   mileage: number;
   seating_capacity: number;
   price_per_day: number;
+  price_12hrs: number;
+  price_24hrs: number;
+  price_7days: number;
+  price_15days: number;
+  price_30days: number;
+  min_booking_hours: number;
   is_available: boolean;
   image_url: string;
   location: string;
@@ -96,7 +103,14 @@ export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
               <p className="text-base md:text-lg text-gray-600">{vehicle.description}</p>
             </div>
             <div className="mt-4 md:mt-0 text-left md:text-right">
-              <p className="text-xl md:text-2xl font-bold text-[#f26e24]">₹{vehicle.price_per_day}/day</p>
+              <p className="text-xl md:text-2xl font-bold text-[#f26e24]">
+                ₹{calculateBookingPrice(
+                  vehicle,
+                  new Date(bookingDetails.pickupDate),
+                  new Date(bookingDetails.dropoffDate)
+                )}
+              </p>
+              <p className="text-sm text-gray-500">Total for selected duration</p>
             </div>
           </div>
 

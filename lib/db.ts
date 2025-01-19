@@ -1,5 +1,5 @@
-import { drizzle } from 'drizzle-orm/vercel-postgres';
-import { sql } from '@vercel/postgres';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon } from '@neondatabase/serverless';
 import { users, vehicles, bookings, documents } from './schema';
 import { eq, and, or, not, SQL, SQLWrapper, asc, desc, gte, lte } from 'drizzle-orm';
 import type { User, Vehicle, Booking, Document } from './types';
@@ -8,6 +8,7 @@ import logger from './logger';
 // Initialize database with error handling
 let db: ReturnType<typeof drizzle>;
 try {
+  const sql = neon(process.env.DATABASE_URL!);
   db = drizzle(sql);
   logger.info('Database connection initialized');
 } catch (error) {

@@ -17,23 +17,10 @@ import {
   TableRow,
 } from '@/app/components/ui/table';
 import { Badge } from '@/app/components/ui/badge';
-import { formatDate } from '../../../lib/utils';
+import { formatDate, formatCurrency } from '../../../lib/utils';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-
-interface Vehicle {
-  id: string;
-  name: string;
-  type: string;
-  quantity: number;
-  price_per_day: number;
-  location: { name: string[] };
-  images: string[];
-  is_available: boolean;
-  status: 'active' | 'maintenance' | 'retired';
-  created_at: string;
-  updated_at: string;
-}
+import type { Vehicle } from './types';
 
 export default function VehiclesPage() {
   const { data: session, status } = useSession({
@@ -206,8 +193,26 @@ export default function VehiclesPage() {
                 <TableCell>{vehicle.name}</TableCell>
                 <TableCell>{vehicle.type}</TableCell>
                 <TableCell>{vehicle.quantity}</TableCell>
-                <TableCell>₹{vehicle.price_per_day}/day</TableCell>
-                <TableCell>{vehicle.location.name.join(', ')}</TableCell>
+                <TableCell>
+                  {formatCurrency(vehicle.price_per_day)}
+                </TableCell>
+                <TableCell>
+                  {(() => {
+                    try {
+                      if (Array.isArray(vehicle.location)) {
+                        return vehicle.location.join(', ');
+                      } else if (typeof vehicle.location === 'object' && vehicle.location.name) {
+                        return vehicle.location.name.join(', ');
+                      } else if (typeof vehicle.location === 'string') {
+                        const locations = JSON.parse(vehicle.location);
+                        return Array.isArray(locations) ? locations.join(', ') : vehicle.location;
+                      }
+                      return String(vehicle.location);
+                    } catch (e) {
+                      return String(vehicle.location);
+                    }
+                  })()}
+                </TableCell>
                 <TableCell>
                   <Badge
                     variant={
