@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { kv } from '@vercel/kv';
+import { db } from '@/lib/db';
 import logger from '@/lib/logger';
-import { COLLECTIONS, get, findMany, update, findOneBy } from '@/lib/db';
+import { bookings, vehicles, users } from '@/lib/schema';
 import { verifyAuth } from '@/lib/auth';
-import type { Booking, Vehicle, User } from '@/lib/types';
+import type { User } from '@/lib/types';
+import { eq, desc, and } from 'drizzle-orm';
 
 interface UpdateBookingBody {
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+}
+
+interface AuthResult {
+  user: User;
 }
 
 // GET /api/admin/bookings - List all bookings
 export async function GET(request: NextRequest) {
   try {
     // Verify authentication and admin role
-    const authResult = await verifyAuth(request);
-    if (!authResult || authResult.role !== 'admin') {
+    const auth = await verifyAuth() as AuthResult | null;
+    if (!auth || auth.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -23,47 +28,37 @@ export async function GET(request: NextRequest) {
 
     // Get query parameters
     const searchParams = request.nextUrl.searchParams;
-    const status = searchParams.get('status');
+    const status = searchParams.get('status') as 'pending' | 'confirmed' | 'cancelled' | 'completed' | null;
     const userId = searchParams.get('userId');
     const vehicleId = searchParams.get('vehicleId');
 
-    // Get all bookings
-    const pattern = `${COLLECTIONS.BOOKINGS}:*`;
-    const keys = await kv.keys(pattern);
-    let bookings: Booking[] = [];
+    // Build where conditions
+    const conditions = [];
+    if (status) conditions.push(eq(bookings.status, status));
+    if (userId) conditions.push(eq(bookings.user_id, userId));
+    if (vehicleId) conditions.push(eq(bookings.vehicle_id, vehicleId));
 
-    // Fetch each booking
-    for (const key of keys) {
-      const data = await kv.get<string>(key);
-      if (data) {
-        const booking = JSON.parse(data) as Booking;
-
-        // Apply filters
-        if (status && booking.status !== status) continue;
-        if (userId && booking.userId !== userId) continue;
-        if (vehicleId && booking.vehicleId !== vehicleId) continue;
-
-        bookings.push(booking);
-      }
-    }
-
-    // Sort bookings by creation date
-    bookings = bookings.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    // Get bookings with filters
+    const bookingsList = await db
+      .select()
+      .from(bookings)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(bookings.created_at));
 
     // Get vehicle and user details for each booking
     const bookingsWithDetails = await Promise.all(
-      bookings.map(async (booking) => {
-        const [vehicle, user] = await Promise.all([
-          findOneBy<Vehicle>(COLLECTIONS.VEHICLES, 'id', booking.vehicleId),
-          findOneBy<User>(COLLECTIONS.USERS, 'id', booking.userId)
+      bookingsList.map(async (booking) => {
+        const [vehicle, bookingUser] = await Promise.all([
+          db.select().from(vehicles).where(eq(vehicles.id, booking.vehicle_id)).limit(1),
+          db.select().from(users).where(eq(users.id, booking.user_id)).limit(1)
         ]);
 
         return {
           ...booking,
-          vehicle,
-          user: user ? {
-            id: user.id,
-            email: user.email
+          vehicle: vehicle[0],
+          user: bookingUser[0] ? {
+            id: bookingUser[0].id,
+            email: bookingUser[0].email
           } : null
         };
       })
@@ -87,8 +82,8 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     // Verify authentication and admin role
-    const authResult = await verifyAuth(request);
-    if (!authResult || authResult.role !== 'admin') {
+    const auth = await verifyAuth() as AuthResult | null;
+    if (!auth || auth.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -106,7 +101,12 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get booking
-    const booking = await findOneBy<Booking>(COLLECTIONS.BOOKINGS, 'id', id);
+    const [booking] = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, id))
+      .limit(1);
+
     if (!booking) {
       return NextResponse.json(
         { error: 'Booking not found' },
@@ -123,16 +123,24 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update booking
-    await update(COLLECTIONS.BOOKINGS, id, {
-      status,
-      updatedAt: new Date()
-    });
+    await db
+      .update(bookings)
+      .set({
+        status,
+        updated_at: new Date()
+      })
+      .where(eq(bookings.id, id));
 
     // Get updated booking with details
-    const updatedBooking = await findOneBy<Booking>(COLLECTIONS.BOOKINGS, 'id', id);
-    const [vehicle, user] = await Promise.all([
-      findOneBy<Vehicle>(COLLECTIONS.VEHICLES, 'id', booking.vehicleId),
-      findOneBy<User>(COLLECTIONS.USERS, 'id', booking.userId)
+    const [updatedBooking] = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, id))
+      .limit(1);
+
+    const [vehicle, bookingUser] = await Promise.all([
+      db.select().from(vehicles).where(eq(vehicles.id, updatedBooking.vehicle_id)).limit(1),
+      db.select().from(users).where(eq(users.id, updatedBooking.user_id)).limit(1)
     ]);
 
     return NextResponse.json({
@@ -140,10 +148,10 @@ export async function PUT(request: NextRequest) {
       message: 'Booking updated successfully',
       booking: {
         ...updatedBooking,
-        vehicle,
-        user: user ? {
-          id: user.id,
-          email: user.email
+        vehicle: vehicle[0],
+        user: bookingUser[0] ? {
+          id: bookingUser[0].id,
+          email: bookingUser[0].email
         } : null
       }
     });

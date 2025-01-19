@@ -1,71 +1,56 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { documents } from '@/lib/schema';
+import { verifyAuth } from '@/lib/auth';
+import type { User } from '@/lib/types';
 import logger from '@/lib/logger';
-
-
-
-import pool from '@/lib/db';
+import { randomUUID } from 'crypto';
 
 export async function POST(request: NextRequest) {
-  
   try {
-    // Get user from token
-    
-    if (!token) {
-      return NextResponse.json(
-        { message: 'Unauthorized' },
-        { status: 401 }
-      );
+    const auth = await verifyAuth() as { user: User } | null;
+    if (!auth) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    
-    if (!user?.id) {
-      return NextResponse.json(
-        { message: 'Unauthorized' },
-        { status: 401 }
-      );
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
+    const type = formData.get('type') as string;
+
+    if (!file) {
+      return NextResponse.json({ message: 'No file uploaded' }, { status: 400 });
     }
 
-    // Start transaction
-    await client.query('BEGIN');
-
-    // Check if all required documents are uploaded
-    
-
-    
-    
-    
-
-    if (missingDocuments.length > 0) {
-      await client.query('ROLLBACK');
-      return NextResponse.json(
-        { 
-          message: 'Missing required documents',
-          missing: missingDocuments
-        },
-        { status: 400 }
-      );
+    const validTypes = ['license', 'id_proof', 'address_proof'] as const;
+    if (!type || !validTypes.includes(type as any)) {
+      return NextResponse.json({ message: 'Invalid document type' }, { status: 400 });
     }
 
-    // Update user&apos;s documents_submitted status
-    await client.query(
-      `UPDATE users 
-       SET documents_submitted = true 
-       WHERE id = $1`,
-      [user.id]
-    );
+    // TODO: Upload file to cloud storage and get URL
+    const fileUrl = 'https://example.com/placeholder'; // Replace with actual file upload
 
-    await client.query('COMMIT');
+    const [document] = await db.insert(documents)
+      .values({
+        id: randomUUID(),
+        user_id: auth.user.id,
+        type: type as 'license' | 'id_proof' | 'address_proof',
+        url: fileUrl
+      })
+      .returning();
 
-    return NextResponse.json({
-      message: 'Documents submitted successfully'
+    return NextResponse.json({ 
+      message: 'Document uploaded successfully',
+      document: {
+        id: document.id,
+        type: document.type,
+        status: document.status
+      }
     });
   } catch (error) {
-    await client.query('ROLLBACK');
-    logger.error('Error submitting documents:', error);
+    logger.error('Error uploading document:', error);
     return NextResponse.json(
-      { message: 'Failed to submit documents' },
+      { message: 'Internal server error' },
       { status: 500 }
     );
-  } finally {
-    client.release();
   }
 } 

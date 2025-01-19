@@ -58,27 +58,35 @@ export default function VehiclesPage() {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch vehicles');
+        throw new Error(data.message || 'Failed to fetch vehicles');
       }
       
-      console.log('Raw vehicles data:', data.vehicles);
+      // Ensure vehicles array exists
+      if (!data.vehicles || !Array.isArray(data.vehicles)) {
+        console.error('Invalid vehicles data received:', data);
+        setVehicles([]);
+        return;
+      }
+
       // Ensure vehicles have the correct shape
-      const formattedVehicles = data.vehicles.map((vehicle: any) => {
-        console.log('Processing vehicle:', vehicle);
-        return {
-          ...vehicle,
-          status: String(vehicle.status || 'active'),
-          images: Array.isArray(vehicle.images) ? vehicle.images : [],
-          location: typeof vehicle.location === 'string' 
-            ? { name: [vehicle.location] }
-            : vehicle.location
-        };
-      });
-      console.log('Formatted vehicles:', formattedVehicles);
+      const formattedVehicles = data.vehicles.map((vehicle: any) => ({
+        id: vehicle.id || '',
+        name: vehicle.name || '',
+        type: vehicle.type || '',
+        quantity: vehicle.quantity || 0,
+        price_per_day: vehicle.price_per_day || 0,
+        status: String(vehicle.status || 'active'),
+        images: Array.isArray(vehicle.images) ? vehicle.images : [],
+        location: typeof vehicle.location === 'object' 
+          ? vehicle.location 
+          : { name: typeof vehicle.location === 'string' ? [vehicle.location] : [] }
+      }));
+
       setVehicles(formattedVehicles);
     } catch (error) {
-      logger.error('Error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to fetch vehicles');
+      logger.error('Error fetching vehicles:', error);
+      toast.error('Failed to fetch vehicles');
+      setVehicles([]);
     } finally {
       setLoading(false);
     }

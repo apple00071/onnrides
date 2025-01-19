@@ -29,9 +29,24 @@ export default function Navbar() {
 
   const handleSignOut = useCallback(async () => {
     try {
-      await signOut({ callbackUrl: '/auth/signin' });
+      // First clear session via next-auth
+      await signOut({ redirect: false });
+
+      // Then call our custom logout endpoint
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      // Clear any local storage data
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Force reload to clear any remaining state
+      window.location.href = '/auth/signin';
     } catch (error) {
       console.error('Sign out error:', error);
+      // Force reload even on error to ensure user is signed out
       window.location.href = '/auth/signin';
     }
   }, []);

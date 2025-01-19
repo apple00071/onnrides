@@ -12,6 +12,7 @@ interface User {
   name: string;
   email: string;
   role: string;
+  phone: string | null;
   created_at: string;
   documents_status?: {
     approved: number;

@@ -1,75 +1,81 @@
+import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
+import { db } from '@/lib/db';
+import { documents } from '@/lib/schema';
+import { verifyAuth } from '@/lib/auth';
+import type { User } from '@/lib/types';
+import { eq } from 'drizzle-orm';
 
-import pool from '@/lib/db';
-
+interface AuthResult {
+  user: User;
+}
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { userId: string; documentId: string } }
 ) {
   try {
-    // Check if user is authenticated and is an admin
-    
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await verifyAuth() as AuthResult | null;
+
+    if (!auth || auth.user.role !== 'admin') {
+      return NextResponse.json(
+        { message: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const { status } = await request.json();
-    if (!['approved', 'rejected'].includes(status)) {
+    const { documentId } = params;
+    if (!documentId) {
       return NextResponse.json(
-        { error: 'Invalid status' },
+        { error: 'Document ID is required' },
         { status: 400 }
       );
     }
 
-    
-    try {
-      await client.query('BEGIN');
-
-      // Update document status
-      
-
-      if (documentResult.rowCount === 0) {
-        await client.query('ROLLBACK');
-        return NextResponse.json(
-          { error: 'Document not found' },
-          { status: 404 }
-        );
-      }
-
-      // Check if all required documents are approved
-      
-
-      
-
-      // Update user&apos;s verification status in profiles table
-      await client.query(
-        `UPDATE profiles 
-         SET is_documents_verified = $1, updated_at = CURRENT_TIMESTAMP
-         WHERE user_id = $2`,
-        [allDocsApproved, params.userId]
+    const { status } = await request.json();
+    if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
+      return NextResponse.json(
+        { error: 'Invalid status value' },
+        { status: 400 }
       );
-
-      await client.query('COMMIT');
-
-      // Get updated user data
-      
-
-      
-      
-
-      return NextResponse.json({
-        message: `Document ${status} successfully`,
-        document: documentResult.rows[0],
-        user: transformedUser,
-        user_verified: allDocsApproved
-      });
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
     }
+
+    // Update document status
+    const [updatedDocument] = await db
+      .update(documents)
+      .set({
+        status,
+        updated_at: new Date()
+      })
+      .where(eq(documents.id, documentId))
+      .returning();
+
+    if (!updatedDocument) {
+      return NextResponse.json(
+        { error: 'Document not found' },
+        { status: 404 }
+      );
+    }
+
+    // Get all documents for this user
+    const userDocuments = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.user_id, updatedDocument.user_id));
+
+    // Check if all required documents are approved
+    const totalDocuments = userDocuments.length;
+    const approvedDocuments = userDocuments.filter(doc => doc.status === 'approved').length;
+
+    return NextResponse.json({
+      message: 'Document status updated successfully',
+      document: updatedDocument,
+      documents_status: {
+        approved: approvedDocuments,
+        total: totalDocuments
+      }
+    });
+
   } catch (error) {
     logger.error('Error updating document status:', error);
     return NextResponse.json(

@@ -13,14 +13,14 @@ export async function GET() {
     
     if (!user) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { message: 'Authentication required' },
         { status: 401 }
       );
     }
 
     if (user.role !== 'admin') {
       return NextResponse.json(
-        { error: 'Admin access required' },
+        { message: 'Admin access required' },
         { status: 403 }
       );
     }
@@ -30,11 +30,14 @@ export async function GET() {
       .from(vehicles)
       .orderBy(desc(vehicles.created_at));
 
-    return NextResponse.json(allVehicles);
+    return NextResponse.json({
+      message: 'Vehicles fetched successfully',
+      vehicles: allVehicles
+    });
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch vehicles' },
+      { message: 'Failed to fetch vehicles' },
       { status: 500 }
     );
   }

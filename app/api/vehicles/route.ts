@@ -48,32 +48,27 @@ interface CreateVehicleBody {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type');
-    const location = searchParams.get('location');
+    const type = searchParams.get('type')?.toLowerCase();
+    const locations = searchParams.get('locations')?.split(',') || [];
     const minPrice = searchParams.get('minPrice');
     const maxPrice = searchParams.get('maxPrice');
-    const isAvailable = searchParams.get('isAvailable');
+
+    logger.info('Search params:', { type, locations, minPrice, maxPrice });
 
     const conditions = [];
 
     if (type) {
-      conditions.push(eq(vehicles.type, type));
+      conditions.push(ilike(vehicles.type, `%${type}%`));
     }
 
-    if (location) {
-      conditions.push(eq(vehicles.location, location));
-    }
+    conditions.push(eq(vehicles.status, 'active'));
+    conditions.push(eq(vehicles.is_available, true));
 
     if (minPrice) {
       conditions.push(gte(vehicles.price_per_day, minPrice));
     }
-
     if (maxPrice) {
       conditions.push(lte(vehicles.price_per_day, maxPrice));
-    }
-
-    if (isAvailable === 'true') {
-      conditions.push(eq(vehicles.is_available, true));
     }
 
     const availableVehicles = await db
@@ -82,11 +77,71 @@ export async function GET(request: NextRequest) {
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(vehicles.created_at);
 
-    return NextResponse.json(availableVehicles);
+    // Post-process vehicles to handle location filtering
+    const processedVehicles = availableVehicles.map(vehicle => {
+      // Parse location from JSON string
+      let vehicleLocations: string[] = [];
+      try {
+        if (typeof vehicle.location === 'string') {
+          const parsedLocation = JSON.parse(vehicle.location);
+          if (Array.isArray(parsedLocation)) {
+            vehicleLocations = parsedLocation;
+          } else if (parsedLocation?.name && Array.isArray(parsedLocation.name)) {
+            vehicleLocations = parsedLocation.name;
+          } else if (typeof parsedLocation === 'string') {
+            vehicleLocations = [parsedLocation];
+          } else if (typeof parsedLocation === 'object') {
+            // Handle case where location might be an object with location names
+            vehicleLocations = Object.values(parsedLocation).flat().filter(loc => typeof loc === 'string');
+          }
+        } else if (Array.isArray(vehicle.location)) {
+          vehicleLocations = vehicle.location;
+        } else if (typeof vehicle.location === 'object' && vehicle.location !== null) {
+          vehicleLocations = Object.values(vehicle.location).flat().filter(loc => typeof loc === 'string');
+        }
+      } catch (e) {
+        logger.error('Error parsing location:', e);
+        vehicleLocations = typeof vehicle.location === 'string' ? [vehicle.location] : [];
+      }
+
+      // Ensure locations are unique and non-empty
+      vehicleLocations = [...new Set(vehicleLocations)].filter(Boolean);
+
+      logger.info(`Processed locations for vehicle ${vehicle.id}:`, vehicleLocations);
+
+      return {
+        ...vehicle,
+        location: vehicleLocations,
+        price_per_day: Number(vehicle.price_per_day),
+        price_12hrs: Number(vehicle.price_12hrs),
+        price_24hrs: Number(vehicle.price_24hrs),
+        price_7days: Number(vehicle.price_7days),
+        price_15days: Number(vehicle.price_15days),
+        price_30days: Number(vehicle.price_30days)
+      };
+    });
+
+    // Filter by locations if specified
+    const filteredVehicles = locations.length > 0
+      ? processedVehicles.filter(vehicle => 
+          vehicle.location.some(loc => 
+            locations.some(searchLoc => 
+              loc.toLowerCase().includes(searchLoc.toLowerCase())
+            )
+          )
+        )
+      : processedVehicles;
+
+    logger.info(`Found ${filteredVehicles.length} vehicles matching criteria`);
+
+    return NextResponse.json({
+      message: 'Vehicles fetched successfully',
+      vehicles: filteredVehicles
+    });
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch vehicles' },
+      { message: 'Failed to fetch vehicles' },
       { status: 500 }
     );
   }

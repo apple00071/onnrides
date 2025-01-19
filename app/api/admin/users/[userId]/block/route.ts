@@ -1,95 +1,45 @@
+import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
+import { db } from '@/lib/db';
+import { users } from '@/lib/schema';
+import { eq, sql } from 'drizzle-orm';
+import { verifyAuth } from '@/lib/auth';
+import type { User } from '@/lib/types';
 
-import pool from '@/lib/db';
-
+interface AuthResult {
+  user: User;
+}
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    // Check if user is authenticated and is an admin
-    
-    if (!currentUser || currentUser.role !== 'admin') {
-      logger.debug('Unauthorized block/unblock attempt');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const auth = await verifyAuth() as AuthResult | null;
 
-    const { userId } = params;
-    if (!userId) {
+    if (!auth || auth.user.role !== 'admin') {
       return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
+        { message: 'Unauthorized' },
+        { status: 401 }
       );
     }
 
-    
-    
+    const { blocked } = await request.json();
 
-    if (typeof isBlocked !== 'boolean') {
-      return NextResponse.json(
-        { error: 'isBlocked must be a boolean value' },
-        { status: 400 }
-      );
-    }
+    // Update user's blocked status
+    await db.execute(
+      sql`UPDATE users SET is_blocked = ${blocked} WHERE id = ${params.userId}`
+    );
 
-    
-    try {
-      // Start transaction
-      await client.query('BEGIN');
-
-      // Update user&apos;s blocked status
-      
-
-      if (updateResult.rowCount === 0) {
-        await client.query('ROLLBACK');
-        return NextResponse.json(
-          { error: 'User not found' },
-          { status: 404 }
-        );
-      }
-
-      // If blocking the user, cancel their active bookings and revoke document verifications
-      if (isBlocked) {
-        // Cancel active bookings
-        await client.query(`
-          UPDATE bookings 
-          SET status = 'cancelled', 
-              cancelled_at = NOW(),
-              cancellation_reason = 'Account blocked by admin'
-          WHERE user_id = $1 
-          AND status IN ('pending', 'confirmed')
-        `, [userId]);
-
-        // Revoke document verifications
-        await client.query(`
-          UPDATE document_submissions
-          SET status = 'revoked',
-              updated_at = NOW()
-          WHERE user_id = $1
-          AND status = 'approved'
-        `, [userId]);
-      }
-
-      // Commit transaction
-      await client.query('COMMIT');
-
-      logger.debug(`Successfully ${isBlocked ? 'blocked' : 'unblocked'} user ${userId}`);
-      return NextResponse.json({
-        message: `User successfully ${isBlocked ? 'blocked' : 'unblocked'}`,
-        user: updateResult.rows[0]
-      });
-    } catch (error) {
-      // Rollback transaction on error
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  } catch (error) {
-    logger.error('Error updating user block status:', error);
     return NextResponse.json(
-      { error: 'Failed to update user block status' },
+      { message: `User ${blocked ? 'blocked' : 'unblocked'} successfully` },
+      { status: 200 }
+    );
+
+  } catch (error) {
+    logger.error('Error blocking/unblocking user:', error);
+    return NextResponse.json(
+      { message: 'Internal server error' },
       { status: 500 }
     );
   }

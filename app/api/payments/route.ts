@@ -1,72 +1,81 @@
+import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-
-import pool from '@/lib/db';
+import { db } from '@/lib/db';
+import { bookings } from '@/lib/schema';
+import { verifyAuth } from '@/lib/auth';
+import type { User } from '@/lib/types';
+import { eq } from 'drizzle-orm';
 import QRCode from 'qrcode';
 
+interface AuthResult {
+  user: User;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if user is authenticated
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await verifyAuth() as AuthResult | null;
+
+    if (!auth) {
+      return NextResponse.json(
+        { message: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const { bookingId, amount } = await request.json();
-    if (!bookingId || !amount) {
+    const { bookingId } = await request.json();
+    if (!bookingId) {
       return NextResponse.json(
-        { error: 'Booking ID and amount are required' },
+        { message: 'Booking ID is required' },
         { status: 400 }
       );
     }
 
-    
-    try {
-      // Get booking details
-      
+    // Get booking
+    const booking = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, bookingId))
+      .limit(1)
+      .execute()
+      .then(rows => rows[0]);
 
-      if (bookingResult.rowCount === 0) {
-        return NextResponse.json(
-          { error: 'Booking not found' },
-          { status: 404 }
-        );
-      }
-
-      
-
-      // Generate payment reference
-      
-
-      // Create payment record
-      await client.query(`
-        UPDATE bookings 
-        SET payment_status = 'pending', 
-            payment_reference = $1
-        WHERE id = $2
-      `, [paymentRef, bookingId]);
-
-      // Generate QR code data
-      
-
-      // Generate QR code
-      
-
-      return NextResponse.json({
-        success: true,
-        qrCode,
-        paymentRef,
-        bookingDetails: {
-          ...booking,
-          amount
-        }
-      });
-    } finally {
-      client.release();
+    if (!booking) {
+      return NextResponse.json(
+        { message: 'Booking not found' },
+        { status: 404 }
+      );
     }
+
+    if (booking.user_id !== auth.user.id) {
+      return NextResponse.json(
+        { message: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // TODO: Implement payment processing
+    // For now, just mark the booking as paid
+    await db
+      .update(bookings)
+      .set({
+        payment_status: 'paid',
+        updated_at: new Date()
+      })
+      .where(eq(bookings.id, bookingId))
+      .execute();
+
+    return NextResponse.json({
+      message: 'Payment successful',
+      booking: {
+        id: booking.id,
+        payment_status: 'paid'
+      }
+    });
+
   } catch (error) {
-    logger.error('Error processing payment:', error);
+    logger.error('Payment error:', error);
     return NextResponse.json(
-      { error: 'Failed to process payment' },
+      { message: 'Internal server error' },
       { status: 500 }
     );
   }

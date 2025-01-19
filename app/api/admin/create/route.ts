@@ -31,9 +31,7 @@ export async function POST(request: Request) {
       email,
       password_hash,
       name: name || null,
-      role: 'admin',
-      created_at: new Date(),
-      updated_at: new Date()
+      role: 'admin'
     });
 
     return NextResponse.json({ 

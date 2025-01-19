@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import logger from '@/lib/logger';
-import { createUser, findUserByEmail } from '@/lib/db';
+import { db } from '@/lib/db';
+import { users } from '@/lib/schema';
+import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
 interface SignupBody {
   email: string;
   password: string;
   name: string;
-  phone?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -19,16 +20,23 @@ export async function POST(request: NextRequest) {
     // Validate input
     if (!email || !password || !name) {
       return NextResponse.json(
-        { error: 'Email, password and name are required' },
+        { message: 'Email, password and name are required' },
         { status: 400 }
       );
     }
 
     // Check if user already exists
-    const existingUser = await findUserByEmail(email);
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1)
+      .execute()
+      .then(rows => rows[0]);
+
     if (existingUser) {
       return NextResponse.json(
-        { error: 'User already exists' },
+        { message: 'User already exists' },
         { status: 400 }
       );
     }
@@ -37,27 +45,36 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const user = await createUser({
-      id: randomUUID(),
-      email,
-      password_hash: hashedPassword,
-      name,
-      role: 'user',
-      created_at: new Date(),
-      updated_at: new Date()
-    });
+    const [user] = await db
+      .insert(users)
+      .values({
+        id: randomUUID(),
+        email,
+        password_hash: hashedPassword,
+        name,
+        role: 'user'
+      })
+      .returning();
 
     logger.debug('User created successfully:', { userId: user.id, email });
 
-    return NextResponse.json({
-      success: true,
-      message: 'User created successfully'
-    });
+    return NextResponse.json(
+      {
+        message: 'User created successfully',
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role
+        }
+      },
+      { status: 201 }
+    );
 
   } catch (error) {
     logger.error('Signup error:', error);
     return NextResponse.json(
-      { error: 'Failed to create user' },
+      { message: 'Internal server error' },
       { status: 500 }
     );
   }

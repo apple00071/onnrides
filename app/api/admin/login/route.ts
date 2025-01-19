@@ -1,17 +1,17 @@
+import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import pool from '@/lib/db';
+import { db } from '@/lib/db';
+import { eq } from 'drizzle-orm';
+import { users } from '@/lib/schema';
 
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
 
     // Get admin user from database
-    
-
-    
+    const user = await db.select().from(users).where(eq(users.email, email)).limit(1).execute().then(rows => rows[0]);
 
     if (!user || user.role !== 'admin') {
       return NextResponse.json(
@@ -21,6 +21,7 @@ export async function POST(request: Request) {
     }
 
     // Verify password
+    const validPassword = await bcrypt.compare(password, user.password_hash);
     
     if (!validPassword) {
       return NextResponse.json(
@@ -30,10 +31,30 @@ export async function POST(request: Request) {
     }
 
     // Generate JWT token with more user info
-    
+    const token = jwt.sign(
+      { 
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '7d' }
+    );
 
     // Create response with token
-    
+    const response = NextResponse.json(
+      { 
+        message: 'Logged in successfully',
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role
+        }
+      },
+      { status: 200 }
+    );
 
     // Set token in HTTP-only cookie
     response.cookies.set('token', token, {

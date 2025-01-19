@@ -102,51 +102,29 @@ export default function VehiclesPage() {
 
       // Fetch vehicles with query params
       const response = await fetch(`/api/vehicles?${queryParams.toString()}`);
-      const responseText = await response.text();
-      logger.info('Raw response:', responseText);
+      const data = await response.json();
 
       if (!response.ok) {
-        let error;
-        try {
-          error = JSON.parse(responseText);
-        } catch (e) {
-          error = { message: responseText };
-        }
-        throw new Error(error.message || 'Failed to fetch vehicles');
+        throw new Error(data.message || 'Failed to fetch vehicles');
       }
 
-      const data = JSON.parse(responseText);
-      logger.info('Parsed vehicles data:', data);
+      logger.info('Received vehicles data:', data);
 
-      if (!Array.isArray(data)) {
+      if (!data.vehicles || !Array.isArray(data.vehicles)) {
         throw new Error('Invalid response format');
       }
 
-      // Filter vehicles based on type
-      const filteredVehicles = data.filter(vehicle => {
-        // Filter by selected locations if any are selected
-        if (selectedLocations.length > 0 && !selectedLocations.some(loc => vehicle.location.includes(loc))) {
-          return false;
-        }
-        
-        // Ensure prices are numbers
-        vehicle.price_per_day = Number(vehicle.price_per_day);
-        vehicle.price_12hrs = Number(vehicle.price_12hrs);
-        vehicle.price_24hrs = Number(vehicle.price_24hrs);
-        vehicle.price_7days = Number(vehicle.price_7days);
-        vehicle.price_15days = Number(vehicle.price_15days);
-        vehicle.price_30days = Number(vehicle.price_30days);
-        
-        // Ensure images is an array
-        vehicle.images = Array.isArray(vehicle.images) ? vehicle.images : [];
-        
-        return true; // Type filtering is now done on the server
+      // Debug log each vehicle's location
+      data.vehicles.forEach((vehicle: Vehicle) => {
+        logger.info(`Vehicle ${vehicle.id} locations:`, {
+          location: vehicle.location,
+          isArray: Array.isArray(vehicle.location),
+          type: typeof vehicle.location
+        });
       });
 
-      logger.info('Filtered vehicles:', filteredVehicles);
-
       // Sort vehicles based on selected option
-      const sortedVehicles = [...filteredVehicles];
+      const sortedVehicles = [...data.vehicles];
       if (sortBy === 'price-low-high') {
         sortedVehicles.sort((a, b) => a.price_per_day - b.price_per_day);
       } else if (sortBy === 'price-high-low') {
@@ -157,6 +135,7 @@ export default function VehiclesPage() {
     } catch (error) {
       logger.error('Error fetching vehicles:', error);
       toast.error('Failed to load vehicles. Please try again.');
+      setVehicles([]);
     } finally {
       setLoading(false);
     }
@@ -368,14 +347,18 @@ export default function VehiclesPage() {
                     {/* Location Dropdown */}
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Available at</label>
-                      <select 
-                        className="w-full p-2 border rounded-md text-sm"
-                        defaultValue={vehicle.location[0] || ''}
-                      >
-                        {vehicle.location.map((loc: string) => (
-                          <option key={loc} value={loc}>{loc}</option>
-                        ))}
-                      </select>
+                      {Array.isArray(vehicle.location) && vehicle.location.length > 0 ? (
+                        <select 
+                          className="w-full p-2 border rounded-md text-sm"
+                          defaultValue={vehicle.location[0]}
+                        >
+                          {vehicle.location.map((loc: string) => (
+                            <option key={loc} value={loc}>{loc}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="text-sm text-gray-500">No locations available</p>
+                      )}
                     </div>
 
                     {/* Booking Time */}

@@ -1,18 +1,27 @@
+import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
+import { db } from '@/lib/db';
+import { users } from '@/lib/schema';
+import { verifyAuth } from '@/lib/auth';
+import type { User } from '@/lib/types';
+import { eq } from 'drizzle-orm';
 
-import pool from '@/lib/db';
-
+interface AuthResult {
+  user: User;
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    // Check if user is authenticated and is an admin
-    
-    if (!currentUser || currentUser.role !== 'admin') {
-      logger.debug('Unauthorized access attempt to user profile');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await verifyAuth() as AuthResult | null;
+
+    if (!auth || auth.user.role !== 'admin') {
+      return NextResponse.json(
+        { message: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     const { userId } = params;
@@ -23,38 +32,37 @@ export async function GET(
       );
     }
 
-    
-    try {
-      // Get user profile data
-      
+    // Get user profile
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+      .execute()
+      .then(rows => rows[0]);
 
-      if (result.rows.length === 0) {
-        return NextResponse.json(
-          { error: 'User not found' },
-          { status: 404 }
-        );
-      }
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
 
-      
-      logger.debug('User profile data:', user);
-
-      return NextResponse.json({
+    return NextResponse.json({
+      user: {
         id: user.id,
         email: user.email,
-        first_name: user.first_name || '',
-        last_name: user.last_name || '',
-        phone_number: user.phone_number || '',
-        address: user.address || '',
+        name: user.name,
+        role: user.role,
         created_at: user.created_at,
-        is_blocked: user.is_blocked || false
-      });
-    } finally {
-      client.release();
-    }
+        updated_at: user.updated_at
+      }
+    });
+
   } catch (error) {
-    logger.error('Error fetching user profile:', error);
+    logger.error('Error getting user profile:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch user profile' },
+      { message: 'Internal server error' },
       { status: 500 }
     );
   }

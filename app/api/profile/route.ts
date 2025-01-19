@@ -1,120 +1,108 @@
+import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
+import { db } from '@/lib/db';
+import { users } from '@/lib/schema';
+import { verifyAuth } from '@/lib/auth';
+import type { User } from '@/lib/types';
+import { eq } from 'drizzle-orm';
 
-import pool from '@/lib/db';
-
+interface AuthResult {
+  user: User;
+}
 
 export async function GET(request: NextRequest) {
-  
   try {
-    // Get user from token instead of headers
-    
-    if (!user) {
+    const auth = await verifyAuth() as AuthResult | null;
+
+    if (!auth) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // First check if profile exists
-    
+    // Get user profile
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, auth.user.id))
+      .limit(1)
+      .execute()
+      .then(rows => rows[0]);
 
-    // If profile doesn&apos;t exist, create one with minimal data
-    if (profileCheck.rows.length === 0) {
-      
-      
-      if (createProfile.rows.length === 0) {
-        throw new Error('Failed to create profile');
-      }
-    }
-
-    // Get user data with profile
-    
-
-    if (result.rows.length === 0) {
+    if (!user) {
       return NextResponse.json(
-        { message: 'Profile not found' },
+        { message: 'User not found' },
         { status: 404 }
       );
     }
 
-    // Combine first_name and last_name for backward compatibility
-    
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      }
+    });
 
-    return NextResponse.json(profile);
   } catch (error) {
-    logger.error('Error fetching profile:', error);
+    logger.error('Error getting user profile:', error);
     return NextResponse.json(
       { message: 'Internal server error' },
       { status: 500 }
     );
-  } finally {
-    client.release();
   }
 }
 
 export async function PATCH(request: NextRequest) {
-  
   try {
-    // Get user from token instead of headers
-    
-    if (!user) {
+    const auth = await verifyAuth() as AuthResult | null;
+
+    if (!auth) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const { name, phone, address } = await request.json();
-
-    // Split name into first_name and last_name if provided
-    let firstName = null;
-    let lastName = null;
-    if (name) {
-      const [firstPart, ...lastParts] = name.trim().split(' ');
-      firstName = firstPart;
-      lastName = lastParts.join(' ') || null;
-    }
-
-    // First check if profile exists
-    
-
-    // If profile doesn&apos;t exist, create one
-    if (profileCheck.rows.length === 0) {
-      await client.query(
-        `INSERT INTO profiles (
-          user_id, 
-          first_name, 
-          last_name, 
-          phone_number,
-          is_documents_verified
-        ) VALUES ($1, $2, $3, $4, false)`,
-        [user.id, firstName, lastName, phone]
-      );
-    }
-
-    
-
-    if (result.rows.length === 0) {
+    const { name } = await request.json();
+    if (!name) {
       return NextResponse.json(
-        { message: 'Profile not found' },
-        { status: 404 }
+        { message: 'Name is required' },
+        { status: 400 }
       );
     }
 
-    // Get full user data with updated profile
-    
+    // Update user profile
+    const [user] = await db
+      .update(users)
+      .set({
+        name,
+        updated_at: new Date()
+      })
+      .where(eq(users.id, auth.user.id))
+      .returning();
 
-    // Combine first_name and last_name for backward compatibility
-    
+    return NextResponse.json({
+      message: 'Profile updated successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      }
+    });
 
-    return NextResponse.json(profile);
   } catch (error) {
-    logger.error('Error updating profile:', error);
+    logger.error('Error updating user profile:', error);
     return NextResponse.json(
       { message: 'Internal server error' },
       { status: 500 }
     );
-  } finally {
-    client.release();
   }
 } 

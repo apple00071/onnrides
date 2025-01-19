@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import logger from '@/lib/logger';
-import { COLLECTIONS, findOneBy, set, update } from '@/lib/db';
+import { db } from '@/lib/db';
+import { users } from '@/lib/schema';
+import { eq } from 'drizzle-orm';
+import type { User } from '@/lib/types';
 import { sendResetPasswordEmail } from '@/lib/email';
-import type { User, ResetToken } from '@/lib/types';
 
 interface ResetPasswordBody {
   email?: string;
@@ -20,97 +22,92 @@ export async function POST(request: NextRequest) {
 
     // Step 1: Request password reset
     if (email && !token && !password) {
-      const user = await findOneBy<User>(COLLECTIONS.USERS, 'email', email);
+      // Find user by email
+      const user = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1)
+        .execute()
+        .then(rows => rows[0]);
+
       if (!user) {
         return NextResponse.json(
-          { error: 'User not found' },
-          { status: 404 }
+          { message: 'If an account exists with this email, a reset link will be sent.' },
+          { status: 200 }
         );
       }
 
       // Generate reset token
-      const resetToken = crypto.randomBytes(32).toString('hex');
-      const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
+      const resetToken = crypto.randomUUID();
+      const resetTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
       // Save reset token
-      const resetTokenDoc: ResetToken = {
-        id: `rst_${Date.now()}`,
-        user_id: user.id,
-        token: resetToken,
-        expires_at: resetTokenExpiry,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      await set(COLLECTIONS.RESET_TOKENS, resetTokenDoc);
+      await db
+        .update(users)
+        .set({
+          reset_token: resetToken,
+          reset_token_expiry: resetTokenExpiry
+        })
+        .where(eq(users.id, user.id))
+        .execute();
 
       // Send reset email
       await sendResetPasswordEmail(email, resetToken);
 
-      return NextResponse.json({
-        success: true,
-        message: 'Password reset email sent'
-      });
+      return NextResponse.json(
+        { message: 'If an account exists with this email, a reset link will be sent.' },
+        { status: 200 }
+      );
     }
 
-    // Step 2: Reset password with token
+    // Step 2: Reset password
     if (token && password) {
-      // Find reset token
-      const resetTokenDoc = await findOneBy<ResetToken>(COLLECTIONS.RESET_TOKENS, 'token', token);
-      if (!resetTokenDoc) {
-        return NextResponse.json(
-          { error: 'Invalid or expired reset token' },
-          { status: 400 }
-        );
-      }
+      // Find user by reset token
+      const user = await db
+        .select()
+        .from(users)
+        .where(eq(users.reset_token, token))
+        .limit(1)
+        .execute()
+        .then(rows => rows[0]);
 
-      // Check if token is expired
-      if (new Date() > resetTokenDoc.expires_at) {
+      if (!user || !user.reset_token_expiry || user.reset_token_expiry < new Date()) {
         return NextResponse.json(
-          { error: 'Reset token has expired' },
+          { message: 'Invalid or expired reset token' },
           { status: 400 }
-        );
-      }
-
-      // Find user
-      const user = await findOneBy<User>(COLLECTIONS.USERS, 'id', resetTokenDoc.user_id);
-      if (!user) {
-        return NextResponse.json(
-          { error: 'User not found' },
-          { status: 404 }
         );
       }
 
       // Hash new password
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Update user's password
-      await update<User>(COLLECTIONS.USERS, user.id, {
-        password: hashedPassword,
-        updatedAt: new Date()
-      });
+      // Update password and clear reset token
+      await db
+        .update(users)
+        .set({
+          password_hash: hashedPassword,
+          reset_token: null,
+          reset_token_expiry: null
+        })
+        .where(eq(users.id, user.id))
+        .execute();
 
-      // Expire the reset token
-      await update<ResetToken>(COLLECTIONS.RESET_TOKENS, resetTokenDoc.id, {
-        expires_at: new Date(),
-        updatedAt: new Date()
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Password reset successful'
-      });
+      return NextResponse.json(
+        { message: 'Password reset successfully' },
+        { status: 200 }
+      );
     }
 
     return NextResponse.json(
-      { error: 'Invalid request' },
+      { message: 'Invalid request' },
       { status: 400 }
     );
 
   } catch (error) {
     logger.error('Reset password error:', error);
     return NextResponse.json(
-      { error: 'Failed to reset password' },
+      { message: 'Internal server error' },
       { status: 500 }
     );
   }
