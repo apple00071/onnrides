@@ -1,26 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
-import logger from '@/lib/logger';
-import Image from 'next/image';
+import React from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { vehicles } from '@/lib/schema';
+import type { InferModel } from 'drizzle-orm';
 
-interface Vehicle {
-  id: string;
-  name: string;
-  type: string;
-  brand: string;
-  model: string;
-  year: number;
-  color: string;
-  registration_number: string;
-  price_per_day: number;
-  is_available: boolean;
-  image_url: string;
-  description: string;
-  created_at: string;
-}
+type Vehicle = InferModel<typeof vehicles>;
 
 interface Props {
   vehicle: Vehicle;
@@ -28,39 +14,6 @@ interface Props {
 
 export default function VehicleDetailsClient({ vehicle }: Props) {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchVehicle = async () => {
-      try {
-        const response = await fetch(`/api/vehicles/${vehicle.id}`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch vehicle');
-        }
-
-        // Update the vehicle state with the fetched data
-        // This is a placeholder and should be replaced with actual state update logic
-        setLoading(false);
-      } catch (error) {
-        logger.error('Error fetching vehicle:', error);
-        toast.error('Failed to load vehicle details');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchVehicle();
-  }, [vehicle.id]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
 
   if (!vehicle) {
     return (
@@ -77,13 +30,17 @@ export default function VehicleDetailsClient({ vehicle }: Props) {
     );
   }
 
+  const firstImage = Array.isArray(vehicle.images) && vehicle.images.length > 0 
+    ? vehicle.images[0] 
+    : '/placeholder-vehicle.jpg';
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="relative h-96">
             <Image
-              src={vehicle.image_url}
+              src={firstImage}
               alt={vehicle.name}
               fill
               className="object-cover"
@@ -93,7 +50,7 @@ export default function VehicleDetailsClient({ vehicle }: Props) {
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">{vehicle.name}</h1>
-                <p className="text-lg text-gray-600">{vehicle.brand} {vehicle.model} {vehicle.year}</p>
+                <p className="text-lg text-gray-600">{vehicle.type}</p>
               </div>
               <div className="text-right">
                 <p className="text-2xl font-bold text-primary">₹{vehicle.price_per_day}/day</p>
@@ -110,19 +67,23 @@ export default function VehicleDetailsClient({ vehicle }: Props) {
                 <h2 className="text-lg font-semibold mb-2">Vehicle Details</h2>
                 <div className="space-y-2 text-gray-600">
                   <p><span className="font-medium">Type:</span> {vehicle.type}</p>
-                  <p><span className="font-medium">Color:</span> {vehicle.color}</p>
-                  <p><span className="font-medium">Registration:</span> {vehicle.registration_number}</p>
+                  <p><span className="font-medium">Status:</span> {vehicle.status}</p>
+                  <p><span className="font-medium">Location:</span> {vehicle.location}</p>
                 </div>
               </div>
               <div>
-                <h2 className="text-lg font-semibold mb-2">Description</h2>
-                <p className="text-gray-600">{vehicle.description}</p>
+                <h2 className="text-lg font-semibold mb-2">Pricing</h2>
+                <div className="space-y-2 text-gray-600">
+                  <p><span className="font-medium">Per Day:</span> ₹{vehicle.price_per_day}</p>
+                  {vehicle.price_12hrs && <p><span className="font-medium">12 Hours:</span> ₹{vehicle.price_12hrs}</p>}
+                  {vehicle.price_24hrs && <p><span className="font-medium">24 Hours:</span> ₹{vehicle.price_24hrs}</p>}
+                </div>
               </div>
             </div>
 
             {vehicle.is_available && (
               <button
-                onClick={() => router.push(`/booking?vehicle=${vehicle.id}`)}
+                onClick={() => router.push(`/booking?vehicleId=${vehicle.id}`)}
                 className="w-full py-3 bg-primary text-white font-semibold rounded-md hover:bg-primary/90 transition-colors"
               >
                 Book Now

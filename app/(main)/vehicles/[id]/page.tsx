@@ -3,12 +3,13 @@ import { db } from '@/lib/db';
 import { vehicles } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
 import VehicleDetailsClient from './VehicleDetailsClient';
+import { notFound } from 'next/navigation';
 
-export async function generateMetadata({ params: _params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata({ params: _params }: { params: { vehicleId: string } }): Promise<Metadata> {
   const [vehicle] = await db
     .select()
     .from(vehicles)
-    .where(eq(vehicles.id, _params.id));
+    .where(eq(vehicles.id, _params.vehicleId));
 
   return {
     title: vehicle?.name ? `${vehicle.name} - OnnRides` : 'Vehicle Details - OnnRides',
@@ -16,6 +17,24 @@ export async function generateMetadata({ params: _params }: { params: { id: stri
   };
 }
 
-export default function VehicleDetailsPage({ params }: { params: { id: string } }) {
-  return <VehicleDetailsClient params={params} />;
+export default async function VehiclePage({
+  params: { vehicleId },
+}: {
+  params: { vehicleId: string };
+}) {
+  const [vehicle] = await db
+    .select()
+    .from(vehicles)
+    .where(eq(vehicles.id, vehicleId))
+    .limit(1);
+
+  if (!vehicle) {
+    notFound();
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <VehicleDetailsClient vehicle={vehicle} />
+    </div>
+  );
 } 
