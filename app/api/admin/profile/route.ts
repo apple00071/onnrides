@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import pool from '@/lib/db';
+import { db } from '@/lib/db';
+import { users } from '@/lib/schema';
+import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
@@ -20,73 +22,67 @@ export async function POST(request: NextRequest) {
     logger.debug('Attempting login for:', email);
 
     // Get user from database
-    const client = await pool.connect();
-    try {
-      const result = await client.query(
-        'SELECT * FROM users WHERE email = $1',
-        [email]
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email));
+
+    if (!user) {
+      logger.error('User not found:', email);
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
       );
-      const user = result.rows[0];
-
-      if (!user) {
-        logger.error('User not found:', email);
-        return NextResponse.json(
-          { error: 'Invalid credentials' },
-          { status: 401 }
-        );
-      }
-
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.password_hash);
-      if (!isValidPassword) {
-        logger.error('Invalid password for user:', email);
-        return NextResponse.json(
-          { error: 'Invalid credentials' },
-          { status: 401 }
-        );
-      }
-
-      // Check if user is an admin
-      if (user.role !== 'admin') {
-        logger.error('User is not an admin:', email);
-        return NextResponse.json(
-          { error: 'Unauthorized: Admin access required' },
-          { status: 403 }
-        );
-      }
-
-      // Create session token
-      const token = jwt.sign(
-        { userId: user.id, email: user.email, role: user.role },
-        process.env.JWT_SECRET!,
-        { expiresIn: '24h' }
-      );
-
-      // Create response
-      const response = NextResponse.json({
-        success: true,
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role
-        }
-      });
-
-      // Set cookie in response
-      response.cookies.set({
-        name: 'admin_session',
-        value: token,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/admin',
-        maxAge: 60 * 60 * 24 // 24 hours
-      });
-
-      return response;
-    } finally {
-      client.release();
     }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    if (!isValidPassword) {
+      logger.error('Invalid password for user:', email);
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      );
+    }
+
+    // Check if user is an admin
+    if (user.role !== 'admin') {
+      logger.error('User is not an admin:', email);
+      return NextResponse.json(
+        { error: 'Unauthorized: Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    // Create session token
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET!,
+      { expiresIn: '24h' }
+    );
+
+    // Create response
+    const response = NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role
+      }
+    });
+
+    // Set cookie in response
+    response.cookies.set({
+      name: 'admin_session',
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/admin',
+      maxAge: 60 * 60 * 24 // 24 hours
+    });
+
+    return response;
   } catch (error) {
     logger.error('Unexpected error:', error);
     const response = NextResponse.json(
@@ -120,43 +116,41 @@ export async function GET(request: NextRequest) {
     };
 
     // Get user profile
-    const client = await pool.connect();
-    try {
-      const result = await client.query(
-        'SELECT id, email, role FROM users WHERE id = $1',
-        [decoded.userId]
+    const [profile] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        role: users.role
+      })
+      .from(users)
+      .where(eq(users.id, decoded.userId));
+
+    if (!profile) {
+      const response = NextResponse.json(
+        { error: 'Profile not found' },
+        { status: 404 }
       );
-      const profile = result.rows[0];
-
-      if (!profile) {
-        const response = NextResponse.json(
-          { error: 'Profile not found' },
-          { status: 404 }
-        );
-        response.cookies.delete('admin_session');
-        return response;
-      }
-
-      if (profile.role !== 'admin') {
-        const response = NextResponse.json(
-          { error: 'Unauthorized: Admin access required' },
-          { status: 403 }
-        );
-        response.cookies.delete('admin_session');
-        return response;
-      }
-
-      return NextResponse.json({
-        success: true,
-        profile: {
-          id: profile.id,
-          email: profile.email,
-          role: profile.role
-        }
-      });
-    } finally {
-      client.release();
+      response.cookies.delete('admin_session');
+      return response;
     }
+
+    if (profile.role !== 'admin') {
+      const response = NextResponse.json(
+        { error: 'Unauthorized: Admin access required' },
+        { status: 403 }
+      );
+      response.cookies.delete('admin_session');
+      return response;
+    }
+
+    return NextResponse.json({
+      success: true,
+      profile: {
+        id: profile.id,
+        email: profile.email,
+        role: profile.role
+      }
+    });
   } catch (error) {
     logger.error('Session verification error:', error);
     const response = NextResponse.json(
