@@ -29,27 +29,34 @@ interface User {
 
 interface UserDocument {
   id: string;
+  user_id: string;
   type: string;
+  file_url: string;
   status: 'pending' | 'approved' | 'rejected';
-  url: string;
-  created_at: string;
   rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Booking {
   id: string;
+  user_id: string;
+  vehicle_id: string;
+  start_date: string;
+  end_date: string;
+  total_price: number;
   status: string;
   payment_status: string;
+  payment_intent_id?: string;
+  notes?: string;
   created_at: string;
-  vehicle: {
+  updated_at: string;
+  vehicle?: {
     id: string;
     name: string;
     type: string;
     images: string[];
   };
-  start_date: string;
-  end_date: string;
-  total_price: number;
 }
 
 interface UserDetailsModalProps {
@@ -77,11 +84,11 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
       const bookingsData = await bookingsResponse.json();
 
       if (docsResponse.ok) {
-        setDocuments(docsData.documents);
+        setDocuments(docsData);
       }
 
       if (bookingsResponse.ok) {
-        setBookings(bookingsData.bookings);
+        setBookings(bookingsData);
       }
     } catch (error) {
       logger.error('Error fetching user data:', error);
@@ -210,7 +217,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                         </div>
                         <div className="flex items-center space-x-2">
                           <a
-                            href={doc.url}
+                            href={doc.file_url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:text-blue-800 text-sm"
@@ -264,7 +271,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                       <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0">
                         <div>
                           <div className="flex items-center space-x-4">
-                            {booking.vehicle.images[0] && (
+                            {booking.vehicle?.images[0] && (
                               <div className="relative w-16 h-16">
                                 <Image
                                   src={booking.vehicle.images[0]}
@@ -275,8 +282,8 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                               </div>
                             )}
                             <div>
-                              <p className="font-medium">{booking.vehicle.name}</p>
-                              <p className="text-sm text-gray-500">{booking.vehicle.type}</p>
+                              <p className="font-medium">{booking.vehicle?.name}</p>
+                              <p className="text-sm text-gray-500">{booking.vehicle?.type}</p>
                             </div>
                           </div>
                           <div className="mt-2 space-y-1">

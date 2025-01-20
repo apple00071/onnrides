@@ -4,24 +4,25 @@ import { vehicles } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
 import { verifyAuth } from '@/lib/auth';
 import logger from '@/lib/logger';
+import type { Session } from 'next-auth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { vehicleId: string } }
 ) {
   try {
-    const user = await verifyAuth();
+    const session = await verifyAuth();
     
-    if (!user) {
+    if (!session) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { message: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    if (user.role !== 'admin') {
+    if (session.user.role !== 'admin') {
       return NextResponse.json(
-        { error: 'Admin access required' },
+        { message: 'Admin access required' },
         { status: 403 }
       );
     }
@@ -34,16 +35,19 @@ export async function GET(
 
     if (!vehicle.length) {
       return NextResponse.json(
-        { error: 'Vehicle not found' },
+        { message: 'Vehicle not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(vehicle[0]);
+    return NextResponse.json({
+      message: 'Vehicle fetched successfully',
+      vehicle: vehicle[0]
+    });
   } catch (error) {
     logger.error('Error fetching vehicle:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch vehicle' },
+      { message: 'Failed to fetch vehicle' },
       { status: 500 }
     );
   }
@@ -54,42 +58,65 @@ export async function PUT(
   { params }: { params: { vehicleId: string } }
 ) {
   try {
-    const user = await verifyAuth();
+    const session = await verifyAuth();
     
-    if (!user) {
+    if (!session) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { message: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    if (user.role !== 'admin') {
+    if (session.user.role !== 'admin') {
       return NextResponse.json(
-        { error: 'Admin access required' },
+        { message: 'Admin access required' },
         { status: 403 }
       );
     }
 
-    const body = await request.json();
+    const { vehicleId } = params;
+    const data = await request.json();
 
-    const updatedVehicle = await db
-      .update(vehicles)
-      .set(body)
-      .where(eq(vehicles.id, params.vehicleId))
+    // Validate required fields
+    if (!data.name || !data.type || !data.price_per_hour || !data.location) {
+      return NextResponse.json(
+        { message: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Update vehicle
+    const updatedVehicle = await db.update(vehicles)
+      .set({
+        name: data.name,
+        type: data.type,
+        location: data.location,
+        quantity: data.quantity || 1,
+        price_per_hour: data.price_per_hour,
+        min_booking_hours: data.min_booking_hours || 1,
+        images: data.images || [],
+        is_available: data.is_available ?? true,
+        status: data.status || 'active',
+        updated_at: new Date(),
+      })
+      .where(eq(vehicles.id, vehicleId))
       .returning();
 
     if (!updatedVehicle.length) {
       return NextResponse.json(
-        { error: 'Vehicle not found' },
+        { message: 'Vehicle not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(updatedVehicle[0]);
+    return NextResponse.json({
+      message: 'Vehicle updated successfully',
+      vehicle: updatedVehicle[0]
+    });
   } catch (error) {
     logger.error('Error updating vehicle:', error);
     return NextResponse.json(
-      { error: 'Failed to update vehicle' },
+      { message: 'Failed to update vehicle' },
       { status: 500 }
     );
   }
@@ -100,18 +127,18 @@ export async function DELETE(
   { params }: { params: { vehicleId: string } }
 ) {
   try {
-    const user = await verifyAuth();
+    const session = await verifyAuth();
     
-    if (!user) {
+    if (!session) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { message: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    if (user.role !== 'admin') {
+    if (session.user.role !== 'admin') {
       return NextResponse.json(
-        { error: 'Admin access required' },
+        { message: 'Admin access required' },
         { status: 403 }
       );
     }
@@ -123,16 +150,19 @@ export async function DELETE(
 
     if (!deletedVehicle.length) {
       return NextResponse.json(
-        { error: 'Vehicle not found' },
+        { message: 'Vehicle not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(deletedVehicle[0]);
+    return NextResponse.json({
+      message: 'Vehicle deleted successfully',
+      vehicle: deletedVehicle[0]
+    });
   } catch (error) {
     logger.error('Error deleting vehicle:', error);
     return NextResponse.json(
-      { error: 'Failed to delete vehicle' },
+      { message: 'Failed to delete vehicle' },
       { status: 500 }
     );
   }

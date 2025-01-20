@@ -1,113 +1,130 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import logger from '@/lib/logger';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-
-interface Vehicle {
-  id: string;
-  name: string;
-  image_url: string;
-  price_per_day: number;
-  location: string;
-  address: string;
-  type: string;
-}
+import { Vehicle } from '@/lib/types';
+import { calculateDuration, calculateTotalPrice, formatCurrency } from '@/lib/utils';
+import { DateTimePicker } from '@/components/date-time-picker';
 
 interface BookingFormProps {
-  vehicleId: string;
+  vehicle: Vehicle;
 }
 
-export default function BookingForm({ vehicleId }: BookingFormProps) {
+export default function BookingForm({ vehicle }: BookingFormProps) {
   const router = useRouter();
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchVehicle = async () => {
-      try {
-        const response = await fetch(`/api/vehicles/${vehicleId}`);
-        const data = await response.json();
+  const duration = startDate && endDate ? calculateDuration(startDate, endDate) : 0;
+  const totalPrice = startDate && endDate ? calculateTotalPrice(startDate, endDate, vehicle.price_per_hour) : 0;
 
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch vehicle');
-        }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-        setVehicle(data);
-      } catch (error) {
-        logger.error('Error fetching vehicle:', error);
-        toast.error('Failed to load vehicle details');
-      } finally {
-        setLoading(false);
+    if (!startDate || !endDate) {
+      toast.error('Please select pickup and drop-off dates');
+      return;
+    }
+
+    if (duration < vehicle.min_booking_hours) {
+      toast.error(`Minimum booking duration is ${vehicle.min_booking_hours} hours`);
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vehicle_id: vehicle.id,
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString(),
+          duration,
+          amount: totalPrice,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create booking');
       }
-    };
 
-    fetchVehicle();
-  }, [vehicleId]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
-
-  if (!vehicle) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Vehicle Not Found</h1>
-        <p className="text-gray-600 mb-6">The vehicle you're looking for doesn't exist or has been removed.</p>
-        <button
-          onClick={() => router.push('/vehicles')}
-          className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90"
-        >
-          Back to Vehicles
-        </button>
-      </div>
-    );
-  }
+      const booking = await response.json();
+      router.push(`/bookings/${booking.id}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create booking');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">Booking Summary</h1>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <div className="relative h-48 rounded-lg overflow-hidden">
-                  <Image
-                    src={vehicle.image_url}
-                    alt={vehicle.name}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div className="mt-4">
-                  <h2 className="text-xl font-semibold">{vehicle.name}</h2>
-                  <p className="text-gray-600">{vehicle.type}</p>
-                </div>
-              </div>
-              <div>
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-medium text-gray-900">Pickup Location</h3>
-                    <p className="text-gray-600">{vehicle.location}</p>
-                    <p className="text-sm text-gray-500">{vehicle.address}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900">Price</h3>
-                    <p className="text-2xl font-bold text-primary">₹{vehicle.price_per_day}/day</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-6">
+      <div className="mb-6">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h2 className="text-xl font-bold mb-1">{vehicle.name}</h2>
+            <p className="text-gray-500 capitalize">{vehicle.type}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xl font-bold text-primary">{formatCurrency(vehicle.price_per_hour)}/hour</p>
+            <p className="text-sm text-gray-500">Min. {vehicle.min_booking_hours} hours</p>
           </div>
         </div>
       </div>
-    </div>
+
+      <div className="space-y-4 mb-6">
+        <div>
+          <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
+            Pickup Date & Time
+          </label>
+          <DateTimePicker
+            id="startDate"
+            value={startDate}
+            onChange={setStartDate}
+            minDate={new Date()}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
+            Drop-off Date & Time
+          </label>
+          <DateTimePicker
+            id="endDate"
+            value={endDate}
+            onChange={setEndDate}
+            minDate={startDate || new Date()}
+          />
+        </div>
+      </div>
+
+      {startDate && endDate && (
+        <div className="border-t pt-4 mb-6">
+          <div className="flex justify-between text-sm mb-2">
+            <span className="text-gray-600">Duration</span>
+            <span>{duration} hours</span>
+          </div>
+          <div className="flex justify-between font-medium">
+            <span>Total Amount</span>
+            <span className="text-primary">{formatCurrency(totalPrice)}</span>
+          </div>
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={loading || !startDate || !endDate}
+        className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {loading ? 'Creating Booking...' : 'Continue Booking'}
+      </button>
+    </form>
   );
 } 

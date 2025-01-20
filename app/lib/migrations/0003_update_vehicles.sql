@@ -18,8 +18,8 @@ CREATE TABLE vehicles (
 
 -- Recreate bookings table with updated vehicle_id reference
 CREATE TABLE bookings (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
   start_date TIMESTAMP NOT NULL,
   end_date TIMESTAMP NOT NULL,

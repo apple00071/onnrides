@@ -7,7 +7,7 @@ import Image from 'next/image';
 import logger from '../../../lib/logger';
 import AddVehicleModal from './components/AddVehicleModal';
 import EditVehicleModal from './components/EditVehicleModal';
-import { Button } from '@/app/components/ui/button';
+import { Button } from '../../../components/ui/button';
 import {
   Table,
   TableBody,
@@ -15,12 +15,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/app/components/ui/table';
-import { Badge } from '@/app/components/ui/badge';
+} from '../../../components/ui/table';
 import { formatDate, formatCurrency } from '../../../lib/utils';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import type { Vehicle } from './types';
+import { Vehicle } from '@/lib/types';
+import { cn } from '@/lib/utils';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
 
 export default function VehiclesPage() {
   const { data: session, status } = useSession({
@@ -32,6 +36,7 @@ export default function VehiclesPage() {
   const router = useRouter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -49,44 +54,16 @@ export default function VehiclesPage() {
 
   const fetchVehicles = async () => {
     try {
-      const response = await fetch('/api/admin/vehicles', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-      const data = await response.json();
-      
+      setLoading(true);
+      setError(null);
+      const response = await fetch('/api/admin/vehicles');
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch vehicles');
+        throw new Error('Failed to fetch vehicles');
       }
-      
-      // Ensure vehicles array exists
-      if (!data.vehicles || !Array.isArray(data.vehicles)) {
-        console.error('Invalid vehicles data received:', data);
-        setVehicles([]);
-        return;
-      }
-
-      // Ensure vehicles have the correct shape
-      const formattedVehicles = data.vehicles.map((vehicle: any) => ({
-        id: vehicle.id || '',
-        name: vehicle.name || '',
-        type: vehicle.type || '',
-        quantity: vehicle.quantity || 0,
-        price_per_day: vehicle.price_per_day || 0,
-        status: String(vehicle.status || 'active'),
-        images: Array.isArray(vehicle.images) ? vehicle.images : [],
-        location: typeof vehicle.location === 'object' 
-          ? vehicle.location 
-          : { name: typeof vehicle.location === 'string' ? [vehicle.location] : [] }
-      }));
-
-      setVehicles(formattedVehicles);
+      const data = await response.json();
+      setVehicles(data.vehicles);
     } catch (error) {
-      logger.error('Error fetching vehicles:', error);
-      toast.error('Failed to fetch vehicles');
-      setVehicles([]);
+      setError(error instanceof Error ? error.message : 'Failed to fetch vehicles');
     } finally {
       setLoading(false);
     }
@@ -96,24 +73,17 @@ export default function VehiclesPage() {
     if (!confirm('Are you sure you want to delete this vehicle?')) return;
 
     try {
-      const response = await fetch(`/api/admin/vehicles?id=${id}`, {
+      const response = await fetch(`/api/admin/vehicles/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
       });
-      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete vehicle');
+        throw new Error('Failed to delete vehicle');
       }
 
-      toast.success('Vehicle deleted successfully');
-      fetchVehicles();
+      setVehicles(vehicles.filter(v => v.id !== id));
     } catch (error) {
-      logger.error('Error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to delete vehicle');
+      console.error('Error deleting vehicle:', error);
     }
   };
 
@@ -122,27 +92,61 @@ export default function VehiclesPage() {
     setIsEditModalOpen(true);
   };
 
-  const handleVehicleUpdated = () => {
-    setIsEditModalOpen(false);
-    setSelectedVehicle(null);
-    fetchVehicles();
+  const handleVehicleUpdated = (updatedVehicle: Vehicle) => {
+    setVehicles(vehicles.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
   };
 
-  const handleVehicleAdded = () => {
-    setIsAddModalOpen(false);
-    fetchVehicles();
+  const handleVehicleAdded = (newVehicle: Vehicle) => {
+    setVehicles([...vehicles, newVehicle]);
   };
 
   if (status === 'loading' || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+        </div>
       </div>
     );
   }
 
   if (!session || session.user.role !== 'admin') {
     return null;
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex flex-col justify-center items-center h-64">
+          <p className="text-red-500 mb-4">{error}</p>
+          <Button onClick={fetchVehicles}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (vehicles.length === 0) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Vehicles Management</h1>
+          <Button
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center"
+          >
+            <FaPlus className="w-4 h-4 mr-2" />
+            Add Vehicle
+          </Button>
+        </div>
+        
+        <div className="flex flex-col items-center justify-center min-h-[400px] bg-white rounded-lg shadow p-8">
+          <div className="text-gray-500 mb-4">No vehicles found</div>
+          <Button onClick={() => setIsAddModalOpen(true)}>
+            Add your first vehicle
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -165,8 +169,8 @@ export default function VehiclesPage() {
               <TableHead>Image</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Quantity</TableHead>
-              <TableHead>Price/Day</TableHead>
+              <TableHead>Price/Hour</TableHead>
+              <TableHead>Min Hours</TableHead>
               <TableHead>Locations</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
@@ -176,79 +180,61 @@ export default function VehiclesPage() {
             {vehicles.map((vehicle) => (
               <TableRow key={vehicle.id}>
                 <TableCell>
-                  <div className="relative h-12 w-12">
-                    {vehicle.images?.[0] ? (
-                      <Image
-                        src={vehicle.images[0]}
-                        alt={vehicle.name}
-                        fill
-                        className="object-cover rounded"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = '/placeholder-vehicle.jpg';
-                        }}
-                      />
-                    ) : (
-                      <Image
-                        src="/placeholder-vehicle.jpg"
-                        alt={vehicle.name}
-                        fill
-                        className="object-cover rounded"
-                      />
-                    )}
-                  </div>
+                  {vehicle.images[0] ? (
+                    <img
+                      src={vehicle.images[0]}
+                      alt={vehicle.name}
+                      className="w-16 h-16 object-cover rounded"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                      <span className="text-gray-500">No image</span>
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell>{vehicle.name}</TableCell>
-                <TableCell>{vehicle.type}</TableCell>
-                <TableCell>{vehicle.quantity}</TableCell>
+                <TableCell className="capitalize">{vehicle.type}</TableCell>
+                <TableCell>{formatCurrency(Number(vehicle.price_per_hour))}</TableCell>
+                <TableCell>{vehicle.min_booking_hours} hours</TableCell>
                 <TableCell>
-                  {formatCurrency(vehicle.price_per_day)}
+                  {vehicle.location.map((loc) => (
+                    <span
+                      key={loc}
+                      className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2"
+                    >
+                      {loc}
+                    </span>
+                  ))}
                 </TableCell>
                 <TableCell>
-                  {(() => {
-                    try {
-                      if (Array.isArray(vehicle.location)) {
-                        return vehicle.location.join(', ');
-                      } else if (typeof vehicle.location === 'object' && vehicle.location.name) {
-                        return vehicle.location.name.join(', ');
-                      } else if (typeof vehicle.location === 'string') {
-                        const locations = JSON.parse(vehicle.location);
-                        return Array.isArray(locations) ? locations.join(', ') : vehicle.location;
+                  <span
+                    className={cn(
+                      "px-2 py-1 rounded-full text-xs font-semibold",
+                      {
+                        "bg-green-100 text-green-800": vehicle.status === "active",
+                        "bg-yellow-100 text-yellow-800": vehicle.status === "maintenance",
+                        "bg-red-100 text-red-800": vehicle.status === "retired"
                       }
-                      return String(vehicle.location);
-                    } catch (e) {
-                      return String(vehicle.location);
-                    }
-                  })()}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      vehicle.status === 'active'
-                        ? 'default'
-                        : vehicle.status === 'maintenance'
-                        ? 'secondary'
-                        : 'destructive'
-                    }
+                    )}
                   >
-                    {String(vehicle.status).charAt(0).toUpperCase() + String(vehicle.status).slice(1)}
-                  </Badge>
+                    {vehicle.status}
+                  </span>
                 </TableCell>
                 <TableCell>
-                  <div className="flex space-x-2">
+                  <div className="flex items-center space-x-2">
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
                       onClick={() => handleEdit(vehicle)}
                     >
-                      <FaEdit className="w-4 h-4" />
+                      Edit
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="destructive"
                       size="sm"
                       onClick={() => handleDelete(vehicle.id)}
                     >
-                      <FaTrash className="w-4 h-4" />
+                      Delete
                     </Button>
                   </div>
                 </TableCell>
@@ -258,21 +244,23 @@ export default function VehiclesPage() {
         </Table>
       </div>
 
-      <AddVehicleModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onVehicleAdded={handleVehicleAdded}
-      />
+      {isAddModalOpen && (
+        <AddVehicleModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onSuccess={handleVehicleAdded}
+        />
+      )}
 
-      {selectedVehicle && (
+      {isEditModalOpen && selectedVehicle && (
         <EditVehicleModal
           isOpen={isEditModalOpen}
           onClose={() => {
             setIsEditModalOpen(false);
             setSelectedVehicle(null);
           }}
-          onVehicleUpdated={handleVehicleUpdated}
           vehicle={selectedVehicle}
+          onSuccess={handleVehicleUpdated}
         />
       )}
     </div>

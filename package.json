@@ -15,6 +15,7 @@
     "db:setup": "node scripts/setup-db.js"
   },
   "dependencies": {
+    "@auth/drizzle-adapter": "^1.7.4",
     "@azure/storage-blob": "^12.26.0",
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^3.10.0",
@@ -64,6 +65,7 @@
     "pg": "^8.13.1",
     "postgres": "^3.4.5",
     "qrcode": "^1.5.4",
+    "razorpay": "^2.9.5",
     "react": "^18.2.0",
     "react-datepicker": "^4.25.0",
     "react-dom": "^18.2.0",

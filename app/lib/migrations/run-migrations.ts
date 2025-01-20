@@ -1,36 +1,48 @@
-import { Pool } from 'pg';
-import * as fs from 'fs';
-import * as path from 'path';
+import { sql } from '@vercel/postgres';
+import { readFileSync, readdirSync } from 'fs';
+import { join } from 'path';
+import logger from '../logger';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables from .env file
 dotenv.config();
 
 async function runMigrations() {
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? {
-      rejectUnauthorized: false
-    } : undefined
-  });
-
   try {
-    // Create database if it doesn't exist
-    await pool.query(`
-      CREATE DATABASE IF NOT EXISTS onnrides;
-    `);
+    logger.info('Starting database migrations...');
 
-    // Read and execute migration file
-    const migrationPath = path.join(__dirname, '001_initial.sql');
-    const migration = fs.readFileSync(migrationPath, 'utf8');
+    // Get all SQL files in the migrations directory
+    const migrationsDir = __dirname;
+    const migrationFiles = readdirSync(migrationsDir)
+      .filter(file => file.endsWith('.sql'))
+      .sort(); // This ensures migrations run in order (001_, 002_, etc.)
 
-    await pool.query(migration);
-    console.log('Migrations completed successfully');
+    // Run each migration file
+    for (const file of migrationFiles) {
+      logger.info(`Running migration: ${file}`);
+      const migrationPath = join(migrationsDir, file);
+      const migrationSQL = readFileSync(migrationPath, 'utf8');
+
+      // Run the migration
+      await sql.query(migrationSQL);
+      logger.info(`Completed migration: ${file}`);
+    }
+
+    logger.info('All database migrations completed successfully');
   } catch (error) {
-    console.error('Error running migrations:', error);
-  } finally {
-    await pool.end();
+    logger.error('Error running migrations:', error);
+    throw error;
   }
 }
 
-runMigrations().catch(console.error); 
+// Run migrations if this file is executed directly
+if (require.main === module) {
+  runMigrations()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error('Migration failed:', error);
+      process.exit(1);
+    });
+}
+
+export default runMigrations; 

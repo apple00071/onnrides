@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import type { Booking, Vehicle } from '@/lib/types';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { verifyAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { bookings, vehicles } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
-import { calculateBookingPrice } from '@/lib/utils';
+import { eq, desc } from 'drizzle-orm';
+import { calculateBookingPrice, calculateTotalPrice, calculateDuration } from '@/lib/utils';
 
 interface BookingBody {
   vehicleId: string;
@@ -17,124 +16,140 @@ interface BookingBody {
 // GET /api/bookings - List user's bookings
 export async function GET(request: NextRequest) {
   try {
-    // Check if user is authenticated
-    const session = await getServerSession(authOptions);
+    const session = await verifyAuth();
     if (!session?.user) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Get user's bookings with vehicle details
     const userBookings = await db
       .select({
-        booking: bookings,
-        vehicle: vehicles
+        id: bookings.id,
+        status: bookings.status,
+        start_date: bookings.start_date,
+        end_date: bookings.end_date,
+        duration: bookings.duration,
+        amount: bookings.amount,
+        vehicle: {
+          id: vehicles.id,
+          name: vehicles.name,
+          type: vehicles.type,
+          location: vehicles.location,
+          images: vehicles.images,
+          price_per_hour: vehicles.price_per_hour,
+        },
       })
       .from(bookings)
-      .leftJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
-      .where(eq(bookings.user_id, session.user.id));
-
-    // Sort bookings by created_at date
-    const sortedBookings = userBookings.sort(
-      (a, b) => new Date(b.booking.created_at).getTime() - new Date(a.booking.created_at).getTime()
-    );
+      .innerJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
+      .where(eq(bookings.user_id, session.user.id))
+      .orderBy(desc(bookings.created_at));
 
     return NextResponse.json({
-      success: true,
-      bookings: sortedBookings
+      bookings: userBookings.map(booking => ({
+        ...booking,
+        amount: Number(booking.amount),
+        vehicle: {
+          ...booking.vehicle,
+          location: booking.vehicle.location as unknown as string[],
+          images: booking.vehicle.images as unknown as string[],
+          price_per_hour: Number(booking.vehicle.price_per_hour),
+        },
+      })),
     });
-
   } catch (error) {
     logger.error('Failed to fetch bookings:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch bookings' },
+      { error: 'Failed to fetch bookings', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
 }
 
-// POST /api/bookings - Create a new booking
+// POST /api/bookings - Create booking
 export async function POST(request: NextRequest) {
   try {
-    // Check if user is authenticated
-    const session = await getServerSession(authOptions);
+    const session = await verifyAuth();
     if (!session?.user) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const body = await request.json() as BookingBody;
+    const body = await request.json();
     const { vehicleId, startDate, endDate } = body;
 
+    // Validate required fields
     if (!vehicleId || !startDate || !endDate) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: vehicleId, startDate, endDate' },
         { status: 400 }
       );
     }
 
     // Get vehicle details
-    const vehicleResult = await db
+    const [vehicle] = await db
       .select()
       .from(vehicles)
-      .where(eq(vehicles.id, vehicleId))
-      .limit(1);
+      .where(eq(vehicles.id, vehicleId));
 
-    if (!vehicleResult[0]) {
+    if (!vehicle) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }
       );
     }
 
-    const vehicle = {
-      ...vehicleResult[0],
-      price_per_day: Number(vehicleResult[0].price_per_day),
-      price_12hrs: vehicleResult[0].price_12hrs ? Number(vehicleResult[0].price_12hrs) : 0,
-      price_24hrs: vehicleResult[0].price_24hrs ? Number(vehicleResult[0].price_24hrs) : 0,
-      price_7days: vehicleResult[0].price_7days ? Number(vehicleResult[0].price_7days) : 0,
-      price_15days: vehicleResult[0].price_15days ? Number(vehicleResult[0].price_15days) : 0,
-      price_30days: vehicleResult[0].price_30days ? Number(vehicleResult[0].price_30days) : 0,
-      min_booking_hours: vehicleResult[0].min_booking_hours || 12,
-    };
-
-    // Calculate total price using the new pricing structure
-    try {
-      const totalPrice = calculateBookingPrice(
-        vehicle,
-        new Date(startDate),
-        new Date(endDate)
-      );
-
-      // Create the booking
-      const [booking] = await db
-        .insert(bookings)
-        .values({
-          user_id: session.user.id,
-          vehicle_id: vehicleId,
-          start_date: new Date(startDate),
-          end_date: new Date(endDate),
-          total_price: totalPrice.toString(),
-          status: 'pending',
-          payment_status: 'pending',
-        })
-        .returning();
-
-      return NextResponse.json(booking);
-    } catch (error) {
+    // Check if vehicle is available
+    if (!vehicle.is_available || vehicle.status !== 'active') {
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Failed to calculate price' },
+        { error: 'Vehicle is not available for booking' },
         { status: 400 }
       );
     }
+
+    // Calculate booking duration and price
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const duration = calculateDuration(start, end);
+    const amount = calculateBookingPrice(start, end, Number(vehicle.price_per_hour));
+
+    // Check if duration meets minimum booking hours
+    const minBookingHours = vehicle.min_booking_hours || 1;
+    if (duration < minBookingHours) {
+      return NextResponse.json(
+        { error: `Minimum booking duration is ${minBookingHours} hours` },
+        { status: 400 }
+      );
+    }
+
+    // Create booking
+    const [booking] = await db
+      .insert(bookings)
+      .values({
+        user_id: session.user.id,
+        vehicle_id: vehicleId,
+        start_date: start,
+        end_date: end,
+        duration: duration,
+        amount: String(amount),
+        status: 'pending',
+      })
+      .returning();
+
+    return NextResponse.json({
+      message: 'Booking created successfully',
+      booking: {
+        ...booking,
+        amount: Number(booking.amount),
+      },
+    });
   } catch (error) {
-    logger.error('Error creating booking:', error);
+    logger.error('Failed to create booking:', error);
     return NextResponse.json(
-      { error: 'Failed to create booking' },
+      { error: 'Failed to create booking', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

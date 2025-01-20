@@ -1,31 +1,35 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { documents } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
 import { verifyAuth } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { documents, DOCUMENT_TYPES } from '@/lib/schema';
 import logger from '@/lib/logger';
+import { NextResponse } from 'next/server';
+import { eq } from 'drizzle-orm';
+import type { Session } from 'next-auth';
+
+type AuthResult = { user: Session['user'] } | null;
+
+const VALID_DOCUMENT_TYPES = ['license', 'id_proof', 'address_proof'] as const;
 
 export async function GET() {
   try {
-    const user = await verifyAuth();
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+    const auth = await verifyAuth() as AuthResult;
+    if (!auth?.user) {
+      logger.warn('Unauthorized access attempt to documents');
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
+    logger.info('Fetching documents for user:', auth.user.id);
     const userDocuments = await db
       .select()
       .from(documents)
-      .where(eq(documents.user_id, user.id))
-      .orderBy(documents.created_at);
+      .where(eq(documents.user_id, auth.user.id));
 
+    logger.info('Found documents:', userDocuments.length);
     return NextResponse.json(userDocuments);
   } catch (error) {
-    logger.error('Error fetching user documents:', error);
+    logger.error('Error fetching documents:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch documents' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     );
   }
@@ -33,20 +37,25 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const user = await verifyAuth();
-    if (!user) {
+    const auth = await verifyAuth() as AuthResult;
+    if (!auth?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { type, url } = await request.json();
+
+    // Validate required fields
+    if (!type || !url) {
       return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
+        { error: 'Document type and URL are required' },
+        { status: 400 }
       );
     }
 
-    const { type, file_url } = await request.json();
-
-    // Validate required fields
-    if (!type || !file_url) {
+    // Validate document type
+    if (!type || !VALID_DOCUMENT_TYPES.includes(type)) {
       return NextResponse.json(
-        { error: 'Document type and file URL are required' },
+        { error: 'Invalid document type' },
         { status: 400 }
       );
     }
@@ -55,12 +64,10 @@ export async function POST(request: Request) {
     const [document] = await db
       .insert(documents)
       .values({
-        user_id: user.id,
+        user_id: auth.user.id,
         type,
-        file_url,
-        status: 'pending',
-        created_at: new Date(),
-        updated_at: new Date()
+        file_url: url,
+        status: 'pending'
       })
       .returning();
 

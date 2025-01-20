@@ -3,16 +3,15 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { vehicles } from '@/lib/schema';
-import type { InferModel } from 'drizzle-orm';
+import { formatCurrency } from '@/lib/utils';
+import type { Vehicle } from '@/lib/types';
 
-type Vehicle = InferModel<typeof vehicles>;
-
-interface Props {
+interface VehicleDetailsClientProps {
   vehicle: Vehicle;
+  searchParams: URLSearchParams;
 }
 
-export default function VehicleDetailsClient({ vehicle }: Props) {
+export default function VehicleDetailsClient({ vehicle, searchParams }: VehicleDetailsClientProps) {
   const router = useRouter();
 
   if (!vehicle) {
@@ -30,66 +29,42 @@ export default function VehicleDetailsClient({ vehicle }: Props) {
     );
   }
 
-  const firstImage = Array.isArray(vehicle.images) && vehicle.images.length > 0 
-    ? vehicle.images[0] 
-    : '/placeholder-vehicle.jpg';
-
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="relative h-96">
-            <Image
-              src={firstImage}
-              alt={vehicle.name}
-              fill
-              className="object-cover"
-            />
-          </div>
-          <div className="p-6">
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">{vehicle.name}</h1>
-                <p className="text-lg text-gray-600">{vehicle.type}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-primary">₹{vehicle.price_per_day}/day</p>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                  vehicle.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  {vehicle.is_available ? 'Available' : 'Not Available'}
-                </span>
-              </div>
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div className="relative aspect-video">
+          <Image
+            src={vehicle.images[0] || '/placeholder.png'}
+            alt={vehicle.name}
+            fill
+            className="object-cover"
+          />
+        </div>
+        <div className="p-6">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h1 className="text-2xl font-bold mb-2">{vehicle.name}</h1>
+              <p className="text-gray-500 capitalize">{vehicle.type}</p>
             </div>
-
-            <div className="grid grid-cols-2 gap-6 mb-6">
-              <div>
-                <h2 className="text-lg font-semibold mb-2">Vehicle Details</h2>
-                <div className="space-y-2 text-gray-600">
-                  <p><span className="font-medium">Type:</span> {vehicle.type}</p>
-                  <p><span className="font-medium">Status:</span> {vehicle.status}</p>
-                  <p><span className="font-medium">Location:</span> {vehicle.location}</p>
-                </div>
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold mb-2">Pricing</h2>
-                <div className="space-y-2 text-gray-600">
-                  <p><span className="font-medium">Per Day:</span> ₹{vehicle.price_per_day}</p>
-                  {vehicle.price_12hrs && <p><span className="font-medium">12 Hours:</span> ₹{vehicle.price_12hrs}</p>}
-                  {vehicle.price_24hrs && <p><span className="font-medium">24 Hours:</span> ₹{vehicle.price_24hrs}</p>}
-                </div>
-              </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-primary">{formatCurrency(vehicle.price_per_hour)}/hour</p>
+              <p className="text-sm text-gray-500">Min. {vehicle.min_booking_hours} hours</p>
             </div>
-
-            {vehicle.is_available && (
-              <button
-                onClick={() => router.push(`/booking?vehicleId=${vehicle.id}`)}
-                className="w-full py-3 bg-primary text-white font-semibold rounded-md hover:bg-primary/90 transition-colors"
-              >
-                Book Now
-              </button>
-            )}
           </div>
+
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold mb-2">Location</h2>
+            <p className="text-gray-600">{vehicle.location.join(', ')}</p>
+          </div>
+
+          {vehicle.is_available && (
+            <button
+              onClick={() => router.push(`/vehicles/${vehicle.id}/booking?${searchParams.toString()}`)}
+              className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium"
+            >
+              Book Now
+            </button>
+          )}
         </div>
       </div>
     </div>

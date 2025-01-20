@@ -1,27 +1,25 @@
-import { drizzle } from 'drizzle-orm/vercel-postgres';
-import { migrate } from 'drizzle-orm/vercel-postgres/migrator';
-import { sql } from '@vercel/postgres';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const runMigrations = async () => {
-  if (!process.env.POSTGRES_URL) {
-    throw new Error('POSTGRES_URL is not defined');
-  }
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
-  const db = drizzle(sql);
+const db = drizzle(pool);
 
+async function runMigration() {
   try {
-    console.log('Running migrations...');
-    await migrate(db, { migrationsFolder: 'app/lib/lib/migrations' });
-    console.log('Migrations completed successfully');
+    await migrate(db, { migrationsFolder: 'migrations' });
+    console.log('Migration completed successfully');
   } catch (error) {
-    console.error('Error running migrations:', error);
-    process.exit(1);
+    console.error('Migration failed:', error);
+  } finally {
+    await pool.end();
   }
+}
 
-  process.exit(0);
-};
-
-runMigrations(); 
+runMigration(); 

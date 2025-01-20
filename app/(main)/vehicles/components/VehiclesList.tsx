@@ -3,158 +3,54 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import { Vehicle } from '@/lib/types';
+import Link from 'next/link';
+import { formatCurrency } from '@/lib/utils';
 
-interface Vehicle {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
-  brand: string;
-  model: string;
-  year: number;
-  color: string;
-  transmission: string;
-  fuel_type: string;
-  mileage: number;
-  seating_capacity: number;
-  price_per_day: number;
-  is_available: boolean;
-  image_url: string;
-  location: string;
-  total_rides: number;
+interface VehicleListProps {
+  vehicles: Vehicle[];
+  searchParams: URLSearchParams;
 }
 
-export default function VehiclesList() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  
-  const type = searchParams.get('type');
-  const location = searchParams.get('location');
-  const pickup = searchParams.get('pickup');
-  const dropoff = searchParams.get('dropoff');
-
-  useEffect(() => {
-    const fetchVehicles = async () => {
-      try {
-        setError(null);
-        const queryParams = new URLSearchParams();
-        
-        if (type) queryParams.set('type', type);
-        if (location) queryParams.set('location', location);
-        if (pickup) queryParams.set('pickup', pickup);
-        if (dropoff) queryParams.set('dropoff', dropoff);
-        
-        const response = await fetch(`/api/vehicles?${queryParams.toString()}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch vehicles');
-        }
-        
-        const data = await response.json();
-        setVehicles(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchVehicles();
-  }, [type, location, pickup, dropoff]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#f26e24]"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-        <p className="text-red-500 mb-4">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-[#f26e24] text-white rounded-md hover:bg-[#d85e1c] transition-colors"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
-
-  if (vehicles.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-        <p className="text-gray-500 mb-4">No vehicles found matching your criteria</p>
-        <button
-          onClick={() => router.push('/vehicles')}
-          className="px-4 py-2 bg-[#f26e24] text-white rounded-md hover:bg-[#d85e1c] transition-colors"
-        >
-          Clear Filters
-        </button>
-      </div>
-    );
-  }
-
+export default function VehiclesList({ vehicles, searchParams }: VehicleListProps) {
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {vehicles.map((vehicle) => (
-          <div
-            key={vehicle.id}
-            className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-          >
-            <div className="relative h-48">
-              <Image
-                src={vehicle.image_url || '/images/vehicle-placeholder.png'}
-                alt={vehicle.name}
-                fill
-                className="object-cover"
-              />
-            </div>
-            
-            <div className="p-4">
-              <h3 className="text-xl font-semibold mb-2">{vehicle.name}</h3>
-              <p className="text-gray-600 text-sm mb-4">{vehicle.description}</p>
-              
-              <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-500">Type:</span>
-                  <span>{vehicle.type}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-500">Year:</span>
-                  <span>{vehicle.year}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-500">Transmission:</span>
-                  <span>{vehicle.transmission}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-gray-500">Fuel:</span>
-                  <span>{vehicle.fuel_type}</span>
-                </div>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <div className="text-[#f26e24] font-semibold">
-                  ₹{vehicle.price_per_day}/day
-                </div>
-                <button
-                  onClick={() => router.push(`/vehicles/${vehicle.id}`)}
-                  className="px-4 py-2 bg-[#f26e24] text-white rounded-md hover:bg-[#d85e1c] transition-colors"
-                >
-                  View Details
-                </button>
-              </div>
-            </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {vehicles.map((vehicle) => (
+        <div
+          key={vehicle.id}
+          className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+        >
+          <div className="relative aspect-video">
+            <Image
+              src={vehicle.images[0] || '/placeholder.png'}
+              alt={vehicle.name}
+              fill
+              className="object-cover"
+            />
           </div>
-        ))}
-      </div>
+          <div className="p-4">
+            <div className="flex justify-between items-start mb-2">
+              <div>
+                <h3 className="text-lg font-semibold">{vehicle.name}</h3>
+                <p className="text-sm text-gray-500 capitalize">{vehicle.type}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold">{formatCurrency(vehicle.price_per_hour)}</p>
+                <p className="text-sm text-gray-500">per hour</p>
+              </div>
+            </div>
+            <div className="flex items-center text-sm text-gray-500 mb-4">
+              <span>{vehicle.location.join(', ')}</span>
+            </div>
+            <Link
+              href={`/vehicles/${vehicle.id}?${searchParams.toString()}`}
+              className="block w-full px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 text-center"
+            >
+              View Details
+            </Link>
+          </div>
+        </div>
+      ))}
     </div>
   );
 } 

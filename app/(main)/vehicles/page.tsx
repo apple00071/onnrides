@@ -13,7 +13,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/app/components/ui/table';
+} from '@/components/ui/table';
 
 interface Vehicle {
   id: string;
@@ -21,18 +21,13 @@ interface Vehicle {
   type: string;
   location: string[];
   quantity: number;
-  price_per_day: number;
-  price_12hrs: number;
-  price_24hrs: number;
-  price_7days: number;
-  price_15days: number;
-  price_30days: number;
+  price_per_hour: number;
   min_booking_hours: number;
   is_available: boolean;
   images: string[];
   status: 'active' | 'maintenance' | 'retired';
-  created_at?: string;
-  updated_at?: string;
+  created_at: string;
+  updated_at: string;
   image_url?: string;
   brand?: string;
   model?: string;
@@ -126,9 +121,9 @@ export default function VehiclesPage() {
       // Sort vehicles based on selected option
       const sortedVehicles = [...data.vehicles];
       if (sortBy === 'price-low-high') {
-        sortedVehicles.sort((a, b) => a.price_per_day - b.price_per_day);
+        sortedVehicles.sort((a, b) => a.price_per_hour - b.price_per_hour);
       } else if (sortBy === 'price-high-low') {
-        sortedVehicles.sort((a, b) => b.price_per_day - a.price_per_day);
+        sortedVehicles.sort((a, b) => b.price_per_hour - a.price_per_hour);
       }
 
       setVehicles(sortedVehicles);
@@ -328,85 +323,36 @@ export default function VehiclesPage() {
               {vehicles.map((vehicle) => (
                 <div
                   key={vehicle.id}
-                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                  className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                 >
-                  {/* Vehicle Image */}
-                  <div className="relative h-48">
+                  <div className="relative aspect-video">
                     <Image
-                      src={vehicle.image_url || vehicle.images?.[0] || '/placeholder-vehicle.jpg'}
+                      src={vehicle.images[0] || '/placeholder.png'}
                       alt={vehicle.name}
                       fill
-                      className="object-contain p-4"
+                      className="object-cover"
                     />
                   </div>
-
-                  {/* Vehicle Details */}
                   <div className="p-4">
-                    <h2 className="text-xl font-semibold text-center mb-4">{vehicle.name}</h2>
-                    
-                    {/* Location Dropdown */}
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Available at</label>
-                      {Array.isArray(vehicle.location) && vehicle.location.length > 0 ? (
-                        <select 
-                          className="w-full p-2 border rounded-md text-sm"
-                          defaultValue={vehicle.location[0]}
-                        >
-                          {vehicle.location.map((loc: string) => (
-                            <option key={loc} value={loc}>{loc}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <p className="text-sm text-gray-500">No locations available</p>
-                      )}
-                    </div>
-
-                    {/* Booking Time */}
-                    <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+                    <div className="flex justify-between items-start mb-2">
                       <div>
-                        <div>{formatDateTime(
-                          searchParams.get('pickupDate') || '',
-                          searchParams.get('pickupTime') || ''
-                        ).split(',')[0]}</div>
-                        <div className="font-medium">{formatDateTime(
-                          searchParams.get('pickupDate') || '',
-                          searchParams.get('pickupTime') || ''
-                        ).split(',')[1]}</div>
+                        <h3 className="text-lg font-semibold">{vehicle.name}</h3>
+                        <p className="text-sm text-gray-500 capitalize">{vehicle.type}</p>
                       </div>
-                      <div className="text-center">to</div>
                       <div className="text-right">
-                        <div>{formatDateTime(
-                          searchParams.get('dropoffDate') || '',
-                          searchParams.get('dropoffTime') || ''
-                        ).split(',')[0]}</div>
-                        <div className="font-medium">{formatDateTime(
-                          searchParams.get('dropoffDate') || '',
-                          searchParams.get('dropoffTime') || ''
-                        ).split(',')[1]}</div>
+                        <p className="text-lg font-bold">₹{vehicle.price_per_hour}</p>
+                        <p className="text-sm text-gray-500">per hour</p>
                       </div>
                     </div>
-
-                    {/* Price and Book Button */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-2xl font-bold">
-                          {formatCurrency(calculateBookingPrice(
-                            vehicle,
-                            new Date(searchParams.get('pickupDate') + 'T' + (searchParams.get('pickupTime') || '00:00')),
-                            new Date(searchParams.get('dropoffDate') + 'T' + (searchParams.get('dropoffTime') || '00:00'))
-                          ))}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {searchDuration} total
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => router.push(`/vehicles/${vehicle.id}?${searchParams.toString()}`)}
-                        className="px-8 py-2 bg-[#f26e24] text-white font-medium rounded-md hover:bg-[#d85e1c] transition-colors"
-                      >
-                        Book
-                      </button>
+                    <div className="flex items-center text-sm text-gray-500 mb-4">
+                      <span>{vehicle.location.join(', ')}</span>
                     </div>
+                    <button
+                      onClick={() => router.push(`/vehicles/${vehicle.id}?${searchParams.toString()}`)}
+                      className="w-full px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90"
+                    >
+                      View Details
+                    </button>
                   </div>
                 </div>
               ))}

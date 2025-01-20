@@ -9,8 +9,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FaUser, FaCog, FaSignOutAlt, FaHistory } from 'react-icons/fa';
 import { useRouter, usePathname } from 'next/navigation';
 import { useCallback, useEffect } from 'react';

@@ -6,19 +6,21 @@ import { vehicles } from '@/lib/schema';
 import { eq, desc } from 'drizzle-orm';
 import logger from '@/lib/logger';
 import { verifyAuth } from '@/lib/auth';
+import type { Session } from 'next-auth';
+import type { AuthUser } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const user = await verifyAuth();
+    const session = await verifyAuth();
     
-    if (!user) {
+    if (!session) {
       return NextResponse.json(
         { message: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    if (user.role !== 'admin') {
+    if (session.user.role !== 'admin') {
       return NextResponse.json(
         { message: 'Admin access required' },
         { status: 403 }
@@ -45,18 +47,18 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if user is authenticated and is an admin
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const session = await verifyAuth();
+    
+    if (!session) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { message: 'Authentication required' },
         { status: 401 }
       );
     }
 
     if (session.user.role !== 'admin') {
       return NextResponse.json(
-        { error: 'Admin access required' },
+        { message: 'Admin access required' },
         { status: 403 }
       );
     }
@@ -64,32 +66,36 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
 
     // Validate required fields
-    if (!data.name || !data.type || !data.price_per_day || !data.location) {
+    if (!data.name || !data.type || !data.price_per_hour || !data.location) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { message: 'Missing required fields' },
         { status: 400 }
       );
     }
 
     // Insert new vehicle
-    await db.insert(vehicles).values({
+    const newVehicle = await db.insert(vehicles).values({
       name: data.name,
       type: data.type,
-      quantity: data.quantity || 1,
-      price_per_day: data.price_per_day,
       location: data.location,
+      quantity: data.quantity || 1,
+      price_per_hour: data.price_per_hour,
+      min_booking_hours: data.min_booking_hours || 1,
       images: data.images || [],
       is_available: data.is_available ?? true,
       status: data.status || 'active',
       created_at: new Date(),
       updated_at: new Date(),
-    });
+    }).returning();
 
-    return NextResponse.json({ message: 'Vehicle created successfully' });
+    return NextResponse.json({
+      message: 'Vehicle created successfully',
+      vehicle: newVehicle[0]
+    });
   } catch (error) {
     logger.error('Error creating vehicle:', error);
     return NextResponse.json(
-      { error: 'Failed to create vehicle' },
+      { message: 'Failed to create vehicle' },
       { status: 500 }
     );
   }
@@ -97,18 +103,18 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    // Check if user is authenticated and is an admin
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const session = await verifyAuth();
+    
+    if (!session) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { message: 'Authentication required' },
         { status: 401 }
       );
     }
 
     if (session.user.role !== 'admin') {
       return NextResponse.json(
-        { error: 'Admin access required' },
+        { message: 'Admin access required' },
         { status: 403 }
       );
     }
@@ -118,7 +124,7 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: 'Vehicle ID is required' },
+        { message: 'Vehicle ID is required' },
         { status: 400 }
       );
     }
@@ -130,7 +136,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     logger.error('Error deleting vehicle:', error);
     return NextResponse.json(
-      { error: 'Failed to delete vehicle' },
+      { message: 'Failed to delete vehicle' },
       { status: 500 }
     );
   }

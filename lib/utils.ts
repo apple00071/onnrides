@@ -132,4 +132,10 @@ export function calculateBookingPrice(
       return durationInHours * perHourRate;
     }
   }
+}
+
+export function calculateTotalPrice(startDate: Date, endDate: Date, pricePerDay: number): number {
+  const durationInMs = endDate.getTime() - startDate.getTime();
+  const durationInDays = Math.ceil(durationInMs / (1000 * 60 * 60 * 24));
+  return durationInDays * pricePerDay;
 } 

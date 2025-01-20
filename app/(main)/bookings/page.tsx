@@ -15,6 +15,11 @@ interface Booking {
   status: string;
   payment_status: string;
   booking_number?: string;
+  amount: number;
+  duration: number;
+  vehicle: {
+    price_per_hour: number;
+  };
 }
 
 export default function BookingsPage() {
@@ -141,7 +146,18 @@ export default function BookingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-500">Total Amount</p>
-                      <p className="text-lg font-semibold">₹{booking.total_amount}</p>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl font-bold">₹{booking.amount}</span>
+                          <span className="text-sm text-gray-500">total</span>
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Duration: {booking.duration} {booking.duration === 1 ? 'hour' : 'hours'}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Rate: ₹{booking.vehicle.price_per_hour}/hour
+                        </div>
+                      </div>
                     </div>
                     {booking.payment_status === 'pending' && (
                       <button

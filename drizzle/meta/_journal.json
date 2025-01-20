@@ -3,10 +3,15 @@
   "dialect": "pg",
   "entries": [
     {
-      "idx": 0,
-      "version": "5",
-      "when": 1710947400000,
-      "tag": "initial",
+      "idx": 1,
+      "when": "1705311540000",
+      "tag": "0001_add_quantity_column",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "when": "1705311541000",
+      "tag": "0002_update_vehicle_pricing",
       "breakpoints": true
     }
   ]

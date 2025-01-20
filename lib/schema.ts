@@ -9,6 +9,12 @@ import {
   decimal,
 } from 'drizzle-orm/pg-core';
 
+export const VEHICLE_TYPES = ['bike', 'car', 'scooter'] as const;
+export type VehicleType = typeof VEHICLE_TYPES[number];
+
+export const VEHICLE_STATUS = ['active', 'maintenance', 'retired'] as const;
+export type VehicleStatus = typeof VEHICLE_STATUS[number];
+
 export const DOCUMENT_TYPES = {
   LICENSE: 'license',
   ID_PROOF: 'id_proof',
@@ -67,10 +73,22 @@ export const bookings = pgTable('bookings', {
     .notNull()
     .default('pending'),
   payment_status: text('payment_status', {
-    enum: ['pending', 'paid', 'refunded'],
+    enum: ['pending', 'paid', 'refunded', 'failed'],
   })
     .notNull()
     .default('pending'),
+  payment_id: text('payment_id'),
+  payment_method: text('payment_method'),
+  payment_details: json('payment_details').$type<{
+    order_id?: string;
+    payment_id?: string;
+    signature?: string;
+    method?: string;
+    amount?: number;
+    currency?: string;
+    status?: string;
+    created_at?: string;
+  }>(),
   created_at: timestamp('created_at').notNull().defaultNow(),
   updated_at: timestamp('updated_at').notNull().defaultNow(),
 });

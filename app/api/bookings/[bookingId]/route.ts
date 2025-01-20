@@ -3,7 +3,7 @@ import logger from '@/lib/logger';
 import { db } from '@/lib/db';
 import { bookings, vehicles } from '@/lib/schema';
 import { verifyAuth } from '@/lib/auth';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { Booking, Vehicle } from '@/lib/types';
 
 interface UpdateBookingBody {
@@ -11,27 +11,40 @@ interface UpdateBookingBody {
   paymentStatus?: 'pending' | 'paid' | 'refunded';
 }
 
-// GET /api/bookings/[bookingId] - Get booking by ID
+// GET /api/bookings/[bookingId] - Get booking details
 export async function GET(
   request: NextRequest,
   { params }: { params: { bookingId: string } }
 ) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuth();
-    if (!authResult) {
+    const session = await verifyAuth();
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Get booking
     const [booking] = await db
-      .select()
+      .select({
+        id: bookings.id,
+        status: bookings.status,
+        start_date: bookings.start_date,
+        end_date: bookings.end_date,
+        duration: bookings.duration,
+        amount: bookings.amount,
+        vehicle: {
+          id: vehicles.id,
+          name: vehicles.name,
+          type: vehicles.type,
+          location: vehicles.location,
+          images: vehicles.images,
+          price_per_hour: vehicles.price_per_hour,
+        },
+      })
       .from(bookings)
-      .where(eq(bookings.id, params.bookingId))
-      .limit(1);
+      .innerJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
+      .where(eq(bookings.id, params.bookingId));
 
     if (!booking) {
       return NextResponse.json(
@@ -40,47 +53,55 @@ export async function GET(
       );
     }
 
-    // Check if user is authorized to view this booking
-    if (booking.user_id !== authResult.id && authResult.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    // Check if the booking belongs to the user
+    if (session.user.role !== 'admin') {
+      const [userBooking] = await db
+        .select()
+        .from(bookings)
+        .where(
+          and(
+            eq(bookings.id, params.bookingId),
+            eq(bookings.user_id, session.user.id)
+          )
+        );
+
+      if (!userBooking) {
+        return NextResponse.json(
+          { error: 'Unauthorized' },
+          { status: 401 }
+        );
+      }
     }
 
-    // Get vehicle details
-    const [vehicle] = await db
-      .select()
-      .from(vehicles)
-      .where(eq(vehicles.id, booking.vehicle_id))
-      .limit(1);
-
     return NextResponse.json({
-      success: true,
       booking: {
         ...booking,
-        vehicle
-      }
+        amount: Number(booking.amount),
+        vehicle: {
+          ...booking.vehicle,
+          location: booking.vehicle.location as unknown as string[],
+          images: booking.vehicle.images as unknown as string[],
+          price_per_hour: Number(booking.vehicle.price_per_hour),
+        },
+      },
     });
-
   } catch (error) {
     logger.error('Failed to fetch booking:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch booking' },
+      { error: 'Failed to fetch booking', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
 }
 
-// PATCH /api/bookings/[bookingId] - Update booking status
-export async function PATCH(
+// PUT /api/bookings/[bookingId] - Update booking
+export async function PUT(
   request: NextRequest,
   { params }: { params: { bookingId: string } }
 ) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuth();
-    if (!authResult) {
+    const session = await verifyAuth();
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -102,7 +123,7 @@ export async function PATCH(
     }
 
     // Check if user is authorized to update this booking
-    if (booking.user_id !== authResult.id && authResult.role !== 'admin') {
+    if (booking.user_id !== session.user.id && session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -110,7 +131,7 @@ export async function PATCH(
     }
 
     const body = await request.json() as UpdateBookingBody;
-    const { status, paymentStatus } = body;
+    const { status } = body;
 
     // Validate status transition
     if (status && !isValidStatusTransition(booking.status, status)) {
@@ -125,7 +146,6 @@ export async function PATCH(
       .update(bookings)
       .set({
         ...(status && { status }),
-        ...(paymentStatus && { payment_status: paymentStatus }),
         updated_at: new Date()
       })
       .where(eq(bookings.id, params.bookingId))
@@ -147,18 +167,22 @@ export async function PATCH(
       .limit(1);
 
     return NextResponse.json({
-      success: true,
       message: 'Booking updated successfully',
       booking: {
         ...updatedBooking,
-        vehicle
-      }
+        vehicle: vehicle ? {
+          ...vehicle,
+          location: vehicle.location as unknown as string[],
+          images: vehicle.images as unknown as string[],
+          price_per_hour: Number(vehicle.price_per_hour),
+        } : null,
+      },
     });
 
   } catch (error) {
     logger.error('Failed to update booking:', error);
     return NextResponse.json(
-      { error: 'Failed to update booking' },
+      { error: 'Failed to update booking', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -170,9 +194,8 @@ export async function POST(
   { params }: { params: { bookingId: string } }
 ) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuth();
-    if (!authResult) {
+    const session = await verifyAuth();
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -194,7 +217,7 @@ export async function POST(
     }
 
     // Check if user is authorized to cancel this booking
-    if (booking.user_id !== authResult.id && authResult.role !== 'admin') {
+    if (booking.user_id !== session.user.id && session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -226,15 +249,14 @@ export async function POST(
       .where(eq(vehicles.id, booking.vehicle_id));
 
     return NextResponse.json({
-      success: true,
       message: 'Booking cancelled successfully',
-      booking: updatedBooking
+      booking: updatedBooking,
     });
 
   } catch (error) {
     logger.error('Error cancelling booking:', error);
     return NextResponse.json(
-      { error: 'Failed to cancel booking' },
+      { error: 'Failed to cancel booking', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

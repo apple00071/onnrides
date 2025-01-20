@@ -1,29 +1,33 @@
-import { cookies } from 'next/headers';
 import { verifyAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { documents, DOCUMENT_TYPES, type DocumentType } from '@/lib/schema';
+import { documents, DOCUMENT_TYPES } from '@/lib/schema';
 import logger from '@/lib/logger';
 import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
+import type { Session } from 'next-auth';
+
+type AuthResult = { user: Session['user'] } | null;
+
+const VALID_DOCUMENT_TYPES = ['license', 'id_proof', 'address_proof'] as const;
+type DocumentType = typeof VALID_DOCUMENT_TYPES[number];
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = cookies();
-    const auth = await verifyAuth(cookieStore);
+    const auth = await verifyAuth() as AuthResult;
     if (!auth?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const type = formData.get('type') as string;
+    const type = formData.get('type') as DocumentType;
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    if (!type || !DOCUMENT_TYPES.includes(type as DocumentType)) {
+    if (!type || !VALID_DOCUMENT_TYPES.includes(type)) {
       return NextResponse.json({ error: 'Invalid document type' }, { status: 400 });
     }
 
@@ -40,7 +44,7 @@ export async function POST(request: Request) {
       // Update existing document
       await db.update(documents)
         .set({ 
-          url: blob.url,
+          file_url: blob.url,
           updated_at: new Date(),
           status: 'pending'
         })
@@ -54,13 +58,10 @@ export async function POST(request: Request) {
 
     // Create new document record
     await db.insert(documents).values({
-      id: crypto.randomUUID(),
       user_id: auth.user.id,
-      type: type as DocumentType,
-      url: blob.url,
-      status: 'pending',
-      created_at: new Date(),
-      updated_at: new Date()
+      type,
+      file_url: blob.url,
+      status: 'pending'
     });
 
     return NextResponse.json({ 
