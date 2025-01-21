@@ -1,6 +1,6 @@
 'use client'
 
-import AdminDashboardLayout from '@/app/components/admin/AdminDashboardLayout'
+import AdminDashboardLayout from '../components/admin/AdminDashboardLayout'
 
 export default function AdminLayout({
   children,
