@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { formatCurrency } from '@/lib/utils';
 import type { Vehicle } from '@/lib/types';
+import { MapPin } from 'lucide-react';
 
 interface VehicleDetailsClientProps {
   vehicle: Vehicle;
@@ -47,14 +48,14 @@ export default function VehicleDetailsClient({ vehicle, searchParams }: VehicleD
               <p className="text-gray-500 capitalize">{vehicle.type}</p>
             </div>
             <div className="text-right">
-              <p className="text-2xl font-bold text-primary">{formatCurrency(vehicle.price_per_hour)}/hour</p>
+              <p className="text-2xl font-bold text-primary">{formatCurrency(Number(vehicle.price_per_hour))}/hour</p>
               <p className="text-sm text-gray-500">Min. {vehicle.min_booking_hours} hours</p>
             </div>
           </div>
 
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-2">Location</h2>
-            <p className="text-gray-600">{vehicle.location.join(', ')}</p>
+          <div className="flex items-center text-sm text-gray-500 mb-4">
+            <MapPin className="h-4 w-4 mr-1" />
+            <span>{Array.isArray(vehicle.location) ? vehicle.location.join(', ') : vehicle.location}</span>
           </div>
 
           {vehicle.is_available && (

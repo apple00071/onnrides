@@ -2,31 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import { db } from '@/lib/db';
 import { vehicles, type VehicleType, type VehicleStatus, VEHICLE_TYPES } from '@/lib/schema';
-import { and, eq, sql, desc } from 'drizzle-orm';
+import { and, eq, sql, gte, lte, or, not } from 'drizzle-orm';
 import { verifyAuth } from '@/lib/auth';
-import type { Session } from 'next-auth';
-
-interface Vehicle {
-  id: string;
-  name: string;
-  type: VehicleType;
-  location: string;
-  quantity: number;
-  price_per_hour: number;
-  images: string[];
-  is_available: boolean;
-  status: VehicleStatus;
-  created_at: Date;
-  updated_at: Date;
-}
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 interface CreateVehicleBody {
   name: string;
   type: VehicleType;
   location: string;
   quantity: number;
-  price_per_hour: number;
-  images?: string[];
+  price_per_hour: string;
+  images: string;
+  is_available: boolean;
 }
 
 // Helper function to check if a date is a weekend
@@ -197,63 +185,30 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/vehicles - Create vehicle
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const session = await verifyAuth();
-    if (!session?.user?.role || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const body = (await req.json()) as CreateVehicleBody;
 
-    const body = (await request.json()) as CreateVehicleBody;
-
-    // Validate required fields
-    const requiredFields = ['name', 'type', 'location', 'quantity', 'price_per_hour'] as const;
-    const missingFields = requiredFields.filter(field => !body[field]);
-    if (missingFields.length > 0) {
-      return NextResponse.json(
-        { error: `Missing required fields: ${missingFields.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // Validate vehicle type
-    if (!VEHICLE_TYPES.includes(body.type)) {
-      return NextResponse.json(
-        { error: `Invalid vehicle type. Must be one of: ${VEHICLE_TYPES.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // Create vehicle with proper type conversions
-    const [vehicle] = await db
-      .insert(vehicles)
-      .values({
-        name: body.name,
-        type: body.type,
-        location: body.location,
-        quantity: body.quantity,
-        price_per_hour: String(body.price_per_hour),
-        images: JSON.stringify(body.images || []),
-        is_available: true,
-        status: 'active' as const,
-      })
-      .returning();
-
-    return NextResponse.json({
-      message: 'Vehicle created successfully',
-      vehicle: {
-        ...vehicle,
-        images: Array.isArray(vehicle.images) ? vehicle.images : JSON.parse(vehicle.images),
-        price_per_hour: Number(vehicle.price_per_hour),
-      },
+    // Create the vehicle
+    const newVehicle = await db.insert(vehicles).values({
+      id: crypto.randomUUID(),
+      name: body.name,
+      type: body.type,
+      location: body.location,
+      quantity: body.quantity,
+      price_per_hour: body.price_per_hour,
+      images: body.images,
+      is_available: body.is_available,
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
+
+    return NextResponse.json({ success: true, data: newVehicle });
   } catch (error) {
-    logger.error('Failed to create vehicle:', error);
+    console.error('Error creating vehicle:', error);
     return NextResponse.json(
-      { error: 'Failed to create vehicle', details: error instanceof Error ? error.message : 'Unknown error' },
+      { success: false, error: 'Failed to create vehicle' },
       { status: 500 }
     );
   }

@@ -36,6 +36,20 @@ export function VehicleCard({
   onBook,
   className,
 }: VehicleCardProps) {
+  // Convert time to 12-hour format
+  const formatTime = (time: string) => {
+    if (!time) return "";
+    try {
+      const [hours, minutes] = time.split(':');
+      const hour = parseInt(hours);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12;
+      return `${hour12}:${minutes} ${ampm}`;
+    } catch {
+      return time;
+    }
+  };
+
   return (
     <div className={cn("bg-white rounded-lg shadow-md p-4 w-full max-w-sm", className)}>
       {/* Vehicle Name */}
@@ -72,12 +86,12 @@ export function VehicleCard({
       {/* Date Time Display */}
       <div className="flex items-center justify-between mb-4">
         <div className="text-center">
-          <p className="text-base font-medium">{startTime}</p>
+          <p className="text-base font-medium">{formatTime(startTime)}</p>
           <p className="text-sm text-gray-500">{startDate}</p>
         </div>
         <div className="text-gray-400">to</div>
         <div className="text-center">
-          <p className="text-base font-medium">{endTime}</p>
+          <p className="text-base font-medium">{formatTime(endTime)}</p>
           <p className="text-sm text-gray-500">{endDate}</p>
         </div>
       </div>
@@ -87,7 +101,7 @@ export function VehicleCard({
         <div>
           <span className="text-lg font-semibold">₹ {price}</span>
         </div>
-        <Button onClick={onBook} className="bg-yellow-400 hover:bg-yellow-500 text-black">
+        <Button onClick={onBook} className="bg-orange-500 hover:bg-orange-600 text-white">
           Book
         </Button>
       </div>
