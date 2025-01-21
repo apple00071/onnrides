@@ -3,14 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { Button } from '@/app/components/ui/button';
+import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
-} from '@/app/components/ui/card';
+  CardDescription,
+  CardContent,
+} from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -19,15 +19,15 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/app/components/ui/form';
+} from '@/components/ui/form';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/app/components/ui/select';
-import { Input } from '@/app/components/ui/input';
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -75,6 +75,16 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+interface FieldProps {
+  field: {
+    value: any;
+    onChange: (value: any) => void;
+    onBlur: () => void;
+    name: string;
+    ref: React.Ref<any>;
+  };
+}
 
 export default function AddVehiclePage() {
   const router = useRouter();
@@ -153,7 +163,7 @@ export default function AddVehiclePage() {
               <FormField
                 control={form.control}
                 name="name"
-                render={({ field }) => (
+                render={({ field }: FieldProps) => (
                   <FormItem>
                     <FormLabel>Vehicle Name</FormLabel>
                     <FormControl>
@@ -170,7 +180,7 @@ export default function AddVehiclePage() {
               <FormField
                 control={form.control}
                 name="type"
-                render={({ field }) => (
+                render={({ field }: FieldProps) => (
                   <FormItem>
                     <FormLabel>Vehicle Type</FormLabel>
                     <Select
@@ -201,7 +211,7 @@ export default function AddVehiclePage() {
               <FormField
                 control={form.control}
                 name="location"
-                render={({ field }) => (
+                render={({ field }: FieldProps) => (
                   <FormItem>
                     <FormLabel>Locations</FormLabel>
                     <div className="flex flex-wrap gap-2">
@@ -216,7 +226,7 @@ export default function AddVehiclePage() {
                           }
                           onClick={() => {
                             const newValue = field.value?.includes(loc)
-                              ? field.value.filter((l) => l !== loc)
+                              ? field.value.filter((l: string) => l !== loc)
                               : [...(field.value || []), loc];
                             field.onChange(newValue);
                           }}
@@ -237,7 +247,7 @@ export default function AddVehiclePage() {
                 <FormField
                   control={form.control}
                   name="quantity"
-                  render={({ field }) => (
+                  render={({ field }: FieldProps) => (
                     <FormItem>
                       <FormLabel>Quantity</FormLabel>
                       <FormControl>
@@ -259,7 +269,7 @@ export default function AddVehiclePage() {
                 <FormField
                   control={form.control}
                   name="price_per_day"
-                  render={({ field }) => (
+                  render={({ field }: FieldProps) => (
                     <FormItem>
                       <FormLabel>Price per Day (₹)</FormLabel>
                       <FormControl>
@@ -283,7 +293,7 @@ export default function AddVehiclePage() {
               <FormField
                 control={form.control}
                 name="image"
-                render={({ field: { value, onChange, ...field } }) => (
+                render={({ field: { value, onChange, ...field } }: { field: { value: any; onChange: any; [key: string]: any } }) => (
                   <FormItem>
                     <FormLabel>Vehicle Image</FormLabel>
                     <FormControl>

@@ -4,7 +4,7 @@ import logger from '@/lib/logger';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Switch } from '@/app/components/ui/switch';
+import { Switch } from "@/components/ui/switch";
 
 interface Vehicle {
   id: string;
@@ -102,7 +102,7 @@ export default function VehiclesPage() {
               </span>
               <Switch
                 checked={vehicle.is_available}
-                onCheckedChange={(checked) => handleUpdateAvailability(vehicle.id, checked)}
+                onCheckedChange={(checked: boolean) => handleUpdateAvailability(vehicle.id, checked)}
                 className="z-50"
               />
             </div>
