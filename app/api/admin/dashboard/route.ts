@@ -99,6 +99,9 @@ export async function GET() {
       recent_bookings: recentBookings.map(booking => ({
         ...booking,
         amount: Number(booking.amount),
+        created_at: new Date(booking.created_at),
+        pickup_datetime: new Date(booking.pickup_datetime),
+        dropoff_datetime: new Date(booking.dropoff_datetime)
       }))
     };
 
