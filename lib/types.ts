@@ -2,37 +2,44 @@ export interface User {
   id: string;
   email: string;
   name: string | null;
+  phone: string | null;
   password_hash: string;
   role: 'user' | 'admin';
-  created_at: Date;
-  updated_at: Date;
+  reset_token: string | null;
+  reset_token_expiry: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Vehicle {
   id: string;
   name: string;
-  type: string;
+  type: 'car' | 'bike' | 'scooter';
+  location: string | string[];
   quantity: number;
-  price_per_day: string;
-  location: string;
-  images: string[];
+  price_per_hour: string;
+  min_booking_hours: number;
+  images: string | string[];
   is_available: boolean;
   status: 'active' | 'maintenance' | 'retired';
-  created_at: Date;
-  updated_at: Date;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Booking {
   id: string;
   user_id: string;
   vehicle_id: string;
-  start_date: Date;
-  end_date: Date;
+  start_date: string;
+  end_date: string;
   total_price: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   payment_status: 'pending' | 'paid' | 'refunded';
-  created_at: Date;
-  updated_at: Date;
+  payment_id: string | null;
+  payment_method: string | null;
+  payment_details: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Document {
@@ -41,9 +48,9 @@ export interface Document {
   type: 'license' | 'id_proof' | 'address_proof';
   file_url: string;
   status: 'pending' | 'approved' | 'rejected';
-  rejection_reason?: string;
-  created_at: Date;
-  updated_at: Date;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ApiResponse<T = any> {

@@ -12,8 +12,7 @@ interface Vehicle {
   type: VehicleType;
   location: string;
   quantity: number;
-  price_per_day: number;
-  min_booking_hours: number;
+  price_per_hour: number;
   images: string[];
   is_available: boolean;
   status: VehicleStatus;
@@ -26,77 +25,152 @@ interface CreateVehicleBody {
   type: VehicleType;
   location: string;
   quantity: number;
-  price_per_day: number;
-  min_booking_hours?: number;
+  price_per_hour: number;
   images?: string[];
+}
+
+// Helper function to check if a date is a weekend
+function isWeekend(date: Date): boolean {
+  const day = date.getDay();
+  return day === 0 || day === 6; // 0 is Sunday, 6 is Saturday
+}
+
+// Helper function to calculate price based on duration and weekday/weekend
+function calculatePrice(pricePerHour: number, startDate: Date, endDate: Date): {
+  totalHours: number,
+  chargeableHours: number,
+  totalPrice: number
+} {
+  const diffMs = endDate.getTime() - startDate.getTime();
+  const totalHours = Math.ceil(diffMs / (1000 * 60 * 60));
+  
+  // Check if any part of the booking is on a weekend
+  let isWeekendBooking = false;
+  let currentDate = new Date(startDate);
+  while (currentDate <= endDate) {
+    if (isWeekend(currentDate)) {
+      isWeekendBooking = true;
+      break;
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  // Determine minimum booking hours based on weekend/weekday
+  const minHours = isWeekendBooking ? 24 : 12;
+  const chargeableHours = Math.max(totalHours, minHours);
+  const totalPrice = pricePerHour * chargeableHours;
+
+  return {
+    totalHours,
+    chargeableHours,
+    totalPrice
+  };
 }
 
 // GET /api/vehicles - List all vehicles
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const type = searchParams.get('type') as VehicleType | null;
-    const minPrice = searchParams.get('minPrice');
-    const maxPrice = searchParams.get('maxPrice');
-    const locations = searchParams.getAll('locations');
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get('type');
+    const locations = searchParams.getAll('location');
+    const pickupDate = searchParams.get('pickupDate');
+    const pickupTime = searchParams.get('pickupTime');
+    const dropoffDate = searchParams.get('dropoffDate');
+    const dropoffTime = searchParams.get('dropoffTime');
 
-    logger.info('Search params:', { type, locations, minPrice, maxPrice });
+    logger.info('Search params:', { type, locations, pickupDate, pickupTime, dropoffDate, dropoffTime });
 
     const conditions = [];
 
-    // Add type filter
     if (type) {
       conditions.push(eq(vehicles.type, type));
     }
 
-    // Add location filter
     if (locations.length > 0) {
-      conditions.push(sql`${vehicles.location}::text = ANY(array[${locations}])`);
+      conditions.push(sql`${vehicles.location}::text[] && ${locations}::text[]`);
     }
 
-    // Add price range filter
-    if (minPrice) {
-      conditions.push(sql`${vehicles.price_per_day} >= ${minPrice}::decimal`);
-    }
-    if (maxPrice) {
-      conditions.push(sql`${vehicles.price_per_day} <= ${maxPrice}::decimal`);
-    }
-
-    // Add availability filter
-    conditions.push(eq(vehicles.is_available, true));
-    conditions.push(eq(vehicles.status, 'active'));
-
-    // Execute query with all conditions
+    // Only select columns that definitely exist
     const availableVehicles = await db
       .select({
         id: vehicles.id,
         name: vehicles.name,
         type: vehicles.type,
-        location: vehicles.location,
         quantity: vehicles.quantity,
-        price_per_day: vehicles.price_per_day,
-        min_booking_hours: vehicles.min_booking_hours,
+        price_per_hour: vehicles.price_per_hour,
+        location: vehicles.location,
         images: vehicles.images,
         is_available: vehicles.is_available,
         status: vehicles.status,
-        created_at: vehicles.created_at,
-        updated_at: vehicles.updated_at,
       })
       .from(vehicles)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(vehicles.created_at));
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
 
-    return NextResponse.json({
-      vehicles: availableVehicles.map(vehicle => ({
+    // Calculate pricing based on duration if dates are provided
+    const vehiclesWithPricing = availableVehicles.map(vehicle => {
+      let pricing = {
+        price_per_hour: Number(vehicle.price_per_hour),
+        total_hours: 0,
+        chargeable_hours: 12, // Default to minimum 12 hours
+        total_price: Number(vehicle.price_per_hour) * 12
+      };
+
+      if (pickupDate && pickupTime && dropoffDate && dropoffTime) {
+        const startDate = new Date(`${pickupDate}T${pickupTime}`);
+        const endDate = new Date(`${dropoffDate}T${dropoffTime}`);
+        
+        const calculatedPricing = calculatePrice(
+          Number(vehicle.price_per_hour),
+          startDate,
+          endDate
+        );
+
+        pricing = {
+          price_per_hour: Number(vehicle.price_per_hour),
+          total_hours: calculatedPricing.totalHours,
+          chargeable_hours: calculatedPricing.chargeableHours,
+          total_price: calculatedPricing.totalPrice
+        };
+      }
+
+      // Parse location and images
+      const location = typeof vehicle.location === 'string' 
+        ? vehicle.location.split(',').map(l => l.trim())
+        : vehicle.location;
+
+      // Parse images - handle both string and array formats
+      let images: string[] = [];
+      try {
+        if (typeof vehicle.images === 'string') {
+          // If it's a JSON string, parse it
+          if (vehicle.images.startsWith('[')) {
+            images = JSON.parse(vehicle.images);
+          } else {
+            // If it's a comma-separated string
+            images = vehicle.images.split(',').map(i => i.trim());
+          }
+        } else if (Array.isArray(vehicle.images)) {
+          images = vehicle.images;
+        }
+      } catch (error) {
+        logger.error('Error parsing vehicle images:', error);
+        images = [];
+      }
+
+      return {
         ...vehicle,
-        images: vehicle.images,
-        price_per_day: Number(vehicle.price_per_day),
-      }))
+        location,
+        images,
+        price_per_hour: vehicle.price_per_hour.toString(),
+        pricing
+      };
     });
+
+    return NextResponse.json({ vehicles: vehiclesWithPricing });
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
     return NextResponse.json(
-      { error: 'Failed to load vehicles. Please try again.' },
+      { error: 'Failed to fetch vehicles' },
       { status: 500 }
     );
   }
@@ -106,7 +180,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await verifyAuth();
-    if (!session || !session.role || session.role !== 'admin') {
+    if (!session?.user?.role || session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -116,7 +190,7 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as CreateVehicleBody;
 
     // Validate required fields
-    const requiredFields = ['name', 'type', 'location', 'quantity', 'price_per_day'] as const;
+    const requiredFields = ['name', 'type', 'location', 'quantity', 'price_per_hour'] as const;
     const missingFields = requiredFields.filter(field => !body[field]);
     if (missingFields.length > 0) {
       return NextResponse.json(
@@ -141,9 +215,8 @@ export async function POST(request: NextRequest) {
         type: body.type,
         location: body.location,
         quantity: body.quantity,
-        price_per_day: String(body.price_per_day),
-        min_booking_hours: body.min_booking_hours || 1,
-        images: body.images || [],
+        price_per_hour: String(body.price_per_hour),
+        images: JSON.stringify(body.images || []),
         is_available: true,
         status: 'active' as const,
       })
@@ -153,8 +226,8 @@ export async function POST(request: NextRequest) {
       message: 'Vehicle created successfully',
       vehicle: {
         ...vehicle,
-        images: vehicle.images,
-        price_per_day: Number(vehicle.price_per_day),
+        images: Array.isArray(vehicle.images) ? vehicle.images : JSON.parse(vehicle.images),
+        price_per_hour: Number(vehicle.price_per_hour),
       },
     });
   } catch (error) {

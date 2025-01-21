@@ -1,0 +1,1 @@
+ALTER TABLE vehicles ADD COLUMN image_urls TEXT NOT NULL DEFAULT '[]'; 

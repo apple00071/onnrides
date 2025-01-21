@@ -1,48 +1,24 @@
-import { sql } from '@vercel/postgres';
-import { readFileSync, readdirSync } from 'fs';
-import { join } from 'path';
-import logger from '../logger';
-import dotenv from 'dotenv';
-
-// Load environment variables from .env file
-dotenv.config();
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import { Pool } from 'pg';
+import { env } from '../env';
 
 async function runMigrations() {
+  const pool = new Pool({
+    connectionString: env.DATABASE_URL,
+  });
+
+  const db = drizzle(pool);
+
   try {
-    logger.info('Starting database migrations...');
-
-    // Get all SQL files in the migrations directory
-    const migrationsDir = __dirname;
-    const migrationFiles = readdirSync(migrationsDir)
-      .filter(file => file.endsWith('.sql'))
-      .sort(); // This ensures migrations run in order (001_, 002_, etc.)
-
-    // Run each migration file
-    for (const file of migrationFiles) {
-      logger.info(`Running migration: ${file}`);
-      const migrationPath = join(migrationsDir, file);
-      const migrationSQL = readFileSync(migrationPath, 'utf8');
-
-      // Run the migration
-      await sql.query(migrationSQL);
-      logger.info(`Completed migration: ${file}`);
-    }
-
-    logger.info('All database migrations completed successfully');
+    await migrate(db, { migrationsFolder: 'lib/migrations' });
+    console.log('Migrations completed successfully');
   } catch (error) {
-    logger.error('Error running migrations:', error);
-    throw error;
+    console.error('Error running migrations:', error);
+    process.exit(1);
   }
+
+  await pool.end();
 }
 
-// Run migrations if this file is executed directly
-if (require.main === module) {
-  runMigrations()
-    .then(() => process.exit(0))
-    .catch((error) => {
-      console.error('Migration failed:', error);
-      process.exit(1);
-    });
-}
-
-export default runMigrations; 
+runMigrations(); 

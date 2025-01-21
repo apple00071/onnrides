@@ -1,41 +1,43 @@
-import { NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
+import { NextRequest, NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
 import { nanoid } from 'nanoid';
+import logger from '@/lib/logger';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     
     if (!file) {
       return NextResponse.json(
-        { error: 'No file uploaded' },
+        { message: 'No file provided' },
         { status: 400 }
       );
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      return NextResponse.json(
+        { message: 'Only image files are allowed' },
+        { status: 400 }
+      );
+    }
 
-    // Create unique filename
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${nanoid()}.${fileExt}`;
+    // Generate unique filename
+    const filename = `${nanoid()}-${file.name}`;
     
-    // Save to public/uploads directory
-    const uploadDir = join(process.cwd(), 'public', 'uploads');
-    const filePath = join(uploadDir, fileName);
-    
-    await writeFile(filePath, buffer);
-    
-    // Return the URL that can be used to access the file
-    const fileUrl = `/uploads/${fileName}`;
-    
-    return NextResponse.json({ url: fileUrl });
+    // Upload to Vercel Blob
+    const blob = await put(filename, file, {
+      access: 'public',
+    });
+
+    logger.debug('File uploaded successfully:', blob.url);
+
+    return NextResponse.json({ url: blob.url });
   } catch (error) {
-    console.error('Upload error:', error);
+    logger.error('Error uploading file:', error);
     return NextResponse.json(
-      { error: 'Failed to upload file' },
+      { message: 'Failed to upload file' },
       { status: 500 }
     );
   }

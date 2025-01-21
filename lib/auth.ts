@@ -54,23 +54,33 @@ export const authOptions: AuthOptions = {
             return null;
           }
 
-          const user = await validateUser(credentials.email, credentials.password);
-          
-          if (!user) {
-            logger.warn('Invalid credentials for user:', { email: credentials.email });
+          // Find user by email
+          const user = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, credentials.email))
+            .limit(1);
+
+          if (!user.length) {
+            logger.warn('User not found:', { email: credentials.email });
             return null;
           }
 
-          logger.info('User authorized successfully:', { userId: user.id, email: user.email });
+          // Verify password
+          const isValid = await bcrypt.compare(credentials.password, user[0].password_hash);
+          if (!isValid) {
+            logger.warn('Invalid password for user:', { email: credentials.email });
+            return null;
+          }
+
+          logger.info('User authorized successfully:', { userId: user[0].id, email: user[0].email });
           
-          const authUser = {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role
+          return {
+            id: user[0].id,
+            email: user[0].email,
+            name: user[0].name,
+            role: user[0].role
           };
-          
-          return authUser;
         } catch (error) {
           logger.error('Authorization error:', { error: (error as Error).message });
           return null;
@@ -97,13 +107,12 @@ export const authOptions: AuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (!session.user?.id) {
-        logger.debug('Creating new session from token:', { 
-          tokenId: token.id,
-          tokenEmail: token.email,
-          tokenRole: token.role 
-        });
-      }
+      logger.debug('Creating new session from token:', { 
+        tokenId: token.id,
+        tokenEmail: token.email,
+        tokenRole: token.role 
+      });
+      
       return {
         ...session,
         user: {
@@ -119,7 +128,7 @@ export const authOptions: AuthOptions = {
     signIn: '/login',
   },
   session: {
-    strategy: 'jwt' as const,
+    strategy: 'jwt',
     maxAge: 7 * 24 * 60 * 60, // 7 days
   },
   secret: process.env.NEXTAUTH_SECRET,
@@ -140,7 +149,7 @@ export async function verifyAuth() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) return null;
-    return session.user as User;
+    return session;
   } catch {
     return null;
   }

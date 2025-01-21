@@ -28,6 +28,12 @@ interface Vehicle {
   status: 'active' | 'maintenance' | 'retired';
   created_at: string;
   updated_at: string;
+  pricing: {
+    price_per_hour: number;
+    total_hours: number;
+    chargeable_hours: number;
+    total_price: number;
+  };
   image_url?: string;
   brand?: string;
   model?: string;
@@ -340,8 +346,19 @@ export default function VehiclesPage() {
                         <p className="text-sm text-gray-500 capitalize">{vehicle.type}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold">₹{vehicle.price_per_hour}</p>
-                        <p className="text-sm text-gray-500">per hour</p>
+                        <p className="text-lg font-bold">₹{vehicle.price_per_hour}/hr</p>
+                        {vehicle.pricing && (
+                          <>
+                            <p className="text-sm text-gray-500">
+                              Min {vehicle.pricing.chargeable_hours}hrs: ₹{vehicle.pricing.total_price}
+                            </p>
+                            {vehicle.pricing.total_hours > 0 && vehicle.pricing.total_hours < vehicle.pricing.chargeable_hours && (
+                              <p className="text-xs text-orange-500">
+                                *{vehicle.pricing.chargeable_hours}hr minimum applies
+                              </p>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center text-sm text-gray-500 mb-4">

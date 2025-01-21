@@ -1,18 +1,16 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import Database from 'better-sqlite3';
 import { eq, and, gte, lte, SQLWrapper } from 'drizzle-orm';
 import { users, vehicles, bookings, documents } from './schema';
 import type { User, Vehicle, Booking, Document } from './types';
 import logger from './logger';
 import { env } from './env';
 
-// Create a new pool instance
-const pool = new Pool({
-  connectionString: env.DATABASE_URL
-});
+// Create a new SQLite database instance
+const sqlite = new Database('sqlite.db');
 
 // Create a new drizzle instance
-const db = drizzle(pool);
+const db = drizzle(sqlite);
 
 export { db };
 export default db;

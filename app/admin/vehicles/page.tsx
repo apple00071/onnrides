@@ -42,6 +42,10 @@ export default function VehiclesPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
+    console.log('Add Modal State:', isAddModalOpen);
+  }, [isAddModalOpen]);
+
+  useEffect(() => {
     if (status === 'loading') return;
     
     if (session?.user?.role !== 'admin') {
@@ -100,22 +104,26 @@ export default function VehiclesPage() {
     setVehicles([...vehicles, newVehicle]);
   };
 
+  const handleAddClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    console.log('Add button clicked');
+    setIsAddModalOpen(true);
+    console.log('isAddModalOpen set to:', true);
+  };
+
+  let content;
   if (status === 'loading' || loading) {
-    return (
+    content = (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
         </div>
       </div>
     );
-  }
-
-  if (!session || session.user.role !== 'admin') {
-    return null;
-  }
-
-  if (error) {
-    return (
+  } else if (!session || session.user.role !== 'admin') {
+    content = null;
+  } else if (error) {
+    content = (
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col justify-center items-center h-64">
           <p className="text-red-500 mb-4">{error}</p>
@@ -123,15 +131,14 @@ export default function VehiclesPage() {
         </div>
       </div>
     );
-  }
-
-  if (vehicles.length === 0) {
-    return (
+  } else if (vehicles.length === 0) {
+    content = (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Vehicles Management</h1>
           <Button
-            onClick={() => setIsAddModalOpen(true)}
+            type="button"
+            onClick={handleAddClick}
             className="inline-flex items-center"
           >
             <FaPlus className="w-4 h-4 mr-2" />
@@ -140,129 +147,153 @@ export default function VehiclesPage() {
         </div>
         
         <div className="flex flex-col items-center justify-center min-h-[400px] bg-white rounded-lg shadow p-8">
-          <div className="text-gray-500 mb-4">No vehicles found</div>
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            Add your first vehicle
+          <p className="text-gray-500 mb-4">No vehicles found</p>
+          <p className="text-sm text-gray-400">Click the "Add Vehicle" button above to add your first vehicle</p>
+        </div>
+      </div>
+    );
+  } else {
+    content = (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Vehicles Management</h1>
+          <Button
+            type="button"
+            onClick={handleAddClick}
+            className="inline-flex items-center"
+          >
+            <FaPlus className="w-4 h-4 mr-2" />
+            Add Vehicle
           </Button>
+        </div>
+
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Image</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Price/Hour</TableHead>
+                <TableHead>Min Hours</TableHead>
+                <TableHead>Locations</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {vehicles.map((vehicle) => (
+                <TableRow key={vehicle.id}>
+                  <TableCell>
+                    {typeof vehicle.images === 'string' 
+                      ? JSON.parse(vehicle.images)[0] ? (
+                        <img
+                          src={JSON.parse(vehicle.images)[0]}
+                          alt={vehicle.name}
+                          className="w-16 h-16 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                          <span className="text-gray-500">No image</span>
+                        </div>
+                      )
+                      : Array.isArray(vehicle.images) && vehicle.images[0] ? (
+                        <img
+                          src={vehicle.images[0]}
+                          alt={vehicle.name}
+                          className="w-16 h-16 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                          <span className="text-gray-500">No image</span>
+                        </div>
+                      )
+                    }
+                  </TableCell>
+                  <TableCell>{vehicle.name}</TableCell>
+                  <TableCell className="capitalize">{vehicle.type}</TableCell>
+                  <TableCell>{formatCurrency(Number(vehicle.price_per_hour))}</TableCell>
+                  <TableCell>{vehicle.min_booking_hours} hours</TableCell>
+                  <TableCell>
+                    {typeof vehicle.location === 'string' 
+                      ? vehicle.location.split(', ').map((loc) => (
+                        <span
+                          key={loc}
+                          className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2"
+                        >
+                          {loc}
+                        </span>
+                      ))
+                      : Array.isArray(vehicle.location) && vehicle.location.map((loc) => (
+                        <span
+                          key={loc}
+                          className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2"
+                        >
+                          {loc}
+                        </span>
+                      ))
+                    }
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={cn(
+                        "px-2 py-1 rounded-full text-xs font-semibold",
+                        {
+                          "bg-green-100 text-green-800": vehicle.status === "active",
+                          "bg-yellow-100 text-yellow-800": vehicle.status === "maintenance",
+                          "bg-red-100 text-red-800": vehicle.status === "retired"
+                        }
+                      )}
+                    >
+                      {vehicle.status}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(vehicle)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(vehicle.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Vehicles Management</h1>
-        <Button
-          onClick={() => setIsAddModalOpen(true)}
-          className="inline-flex items-center"
-        >
-          <FaPlus className="w-4 h-4 mr-2" />
-          Add Vehicle
-        </Button>
-      </div>
-
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Image</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Price/Hour</TableHead>
-              <TableHead>Min Hours</TableHead>
-              <TableHead>Locations</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {vehicles.map((vehicle) => (
-              <TableRow key={vehicle.id}>
-                <TableCell>
-                  {vehicle.images[0] ? (
-                    <img
-                      src={vehicle.images[0]}
-                      alt={vehicle.name}
-                      className="w-16 h-16 object-cover rounded"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
-                      <span className="text-gray-500">No image</span>
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>{vehicle.name}</TableCell>
-                <TableCell className="capitalize">{vehicle.type}</TableCell>
-                <TableCell>{formatCurrency(Number(vehicle.price_per_hour))}</TableCell>
-                <TableCell>{vehicle.min_booking_hours} hours</TableCell>
-                <TableCell>
-                  {vehicle.location.map((loc) => (
-                    <span
-                      key={loc}
-                      className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2"
-                    >
-                      {loc}
-                    </span>
-                  ))}
-                </TableCell>
-                <TableCell>
-                  <span
-                    className={cn(
-                      "px-2 py-1 rounded-full text-xs font-semibold",
-                      {
-                        "bg-green-100 text-green-800": vehicle.status === "active",
-                        "bg-yellow-100 text-yellow-800": vehicle.status === "maintenance",
-                        "bg-red-100 text-red-800": vehicle.status === "retired"
-                      }
-                    )}
-                  >
-                    {vehicle.status}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(vehicle)}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(vehicle.id)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {isAddModalOpen && (
-        <AddVehicleModal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          onSuccess={handleVehicleAdded}
-        />
-      )}
-
-      {isEditModalOpen && selectedVehicle && (
+    <>
+      {content}
+      <AddVehicleModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={handleVehicleAdded}
+      />
+      {selectedVehicle && (
         <EditVehicleModal
           isOpen={isEditModalOpen}
           onClose={() => {
             setIsEditModalOpen(false);
             setSelectedVehicle(null);
           }}
-          vehicle={selectedVehicle}
           onSuccess={handleVehicleUpdated}
+          vehicle={selectedVehicle}
         />
       )}
-    </div>
+    </>
   );
 } 

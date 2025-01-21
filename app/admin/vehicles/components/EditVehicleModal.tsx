@@ -28,10 +28,8 @@ interface EditVehicleModalProps {
 interface FormData {
   name: string;
   type: typeof VEHICLE_TYPES[number];
-  description: string;
   location: string[];
   price_per_hour: number;
-  min_booking_hours: number;
   is_available: boolean;
   status: typeof VEHICLE_STATUS[number];
   images: string[];
@@ -41,13 +39,11 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
   const [formData, setFormData] = useState<FormData>({
     name: vehicle.name,
     type: vehicle.type,
-    description: vehicle.description,
-    location: vehicle.location,
-    price_per_hour: vehicle.price_per_hour,
-    min_booking_hours: vehicle.min_booking_hours,
+    location: Array.isArray(vehicle.location) ? vehicle.location : vehicle.location.split(',').map(l => l.trim()),
+    price_per_hour: parseFloat(vehicle.price_per_hour),
     is_available: vehicle.is_available,
     status: vehicle.status,
-    images: vehicle.images,
+    images: Array.isArray(vehicle.images) ? vehicle.images : vehicle.images.split(',').map(i => i.trim()),
   });
   const [loading, setLoading] = useState(false);
 
@@ -56,8 +52,9 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
 
     try {
       setLoading(true);
+      logger.debug('Updating vehicle with data:', formData);
 
-      const response = await fetch(`/api/vehicles/${vehicle.id}`, {
+      const response = await fetch(`/api/admin/vehicles/${vehicle.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -118,18 +115,6 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
           </div>
 
           <div>
-            <Label htmlFor="description">Description</Label>
-            <Input
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                setFormData({ ...formData, description: e.target.value })}
-              required
-            />
-          </div>
-
-          <div>
             <Label htmlFor="location">Location</Label>
             <Input
               id="location"
@@ -153,20 +138,6 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
               value={formData.price_per_hour}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
                 setFormData({ ...formData, price_per_hour: Number(e.target.value) })}
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="min_booking_hours">Minimum Booking Hours</Label>
-            <Input
-              id="min_booking_hours"
-              name="min_booking_hours"
-              type="number"
-              min={1}
-              value={formData.min_booking_hours}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                setFormData({ ...formData, min_booking_hours: Number(e.target.value) })}
               required
             />
           </div>

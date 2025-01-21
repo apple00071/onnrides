@@ -13,7 +13,7 @@ export async function GET(
   try {
     const session = await verifyAuth();
     
-    if (!session) {
+    if (!session?.user) {
       return NextResponse.json(
         { message: 'Authentication required' },
         { status: 401 }
@@ -60,7 +60,7 @@ export async function PUT(
   try {
     const session = await verifyAuth();
     
-    if (!session) {
+    if (!session?.user) {
       return NextResponse.json(
         { message: 'Authentication required' },
         { status: 401 }
@@ -90,14 +90,14 @@ export async function PUT(
       .set({
         name: data.name,
         type: data.type,
-        location: data.location,
+        location: Array.isArray(data.location) ? data.location.join(',') : data.location,
         quantity: data.quantity || 1,
-        price_per_hour: data.price_per_hour,
-        min_booking_hours: data.min_booking_hours || 1,
-        images: data.images || [],
+        price_per_hour: data.price_per_hour.toString(),
+        min_booking_hours: data.min_booking_hours || 12,
+        images: Array.isArray(data.images) ? data.images.join(',') : data.images || '',
         is_available: data.is_available ?? true,
         status: data.status || 'active',
-        updated_at: new Date(),
+        updated_at: new Date().toISOString(),
       })
       .where(eq(vehicles.id, vehicleId))
       .returning();
@@ -129,7 +129,7 @@ export async function DELETE(
   try {
     const session = await verifyAuth();
     
-    if (!session) {
+    if (!session?.user) {
       return NextResponse.json(
         { message: 'Authentication required' },
         { status: 401 }

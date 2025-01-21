@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const [bookingStats] = await db
       .select({
         count: count(),
-        revenue: sql<string>`COALESCE(SUM(CAST(total_price AS DECIMAL)), 0)::text`
+        revenue: sql<string>`COALESCE(SUM(CAST(total_price AS DECIMAL)), 0)`
       })
       .from(bookings)
       .where(sql`status = 'completed'`);

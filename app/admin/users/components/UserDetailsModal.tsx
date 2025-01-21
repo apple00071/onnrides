@@ -7,9 +7,9 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle
-} from '@/app/components/ui/dialog';
-import { Button } from '@/app/components/ui/button';
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import logger from '../../../lib/logger';
 import { format } from 'date-fns';

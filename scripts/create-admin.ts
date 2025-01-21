@@ -1,14 +1,22 @@
-import 'dotenv/config';
-import { db } from '../app/lib/lib/db';
-import { users } from '../app/lib/lib/schema';
-import * as bcrypt from 'bcryptjs';
-import { sql } from 'drizzle-orm';
+import { db } from '../lib/db';
+import { users } from '../lib/schema';
+import { hashPassword } from '../lib/auth';
 import { randomUUID } from 'crypto';
+import { eq } from 'drizzle-orm';
 
 async function createAdmin() {
   try {
-    // Check if admin user already exists
-    const existingAdmin = await db.select().from(users).where(sql`${users.email} = 'admin@onnrides.com'`);
+    console.log('Creating admin user...');
+
+    const adminEmail = 'admin@onnrides.com';
+    const adminPassword = 'admin123'; // You should change this in production
+
+    // Check if admin already exists
+    const existingAdmin = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, adminEmail))
+      .limit(1);
 
     if (existingAdmin.length > 0) {
       console.log('Admin user already exists');
@@ -16,21 +24,29 @@ async function createAdmin() {
     }
 
     // Create admin user
-    const passwordHash = await bcrypt.hash('admin123', 10);
-    await db.insert(users).values({
-      id: randomUUID(),
-      name: 'Admin User',
-      email: 'admin@onnrides.com',
-      password_hash: passwordHash,
-      role: 'admin',
-    });
+    const hashedPassword = await hashPassword(adminPassword);
+    const now = new Date().toISOString();
 
-    console.log('Admin user created successfully');
-    console.log('Email: admin@onnrides.com');
-    console.log('Password: admin123');
+    const [admin] = await db
+      .insert(users)
+      .values({
+        id: randomUUID(),
+        email: adminEmail,
+        name: 'Admin',
+        password_hash: hashedPassword,
+        role: 'admin',
+        created_at: now,
+        updated_at: now,
+      })
+      .returning();
+
+    console.log('Admin user created successfully:', {
+      id: admin.id,
+      email: admin.email,
+      role: admin.role
+    });
   } catch (error) {
     console.error('Error creating admin user:', error);
-    process.exit(1);
   }
 }
 

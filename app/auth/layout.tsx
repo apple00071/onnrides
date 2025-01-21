@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import Navbar from '@/app/components/Navbar';
+import Navbar from '@/app/(main)/components/Navbar';
 
 export const metadata: Metadata = {
   title: 'Authentication - OnnRides',
-  description: 'Login or register for OnnRides',
+  description: 'Authentication page for OnnRides',
 };
 
 export default function AuthLayout({
@@ -12,11 +12,9 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <main className="pt-16">
-        {children}
-      </main>
-    </>
+      <main>{children}</main>
+    </div>
   );
 } 

@@ -1,18 +1,12 @@
 {
   "version": "5",
-  "dialect": "pg",
+  "dialect": "sqlite",
   "entries": [
     {
       "idx": 1,
-      "when": "1705311540000",
-      "tag": "0001_add_quantity_column",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "when": "1705311541000",
-      "tag": "0002_update_vehicle_pricing",
+      "when": "1705741200000",
+      "tag": "init",
       "breakpoints": true
     }
   ]
-} 
+}
