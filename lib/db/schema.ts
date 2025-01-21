@@ -8,7 +8,8 @@ import {
   integer,
   decimal,
   json,
-  pgEnum
+  pgEnum,
+  primaryKey
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import type { AdapterAccount } from '@auth/core/adapters';
@@ -48,10 +49,7 @@ export const accounts = pgTable(
     session_state: text('session_state'),
   },
   (account) => ({
-    compoundKey: account.provider_account_id_key([
-      account.provider,
-      account.providerAccountId,
-    ]),
+    compoundKey: primaryKey({ columns: [account.provider, account.providerAccountId] }),
   })
 );
 
@@ -71,7 +69,7 @@ export const verificationTokens = pgTable(
     expires: timestamp('expires', { mode: 'date' }).notNull(),
   },
   (vt) => ({
-    compoundKey: vt.identifier_token_key([vt.identifier, vt.token]),
+    compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
   })
 );
 

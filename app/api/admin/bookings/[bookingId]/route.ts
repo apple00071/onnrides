@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import { db } from '@/lib/db';
-import { bookings, vehicles } from '@/lib/schema';
+import { bookings, vehicles } from '@/lib/db/schema';
 import { verifyAuth } from '@/lib/auth';
 import { eq } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import type { Booking, Vehicle } from '@/lib/types';
 
 interface UpdateBookingBody {
@@ -26,13 +27,11 @@ export async function GET(
       );
     }
 
-    const booking = await db.query.bookings.findFirst({
-      where: eq(bookings.id, params.bookingId),
-      with: {
-        user: true,
-        vehicle: true,
-      },
-    });
+    const [booking] = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, params.bookingId))
+      .limit(1);
 
     if (!booking) {
       return NextResponse.json(
@@ -41,7 +40,19 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ booking });
+    // Get vehicle details
+    const [vehicle] = await db
+      .select()
+      .from(vehicles)
+      .where(eq(vehicles.id, booking.vehicle_id))
+      .limit(1);
+
+    return NextResponse.json({
+      booking: {
+        ...booking,
+        vehicle
+      }
+    });
   } catch (error) {
     logger.error('Error in GET /api/admin/bookings/[bookingId]:', error);
     return NextResponse.json(
@@ -75,7 +86,7 @@ export async function PATCH(
       .set({
         ...(status && { status }),
         ...(paymentStatus && { payment_status: paymentStatus }),
-        updated_at: new Date()
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .where(eq(bookings.id, params.bookingId))
       .returning();

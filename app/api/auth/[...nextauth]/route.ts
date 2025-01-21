@@ -1,15 +1,21 @@
+'use client';
+
 import NextAuth, { type NextAuthOptions } from 'next-auth';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { db } from '@/lib/db';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
-import { users } from '@/lib/db/schema';
+import { users, roleEnum } from '@/lib/db/schema';
+import { JWT } from 'next-auth/jwt';
+
+type UserRole = typeof roleEnum.enumValues[number];
 
 export const authOptions: NextAuthOptions = {
-  adapter: DrizzleAdapter(db),
+  adapter: DrizzleAdapter(db) as any, // Type assertion needed due to adapter version mismatch
   session: {
-    strategy: 'jwt' as const
+    strategy: 'jwt' as const,
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
     signIn: '/login',
@@ -26,49 +32,53 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const user = await db.query.users.findFirst({
-          where: eq(users.email, credentials.email)
-        });
+        try {
+          const [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, credentials.email))
+            .limit(1);
 
-        if (!user || !user.password) {
+          if (!user?.password) {
+            return null;
+          }
+
+          const passwordMatch = await bcrypt.compare(credentials.password, user.password);
+
+          if (!passwordMatch) {
+            return null;
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role
+          };
+        } catch (error) {
+          console.error('Auth error:', error);
           return null;
         }
-
-        const passwordMatch = await bcrypt.compare(credentials.password, user.password);
-
-        if (!passwordMatch) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role
-        };
       }
     })
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      if (trigger === "update" && session?.name) {
+        token.name = session.name;
+      }
       if (user) {
-        return {
-          ...token,
-          id: user.id,
-          role: user.role
-        };
+        token.id = user.id;
+        token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.id as string,
-          role: token.role as string
-        }
-      };
+      if (token && session.user) {
+        session.user.id = token.id as string;
+        session.user.role = token.role as UserRole;
+      }
+      return session;
     }
   }
 };
