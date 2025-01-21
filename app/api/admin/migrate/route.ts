@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { sql } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 import logger from '@/lib/logger';
 import { verifyAuth } from '@/lib/auth';
 
@@ -16,11 +15,13 @@ export async function GET() {
 
     logger.info('Starting database migration...');
 
-    // Add min_booking_hours column
-    await db.run(
-      sql`ALTER TABLE vehicles 
-          ADD COLUMN IF NOT EXISTS min_booking_hours INTEGER NOT NULL DEFAULT 12`
-    );
+    const sql = neon(process.env.DATABASE_URL!);
+    
+    // Add min_booking_hours column using raw SQL
+    await sql`
+      ALTER TABLE vehicles 
+      ADD COLUMN IF NOT EXISTS min_booking_hours INTEGER NOT NULL DEFAULT 12
+    `;
 
     logger.info('Migration completed successfully');
 
