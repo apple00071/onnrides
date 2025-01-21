@@ -46,7 +46,7 @@ function calculatePrice(pricePerHour: number, startDate: Date, endDate: Date): {
   
   // Check if any part of the booking is on a weekend
   let isWeekendBooking = false;
-  let currentDate = new Date(startDate);
+  const currentDate = new Date(startDate);
   while (currentDate <= endDate) {
     if (isWeekend(currentDate)) {
       isWeekendBooking = true;
