@@ -18,20 +18,21 @@ export async function GET(
 ) {
   try {
     // Verify authentication
-    const authResult = await verifyAuth();
-    if (!authResult || authResult.role !== 'admin') {
+    const user = await verifyAuth();
+    if (!user || user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Get booking
-    const [booking] = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, params.bookingId))
-      .limit(1);
+    const booking = await db.query.bookings.findFirst({
+      where: eq(bookings.id, params.bookingId),
+      with: {
+        user: true,
+        vehicle: true,
+      },
+    });
 
     if (!booking) {
       return NextResponse.json(
@@ -40,25 +41,11 @@ export async function GET(
       );
     }
 
-    // Get vehicle details
-    const [vehicle] = await db
-      .select()
-      .from(vehicles)
-      .where(eq(vehicles.id, booking.vehicle_id))
-      .limit(1);
-
-    return NextResponse.json({
-      success: true,
-      booking: {
-        ...booking,
-        vehicle
-      }
-    });
-
+    return NextResponse.json({ booking });
   } catch (error) {
-    logger.error('Failed to fetch booking:', error);
+    logger.error('Error in GET /api/admin/bookings/[bookingId]:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch booking' },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }
@@ -71,25 +58,11 @@ export async function PATCH(
 ) {
   try {
     // Verify authentication
-    const authResult = await verifyAuth();
-    if (!authResult || authResult.role !== 'admin') {
+    const user = await verifyAuth();
+    if (!user || user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
-      );
-    }
-
-    // Get booking
-    const [booking] = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, params.bookingId))
-      .limit(1);
-
-    if (!booking) {
-      return NextResponse.json(
-        { error: 'Booking not found' },
-        { status: 404 }
       );
     }
 
@@ -97,7 +70,7 @@ export async function PATCH(
     const { status, paymentStatus } = body;
 
     // Update booking
-    const [updatedBooking] = await db
+    const updatedBooking = await db
       .update(bookings)
       .set({
         ...(status && { status }),
@@ -107,18 +80,25 @@ export async function PATCH(
       .where(eq(bookings.id, params.bookingId))
       .returning();
 
+    if (!updatedBooking.length) {
+      return NextResponse.json(
+        { error: 'Booking not found' },
+        { status: 404 }
+      );
+    }
+
     // Get vehicle details
     const [vehicle] = await db
       .select()
       .from(vehicles)
-      .where(eq(vehicles.id, booking.vehicle_id))
+      .where(eq(vehicles.id, updatedBooking[0].vehicle_id))
       .limit(1);
 
     return NextResponse.json({
       success: true,
       message: 'Booking updated successfully',
       booking: {
-        ...updatedBooking,
+        ...updatedBooking[0],
         vehicle
       }
     });
@@ -127,6 +107,42 @@ export async function PATCH(
     logger.error('Failed to update booking:', error);
     return NextResponse.json(
       { error: 'Failed to update booking' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { bookingId: string } }
+) {
+  try {
+    // Verify authentication
+    const user = await verifyAuth();
+    if (!user || user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const deletedBooking = await db
+      .delete(bookings)
+      .where(eq(bookings.id, params.bookingId))
+      .returning();
+
+    if (!deletedBooking.length) {
+      return NextResponse.json(
+        { error: 'Booking not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ booking: deletedBooking[0] });
+  } catch (error) {
+    logger.error('Error in DELETE /api/admin/bookings/[bookingId]:', error);
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }

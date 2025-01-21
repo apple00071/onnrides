@@ -10,6 +10,8 @@ import { getServerSession, type AuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import logger from './logger';
+import { getServerSession as getServerSessionNextAuth } from "next-auth/next"
+import { authOptions as authOptionsNextAuth } from "@/app/api/auth/[...nextauth]/route"
 
 declare module 'next-auth' {
   interface Session {
@@ -147,11 +149,14 @@ export const authOptions: AuthOptions = {
 
 export async function verifyAuth() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return null;
-    return session;
-  } catch {
-    return null;
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return null
+    }
+    return session.user
+  } catch (error) {
+    console.error('Auth verification error:', error)
+    return null
   }
 }
 
