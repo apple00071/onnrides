@@ -1,6 +1,5 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon, neonConfig } from '@neondatabase/serverless';
 import * as schema from './schema';
 
 const connectionString = process.env.DATABASE_URL;
@@ -9,21 +8,13 @@ if (!connectionString) {
   throw new Error('DATABASE_URL is not set');
 }
 
-// Connection for migrations
-const migrationClient = postgres(connectionString, { max: 1 });
+// Configure Neon client
+neonConfig.fetchConnectionCache = true;
 
-// Connection for queries
-const queryClient = postgres(connectionString);
+// Create the SQL client with explicit type parameters
+const sql = neon<boolean, boolean>(connectionString);
 
-export const db = drizzle(queryClient, {
-  schema: schema,
-  logger: process.env.NODE_ENV === 'development',
-});
+// Create the database instance
+export const db = drizzle(sql, { schema });
 
-// Run migrations (if needed)
-export async function runMigrations() {
-  await migrate(drizzle(migrationClient), {
-    migrationsFolder: './drizzle',
-  });
-  await migrationClient.end();
-} 
+// Note: Neon DB handles connection pooling automatically through their serverless driver 

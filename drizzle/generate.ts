@@ -1,6 +1,5 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/vercel-postgres';
+import { migrate } from 'drizzle-orm/vercel-postgres/migrator';
 import * as dotenv from 'dotenv';
 import { sql } from '@vercel/postgres';
 import { createId } from '@paralleldrive/cuid2';
@@ -20,8 +19,7 @@ async function main() {
     const db = drizzle(sql);
     await migrate(db, {
       migrationsFolder: 'drizzle/migrations',
-      migrationsTable: 'migrations',
-      migrationFileName: `migration_${createId()}`,
+      migrationsTable: 'migrations'
     });
     
     console.log('Migration generated successfully');

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { del } from '@vercel/blob';
 import logger from '@/lib/logger';
 import { db } from '@/lib/db';
-import { vehicles } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { vehicles } from '@/lib/db/schema';
+import { eq, sql } from 'drizzle-orm';
 import { verifyAuth } from '@/lib/auth';
 
 interface UpdateVehicleBody {
@@ -60,46 +60,41 @@ export async function PATCH(
   { params }: { params: { vehicleId: string } }
 ) {
   try {
-    // Verify authentication and admin role
-    const authResult = await verifyAuth();
-    if (!authResult || authResult.role !== 'admin') {
+    // Verify authentication
+    const user = await verifyAuth();
+    if (!user || user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Get vehicle
-    const [vehicle] = await db
-      .select()
-      .from(vehicles)
-      .where(eq(vehicles.id, params.vehicleId))
-      .limit(1);
+    const body = await request.json();
+    const { name, type, location, price_per_hour, min_booking_hours, is_available, images, status } = body;
 
-    if (!vehicle) {
+    // Update vehicle
+    const [updatedVehicle] = await db
+      .update(vehicles)
+      .set({
+        ...(name && { name }),
+        ...(type && { type }),
+        ...(location && { location }),
+        ...(price_per_hour && { price_per_hour }),
+        ...(min_booking_hours && { min_booking_hours }),
+        ...(typeof is_available === 'boolean' && { is_available }),
+        ...(images && { images }),
+        ...(status && { status }),
+        updated_at: sql`CURRENT_TIMESTAMP`
+      })
+      .where(eq(vehicles.id, params.vehicleId))
+      .returning();
+
+    if (!updatedVehicle) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }
       );
     }
-
-    const body = await request.json() as UpdateVehicleBody;
-
-    // Update vehicle
-    await db
-      .update(vehicles)
-      .set({
-        ...body,
-        updated_at: new Date()
-      })
-      .where(eq(vehicles.id, params.vehicleId));
-
-    // Get updated vehicle
-    const [updatedVehicle] = await db
-      .select()
-      .from(vehicles)
-      .where(eq(vehicles.id, params.vehicleId))
-      .limit(1);
 
     return NextResponse.json({
       success: true,

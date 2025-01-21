@@ -5,6 +5,7 @@ import { bookings, vehicles, users } from '@/lib/schema';
 import { verifyAuth } from '@/lib/auth';
 import type { User } from '@/lib/types';
 import { eq, desc, and } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 interface UpdateBookingBody {
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
@@ -127,7 +128,7 @@ export async function PUT(request: NextRequest) {
       .update(bookings)
       .set({
         status,
-        updated_at: new Date()
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .where(eq(bookings.id, id));
 

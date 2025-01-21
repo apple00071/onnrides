@@ -7,27 +7,29 @@ import type { User } from './types';
 import { findUserById } from './db';
 import { NextResponse } from 'next/server';
 import { getServerSession, type AuthOptions } from 'next-auth';
+import type { DefaultJWT, JWT } from 'next-auth/jwt';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import logger from './logger';
-import { getServerSession as getServerSessionNextAuth } from "next-auth/next"
-import { authOptions as authOptionsNextAuth } from "@/app/api/auth/[...nextauth]/route"
+
+export type UserRole = 'user' | 'admin';
+
+interface AuthUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: UserRole;
+}
 
 declare module 'next-auth' {
   interface Session {
-    user: {
-      id: string;
-      email: string;
-      name: string | null;
-      role: 'user' | 'admin';
-    }
+    user: AuthUser;
   }
-  interface User {
-    id: string;
-    email: string;
-    name: string | null;
-    role: 'user' | 'admin';
-  }
+  interface User extends AuthUser {}
+}
+
+declare module 'next-auth/jwt' {
+  interface JWT extends DefaultJWT, AuthUser {}
 }
 
 function getJwtKey() {
@@ -47,7 +49,7 @@ export const authOptions: AuthOptions = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         try {
           logger.info('Authorizing credentials:', { email: credentials?.email });
 
@@ -77,11 +79,16 @@ export const authOptions: AuthOptions = {
 
           logger.info('User authorized successfully:', { userId: user[0].id, email: user[0].email });
           
+          if (user[0].role !== 'user' && user[0].role !== 'admin') {
+            logger.error('Invalid user role:', { userId: user[0].id, role: user[0].role });
+            return null;
+          }
+
           return {
             id: user[0].id,
             email: user[0].email,
-            name: user[0].name,
-            role: user[0].role
+            name: user[0].name || '',
+            role: user[0].role as UserRole
           };
         } catch (error) {
           logger.error('Authorization error:', { error: (error as Error).message });
@@ -98,15 +105,22 @@ export const authOptions: AuthOptions = {
           userEmail: user.email,
           userRole: user.role 
         });
-        return {
+        
+        if (user.role !== 'user' && user.role !== 'admin') {
+          logger.error('Invalid user role in JWT:', { userId: user.id, role: user.role });
+          throw new Error('Invalid user role');
+        }
+
+        const jwt: JWT = {
           ...token,
           id: user.id,
           email: user.email,
-          name: user.name,
-          role: user.role,
+          name: user.name || '',
+          role: user.role
         };
+        return jwt;
       }
-      return token;
+      return token as JWT;
     },
     async session({ session, token }) {
       logger.debug('Creating new session from token:', { 
@@ -114,16 +128,19 @@ export const authOptions: AuthOptions = {
         tokenEmail: token.email,
         tokenRole: token.role 
       });
-      
-      return {
-        ...session,
-        user: {
-          id: token.id as string,
-          email: token.email as string,
-          name: token.name as string | null,
-          role: token.role as 'user' | 'admin',
-        }
+
+      if (token.role !== 'user' && token.role !== 'admin') {
+        logger.error('Invalid token role:', { tokenId: token.id, role: token.role });
+        throw new Error('Invalid token role');
+      }
+
+      session.user = {
+        id: token.id,
+        email: token.email,
+        name: token.name || '',
+        role: token.role
       };
+      return session;
     },
   },
   pages: {
