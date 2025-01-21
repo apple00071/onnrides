@@ -1,34 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { users } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
-import bcrypt from 'bcrypt';
+import { neon } from '@neondatabase/serverless';
+import * as bcrypt from 'bcryptjs';
 import logger from '@/lib/logger';
 
 // POST /api/admin/setup - Create initial admin account
 export async function POST(request: NextRequest) {
   try {
-    // Check if admin already exists
-    const [existingAdmin] = await db
-      .select()
-      .from(users)
-      .where(eq(users.role, 'admin'))
-      .limit(1);
+    const { email, password, name } = await request.json();
 
-    if (existingAdmin) {
+    if (!email || !password || !name) {
       return NextResponse.json(
-        { error: 'Admin account already exists' },
+        { error: 'Email, password and name are required' },
         { status: 400 }
       );
     }
 
-    const body = await request.json();
-    const { email, password, name } = body;
+    const sql = neon(process.env.DATABASE_URL!);
 
-    // Validate input
-    if (!email || !password || !name) {
+    // Check if admin user already exists
+    const existingAdmin = await sql`
+      SELECT id FROM users WHERE role = 'admin' LIMIT 1
+    `;
+
+    if (existingAdmin.length > 0) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Admin user already exists' },
         { status: 400 }
       );
     }
@@ -36,34 +32,37 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create admin account
-    const [admin] = await db
-      .insert(users)
-      .values({
+    // Create admin user
+    await sql`
+      INSERT INTO users (
         email,
-        password_hash: hashedPassword,
+        password_hash,
         name,
-        role: 'admin',
-        created_at: new Date(),
-        updated_at: new Date()
-      })
-      .returning();
+        role,
+        status,
+        created_at,
+        updated_at
+      ) VALUES (
+        ${email},
+        ${hashedPassword},
+        ${name},
+        'admin',
+        'active',
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+      )
+    `;
+
+    logger.info('Admin user created successfully');
 
     return NextResponse.json({
-      success: true,
-      message: 'Admin account created successfully',
-      admin: {
-        id: admin.id,
-        email: admin.email,
-        name: admin.name,
-        role: admin.role
-      }
+      message: 'Admin user created successfully'
     });
 
   } catch (error) {
-    logger.error('Failed to setup admin account:', error);
+    logger.error('Error creating admin user:', error);
     return NextResponse.json(
-      { error: 'Failed to setup admin account' },
+      { error: 'Failed to create admin user' },
       { status: 500 }
     );
   }
