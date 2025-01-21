@@ -20,7 +20,8 @@ export default function BookingForm({ vehicle }: BookingFormProps) {
   const [loading, setLoading] = useState(false);
 
   const duration = startDate && endDate ? calculateDuration(startDate, endDate) : 0;
-  const totalPrice = startDate && endDate ? calculateTotalPrice(startDate, endDate, vehicle.price_per_hour) : 0;
+  const pricePerHour = Number(vehicle.price_per_hour);
+  const totalPrice = startDate && endDate ? calculateTotalPrice(startDate, endDate, pricePerHour) : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +74,7 @@ export default function BookingForm({ vehicle }: BookingFormProps) {
             <p className="text-gray-500 capitalize">{vehicle.type}</p>
           </div>
           <div className="text-right">
-            <p className="text-xl font-bold text-primary">{formatCurrency(vehicle.price_per_hour)}/hour</p>
+            <p className="text-xl font-bold text-primary">{formatCurrency(pricePerHour)}/hour</p>
             <p className="text-sm text-gray-500">Min. {vehicle.min_booking_hours} hours</p>
           </div>
         </div>
@@ -81,25 +82,23 @@ export default function BookingForm({ vehicle }: BookingFormProps) {
 
       <div className="space-y-4 mb-6">
         <div>
-          <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Pickup Date & Time
           </label>
           <DateTimePicker
-            id="startDate"
-            value={startDate}
-            onChange={setStartDate}
+            date={startDate}
+            setDate={setStartDate}
             minDate={new Date()}
           />
         </div>
 
         <div>
-          <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Drop-off Date & Time
           </label>
           <DateTimePicker
-            id="endDate"
-            value={endDate}
-            onChange={setEndDate}
+            date={endDate}
+            setDate={setEndDate}
             minDate={startDate || new Date()}
           />
         </div>
