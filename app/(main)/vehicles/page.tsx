@@ -386,10 +386,24 @@ export default function VehiclesPage() {
                     startDate={searchParams.get('pickupDate') || ''}
                     endDate={searchParams.get('dropoffDate') || ''}
                     onLocationChange={(location) => {
-                      // Do nothing or handle individual card location changes if needed
                       console.log('Location selected for vehicle:', vehicle.id, location);
                     }}
-                    onBook={() => router.push(`/vehicles/${vehicle.id}?${searchParams.toString()}`)}
+                    onBook={() => {
+                      const currentLocation = searchParams.get('location');
+                      // If no location in search params, use the vehicle's first location
+                      if (!currentLocation && Array.isArray(vehicle.location) && vehicle.location.length > 0) {
+                        const newSearchParams = new URLSearchParams(searchParams.toString());
+                        newSearchParams.set('location', vehicle.location[0]);
+                        router.push(`/vehicles/${vehicle.id}/booking?${newSearchParams.toString()}`);
+                        return;
+                      }
+                      // If no location available at all, show error
+                      if (!currentLocation && (!Array.isArray(vehicle.location) || vehicle.location.length === 0)) {
+                        toast.error('Please select a location first');
+                        return;
+                      }
+                      router.push(`/vehicles/${vehicle.id}/booking?${searchParams.toString()}`);
+                    }}
                   />
                 );
               })}

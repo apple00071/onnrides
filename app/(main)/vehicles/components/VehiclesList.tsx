@@ -6,13 +6,22 @@ import Image from 'next/image';
 import { Vehicle } from '@/lib/types';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface VehicleListProps {
   vehicles: Vehicle[];
   searchParams: URLSearchParams;
+  onBookClick: (vehicleId: string) => void;
 }
 
-export default function VehiclesList({ vehicles, searchParams }: VehicleListProps) {
+export default function VehiclesList({ vehicles, searchParams, onBookClick }: VehicleListProps) {
+  const getLocationString = (location: string | string[]): string => {
+    if (Array.isArray(location)) {
+      return location.join(', ');
+    }
+    return location;
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {vehicles.map((vehicle) => (
@@ -22,7 +31,7 @@ export default function VehiclesList({ vehicles, searchParams }: VehicleListProp
         >
           <div className="relative aspect-video">
             <Image
-              src={vehicle.images[0] || '/placeholder.png'}
+              src={Array.isArray(vehicle.images) ? vehicle.images[0] : vehicle.images}
               alt={vehicle.name}
               fill
               className="object-cover"
@@ -31,23 +40,24 @@ export default function VehiclesList({ vehicles, searchParams }: VehicleListProp
           <div className="p-4">
             <div className="flex justify-between items-start mb-2">
               <div>
-                <h3 className="text-lg font-semibold">{vehicle.name}</h3>
-                <p className="text-sm text-gray-500 capitalize">{vehicle.type}</p>
+                <h3 className="text-lg font-semibold mb-1">{vehicle.name}</h3>
+                <p className="text-gray-500 capitalize">{vehicle.type}</p>
+                <p className="text-gray-500">{getLocationString(vehicle.location)}</p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold">{formatCurrency(vehicle.price_per_hour)}</p>
+                <p className="text-lg font-bold">{formatCurrency(Number(vehicle.price_per_hour))}</p>
                 <p className="text-sm text-gray-500">per hour</p>
               </div>
             </div>
             <div className="flex items-center text-sm text-gray-500 mb-4">
-              <span>{vehicle.location.join(', ')}</span>
+              <span>{getLocationString(vehicle.location)}</span>
             </div>
-            <Link
-              href={`/vehicles/${vehicle.id}?${searchParams.toString()}`}
-              className="block w-full px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 text-center"
+            <Button
+              onClick={() => onBookClick(vehicle.id)}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
             >
-              View Details
-            </Link>
+              Book Now
+            </Button>
           </div>
         </div>
       ))}

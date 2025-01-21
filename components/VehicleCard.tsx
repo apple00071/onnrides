@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { toast } from "react-hot-toast";
 import {
   Select,
   SelectContent,
@@ -36,73 +37,108 @@ export function VehicleCard({
   onBook,
   className,
 }: VehicleCardProps) {
-  // Convert time to 12-hour format
-  const formatTime = (time: string) => {
-    if (!time) return "";
-    try {
-      const [hours, minutes] = time.split(':');
-      const hour = parseInt(hours);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const hour12 = hour % 12 || 12;
-      return `${hour12}:${minutes} ${ampm}`;
-    } catch {
-      return time;
+  const handleBookClick = () => {
+    if (!locations || locations.length === 0) {
+      toast.error('Please select a location to proceed');
+      return;
     }
+    onBook();
+  };
+
+  const formatTime = (time: string) => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    const date = new Date();
+    date.setHours(parseInt(hours), parseInt(minutes));
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true,
+    });
+  };
+
+  const formatDate = (date: string) => {
+    if (!date) return '';
+    return new Date(date).toISOString().split('T')[0];
+  };
+
+  const formatCurrency = (value: number) => {
+    return value.toFixed(2);
   };
 
   return (
-    <div className={cn("bg-white rounded-lg shadow-md p-4 w-full max-w-sm", className)}>
-      {/* Vehicle Name */}
-      <h3 className="text-lg font-semibold mb-4">{name}</h3>
-
+    <div
+      className={cn(
+        "bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow",
+        className
+      )}
+    >
       {/* Vehicle Image */}
-      <div className="relative w-full h-40 mb-4">
-        <Image
-          src={imageUrl}
-          alt={name}
-          fill
-          className="object-contain"
-          priority
-        />
-      </div>
-
-      {/* Location Selector */}
-      <div className="mb-4">
-        <p className="text-sm text-gray-500 mb-1">Available at</p>
-        <Select onValueChange={onLocationChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select location" />
-          </SelectTrigger>
-          <SelectContent>
-            {locations.map((location) => (
-              <SelectItem key={location} value={location}>
-                {location}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Date Time Display */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="text-center">
-          <p className="text-base font-medium">{formatTime(startTime)}</p>
-          <p className="text-sm text-gray-500">{startDate}</p>
-        </div>
-        <div className="text-gray-400">to</div>
-        <div className="text-center">
-          <p className="text-base font-medium">{formatTime(endTime)}</p>
-          <p className="text-sm text-gray-500">{endDate}</p>
+      <div className="relative h-48 flex items-center justify-center bg-gray-100">
+        <div className="relative h-40 w-64">
+          <Image
+            src={imageUrl || '/placeholder.png'}
+            alt={name}
+            fill
+            className="object-contain"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            priority
+          />
         </div>
       </div>
 
-      {/* Price and Book Button */}
-      <div className="flex items-center justify-between">
-        <div>
-          <span className="text-lg font-semibold">₹ {price}</span>
+      <div className="p-4">
+        <div className="flex justify-between items-start mb-4">
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold">{name}</h3>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Available at</p>
+              <Select
+                value={locations[0]}
+                onValueChange={onLocationChange}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((location) => (
+                    <SelectItem key={location} value={location}>
+                      {location}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="flex items-center justify-between">
+              <div className="text-lg font-semibold">
+                ₹{formatCurrency(price)}
+              </div>
+            </div>
+          </div>
         </div>
-        <Button onClick={onBook} className="bg-orange-500 hover:bg-orange-600 text-white">
-          Book
+
+        {/* Date Time Display */}
+        {startTime && endTime && startDate && endDate && (
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-center">
+              <p className="text-base font-medium">{formatTime(startTime)}</p>
+              <p className="text-sm text-gray-500">{formatDate(startDate)}</p>
+            </div>
+            <div className="text-gray-400">to</div>
+            <div className="text-center">
+              <p className="text-base font-medium">{formatTime(endTime)}</p>
+              <p className="text-sm text-gray-500">{formatDate(endDate)}</p>
+            </div>
+          </div>
+        )}
+
+        <Button
+          onClick={handleBookClick}
+          className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+        >
+          Book Now
         </Button>
       </div>
     </div>
