@@ -32,32 +32,71 @@ interface FormData {
   price_per_hour: number;
   is_available: boolean;
   status: typeof VEHICLE_STATUS[number];
-  images: string[];
+  images: File[];
+  existingImages: string[];
 }
 
 export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }: EditVehicleModalProps) {
   const [formData, setFormData] = useState<FormData>({
     name: vehicle.name,
-    type: vehicle.type,
+    type: vehicle.type as typeof VEHICLE_TYPES[number],
     location: Array.isArray(vehicle.location) ? vehicle.location : vehicle.location.split(',').map(l => l.trim()),
     price_per_hour: parseFloat(vehicle.price_per_hour),
     is_available: vehicle.is_available,
     status: vehicle.status,
-    images: Array.isArray(vehicle.images) ? vehicle.images : vehicle.images.split(',').map(i => i.trim()),
+    images: [],
+    existingImages: Array.isArray(vehicle.images) ? vehicle.images : vehicle.images.split(',').map(i => i.trim()),
   });
   const [loading, setLoading] = useState(false);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      setFormData(prev => ({
+        ...prev,
+        images: [...Array.from(files)]
+      }));
+    }
+  };
+
+  const removeExistingImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      existingImages: prev.existingImages.filter((_, i) => i !== index)
+    }));
+  };
+
+  const removeNewImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
       setLoading(true);
-      logger.debug('Updating vehicle with data:', formData);
+      const formDataToSend = new FormData();
+      
+      // Append basic fields
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('type', formData.type);
+      formDataToSend.append('location', JSON.stringify(formData.location));
+      formDataToSend.append('price_per_hour', formData.price_per_hour.toString());
+      formDataToSend.append('is_available', formData.is_available.toString());
+      formDataToSend.append('status', formData.status);
+      formDataToSend.append('existingImages', JSON.stringify(formData.existingImages));
+      
+      // Append new images
+      formData.images.forEach((file, index) => {
+        formDataToSend.append(`images`, file);
+      });
 
       const response = await fetch(`/api/admin/vehicles/${vehicle.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: formDataToSend,
       });
 
       if (!response.ok) {
@@ -78,7 +117,7 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Edit Vehicle</DialogTitle>
         </DialogHeader>
@@ -162,15 +201,66 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
           </div>
 
           <div>
-            <Label htmlFor="images">Image URLs</Label>
+            <Label htmlFor="images">Vehicle Images</Label>
             <Input
               id="images"
               name="images"
-              value={formData.images.join(', ')}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                setFormData({ ...formData, images: e.target.value.split(',').map((url: string) => url.trim()) })}
-              placeholder="Enter image URLs separated by commas"
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageChange}
+              className="mt-1"
             />
+            
+            {/* Existing Images */}
+            {formData.existingImages.length > 0 && (
+              <div className="mt-4">
+                <Label>Existing Images</Label>
+                <div className="mt-2 grid grid-cols-4 gap-4">
+                  {formData.existingImages.map((url, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={url}
+                        alt={`Existing ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-md"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeExistingImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <FaTimes className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* New Images Preview */}
+            {formData.images.length > 0 && (
+              <div className="mt-4">
+                <Label>New Images</Label>
+                <div className="mt-2 grid grid-cols-4 gap-4">
+                  {formData.images.map((file, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-md"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeNewImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <FaTimes className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end space-x-4">

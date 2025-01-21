@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { VehicleCard } from "@/components/VehicleCard";
 
 interface Vehicle {
   id: string;
@@ -109,7 +110,24 @@ export default function VehiclesPage() {
         throw new Error(data.message || 'Failed to fetch vehicles');
       }
 
-      logger.info('Received vehicles data:', data);
+      // Add detailed logging for the entire response
+      console.log('Full API Response:', JSON.stringify(data, null, 2));
+
+      // Debug log for image URLs with more detail
+      data.vehicles.forEach((vehicle: Vehicle) => {
+        console.log('Vehicle Debug Info:', {
+          name: vehicle.name,
+          imageType: typeof vehicle.images,
+          rawImages: vehicle.images,
+          parsedImages: (() => {
+            try {
+              return typeof vehicle.images === 'string' ? JSON.parse(vehicle.images) : vehicle.images;
+            } catch (e) {
+              return `Error parsing: ${e.message}`;
+            }
+          })()
+        });
+      });
 
       if (!data.vehicles || !Array.isArray(data.vehicles)) {
         throw new Error('Invalid response format');
@@ -126,13 +144,25 @@ export default function VehiclesPage() {
 
       // Sort vehicles based on selected option
       const sortedVehicles = [...data.vehicles];
+
+      // Filter vehicles based on selected locations
+      const filteredVehicles = selectedLocations.length > 0
+        ? sortedVehicles.filter(vehicle => {
+            const vehicleLocations = Array.isArray(vehicle.location) 
+              ? vehicle.location 
+              : [vehicle.location];
+            return selectedLocations.some(selected => vehicleLocations.includes(selected));
+          })
+        : sortedVehicles;
+
+      // Sort filtered vehicles
       if (sortBy === 'price-low-high') {
-        sortedVehicles.sort((a, b) => a.price_per_hour - b.price_per_hour);
+        filteredVehicles.sort((a, b) => a.price_per_hour - b.price_per_hour);
       } else if (sortBy === 'price-high-low') {
-        sortedVehicles.sort((a, b) => b.price_per_hour - a.price_per_hour);
+        filteredVehicles.sort((a, b) => b.price_per_hour - a.price_per_hour);
       }
 
-      setVehicles(sortedVehicles);
+      setVehicles(filteredVehicles);
     } catch (error) {
       logger.error('Error fetching vehicles:', error);
       toast.error('Failed to load vehicles. Please try again.');
@@ -326,53 +356,43 @@ export default function VehiclesPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {vehicles.map((vehicle) => (
-                <div
-                  key={vehicle.id}
-                  className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-                >
-                  <div className="relative aspect-video">
-                    <Image
-                      src={vehicle.images[0] || '/placeholder.png'}
-                      alt={vehicle.name}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="text-lg font-semibold">{vehicle.name}</h3>
-                        <p className="text-sm text-gray-500 capitalize">{vehicle.type}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold">₹{vehicle.price_per_hour}/hr</p>
-                        {vehicle.pricing && (
-                          <>
-                            <p className="text-sm text-gray-500">
-                              Min {vehicle.pricing.chargeable_hours}hrs: ₹{vehicle.pricing.total_price}
-                            </p>
-                            {vehicle.pricing.total_hours > 0 && vehicle.pricing.total_hours < vehicle.pricing.chargeable_hours && (
-                              <p className="text-xs text-orange-500">
-                                *{vehicle.pricing.chargeable_hours}hr minimum applies
-                              </p>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center text-sm text-gray-500 mb-4">
-                      <span>{vehicle.location.join(', ')}</span>
-                    </div>
-                    <button
-                      onClick={() => router.push(`/vehicles/${vehicle.id}?${searchParams.toString()}`)}
-                      className="w-full px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90"
-                    >
-                      View Details
-                    </button>
-                  </div>
-                </div>
-              ))}
+              {vehicles.map((vehicle) => {
+                const imageUrl = (() => {
+                  try {
+                    if (Array.isArray(vehicle.images) && vehicle.images.length > 0) {
+                      return vehicle.images[0];
+                    }
+                    if (typeof vehicle.images === 'string') {
+                      const parsedImages = JSON.parse(vehicle.images);
+                      if (Array.isArray(parsedImages) && parsedImages.length > 0) {
+                        return parsedImages[0];
+                      }
+                    }
+                    return '/placeholder.png';
+                  } catch (error) {
+                    return '/placeholder.png';
+                  }
+                })();
+
+                return (
+                  <VehicleCard
+                    key={vehicle.id}
+                    name={vehicle.name}
+                    imageUrl={imageUrl}
+                    locations={Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location]}
+                    price={vehicle.pricing?.total_price || vehicle.price_per_hour}
+                    startTime={searchParams.get('pickupTime') || ''}
+                    endTime={searchParams.get('dropoffTime') || ''}
+                    startDate={searchParams.get('pickupDate') || ''}
+                    endDate={searchParams.get('dropoffDate') || ''}
+                    onLocationChange={(location) => {
+                      // Do nothing or handle individual card location changes if needed
+                      console.log('Location selected for vehicle:', vehicle.id, location);
+                    }}
+                    onBook={() => router.push(`/vehicles/${vehicle.id}?${searchParams.toString()}`)}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

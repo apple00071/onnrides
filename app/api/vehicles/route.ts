@@ -138,20 +138,39 @@ export async function GET(request: NextRequest) {
         ? vehicle.location.split(',').map(l => l.trim())
         : vehicle.location;
 
-      // Parse images - handle both string and array formats
+      // Parse images
       let images: string[] = [];
       try {
         if (typeof vehicle.images === 'string') {
-          // If it's a JSON string, parse it
-          if (vehicle.images.startsWith('[')) {
+          // Always try to parse as JSON first
+          try {
             images = JSON.parse(vehicle.images);
-          } else {
-            // If it's a comma-separated string
+          } catch {
+            // If JSON parsing fails, try splitting by comma
             images = vehicle.images.split(',').map(i => i.trim());
           }
         } else if (Array.isArray(vehicle.images)) {
           images = vehicle.images;
         }
+        
+        // Validate each image URL
+        images = images.filter(url => {
+          try {
+            new URL(url);
+            return true;
+          } catch {
+            logger.error('Invalid image URL:', url);
+            return false;
+          }
+        });
+
+        // Log the final images array for debugging
+        logger.info('Parsed vehicle images:', {
+          vehicleId: vehicle.id,
+          vehicleName: vehicle.name,
+          originalImages: vehicle.images,
+          parsedImages: images
+        });
       } catch (error) {
         logger.error('Error parsing vehicle images:', error);
         images = [];
@@ -161,6 +180,7 @@ export async function GET(request: NextRequest) {
         ...vehicle,
         location,
         images,
+        image_url: images.length > 0 ? images[0] : '/placeholder.png',
         price_per_hour: vehicle.price_per_hour.toString(),
         pricing
       };

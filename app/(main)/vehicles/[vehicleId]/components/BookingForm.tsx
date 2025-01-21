@@ -1,21 +1,67 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DateTimePicker } from '@/components/date-time-picker';
 import { calculateDuration } from '@/lib/utils';
 
 interface BookingFormProps {
   vehicleId: string;
   pricePerHour: number;
-  minBookingHours: number;
+  minBookingHours?: number;
   vehicleName: string;
 }
 
 export default function BookingForm({ vehicleId, pricePerHour, minBookingHours = 1, vehicleName }: BookingFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    // Get dates from search params if they exist
+    const pickupParam = searchParams.get('pickupDate');
+    const dropoffParam = searchParams.get('dropoffDate');
+
+    if (pickupParam) {
+      try {
+        const date = new Date(pickupParam);
+        if (!isNaN(date.getTime())) {
+          setStartDate(date);
+        } else {
+          console.error('Invalid pickup date in URL:', pickupParam);
+        }
+      } catch (error) {
+        console.error('Error parsing pickup date:', error);
+      }
+    }
+    
+    if (dropoffParam) {
+      try {
+        const date = new Date(dropoffParam);
+        if (!isNaN(date.getTime())) {
+          setEndDate(date);
+        } else {
+          console.error('Invalid dropoff date in URL:', dropoffParam);
+        }
+      } catch (error) {
+        console.error('Error parsing dropoff date:', error);
+      }
+    }
+  }, [searchParams]);
+
+  const calculateTotalPrice = (start: Date, end: Date) => {
+    const durationHours = calculateDuration(start, end);
+    const basePrice = durationHours * pricePerHour;
+    
+    // Add GST (18%)
+    const gst = basePrice * 0.18;
+    
+    // Add service fee (5%)
+    const serviceFee = basePrice * 0.05;
+    
+    return basePrice + gst + serviceFee;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,9 +91,8 @@ export default function BookingForm({ vehicleId, pricePerHour, minBookingHours =
           Pickup Date & Time
         </label>
         <DateTimePicker
-          id="pickup-date"
-          value={startDate}
-          onChange={setStartDate}
+          date={startDate}
+          setDate={setStartDate}
           minDate={new Date()}
           className="mt-1"
         />
@@ -58,19 +103,36 @@ export default function BookingForm({ vehicleId, pricePerHour, minBookingHours =
           Dropoff Date & Time
         </label>
         <DateTimePicker
-          id="dropoff-date"
-          value={endDate}
-          onChange={setEndDate}
+          date={endDate}
+          setDate={setEndDate}
           minDate={startDate || new Date()}
           className="mt-1"
         />
       </div>
 
       {startDate && endDate && (
-        <div className="text-sm text-gray-500">
-          Duration: {calculateDuration(startDate, endDate)} hours
-          <br />
-          Estimated Cost: ₹{(calculateDuration(startDate, endDate) * pricePerHour).toFixed(2)}
+        <div className="text-sm space-y-2">
+          <div className="text-gray-500">
+            Duration: {calculateDuration(startDate, endDate)} hours
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between">
+              <span>Base Price:</span>
+              <span>₹{(calculateDuration(startDate, endDate) * pricePerHour).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-gray-500">
+              <span>GST (18%):</span>
+              <span>₹{(calculateDuration(startDate, endDate) * pricePerHour * 0.18).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-gray-500">
+              <span>Service Fee (5%):</span>
+              <span>₹{(calculateDuration(startDate, endDate) * pricePerHour * 0.05).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between font-medium pt-2 border-t">
+              <span>Total Price:</span>
+              <span>₹{calculateTotalPrice(startDate, endDate).toFixed(2)}</span>
+            </div>
+          </div>
         </div>
       )}
 

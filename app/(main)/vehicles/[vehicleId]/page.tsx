@@ -3,8 +3,8 @@ import { db } from '@/lib/db';
 import { vehicles } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
+import VehicleImages from './components/VehicleImages';
 import BookingForm from './components/BookingForm';
-import Image from 'next/image';
 
 export async function generateMetadata({ params }: { params: { vehicleId: string } }): Promise<Metadata> {
   const [vehicle] = await db
@@ -37,32 +37,33 @@ export default async function VehiclePage({ params }: VehiclePageProps) {
     notFound();
   }
 
+  // Parse images from JSON string and ensure it's an array
+  let images: string[] = [];
+  try {
+    const parsedImages = JSON.parse(vehicle.images);
+    images = Array.isArray(parsedImages) ? parsedImages : [parsedImages];
+    console.log('Vehicle images:', images); // For debugging
+  } catch (error) {
+    console.error('Error parsing vehicle images:', error);
+    console.log('Raw images string:', vehicle.images); // For debugging
+  }
+
+  // Validate image URLs
+  images = images.filter(url => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      console.error('Invalid image URL:', url);
+      return false;
+    }
+  });
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div>
-          <div className="aspect-video relative rounded-lg overflow-hidden">
-            {vehicle.images[0] && (
-              <Image
-                src={vehicle.images[0]}
-                alt={vehicle.name}
-                fill
-                className="object-cover"
-              />
-            )}
-          </div>
-          <div className="grid grid-cols-4 gap-2 mt-2">
-            {vehicle.images.slice(1).map((image, index) => (
-              <div key={index} className="aspect-video relative rounded-lg overflow-hidden">
-                <Image
-                  src={image}
-                  alt={`${vehicle.name} ${index + 2}`}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-            ))}
-          </div>
+          <VehicleImages images={images} vehicleName={vehicle.name} />
         </div>
 
         <div className="space-y-6">
@@ -78,15 +79,12 @@ export default async function VehiclePage({ params }: VehiclePageProps) {
                 <span className="font-medium">Per Hour:</span>{' '}
                 ₹{Number(vehicle.price_per_hour).toFixed(2)}
               </p>
-              <p className="text-sm text-gray-500">
-                Minimum booking: {vehicle.min_booking_hours} {vehicle.min_booking_hours === 1 ? 'hour' : 'hours'}
-              </p>
             </div>
           </div>
 
           <div>
             <h2 className="text-xl font-semibold mb-2">Location</h2>
-            <p>{vehicle.location.join(', ')}</p>
+            <p>{Array.isArray(vehicle.location) ? vehicle.location.join(', ') : vehicle.location}</p>
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6">
@@ -94,7 +92,6 @@ export default async function VehiclePage({ params }: VehiclePageProps) {
             <BookingForm
               vehicleId={vehicle.id}
               pricePerHour={Number(vehicle.price_per_hour)}
-              minBookingHours={vehicle.min_booking_hours}
               vehicleName={vehicle.name}
             />
           </div>

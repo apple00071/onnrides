@@ -185,30 +185,25 @@ export default function VehiclesPage() {
               {vehicles.map((vehicle) => (
                 <TableRow key={vehicle.id}>
                   <TableCell>
-                    {typeof vehicle.images === 'string' 
-                      ? JSON.parse(vehicle.images)[0] ? (
-                        <img
-                          src={JSON.parse(vehicle.images)[0]}
-                          alt={vehicle.name}
-                          className="w-16 h-16 object-cover rounded"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
-                          <span className="text-gray-500">No image</span>
-                        </div>
-                      )
-                      : Array.isArray(vehicle.images) && vehicle.images[0] ? (
+                    {vehicle.images && (
+                      Array.isArray(vehicle.images) && vehicle.images[0] ? (
                         <img
                           src={vehicle.images[0]}
                           alt={vehicle.name}
                           className="w-16 h-16 object-cover rounded"
                         />
+                      ) : typeof vehicle.images === 'string' ? (
+                        <img
+                          src={vehicle.images}
+                          alt={vehicle.name}
+                          className="w-16 h-16 object-cover rounded"
+                        />
                       ) : (
                         <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
                           <span className="text-gray-500">No image</span>
                         </div>
                       )
-                    }
+                    )}
                   </TableCell>
                   <TableCell>{vehicle.name}</TableCell>
                   <TableCell className="capitalize">{vehicle.type}</TableCell>

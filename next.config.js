@@ -10,7 +10,18 @@ const nextConfig = {
     return config;
   },
   images: {
-    domains: ['localhost'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.public.blob.vercel-storage.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'hnamzevcrob5uib6.public.blob.vercel-storage.com',
+        pathname: '/**',
+      }
+    ],
   },
   async redirects() {
     return [

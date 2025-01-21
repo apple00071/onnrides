@@ -138,4 +138,10 @@ export function calculateTotalPrice(startDate: Date, endDate: Date, pricePerDay:
   const durationInMs = endDate.getTime() - startDate.getTime();
   const durationInDays = Math.ceil(durationInMs / (1000 * 60 * 60 * 24));
   return durationInDays * pricePerDay;
+}
+
+export function calculateDuration(startDate: Date, endDate: Date): number {
+  const diffInMilliseconds = endDate.getTime() - startDate.getTime();
+  const diffInHours = diffInMilliseconds / (1000 * 60 * 60);
+  return Math.max(Math.round(diffInHours), 1);
 } 
