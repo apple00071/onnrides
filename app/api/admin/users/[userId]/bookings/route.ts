@@ -1,20 +1,16 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { neon } from '@neondatabase/serverless';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { eq } from 'drizzle-orm';
-import { bookings, vehicles } from '@/lib/schema';
+import { verifyAuth } from '@/lib/auth';
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    // Check if user is authenticated and is an admin
-    const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
-      logger.debug('Unauthorized access attempt to user bookings');
+    const user = await verifyAuth();
+    
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -26,45 +22,30 @@ export async function GET(
       );
     }
 
-    const userBookings = await db
-      .select({
-        id: bookings.id,
-        user_id: bookings.user_id,
-        vehicle_id: bookings.vehicle_id,
-        start_date: bookings.start_date,
-        end_date: bookings.end_date,
-        duration: bookings.duration,
-        amount: bookings.amount,
-        status: bookings.status,
-        notes: bookings.notes,
-        created_at: bookings.created_at,
-        updated_at: bookings.updated_at,
-        vehicle: {
-          id: vehicles.id,
-          name: vehicles.name,
-          type: vehicles.type,
-          location: vehicles.location,
-          images: vehicles.images,
-          price_per_hour: vehicles.price_per_hour,
-        }
-      })
-      .from(bookings)
-      .leftJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
-      .where(eq(bookings.user_id, userId));
+    const sql = neon(process.env.DATABASE_URL!);
+    
+    // Get user's bookings with vehicle details
+    const bookings = await sql`
+      SELECT 
+        b.id,
+        b.start_time,
+        b.end_time,
+        b.total_hours,
+        b.total_amount,
+        b.status,
+        b.payment_status,
+        b.created_at,
+        v.name as vehicle_name,
+        v.type as vehicle_type,
+        v.price_per_hour
+      FROM bookings b
+      JOIN vehicles v ON b.vehicle_id = v.id
+      WHERE b.user_id = ${userId}
+      ORDER BY b.created_at DESC
+    `;
 
-    logger.debug(`Successfully fetched ${userBookings.length} bookings for user ${userId}`);
-    return NextResponse.json({
-      bookings: userBookings.map(booking => ({
-        ...booking,
-        amount: Number(booking.amount),
-        vehicle: booking.vehicle ? {
-          ...booking.vehicle,
-          location: booking.vehicle.location as unknown as string[],
-          images: booking.vehicle.images as unknown as string[],
-          price_per_hour: Number(booking.vehicle.price_per_hour),
-        } : null,
-      })),
-    });
+    return NextResponse.json(bookings);
+
   } catch (error) {
     logger.error('Error fetching user bookings:', error);
     return NextResponse.json(
