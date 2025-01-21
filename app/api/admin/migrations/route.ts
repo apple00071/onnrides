@@ -1,46 +1,57 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { sql } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 import logger from '@/lib/logger';
+import { verifyAuth } from '@/lib/auth';
 
-export async function POST() {
+export async function GET() {
   try {
+    const user = await verifyAuth();
+    
+    if (!user || user.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    logger.info('Starting database migrations...');
+
+    const sql = neon(process.env.DATABASE_URL!);
+    
     // Create vehicle_status enum type
-    await db.execute(sql`
+    await sql`
       DO $$ BEGIN
         CREATE TYPE vehicle_status AS ENUM ('active', 'maintenance', 'retired');
       EXCEPTION
         WHEN duplicate_object THEN null;
       END $$;
-    `);
+    `;
 
-    // Add all required columns
-    await db.execute(sql`
-      -- Add status column
-      ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS status vehicle_status NOT NULL DEFAULT 'active';
+    // Create booking_status enum type
+    await sql`
+      DO $$ BEGIN
+        CREATE TYPE booking_status AS ENUM ('pending', 'confirmed', 'completed', 'cancelled');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `;
 
-      -- Add timestamp columns
-      ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
-      ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+    // Create payment_status enum type
+    await sql`
+      DO $$ BEGIN
+        CREATE TYPE payment_status AS ENUM ('pending', 'paid', 'failed', 'refunded');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `;
 
-      -- Add price columns
-      ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS price_per_hour DECIMAL(10,2);
-      ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS price_12hrs DECIMAL(10,2);
-      ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS price_24hrs DECIMAL(10,2);
-      ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS price_7days DECIMAL(10,2);
-      ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS price_15days DECIMAL(10,2);
-      ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS price_30days DECIMAL(10,2);
+    logger.info('Migrations completed successfully');
 
-      -- Add other required columns
-      ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS min_booking_hours INTEGER NOT NULL DEFAULT 12;
-      ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS is_available BOOLEAN NOT NULL DEFAULT true;
-    `);
+    return NextResponse.json({
+      message: 'Migrations completed successfully'
+    });
 
-    return NextResponse.json({ message: 'Migration completed successfully' });
   } catch (error) {
-    logger.error('Migration failed:', error);
+    logger.error('Migration error:', error);
     return NextResponse.json(
-      { message: 'Migration failed', error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Migration failed' },
       { status: 500 }
     );
   }

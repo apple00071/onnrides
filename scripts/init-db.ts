@@ -1,80 +1,53 @@
-import { db } from '../lib/db';
-import { users, vehicles, bookings, documents } from '../lib/schema';
+import { neon } from '@neondatabase/serverless';
+import logger from '@/lib/logger';
 
-async function initDb() {
-  console.log('Initializing database...');
+async function main() {
+  try {
+    logger.info('Starting database initialization...');
+    
+    const sql = neon(process.env.DATABASE_URL!);
 
-  // Create users table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      email TEXT NOT NULL UNIQUE,
-      name TEXT,
-      phone TEXT,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'user',
-      reset_token TEXT,
-      reset_token_expiry TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
-  `);
+    // Create enums
+    await sql`
+      DO $$ BEGIN
+        CREATE TYPE user_status AS ENUM ('active', 'blocked', 'deleted');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `;
 
-  // Create vehicles table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS vehicles (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL,
-      quantity INTEGER NOT NULL DEFAULT 1,
-      price_per_hour TEXT NOT NULL,
-      min_booking_hours INTEGER NOT NULL DEFAULT 12,
-      location TEXT NOT NULL,
-      images TEXT NOT NULL,
-      is_available INTEGER NOT NULL DEFAULT 1,
-      status TEXT NOT NULL DEFAULT 'active',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
-  `);
+    await sql`
+      DO $$ BEGIN
+        CREATE TYPE vehicle_status AS ENUM ('active', 'maintenance', 'retired');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `;
 
-  // Create bookings table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS bookings (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      vehicle_id TEXT NOT NULL,
-      start_date TEXT NOT NULL,
-      end_date TEXT NOT NULL,
-      total_price TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      payment_status TEXT NOT NULL DEFAULT 'pending',
-      payment_id TEXT,
-      payment_method TEXT,
-      payment_details TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id),
-      FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
-    )
-  `);
+    await sql`
+      DO $$ BEGIN
+        CREATE TYPE booking_status AS ENUM ('pending', 'confirmed', 'completed', 'cancelled');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `;
 
-  // Create documents table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS documents (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      type TEXT NOT NULL,
-      file_url TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      rejection_reason TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-  `);
+    await sql`
+      DO $$ BEGIN
+        CREATE TYPE payment_status AS ENUM ('pending', 'paid', 'failed', 'refunded');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `;
 
-  console.log('Database initialized successfully!');
+    // Create extensions
+    await sql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`;
+
+    logger.info('Database initialization completed successfully');
+  } catch (error) {
+    logger.error('Database initialization failed:', error);
+    process.exit(1);
+  }
 }
 
-initDb().catch(console.error); 
+main().catch(console.error); 
