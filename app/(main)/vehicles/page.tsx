@@ -122,8 +122,11 @@ export default function VehiclesPage() {
           parsedImages: (() => {
             try {
               return typeof vehicle.images === 'string' ? JSON.parse(vehicle.images) : vehicle.images;
-            } catch (e) {
-              return `Error parsing: ${e.message}`;
+            } catch (e: unknown) {
+              if (e instanceof Error) {
+                return `Error parsing: ${e.message}`;
+              }
+              return 'Error parsing images';
             }
           })()
         });
