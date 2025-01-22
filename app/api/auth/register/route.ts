@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { users } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { hashPassword } from '@/lib/auth';
 import logger from '@/lib/logger';
+import { nanoid } from 'nanoid';
 
 interface RegisterBody {
   email: string;
@@ -45,12 +46,16 @@ export async function POST(request: NextRequest) {
     const [user] = await db
       .insert(users)
       .values({
-        email,
+        id: nanoid(),
+        email: email,
         name: name || null,
+        phone: null,
         password_hash: hashedPassword,
         role: 'user',
-        created_at: new Date(),
-        updated_at: new Date()
+        reset_token: null,
+        reset_token_expiry: null,
+        created_at: sql`CURRENT_TIMESTAMP`,
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .returning();
 
