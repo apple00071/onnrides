@@ -1,14 +1,21 @@
 import { verifyAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { documents, DOCUMENT_TYPES } from '@/lib/schema';
+import { documents } from '@/lib/schema';
 import logger from '@/lib/logger';
+import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Session } from 'next-auth';
+import crypto from 'crypto';
+import { NextRequest } from 'next/server';
 
 type AuthResult = { user: Session['user'] } | null;
 
 const VALID_DOCUMENT_TYPES = ['license', 'id_proof', 'address_proof'] as const;
+type DocumentType = typeof VALID_DOCUMENT_TYPES[number];
+
+const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function GET() {
   try {
@@ -35,50 +42,71 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const auth = await verifyAuth() as AuthResult;
-    if (!auth?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await verifyAuth();
+    if (!auth) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
     }
 
-    const { type, url } = await request.json();
+    const formData = await request.formData();
+    const file = formData.get("file") as File;
+    const type = formData.get("type") as string;
 
-    // Validate required fields
-    if (!type || !url) {
+    if (!file) {
       return NextResponse.json(
-        { error: 'Document type and URL are required' },
+        { error: "No file uploaded" },
         { status: 400 }
       );
     }
 
-    // Validate document type
-    if (!type || !VALID_DOCUMENT_TYPES.includes(type)) {
+    if (!type || !VALID_DOCUMENT_TYPES.includes(type as DocumentType)) {
       return NextResponse.json(
-        { error: 'Invalid document type' },
+        { error: "Invalid document type" },
         { status: 400 }
       );
     }
 
-    // Create document
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      return NextResponse.json(
+        { error: "Invalid file type" },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: "File size exceeds 5MB limit" },
+        { status: 400 }
+      );
+    }
+
+    const blob = await put(crypto.randomUUID(), file, {
+      access: "public",
+    });
+
+    // Create new document record
     const [document] = await db
       .insert(documents)
       .values({
-        user_id: auth.user.id,
-        type,
-        file_url: url,
-        status: 'pending'
+        id: crypto.randomUUID(),
+        user_id: auth.id,
+        type: type as DocumentType,
+        file_url: blob.url,
+        status: 'pending',
+        created_at: sql`strftime('%s', 'now')`,
+        updated_at: sql`strftime('%s', 'now')`
       })
       .returning();
 
-    return NextResponse.json({
-      message: 'Document submitted successfully',
-      document
-    });
+    return NextResponse.json(document);
   } catch (error) {
-    logger.error('Error submitting document:', error);
+    logger.error("Error uploading document:", error);
     return NextResponse.json(
-      { error: 'Failed to submit document' },
+      { error: "Failed to upload document" },
       { status: 500 }
     );
   }
