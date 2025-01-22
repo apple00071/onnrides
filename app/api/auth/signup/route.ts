@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import logger from '@/lib/logger';
 import { db } from '@/lib/db';
 import { users } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
 interface SignupBody {
@@ -52,7 +52,9 @@ export async function POST(request: NextRequest) {
         email,
         password_hash: hashedPassword,
         name,
-        role: 'user'
+        role: 'user',
+        created_at: sql`CURRENT_TIMESTAMP`,
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .returning();
 
