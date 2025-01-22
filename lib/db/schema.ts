@@ -1,109 +1,62 @@
 import {
-  timestamp,
-  text,
-  pgTable,
-  varchar,
-  uuid,
-  boolean,
   integer,
-  decimal,
-  json,
-  pgEnum,
-  primaryKey
-} from 'drizzle-orm/pg-core';
+  text,
+  sqliteTable,
+  real,
+} from 'drizzle-orm/sqlite-core';
 import { relations } from 'drizzle-orm';
 import type { AdapterAccount } from '@auth/core/adapters';
 
-export const roleEnum = pgEnum('role', ['user', 'admin']);
-export const bookingStatusEnum = pgEnum('booking_status', ['pending', 'confirmed', 'completed', 'cancelled']);
-export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'paid', 'failed', 'refunded']);
-export const vehicleStatusEnum = pgEnum('vehicle_status', ['active', 'maintenance', 'retired']);
+// Define booking status and payment status as string literals for type safety
+export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 
-export const users = pgTable('users', {
-  id: uuid('id').defaultRandom().primaryKey(),
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey(),
   name: text('name'),
   email: text('email').notNull().unique(),
-  emailVerified: timestamp('email_verified', { mode: 'date' }),
-  password: text('password'),
-  image: text('image'),
-  role: roleEnum('role').default('user').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  password_hash: text('password_hash'),
+  phone: text('phone'),
+  reset_token: text('reset_token'),
+  reset_token_expiry: integer('reset_token_expiry', { mode: 'timestamp' }),
+  is_blocked: integer('is_blocked', { mode: 'boolean' }).default(false),
+  role: text('role').default('user').notNull(),
+  created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updated_at: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
-export const accounts = pgTable(
-  'accounts',
-  {
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    type: text('type').$type<AdapterAccount['type']>().notNull(),
-    provider: text('provider').notNull(),
-    providerAccountId: text('provider_account_id').notNull(),
-    refresh_token: text('refresh_token'),
-    access_token: text('access_token'),
-    expires_at: integer('expires_at'),
-    token_type: text('token_type'),
-    scope: text('scope'),
-    id_token: text('id_token'),
-    session_state: text('session_state'),
-  },
-  (account) => ({
-    compoundKey: primaryKey({ columns: [account.provider, account.providerAccountId] }),
-  })
-);
-
-export const sessions = pgTable('sessions', {
-  sessionToken: text('session_token').notNull().primaryKey(),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  expires: timestamp('expires', { mode: 'date' }).notNull(),
-});
-
-export const verificationTokens = pgTable(
-  'verification_tokens',
-  {
-    identifier: text('identifier').notNull(),
-    token: text('token').notNull(),
-    expires: timestamp('expires', { mode: 'date' }).notNull(),
-  },
-  (vt) => ({
-    compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
-  })
-);
-
-export const vehicles = pgTable('vehicles', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  name: varchar('name', { length: 255 }).notNull(),
-  type: varchar('type', { length: 50 }).notNull(),
-  location: json('location').$type<string[]>().notNull(),
+export const vehicles = sqliteTable('vehicles', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  type: text('type').notNull(),
+  location: text('location').notNull(),
   quantity: integer('quantity').notNull(),
-  price_per_hour: decimal('price_per_hour', { precision: 10, scale: 2 }).notNull(),
+  price_per_hour: real('price_per_hour').notNull(),
   min_booking_hours: integer('min_booking_hours').notNull(),
-  is_available: boolean('is_available').default(true).notNull(),
-  images: json('images').$type<string[]>().notNull(),
-  status: vehicleStatusEnum('status').default('active').notNull(),
-  created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull(),
+  is_available: integer('is_available', { mode: 'boolean' }).default(true),
+  images: text('images').notNull(),
+  status: text('status').default('active').notNull(),
+  created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updated_at: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
-export const bookings = pgTable('bookings', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  user_id: uuid('user_id')
+export const bookings = sqliteTable('bookings', {
+  id: text('id').primaryKey(),
+  user_id: text('user_id')
     .notNull()
     .references(() => users.id),
-  vehicle_id: uuid('vehicle_id')
+  vehicle_id: text('vehicle_id')
     .notNull()
     .references(() => vehicles.id),
-  start_time: timestamp('start_time', { mode: 'date' }).notNull(),
-  end_time: timestamp('end_time', { mode: 'date' }).notNull(),
-  total_hours: decimal('total_hours', { precision: 10, scale: 2 }).notNull(),
-  total_amount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
-  status: bookingStatusEnum('status').default('pending').notNull(),
-  payment_status: paymentStatusEnum('payment_status').default('pending').notNull(),
-  created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull(),
+  start_date: integer('start_date', { mode: 'timestamp' }).notNull(),
+  end_date: integer('end_date', { mode: 'timestamp' }).notNull(),
+  total_hours: real('total_hours').notNull(),
+  total_price: real('total_price').notNull(),
+  status: text('status').default('pending').notNull(),
+  payment_status: text('payment_status').default('pending').notNull(),
+  payment_details: text('payment_details'),
+  created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updated_at: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
 export const usersRelations = relations(users, ({ many }) => ({

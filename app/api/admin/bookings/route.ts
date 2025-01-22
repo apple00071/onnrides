@@ -18,58 +18,64 @@ interface AuthResult {
 // GET /api/admin/bookings - List all bookings
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication and admin role
-    const auth = await verifyAuth() as AuthResult | null;
-    if (!auth || auth.user.role !== 'admin') {
+    const user = await verifyAuth();
+    
+    if (!user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Get query parameters
-    const searchParams = request.nextUrl.searchParams;
-    const status = searchParams.get('status') as 'pending' | 'confirmed' | 'cancelled' | 'completed' | null;
-    const userId = searchParams.get('userId');
-    const vehicleId = searchParams.get('vehicleId');
-
-    // Build where conditions
-    const conditions = [];
-    if (status) conditions.push(eq(bookings.status, status));
-    if (userId) conditions.push(eq(bookings.user_id, userId));
-    if (vehicleId) conditions.push(eq(bookings.vehicle_id, vehicleId));
-
-    // Get bookings with filters
-    const bookingsList = await db
+    // Get user details including role
+    const userDetails = await db
       .select()
-      .from(bookings)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(bookings.created_at));
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1)
+      .then(rows => rows[0]);
 
-    // Get vehicle and user details for each booking
-    const bookingsWithDetails = await Promise.all(
-      bookingsList.map(async (booking) => {
-        const [vehicle, bookingUser] = await Promise.all([
-          db.select().from(vehicles).where(eq(vehicles.id, booking.vehicle_id)).limit(1),
-          db.select().from(users).where(eq(users.id, booking.user_id)).limit(1)
-        ]);
+    if (!userDetails || userDetails.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
 
-        return {
-          ...booking,
-          vehicle: vehicle[0],
-          user: bookingUser[0] ? {
-            id: bookingUser[0].id,
-            email: bookingUser[0].email
-          } : null
-        };
+    const allBookings = await db
+      .select({
+        id: bookings.id,
+        user_id: bookings.user_id,
+        vehicle_id: bookings.vehicle_id,
+        start_date: bookings.start_date,
+        end_date: bookings.end_date,
+        total_price: bookings.total_price,
+        status: bookings.status,
+        payment_status: bookings.payment_status,
+        created_at: bookings.created_at,
+        updated_at: bookings.updated_at,
+        vehicle: {
+          id: vehicles.id,
+          name: vehicles.name,
+          type: vehicles.type,
+          price_per_hour: vehicles.price_per_hour
+        },
+        user: {
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          phone: users.phone
+        }
       })
-    );
+      .from(bookings)
+      .innerJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
+      .innerJoin(users, eq(bookings.user_id, users.id))
+      .orderBy(desc(bookings.created_at));
 
     return NextResponse.json({
       success: true,
-      bookings: bookingsWithDetails
+      bookings: allBookings
     });
-
   } catch (error) {
     logger.error('Failed to fetch bookings:', error);
     return NextResponse.json(
@@ -82,12 +88,27 @@ export async function GET(request: NextRequest) {
 // PUT /api/admin/bookings - Update booking status
 export async function PUT(request: NextRequest) {
   try {
-    // Verify authentication and admin role
-    const auth = await verifyAuth() as AuthResult | null;
-    if (!auth || auth.user.role !== 'admin') {
+    const user = await verifyAuth();
+    
+    if (!user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Authentication required' },
         { status: 401 }
+      );
+    }
+
+    // Get user details including role
+    const userDetails = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1)
+      .then(rows => rows[0]);
+
+    if (!userDetails || userDetails.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
       );
     }
 
@@ -128,7 +149,7 @@ export async function PUT(request: NextRequest) {
       .update(bookings)
       .set({
         status,
-        updated_at: sql`CURRENT_TIMESTAMP`
+        updated_at: sql`strftime('%s', 'now')`
       })
       .where(eq(bookings.id, id));
 
@@ -139,22 +160,10 @@ export async function PUT(request: NextRequest) {
       .where(eq(bookings.id, id))
       .limit(1);
 
-    const [vehicle, bookingUser] = await Promise.all([
-      db.select().from(vehicles).where(eq(vehicles.id, updatedBooking.vehicle_id)).limit(1),
-      db.select().from(users).where(eq(users.id, updatedBooking.user_id)).limit(1)
-    ]);
-
     return NextResponse.json({
       success: true,
       message: 'Booking updated successfully',
-      booking: {
-        ...updatedBooking,
-        vehicle: vehicle[0],
-        user: bookingUser[0] ? {
-          id: bookingUser[0].id,
-          email: bookingUser[0].email
-        } : null
-      }
+      booking: updatedBooking
     });
 
   } catch (error) {

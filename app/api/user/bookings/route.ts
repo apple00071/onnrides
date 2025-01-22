@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { bookings, vehicles, bookingStatusEnum, paymentStatusEnum } from '@/lib/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { bookings, vehicles } from '@/lib/db/schema';
+import { eq, desc } from 'drizzle-orm';
 import logger from '@/lib/logger';
 import { calculateTotalPrice } from '@/lib/utils';
 import crypto from 'crypto';
+
+interface BookingBody {
+  vehicleId: string;
+  startDate: string;
+  endDate: string;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,12 +38,6 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-interface BookingBody {
-  vehicleId: string;
-  startDate: string;
-  endDate: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -74,35 +74,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const minBookingHours = 12;
-    const totalHours = Math.ceil(
-      (new Date(endDate).getTime() - new Date(startDate).getTime()) /
-        (1000 * 60 * 60)
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const totalHours = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+
+    const totalPrice = calculateTotalPrice(
+      start,
+      end,
+      Number(vehicle[0].price_per_hour)
     );
-
-    if (totalHours < minBookingHours) {
-      return NextResponse.json(
-        {
-          error: `Minimum booking duration is ${minBookingHours} hours`,
-        },
-        { status: 400 }
-      );
-    }
-
-    const totalAmount = calculateTotalPrice(totalHours, vehicle[0].price_per_hour);
 
     // Create booking
     const [booking] = await db
       .insert(bookings)
       .values({
+        id: crypto.randomUUID(),
         user_id: user.id,
         vehicle_id: vehicleId,
-        start_time: sql`${startDate}::timestamp`,
-        end_time: sql`${endDate}::timestamp`,
-        total_hours: sql`${totalHours}::numeric`,
-        total_amount: sql`${totalAmount}::numeric`,
+        start_date: start,
+        end_date: end,
+        total_hours: totalHours,
+        total_price: totalPrice,
         status: 'pending',
         payment_status: 'pending',
+        created_at: new Date(),
+        updated_at: new Date()
       })
       .returning();
 

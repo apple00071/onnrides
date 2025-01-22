@@ -6,11 +6,18 @@ import logger from '@/lib/logger';
 
 interface Booking {
   id: string;
-  user_name: string;
-  vehicle_name: string;
+  user: {
+    name: string;
+    email: string;
+  };
+  vehicle: {
+    name: string;
+    type: string;
+    price_per_hour: number;
+  };
   start_date: string;
   end_date: string;
-  total_amount: number;
+  total_price: number;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   created_at: string;
 }
@@ -28,7 +35,7 @@ export default function AdminBookingsPage() {
         throw new Error(data.error || 'Failed to fetch bookings');
       }
 
-      setBookings(data);
+      setBookings(data.bookings);
     } catch (error) {
       logger.error('Error:', error);
       toast.error('Failed to fetch bookings');
@@ -43,12 +50,12 @@ export default function AdminBookingsPage() {
 
   const handleStatusChange = async (bookingId: string, newStatus: Booking['status']) => {
     try {
-      const response = await fetch(`/api/admin/bookings/${bookingId}`, {
-        method: 'PATCH',
+      const response = await fetch('/api/admin/bookings', {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ id: bookingId, status: newStatus }),
       });
 
       if (!response.ok) {
@@ -109,19 +116,21 @@ export default function AdminBookingsPage() {
                     {booking.id}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {booking.user_name}
+                    {booking.user.name}
+                    <div className="text-xs text-gray-400">{booking.user.email}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {booking.vehicle_name}
+                    {booking.vehicle.name}
+                    <div className="text-xs text-gray-400">{booking.vehicle.type}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div>
-                      <div>From: {new Date(booking.start_date).toLocaleString()}</div>
-                      <div>To: {new Date(booking.end_date).toLocaleString()}</div>
+                      <div>From: {new Date(Number(booking.start_date) * 1000).toLocaleString()}</div>
+                      <div>To: {new Date(Number(booking.end_date) * 1000).toLocaleString()}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ₹{booking.total_amount}
+                    ₹{booking.total_price}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span 
@@ -131,7 +140,7 @@ export default function AdminBookingsPage() {
                           'pending': 'bg-yellow-100 text-yellow-800',
                           'completed': 'bg-blue-100 text-blue-800',
                           'cancelled': 'bg-red-100 text-red-800'
-                        }[booking.status] || 'bg-red-100 text-red-800'
+                        }[booking.status] || 'bg-gray-100 text-gray-800'
                       }`}
                     >
                       {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}

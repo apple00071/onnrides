@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth';
-import { createOrder } from '../../../../lib/razorpay';
+import logger from '@/lib/logger';
 import { db } from '@/lib/db';
 import { bookings } from '@/lib/schema';
-import logger from '@/lib/logger';
+import { verifyAuth } from '@/lib/auth';
 import { eq, sql } from 'drizzle-orm';
+import { createOrder } from '@/lib/razorpay';
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,34 +46,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create order
-    const order = {
-      order_id: 'order_' + Math.random().toString(36).substring(7),
-      amount: booking.total_price,
+    // Create Razorpay order
+    const razorpayOrder = await createOrder({
+      amount: Number(Number(booking.total_price).toFixed(2)),
       currency: 'INR',
-      status: 'created',
-      created_at: new Date().toISOString()
-    };
+      receipt: bookingId,
+      notes: {
+        booking_id: bookingId,
+        user_id: user.id
+      }
+    });
 
     // Update booking with order details
     await db
       .update(bookings)
       .set({
-        payment_details: sql`${JSON.stringify(order)}::jsonb`,
-        updated_at: sql`CURRENT_TIMESTAMP`
+        payment_details: JSON.stringify({
+          order_id: razorpayOrder.id,
+          amount: Number((razorpayOrder.amount / 100).toFixed(2)),
+          currency: razorpayOrder.currency,
+          status: razorpayOrder.status,
+          created_at: new Date().toISOString()
+        }),
+        updated_at: sql`strftime('%s', 'now')`
       })
       .where(eq(bookings.id, bookingId))
       .execute();
 
     return NextResponse.json({
       message: 'Order created successfully',
-      order
+      order: {
+        id: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency
+      }
     });
 
   } catch (error) {
-    console.error('Error creating order:', error);
+    logger.error('Error creating order:', error);
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { message: 'Failed to create order' },
       { status: 500 }
     );
   }

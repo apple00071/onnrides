@@ -112,32 +112,45 @@ export function calculateBookingPrice(
     return 0;
   }
 
-  const durationInHours = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)));
+  const durationInHours = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60));
   const perHourRate = Number(vehicle.price_per_day); // Get per-hour rate from vehicle data
   const startDay = startDate.getDay(); // 0 = Sunday, 1 = Monday, ...
   
   // Check if it's a weekday (Mon-Wed) or weekend (Thu-Sun)
   const isWeekend = startDay >= 4 || startDay === 0; // Thursday to Sunday
   
-  if (isWeekend) {
-    // Weekend pricing: always charge for 24 hours
-    return 24 * perHourRate;
-  } else {
-    // Weekday pricing
-    if (durationInHours <= 12) {
-      // For durations up to 12 hours, charge for full 12 hours
-      return 12 * perHourRate;
-    } else {
-      // For durations over 12 hours, charge for actual hours
-      return durationInHours * perHourRate;
-    }
-  }
+  // Calculate billable hours (minimum 24 hours for weekend, 12 hours for weekday)
+  const minimumHours = isWeekend ? 24 : 12;
+  const billableHours = Math.max(minimumHours, durationInHours);
+  
+  // Return the price based on billable hours
+  return billableHours * perHourRate;
 }
 
-export function calculateTotalPrice(startDate: Date, endDate: Date, pricePerDay: number): number {
-  const durationInMs = endDate.getTime() - startDate.getTime();
-  const durationInDays = Math.ceil(durationInMs / (1000 * 60 * 60 * 24));
-  return durationInDays * pricePerDay;
+export function calculateTotalPrice(startDate: Date, endDate: Date, pricePerHour: number): number {
+  // Calculate base price using the booking price logic
+  const basePrice = calculateBookingPrice(
+    { 
+      price_per_day: pricePerHour,
+      price_12hrs: pricePerHour * 12,
+      price_24hrs: pricePerHour * 24,
+      price_7days: pricePerHour * 24 * 7,
+      price_15days: pricePerHour * 24 * 15,
+      price_30days: pricePerHour * 24 * 30,
+      min_booking_hours: 1
+    },
+    startDate,
+    endDate
+  );
+  
+  // Add GST (18%)
+  const gst = basePrice * 0.18;
+  
+  // Add service fee (5%)
+  const serviceFee = basePrice * 0.05;
+  
+  // Return total price with exactly 2 decimal places
+  return Number((basePrice + gst + serviceFee).toFixed(2));
 }
 
 export function calculateDuration(startDate: Date, endDate: Date): number {

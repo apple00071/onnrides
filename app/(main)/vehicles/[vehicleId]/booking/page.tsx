@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import Link from 'next/link';
+import Script from 'next/script';
 
 interface Vehicle {
   id: string;
@@ -49,6 +50,7 @@ export default function BookingPage({ params, searchParams }: Props) {
   const [loading, setLoading] = useState(true);
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [couponCode, setCouponCode] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     async function fetchVehicle() {
@@ -124,14 +126,18 @@ export default function BookingPage({ params, searchParams }: Props) {
   // Calculate base price and taxes
   const hourlyRate = Number(vehicle.price_per_hour);
   const basePrice = hourlyRate * billableHours;
-  const taxes = basePrice * 0.28; // 28% tax
-  const subtotal = basePrice + taxes;
-  const totalDue = subtotal;
+  const gst = basePrice * 0.18; // 18% GST
+  const serviceFee = basePrice * 0.05; // 5% service fee
+  const totalDue = basePrice + gst + serviceFee;
 
   const formatPrice = (price: number) => price.toFixed(1);
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <Script
+        src="https://checkout.razorpay.com/v1/checkout.js"
+        strategy="lazyOnload"
+      />
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column - Summary */}
         <div className="lg:col-span-2">
@@ -195,7 +201,7 @@ export default function BookingPage({ params, searchParams }: Props) {
                 {/* Total */}
                 <div className="flex justify-between items-center mt-4 pt-4 border-t">
                   <span>Total</span>
-                  <span className="text-xl font-bold">₹{formatPrice(basePrice)}</span>
+                  <span className="text-xl font-bold">₹{formatPrice(totalDue)}</span>
                 </div>
               </div>
             </div>
@@ -230,14 +236,14 @@ export default function BookingPage({ params, searchParams }: Props) {
               <span>₹{formatPrice(basePrice)}</span>
             </div>
             <div className="flex justify-between">
-              <span>Taxes</span>
-              <span>₹{formatPrice(taxes)}</span>
+              <span>GST (18%)</span>
+              <span>₹{formatPrice(gst)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Service Fee (5%)</span>
+              <span>₹{formatPrice(serviceFee)}</span>
             </div>
             <div className="flex justify-between font-medium pt-4 border-t">
-              <span>Subtotal</span>
-              <span>₹{formatPrice(subtotal)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-lg">
               <span>Total Due</span>
               <span>₹{formatPrice(totalDue)}</span>
             </div>
@@ -247,11 +253,100 @@ export default function BookingPage({ params, searchParams }: Props) {
           <Button 
             className="w-full mt-6 bg-[#FFD60A] hover:bg-[#FFD60A]/90 text-black font-medium"
             size="lg"
-            onClick={() => {
-              toast.error('Booking functionality is currently being updated. Please try again later.');
+            onClick={async () => {
+              try {
+                setIsLoading(true);
+                // Create booking
+                const bookingRes = await fetch('/api/user/bookings', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    vehicleId: params.vehicleId,
+                    startDate: startDate.toISOString(),
+                    endDate: endDate.toISOString(),
+                  }),
+                });
+
+                if (!bookingRes.ok) {
+                  const error = await bookingRes.json();
+                  throw new Error(error.error || 'Failed to create booking');
+                }
+
+                const booking = await bookingRes.json();
+                
+                // Create payment order
+                const orderRes = await fetch('/api/payments/create-order', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    bookingId: booking.id,
+                  }),
+                });
+
+                if (!orderRes.ok) {
+                  const error = await orderRes.json();
+                  throw new Error(error.error || 'Failed to create payment order');
+                }
+
+                const { order } = await orderRes.json();
+                
+                // Initialize Razorpay
+                const options = {
+                  key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                  amount: order.amount,
+                  currency: order.currency,
+                  name: 'OnnRides',
+                  description: 'Vehicle Booking Payment',
+                  order_id: order.id,
+                  handler: async (response: any) => {
+                    try {
+                      // Verify payment
+                      const verifyRes = await fetch('/api/payments/verify', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          razorpay_order_id: response.razorpay_order_id,
+                          razorpay_payment_id: response.razorpay_payment_id,
+                          razorpay_signature: response.razorpay_signature,
+                        }),
+                      });
+
+                      if (!verifyRes.ok) {
+                        throw new Error('Payment verification failed');
+                      }
+
+                      toast.success('Payment successful!');
+                      router.push('/bookings');
+                    } catch (error) {
+                      toast.error('Payment verification failed. Please contact support.');
+                    }
+                  },
+                  prefill: {
+                    name: session?.user?.name,
+                    email: session?.user?.email,
+                  },
+                  theme: {
+                    color: '#FFD60A',
+                  },
+                };
+
+                const razorpay = new (window as any).Razorpay(options);
+                razorpay.open();
+              } catch (error) {
+                console.error('Payment error:', error);
+                toast.error(error instanceof Error ? error.message : 'Failed to process payment');
+              } finally {
+                setIsLoading(false);
+              }
             }}
           >
-            Make payment
+            {isLoading ? 'Processing...' : 'Make payment'}
           </Button>
 
           {/* Terms Note */}
