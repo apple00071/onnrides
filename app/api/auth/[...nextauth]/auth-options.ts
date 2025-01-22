@@ -16,7 +16,7 @@ declare module 'next-auth' {
 
 declare module 'next-auth/jwt' {
   interface JWT {
-    role?: 'user' | 'admin';
+    role: 'user' | 'admin';
   }
 }
 
@@ -70,7 +70,7 @@ export const authOptions: AuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub as string;
-        session.user.role = token.role as 'user' | 'admin';
+        session.user.role = token.role;
       }
       return session;
     }
@@ -78,4 +78,4 @@ export const authOptions: AuthOptions = {
   session: {
     strategy: 'jwt'
   }
-}; 
+};
