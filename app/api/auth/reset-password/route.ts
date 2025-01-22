@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import logger from '@/lib/logger';
 import { db } from '@/lib/db';
 import { users } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { User } from '@/lib/types';
 import { sendResetPasswordEmail } from '@/lib/email';
 
@@ -40,14 +40,13 @@ export async function POST(request: NextRequest) {
 
       // Generate reset token
       const resetToken = crypto.randomUUID();
-      const resetTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-      // Save reset token
+      
+      // Save reset token with 24 hour expiry
       await db
         .update(users)
         .set({
           reset_token: resetToken,
-          reset_token_expiry: resetTokenExpiry
+          reset_token_expiry: sql`TIMESTAMPADD(HOUR, 24, CURRENT_TIMESTAMP)`
         })
         .where(eq(users.id, user.id))
         .execute();
@@ -63,16 +62,18 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Reset password
     if (token && password) {
-      // Find user by reset token
+      // Find user by reset token and check if token is not expired
       const user = await db
         .select()
         .from(users)
-        .where(eq(users.reset_token, token))
+        .where(
+          eq(users.reset_token, token)
+        )
         .limit(1)
         .execute()
         .then(rows => rows[0]);
 
-      if (!user || !user.reset_token_expiry || user.reset_token_expiry < new Date()) {
+      if (!user || !user.reset_token_expiry || new Date(user.reset_token_expiry) < new Date()) {
         return NextResponse.json(
           { message: 'Invalid or expired reset token' },
           { status: 400 }
@@ -88,7 +89,8 @@ export async function POST(request: NextRequest) {
         .set({
           password_hash: hashedPassword,
           reset_token: null,
-          reset_token_expiry: null
+          reset_token_expiry: null,
+          updated_at: sql`CURRENT_TIMESTAMP`
         })
         .where(eq(users.id, user.id))
         .execute();

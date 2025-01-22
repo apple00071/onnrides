@@ -200,8 +200,8 @@ export async function POST(req: Request) {
       images: body.images,
       is_available: body.is_available,
       status: 'active',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: sql`CURRENT_TIMESTAMP`,
+      updated_at: sql`CURRENT_TIMESTAMP`,
     });
 
     return NextResponse.json({ success: true, data: newVehicle });

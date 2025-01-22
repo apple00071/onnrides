@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { bookings, vehicles, bookingStatusEnum, paymentStatusEnum } from '@/lib/db/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import logger from '@/lib/logger';
+import { calculateTotalPrice } from '@/lib/utils';
+import crypto from 'crypto';
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,12 +34,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-interface CreateBookingBody {
+interface BookingBody {
   vehicleId: string;
   startDate: string;
   endDate: string;
-  totalHours: number;
-  totalAmount: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -45,14 +45,53 @@ export async function POST(request: NextRequest) {
     const user = await verifyAuth();
     if (!user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const body = await request.json() as CreateBookingBody;
-    const { vehicleId, startDate, endDate, totalHours, totalAmount } = body;
+    const body = (await request.json()) as BookingBody;
+    const { vehicleId, startDate, endDate } = body;
 
+    if (!vehicleId || !startDate || !endDate) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Get vehicle details
+    const vehicle = await db
+      .select()
+      .from(vehicles)
+      .where(eq(vehicles.id, vehicleId))
+      .limit(1);
+
+    if (!vehicle.length) {
+      return NextResponse.json(
+        { error: 'Vehicle not found' },
+        { status: 404 }
+      );
+    }
+
+    const minBookingHours = 12;
+    const totalHours = Math.ceil(
+      (new Date(endDate).getTime() - new Date(startDate).getTime()) /
+        (1000 * 60 * 60)
+    );
+
+    if (totalHours < minBookingHours) {
+      return NextResponse.json(
+        {
+          error: `Minimum booking duration is ${minBookingHours} hours`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const totalAmount = calculateTotalPrice(totalHours, vehicle[0].price_per_hour);
+
+    // Create booking
     const [booking] = await db
       .insert(bookings)
       .values({
@@ -62,19 +101,14 @@ export async function POST(request: NextRequest) {
         end_time: sql`${endDate}::timestamp`,
         total_hours: sql`${totalHours}::numeric`,
         total_amount: sql`${totalAmount}::numeric`,
-        status: bookingStatusEnum.enumValues[0],
-        payment_status: paymentStatusEnum.enumValues[0]
+        status: 'pending',
+        payment_status: 'pending',
       })
       .returning();
 
-    return NextResponse.json({
-      success: true,
-      message: 'Booking created successfully',
-      booking
-    });
-
+    return NextResponse.json(booking);
   } catch (error) {
-    console.error('Failed to create booking:', error);
+    console.error('Error creating booking:', error);
     return NextResponse.json(
       { error: 'Failed to create booking' },
       { status: 500 }

@@ -4,8 +4,10 @@ import type { Booking, Vehicle } from '@/lib/types';
 import { verifyAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { bookings, vehicles } from '@/lib/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import { calculateBookingPrice, calculateTotalPrice, calculateDuration } from '@/lib/utils';
+import crypto from 'crypto';
+import type { Session } from 'next-auth';
 
 interface BookingBody {
   vehicleId: string;
@@ -16,8 +18,8 @@ interface BookingBody {
 // GET /api/bookings - List user's bookings
 export async function GET(request: NextRequest) {
   try {
-    const session = await verifyAuth();
-    if (!session?.user) {
+    const user = await verifyAuth();
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -30,8 +32,7 @@ export async function GET(request: NextRequest) {
         status: bookings.status,
         start_date: bookings.start_date,
         end_date: bookings.end_date,
-        duration: bookings.duration,
-        amount: bookings.amount,
+        total_price: bookings.total_price,
         vehicle: {
           id: vehicles.id,
           name: vehicles.name,
@@ -43,13 +44,13 @@ export async function GET(request: NextRequest) {
       })
       .from(bookings)
       .innerJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
-      .where(eq(bookings.user_id, session.user.id))
+      .where(eq(bookings.user_id, user.id))
       .orderBy(desc(bookings.created_at));
 
     return NextResponse.json({
       bookings: userBookings.map(booking => ({
         ...booking,
-        amount: Number(booking.amount),
+        total_price: Number(booking.total_price),
         vehicle: {
           ...booking.vehicle,
           location: booking.vehicle.location as unknown as string[],
@@ -70,86 +71,67 @@ export async function GET(request: NextRequest) {
 // POST /api/bookings - Create booking
 export async function POST(request: NextRequest) {
   try {
-    const session = await verifyAuth();
-    if (!session?.user) {
+    const user = await verifyAuth();
+    if (!user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const body = await request.json();
+    const body = await request.json() as BookingBody;
     const { vehicleId, startDate, endDate } = body;
 
-    // Validate required fields
     if (!vehicleId || !startDate || !endDate) {
       return NextResponse.json(
-        { error: 'Missing required fields: vehicleId, startDate, endDate' },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
     // Get vehicle details
-    const [vehicle] = await db
+    const vehicle = await db
       .select()
       .from(vehicles)
-      .where(eq(vehicles.id, vehicleId));
+      .where(eq(vehicles.id, vehicleId))
+      .limit(1);
 
-    if (!vehicle) {
+    if (!vehicle.length) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }
       );
     }
 
-    // Check if vehicle is available
-    if (!vehicle.is_available || vehicle.status !== 'active') {
-      return NextResponse.json(
-        { error: 'Vehicle is not available for booking' },
-        { status: 400 }
-      );
-    }
-
-    // Calculate booking duration and price
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const duration = calculateDuration(start, end);
-    const amount = calculateBookingPrice(start, end, Number(vehicle.price_per_hour));
-
-    // Check if duration meets minimum booking hours
-    const minBookingHours = vehicle.min_booking_hours || 1;
-    if (duration < minBookingHours) {
-      return NextResponse.json(
-        { error: `Minimum booking duration is ${minBookingHours} hours` },
-        { status: 400 }
-      );
-    }
+    // Calculate total price
+    const totalPrice = calculateTotalPrice(
+      new Date(startDate),
+      new Date(endDate),
+      Number(vehicle[0].price_per_hour)
+    );
 
     // Create booking
     const [booking] = await db
       .insert(bookings)
       .values({
-        user_id: session.user.id,
+        id: crypto.randomUUID(),
+        user_id: user.id,
         vehicle_id: vehicleId,
-        start_date: start,
-        end_date: end,
-        duration: duration,
-        amount: String(amount),
+        start_date: sql`${startDate}::timestamp`,
+        end_date: sql`${endDate}::timestamp`,
+        total_price: sql`${totalPrice}::decimal`,
         status: 'pending',
+        payment_status: 'pending',
+        created_at: sql`CURRENT_TIMESTAMP`,
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .returning();
 
-    return NextResponse.json({
-      message: 'Booking created successfully',
-      booking: {
-        ...booking,
-        amount: Number(booking.amount),
-      },
-    });
+    return NextResponse.json(booking);
   } catch (error) {
-    logger.error('Failed to create booking:', error);
+    logger.error('Error creating booking:', error);
     return NextResponse.json(
-      { error: 'Failed to create booking', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to create booking' },
       { status: 500 }
     );
   }
