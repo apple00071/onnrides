@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { documents } from '@/lib/schema';
 import { verifyAuth } from '@/lib/auth';
 import type { User } from '@/lib/types';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 interface AuthResult {
   user: User;
@@ -45,7 +45,7 @@ export async function PATCH(
       .update(documents)
       .set({
         status,
-        updated_at: new Date()
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .where(eq(documents.id, documentId))
       .returning();
