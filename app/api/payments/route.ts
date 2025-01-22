@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { bookings } from '@/lib/schema';
 import { verifyAuth } from '@/lib/auth';
 import type { User } from '@/lib/types';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import QRCode from 'qrcode';
 
 interface AuthResult {
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       .update(bookings)
       .set({
         payment_status: 'paid',
-        updated_at: new Date()
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .where(eq(bookings.id, bookingId))
       .execute();
