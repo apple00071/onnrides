@@ -4,8 +4,9 @@ import { documents, DOCUMENT_TYPES } from '@/lib/schema';
 import logger from '@/lib/logger';
 import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Session } from 'next-auth';
+import crypto from 'crypto';
 
 type AuthResult = { user: Session['user'] } | null;
 
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
       await db.update(documents)
         .set({ 
           file_url: blob.url,
-          updated_at: new Date(),
+          updated_at: sql`strftime('%s', 'now')`,
           status: 'pending'
         })
         .where(eq(documents.id, existingDoc.id));
@@ -57,16 +58,22 @@ export async function POST(request: Request) {
     }
 
     // Create new document record
-    await db.insert(documents).values({
-      user_id: auth.user.id,
-      type,
-      file_url: blob.url,
-      status: 'pending'
-    });
+    const [document] = await db
+      .insert(documents)
+      .values({
+        id: crypto.randomUUID(),
+        user_id: auth.user.id,
+        type,
+        file_url: blob.url,
+        status: 'pending',
+        created_at: sql`strftime('%s', 'now')`,
+        updated_at: sql`strftime('%s', 'now')`
+      })
+      .returning();
 
     return NextResponse.json({ 
       message: 'Document uploaded successfully',
-      url: blob.url
+      document
     });
 
   } catch (error) {

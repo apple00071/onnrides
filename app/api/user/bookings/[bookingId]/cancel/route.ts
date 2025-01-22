@@ -3,7 +3,7 @@ import logger from '@/lib/logger';
 import { db } from '@/lib/db';
 import { bookings, vehicles } from '@/lib/schema';
 import { verifyAuth } from '@/lib/auth';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 export async function POST(
   request: NextRequest,
@@ -51,7 +51,7 @@ export async function POST(
       .update(bookings)
       .set({
         status: 'cancelled',
-        updated_at: new Date()
+        updated_at: sql`strftime('%s', 'now')`
       })
       .where(eq(bookings.id, params.bookingId))
       .returning();

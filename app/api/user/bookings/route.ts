@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { bookings, vehicles } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import logger from '@/lib/logger';
 import { calculateTotalPrice } from '@/lib/utils';
 import crypto from 'crypto';
@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
         total_price: totalPrice,
         status: 'pending',
         payment_status: 'pending',
-        created_at: new Date(),
-        updated_at: new Date()
+        created_at: sql`strftime('%s', 'now')`,
+        updated_at: sql`strftime('%s', 'now')`
       })
       .returning();
 

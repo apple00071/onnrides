@@ -2,83 +2,121 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { vehicles } from '@/lib/schema';
-import { eq, desc } from 'drizzle-orm';
+import { vehicles } from '@/lib/db/schema';
+import { eq, desc, sql } from 'drizzle-orm';
 import logger from '@/lib/logger';
 import { randomUUID } from 'crypto';
 import { nanoid } from 'nanoid';
+import { verifyAuth } from '@/lib/auth';
+import crypto from 'crypto';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const user = await verifyAuth();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    const allVehicles = await db.select().from(vehicles);
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    // Get all vehicles
+    const allVehicles = await db
+      .select()
+      .from(vehicles)
+      .orderBy(desc(vehicles.created_at));
+
+    // Parse JSON strings back to objects
+    const formattedVehicles = allVehicles.map(vehicle => ({
+      ...vehicle,
+      location: JSON.parse(vehicle.location),
+      images: JSON.parse(vehicle.images),
+    }));
 
     return NextResponse.json({
-      message: 'Vehicles fetched successfully',
-      vehicles: allVehicles.map(vehicle => {
-        // Parse images
-        let images = [];
-        try {
-          if (typeof vehicle.images === 'string') {
-            images = vehicle.images.startsWith('[') ? JSON.parse(vehicle.images) : [vehicle.images];
-          } else if (Array.isArray(vehicle.images)) {
-            images = vehicle.images;
-          }
-        } catch (error) {
-          logger.error('Error parsing vehicle images:', error);
-          images = [];
-        }
-
-        return {
-          ...vehicle,
-          location: vehicle.location.split(', '),
-          images
-        };
-      })
+      vehicles: formattedVehicles
     });
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
     return NextResponse.json(
-      { message: 'Error fetching vehicles' },
+      { error: 'Failed to fetch vehicles' },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const user = await verifyAuth();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    const data = await request.json();
-    const { name, type, price_per_hour, location, images, quantity = 1 } = data;
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
 
-    const vehicle = await db.insert(vehicles).values({
-      id: nanoid(),
+    const body = await request.json();
+    const {
       name,
       type,
-      price_per_hour: price_per_hour.toString(),
-      location: Array.isArray(location) ? location.join(', ') : location,
-      images: JSON.stringify(images),
-      quantity,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+      location,
+      quantity = 1,
+      price_per_hour,
+      min_booking_hours = 12,
+      images,
+    } = body;
+
+    // Validate required fields
+    if (!name || !type || !location || !price_per_hour || !images) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Create vehicle
+    const [vehicle] = await db
+      .insert(vehicles)
+      .values({
+        id: crypto.randomUUID(),
+        name,
+        type,
+        location: JSON.stringify(location),
+        quantity,
+        price_per_hour: price_per_hour.toString(),
+        min_booking_hours,
+        images: JSON.stringify(images),
+        is_available: true,
+        status: 'active',
+        created_at: sql`strftime('%s', 'now')`,
+        updated_at: sql`strftime('%s', 'now')`
+      })
+      .returning();
 
     return NextResponse.json({
       message: 'Vehicle created successfully',
-      vehicle,
+      vehicle
     });
   } catch (error) {
     logger.error('Error creating vehicle:', error);
     return NextResponse.json(
-      { message: 'Error creating vehicle' },
+      { error: 'Failed to create vehicle' },
       { status: 500 }
     );
   }
