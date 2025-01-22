@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import logger from '@/lib/logger';
-import { findDocuments, updateDocument } from '@/lib/db';
+import { db } from '@/lib/db';
+import { documents } from '@/lib/schema';
+import { eq, sql } from 'drizzle-orm';
 
 export async function GET(
   request: Request,
@@ -24,7 +26,11 @@ export async function GET(
       );
     }
 
-    const userDocuments = await findDocuments({ userId });
+    const userDocuments = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.user_id, userId));
+
     logger.debug(`Successfully fetched documents for user ${userId}`);
     return NextResponse.json(userDocuments);
     
@@ -69,10 +75,14 @@ export async function PATCH(
 
     try {
       // Update document status
-      const updatedDocument = await updateDocument(documentId, {
-        status: status as 'approved' | 'rejected',
-        updated_at: new Date()
-      });
+      const [updatedDocument] = await db
+        .update(documents)
+        .set({
+          status: status as 'approved' | 'rejected',
+          updated_at: sql`CURRENT_TIMESTAMP`
+        })
+        .where(eq(documents.id, documentId))
+        .returning();
 
       if (!updatedDocument) {
         return NextResponse.json(
@@ -82,7 +92,10 @@ export async function PATCH(
       }
 
       // Check if all required documents are approved
-      const userDocuments = await findDocuments({ userId });
+      const userDocuments = await db
+        .select()
+        .from(documents)
+        .where(eq(documents.user_id, userId));
       const allDocsApproved = userDocuments.every(doc => doc.status === 'approved');
 
       logger.debug(`Successfully updated document ${documentId} status to ${status}`);
