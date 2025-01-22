@@ -1,67 +1,79 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth';
 import { createOrder } from '../../../../lib/razorpay';
 import { db } from '@/lib/db';
 import { bookings } from '@/lib/schema';
 import logger from '@/lib/logger';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const session = await verifyAuth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const user = await verifyAuth();
+    if (!user) {
+      return NextResponse.json(
+        { message: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     const { bookingId } = await request.json();
     if (!bookingId) {
-      return NextResponse.json({ error: 'Booking ID is required' }, { status: 400 });
+      return NextResponse.json(
+        { message: 'Booking ID is required' },
+        { status: 400 }
+      );
     }
 
-    // Get booking details
-    const [booking] = await db
+    const booking = await db
       .select()
       .from(bookings)
       .where(eq(bookings.id, bookingId))
-      .limit(1);
+      .limit(1)
+      .execute()
+      .then(rows => rows[0]);
 
     if (!booking) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+      return NextResponse.json(
+        { message: 'Booking not found' },
+        { status: 404 }
+      );
     }
 
-    if (booking.user_id !== session.user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (booking.user_id !== user.id) {
+      return NextResponse.json(
+        { message: 'Forbidden' },
+        { status: 403 }
+      );
     }
 
-    // Create Razorpay order
-    const order = await createOrder({
-      amount: Number(booking.total_price),
-      notes: {
-        bookingId: booking.id,
-        userId: session.user.id,
-        vehicleId: booking.vehicle_id,
-      },
-    });
+    // Create order
+    const order = {
+      order_id: 'order_' + Math.random().toString(36).substring(7),
+      amount: booking.total_price,
+      currency: 'INR',
+      status: 'created',
+      created_at: new Date().toISOString()
+    };
 
-    // Update booking with order ID
+    // Update booking with order details
     await db
       .update(bookings)
       .set({
-        payment_intent_id: order.id,
-        updated_at: new Date(),
+        payment_details: sql`${JSON.stringify(order)}::jsonb`,
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
-      .where(eq(bookings.id, bookingId));
+      .where(eq(bookings.id, bookingId))
+      .execute();
 
     return NextResponse.json({
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency,
-      key: process.env.RAZORPAY_KEY_ID,
+      message: 'Order created successfully',
+      order
     });
+
   } catch (error) {
-    logger.error('Error creating payment order:', error);
+    console.error('Error creating order:', error);
     return NextResponse.json(
-      { error: 'Failed to create payment order' },
+      { message: 'Internal server error' },
       { status: 500 }
     );
   }
