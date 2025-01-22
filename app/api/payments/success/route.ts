@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import { db } from '@/lib/db';
 import { bookings } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 // POST /api/payments/success - Handle successful payment
 export async function POST(request: NextRequest) {
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       .set({
         payment_status: 'paid',
         status: 'confirmed',
-        updated_at: new Date()
+        updated_at: sql`strftime('%s', 'now')`
       })
       .where(eq(bookings.id, bookingId))
       .execute();
