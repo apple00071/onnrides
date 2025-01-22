@@ -10,7 +10,7 @@ declare module 'next-auth' {
     id: string;
     name: string;
     email: string;
-    role: string;
+    role: 'user' | 'admin';
   }
 }
 
@@ -52,7 +52,7 @@ export const authOptions: AuthOptions = {
           id: user.id,
           name: user.name || 'User',
           email: user.email,
-          role: user.role || 'user'
+          role: user.role as 'user' | 'admin'
         };
       }
     })
@@ -63,7 +63,7 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = user.role as 'user' | 'admin';
+        token.role = user.role;
       }
       return token;
     },
