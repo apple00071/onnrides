@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { db } from '@/lib/db';
 import { users } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+    const resetTokenExpiry = sql`TIMESTAMPADD(HOUR, 1, CURRENT_TIMESTAMP)`;
 
     // Update user with reset token
     await db
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
       .set({
         reset_token: resetToken,
         reset_token_expiry: resetTokenExpiry,
-        updated_at: new Date()
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .where(eq(users.email, email));
 

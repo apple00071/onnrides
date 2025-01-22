@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
       .values({
         user_id: user.id,
         vehicle_id: vehicleId,
-        start_time: sql`${new Date(startDate)}::timestamp`,
-        end_time: sql`${new Date(endDate)}::timestamp`,
+        start_time: sql`${startDate}::timestamp`,
+        end_time: sql`${endDate}::timestamp`,
         total_hours: sql`${totalHours}::numeric`,
         total_amount: sql`${totalAmount}::numeric`,
         status: bookingStatusEnum.enumValues[0],
