@@ -1,23 +1,27 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth';
 import { validatePaymentVerification } from '@/lib/razorpay';
 import { db } from '@/lib/db';
 import { bookings } from '@/lib/schema';
 import logger from '@/lib/logger';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await request.json();
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = await request.json();
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json(
-        { error: 'Missing payment verification details' },
+        { message: 'Missing required fields' },
         { status: 400 }
       );
     }
@@ -31,7 +35,7 @@ export async function POST(request: Request) {
 
     if (!isValid) {
       return NextResponse.json(
-        { error: 'Invalid payment signature' },
+        { message: 'Invalid payment signature' },
         { status: 400 }
       );
     }
@@ -40,16 +44,17 @@ export async function POST(request: Request) {
     const [booking] = await db
       .update(bookings)
       .set({
+        payment_id: razorpay_payment_id,
         payment_status: 'paid',
         status: 'confirmed',
-        updated_at: new Date(),
+        updated_at: sql`strftime('%s', 'now')`
       })
       .where(eq(bookings.payment_id, razorpay_order_id))
       .returning();
 
     if (!booking) {
       return NextResponse.json(
-        { error: 'Booking not found' },
+        { message: 'Booking not found' },
         { status: 404 }
       );
     }
@@ -58,14 +63,15 @@ export async function POST(request: Request) {
       message: 'Payment verified successfully',
       booking: {
         id: booking.id,
-        status: booking.status,
         payment_status: booking.payment_status,
-      },
+        status: booking.status
+      }
     });
+
   } catch (error) {
-    logger.error('Error verifying payment:', error);
+    logger.error('Payment verification error:', error);
     return NextResponse.json(
-      { error: 'Failed to verify payment' },
+      { message: 'Failed to verify payment' },
       { status: 500 }
     );
   }
