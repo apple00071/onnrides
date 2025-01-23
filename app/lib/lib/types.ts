@@ -1,4 +1,9 @@
-import { BaseItem } from '@/lib/db';
+// Base interface for all database entities
+export interface BaseItem {
+  id: string;
+  created_at: Date;
+  updated_at: Date;
+}
 
 export interface User extends BaseItem {
   email: string;
