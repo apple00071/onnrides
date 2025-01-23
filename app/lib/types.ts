@@ -30,7 +30,8 @@ export interface Booking {
   end_date: Date;
   total_price: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
-  payment_status: 'pending' | 'paid' | 'refunded';
+  payment_status: 'pending' | 'paid' | 'refunded' | 'failed';
+  payment_details?: { [key: string]: any } | null;
   created_at: Date;
   updated_at: Date;
 }
