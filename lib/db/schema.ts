@@ -13,6 +13,11 @@ export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 export type DocumentType = 'license' | 'id_proof' | 'address_proof';
 export type DocumentStatus = 'pending' | 'approved' | 'rejected';
 
+// Define role enum
+export const roleEnum = {
+  enumValues: ['user', 'admin'] as const,
+} as const;
+
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
   name: text('name'),
@@ -22,7 +27,7 @@ export const users = sqliteTable('users', {
   reset_token: text('reset_token'),
   reset_token_expiry: integer('reset_token_expiry', { mode: 'timestamp' }),
   is_blocked: integer('is_blocked', { mode: 'boolean' }).default(false),
-  role: text('role').default('user').notNull(),
+  role: text('role', { enum: roleEnum.enumValues }).default('user').notNull(),
   created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
   updated_at: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
