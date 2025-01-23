@@ -28,13 +28,17 @@ export async function POST(request: NextRequest) {
 
     // TODO: Upload file to cloud storage and get URL
     const fileUrl = 'https://example.com/placeholder'; // Replace with actual file upload
+    const now = new Date().toISOString();
 
     const [document] = await db.insert(documents)
       .values({
         id: randomUUID(),
         user_id: auth.user.id,
         type: type as 'license' | 'id_proof' | 'address_proof',
-        url: fileUrl
+        status: 'pending',
+        file_url: fileUrl,
+        created_at: now,
+        updated_at: now,
       })
       .returning();
 

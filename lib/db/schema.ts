@@ -10,6 +10,8 @@ import type { AdapterAccount } from '@auth/core/adapters';
 // Define booking status and payment status as string literals for type safety
 export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+export type DocumentType = 'license' | 'id_proof' | 'address_proof';
+export type DocumentStatus = 'pending' | 'approved' | 'rejected';
 
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
@@ -59,6 +61,19 @@ export const bookings = sqliteTable('bookings', {
   updated_at: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+export const documents = sqliteTable('documents', {
+  id: text('id').primaryKey(),
+  user_id: text('user_id')
+    .notNull()
+    .references(() => users.id),
+  type: text('type').notNull(),
+  status: text('status').default('pending').notNull(),
+  file_url: text('file_url').notNull(),
+  rejection_reason: text('rejection_reason'),
+  created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updated_at: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
   bookings: many(bookings),
 }));
@@ -75,5 +90,12 @@ export const bookingsRelations = relations(bookings, ({ one }) => ({
   vehicle: one(vehicles, {
     fields: [bookings.vehicle_id],
     references: [vehicles.id],
+  }),
+}));
+
+export const documentsRelations = relations(documents, ({ one }) => ({
+  user: one(users, {
+    fields: [documents.user_id],
+    references: [users.id],
   }),
 })); 
