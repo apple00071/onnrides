@@ -132,6 +132,42 @@ export default function BookingPage({ params, searchParams }: Props) {
 
   const formatPrice = (price: number) => price.toFixed(1);
 
+  const handleBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const response = await fetch('/api/user/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          vehicleId: params.vehicleId,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        if (response.status === 401) {
+          // Store current URL in localStorage
+          localStorage.setItem('redirectAfterLogin', window.location.pathname);
+          toast.error('Please sign in or sign up to complete your booking');
+          router.push('/auth/login');
+          return;
+        }
+        throw new Error(data.error || 'Failed to create booking');
+      }
+
+      const data = await response.json();
+      router.push(`/bookings/${data.id}/payment`);
+    } catch (error) {
+      logger.error('Error creating booking:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create booking');
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <Script
@@ -253,98 +289,7 @@ export default function BookingPage({ params, searchParams }: Props) {
           <Button 
             className="w-full mt-6 bg-[#FFD60A] hover:bg-[#FFD60A]/90 text-black font-medium"
             size="lg"
-            onClick={async () => {
-              try {
-                setIsLoading(true);
-                // Create booking
-                const bookingRes = await fetch('/api/user/bookings', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    vehicleId: params.vehicleId,
-                    startDate: startDate.toISOString(),
-                    endDate: endDate.toISOString(),
-                  }),
-                });
-
-                if (!bookingRes.ok) {
-                  const error = await bookingRes.json();
-                  throw new Error(error.error || 'Failed to create booking');
-                }
-
-                const booking = await bookingRes.json();
-                
-                // Create payment order
-                const orderRes = await fetch('/api/payments/create-order', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    bookingId: booking.id,
-                  }),
-                });
-
-                if (!orderRes.ok) {
-                  const error = await orderRes.json();
-                  throw new Error(error.error || 'Failed to create payment order');
-                }
-
-                const { order } = await orderRes.json();
-                
-                // Initialize Razorpay
-                const options = {
-                  key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-                  amount: order.amount,
-                  currency: order.currency,
-                  name: 'OnnRides',
-                  description: 'Vehicle Booking Payment',
-                  order_id: order.id,
-                  handler: async (response: any) => {
-                    try {
-                      // Verify payment
-                      const verifyRes = await fetch('/api/payments/verify', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                          razorpay_order_id: response.razorpay_order_id,
-                          razorpay_payment_id: response.razorpay_payment_id,
-                          razorpay_signature: response.razorpay_signature,
-                        }),
-                      });
-
-                      if (!verifyRes.ok) {
-                        throw new Error('Payment verification failed');
-                      }
-
-                      toast.success('Payment successful!');
-                      router.push('/bookings');
-                    } catch (error) {
-                      toast.error('Payment verification failed. Please contact support.');
-                    }
-                  },
-                  prefill: {
-                    name: session?.user?.name,
-                    email: session?.user?.email,
-                  },
-                  theme: {
-                    color: '#FFD60A',
-                  },
-                };
-
-                const razorpay = new (window as any).Razorpay(options);
-                razorpay.open();
-              } catch (error) {
-                console.error('Payment error:', error);
-                toast.error(error instanceof Error ? error.message : 'Failed to process payment');
-              } finally {
-                setIsLoading(false);
-              }
-            }}
+            onClick={handleBooking}
           >
             {isLoading ? 'Processing...' : 'Make payment'}
           </Button>

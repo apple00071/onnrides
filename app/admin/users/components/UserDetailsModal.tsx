@@ -139,8 +139,13 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
 
   if (!user || !isOpen) return null;
 
-  const formatDate = (date: string) => {
-    return format(new Date(date), 'MMM d, yyyy HH:mm:ss');
+  const formatDate = (date: string | null) => {
+    if (!date) return 'N/A';
+    try {
+      return format(new Date(date), 'MMM d, yyyy HH:mm:ss');
+    } catch (error) {
+      return 'Invalid date';
+    }
   };
 
   return (

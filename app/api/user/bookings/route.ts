@@ -24,13 +24,46 @@ export async function GET(request: NextRequest) {
     }
 
     const userBookings = await db
-      .select()
+      .select({
+        id: bookings.id,
+        status: bookings.status,
+        start_date: bookings.start_date,
+        end_date: bookings.end_date,
+        total_price: bookings.total_price,
+        payment_status: bookings.payment_status,
+        created_at: bookings.created_at,
+        updated_at: bookings.updated_at,
+        vehicle: {
+          id: vehicles.id,
+          name: vehicles.name,
+          type: vehicles.type,
+          location: vehicles.location,
+          images: vehicles.images,
+          price_per_hour: vehicles.price_per_hour,
+        },
+      })
       .from(bookings)
       .innerJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
       .where(eq(bookings.user_id, user.id))
       .orderBy(desc(bookings.created_at));
 
-    return NextResponse.json(userBookings);
+    // Format the response
+    const formattedBookings = userBookings.map(booking => ({
+      ...booking,
+      total_price: Number(booking.total_price),
+      vehicle: {
+        ...booking.vehicle,
+        location: typeof booking.vehicle.location === 'string' 
+          ? JSON.parse(booking.vehicle.location)
+          : booking.vehicle.location,
+        images: typeof booking.vehicle.images === 'string'
+          ? JSON.parse(booking.vehicle.images)
+          : booking.vehicle.images,
+        price_per_hour: Number(booking.vehicle.price_per_hour),
+      },
+    }));
+
+    return NextResponse.json(formattedBookings);
   } catch (error) {
     logger.error('Error fetching user bookings:', error);
     return NextResponse.json(

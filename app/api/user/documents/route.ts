@@ -9,8 +9,6 @@ import type { Session } from 'next-auth';
 import crypto from 'crypto';
 import { NextRequest } from 'next/server';
 
-type AuthResult = { user: Session['user'] } | null;
-
 const VALID_DOCUMENT_TYPES = ['license', 'id_proof', 'address_proof'] as const;
 type DocumentType = typeof VALID_DOCUMENT_TYPES[number];
 
@@ -19,17 +17,17 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function GET() {
   try {
-    const auth = await verifyAuth() as AuthResult;
-    if (!auth?.user) {
+    const auth = await verifyAuth();
+    if (!auth) {
       logger.warn('Unauthorized access attempt to documents');
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    logger.info('Fetching documents for user:', auth.user.id);
+    logger.info('Fetching documents for user:', auth.id);
     const userDocuments = await db
       .select()
       .from(documents)
-      .where(eq(documents.user_id, auth.user.id));
+      .where(eq(documents.user_id, auth.id));
 
     logger.info('Found documents:', userDocuments.length);
     return NextResponse.json(userDocuments);
@@ -46,6 +44,7 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await verifyAuth();
     if (!auth) {
+      logger.warn('Unauthorized access attempt to upload document');
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
@@ -102,6 +101,7 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
+    logger.info('Document uploaded successfully:', document.id);
     return NextResponse.json(document);
   } catch (error) {
     logger.error("Error uploading document:", error);

@@ -48,7 +48,7 @@ export default function DocumentsPage() {
     formData.append('type', 'license'); // You can make this dynamic if needed
 
     try {
-      const response = await fetch('/api/user/documents/upload', {
+      const response = await fetch('/api/user/documents', {
         method: 'POST',
         body: formData,
       });

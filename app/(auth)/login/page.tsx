@@ -29,7 +29,15 @@ export default function LoginPage() {
       }
 
       toast.success('Login successful')
-      router.push('/dashboard')
+      
+      // Check for redirect URL in localStorage
+      const redirectUrl = localStorage.getItem('redirectAfterLogin');
+      if (redirectUrl) {
+        localStorage.removeItem('redirectAfterLogin');
+        router.push(redirectUrl);
+      } else {
+        router.push('/');
+      }
       router.refresh() // Refresh to update session state
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Login failed')

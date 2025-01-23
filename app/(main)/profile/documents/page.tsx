@@ -58,7 +58,7 @@ export default function DocumentsPage() {
       formData.append('file', doc.file);
       formData.append('type', type);
 
-      const response = await fetch('/api/user/documents/upload', {
+      const response = await fetch('/api/user/documents', {
         method: 'POST',
         body: formData
       });

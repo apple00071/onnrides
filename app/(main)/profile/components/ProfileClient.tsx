@@ -107,7 +107,7 @@ export default function ProfileClient() {
 
     setUploading(true);
     try {
-      const response = await fetch('/api/user/documents/upload', {
+      const response = await fetch('/api/user/documents', {
         method: 'POST',
         body: formData,
         credentials: 'include',
