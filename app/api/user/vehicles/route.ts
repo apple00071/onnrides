@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { vehicles } from '@/lib/schema';
-import { eq, and, like } from 'drizzle-orm';
+import { eq, and, like, sql } from 'drizzle-orm';
 import logger from '@/lib/logger';
 
 export async function GET(request: Request) {
@@ -24,11 +24,11 @@ export async function GET(request: Request) {
     }
 
     if (minPrice) {
-      conditions.push(eq(vehicles.price_per_day, minPrice));
+      conditions.push(sql`${vehicles.price_per_hour} >= ${minPrice}`);
     }
 
     if (maxPrice) {
-      conditions.push(eq(vehicles.price_per_day, maxPrice));
+      conditions.push(sql`${vehicles.price_per_hour} <= ${maxPrice}`);
     }
 
     if (isAvailable === 'true') {
