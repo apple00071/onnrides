@@ -24,18 +24,16 @@ export interface Vehicle {
   description?: string;
 }
 
-// Mock local storage key
-
-
-// Mock local storage key for vehicles
-
+// Storage keys
+const BOOKINGS_STORAGE_KEY = 'onnrides_bookings';
+const VEHICLES_STORAGE_KEY = 'onnrides_vehicles';
 
 // Generate a unique ID
 function generateId(): string {
   return Math.random().toString(36).substr(2, 9);
 }
 
-// Check if we&apos;re in a browser environment
+// Check if we're in a browser environment
 function isBrowser(): boolean {
   return typeof window !== 'undefined';
 }
@@ -45,7 +43,7 @@ export function getBookings(userId?: string): Booking[] {
   if (!isBrowser()) return [];
 
   try {
-    
+    const storedBookings = localStorage.getItem(BOOKINGS_STORAGE_KEY);
     const bookings: Booking[] = storedBookings 
       ? JSON.parse(storedBookings) 
       : [];
@@ -65,7 +63,7 @@ export function createBooking(bookingData: Omit<Booking, 'id' | 'created_at'>): 
   if (!isBrowser()) throw new Error('Booking can only be created in a browser');
 
   try {
-    
+    const storedBookings = localStorage.getItem(BOOKINGS_STORAGE_KEY);
     const bookings: Booking[] = storedBookings 
       ? JSON.parse(storedBookings) 
       : [];
@@ -91,12 +89,12 @@ export function updateBooking(bookingId: string, updates: Partial<Booking>): Boo
   if (!isBrowser()) return null;
 
   try {
-    
+    const storedBookings = localStorage.getItem(BOOKINGS_STORAGE_KEY);
     const bookings: Booking[] = storedBookings 
       ? JSON.parse(storedBookings) 
       : [];
 
-    
+    const bookingIndex = bookings.findIndex(b => b.id === bookingId);
 
     if (bookingIndex === -1) {
       logger.error('Booking not found');
@@ -123,12 +121,12 @@ export function deleteBooking(bookingId: string): boolean {
   if (!isBrowser()) return false;
 
   try {
-    
+    const storedBookings = localStorage.getItem(BOOKINGS_STORAGE_KEY);
     let bookings: Booking[] = storedBookings 
       ? JSON.parse(storedBookings) 
       : [];
 
-    
+    const initialLength = bookings.length;
     bookings = bookings.filter(b => b.id !== bookingId);
 
     if (bookings.length === initialLength) {
@@ -149,7 +147,7 @@ export function getVehicles(filters?: Partial<Vehicle>): Vehicle[] {
   if (!isBrowser()) return [];
 
   try {
-    
+    const storedVehicles = localStorage.getItem(VEHICLES_STORAGE_KEY);
     let vehicles: Vehicle[] = storedVehicles 
       ? JSON.parse(storedVehicles) 
       : [];
@@ -173,7 +171,7 @@ export function createVehicle(vehicleData: Omit<Vehicle, 'id'>): Vehicle {
   if (!isBrowser()) throw new Error('Vehicle can only be created in a browser');
 
   try {
-    
+    const storedVehicles = localStorage.getItem(VEHICLES_STORAGE_KEY);
     const vehicles: Vehicle[] = storedVehicles 
       ? JSON.parse(storedVehicles) 
       : [];
@@ -198,12 +196,12 @@ export function updateVehicle(vehicleId: string, updates: Partial<Vehicle>): Veh
   if (!isBrowser()) return null;
 
   try {
-    
+    const storedVehicles = localStorage.getItem(VEHICLES_STORAGE_KEY);
     const vehicles: Vehicle[] = storedVehicles 
       ? JSON.parse(storedVehicles) 
       : [];
 
-    
+    const vehicleIndex = vehicles.findIndex(v => v.id === vehicleId);
 
     if (vehicleIndex === -1) {
       logger.error('Vehicle not found');
@@ -230,12 +228,12 @@ export function deleteVehicle(vehicleId: string): boolean {
   if (!isBrowser()) return false;
 
   try {
-    
+    const storedVehicles = localStorage.getItem(VEHICLES_STORAGE_KEY);
     let vehicles: Vehicle[] = storedVehicles 
       ? JSON.parse(storedVehicles) 
       : [];
 
-    
+    const initialLength = vehicles.length;
     vehicles = vehicles.filter(v => v.id !== vehicleId);
 
     if (vehicles.length === initialLength) {
