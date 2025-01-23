@@ -8,7 +8,7 @@ import bcrypt from 'bcryptjs';
 declare module 'next-auth' {
   interface User {
     id: string;
-    name: string;
+    name: string | null;
     email: string;
     role: 'user' | 'admin';
   }
@@ -50,7 +50,7 @@ export const authOptions: AuthOptions = {
 
         return {
           id: user.id,
-          name: user.name || 'User',
+          name: user.name,
           email: user.email,
           role: user.role as 'user' | 'admin'
         };
