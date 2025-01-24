@@ -31,7 +31,16 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
+          console.log('Database URL:', process.env.DATABASE_URL);
           console.log('Attempting to authenticate user:', credentials.email);
+          
+          // Test database connection
+          try {
+            const testQuery = await db.select().from(users).limit(1);
+            console.log('Database connection test:', testQuery.length > 0 ? 'successful' : 'no users found');
+          } catch (dbError) {
+            console.error('Database connection test failed:', dbError);
+          }
           
           const [user] = await db
             .select()
@@ -99,5 +108,5 @@ export const authOptions: NextAuthOptions = {
       return session;
     }
   },
-  debug: process.env.NODE_ENV === 'development'
+  debug: true // Enable debug mode to see more logs
 }; 
