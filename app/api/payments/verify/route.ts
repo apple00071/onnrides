@@ -1,56 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth';
-import { validatePaymentVerification } from '@/lib/razorpay';
 import { db } from '@/lib/db';
 import { bookings } from '@/lib/schema';
-import logger from '@/lib/logger';
 import { eq, sql } from 'drizzle-orm';
+import logger from '@/lib/logger';
+import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth();
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { message: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     const {
-      razorpay_order_id,
+      bookingId,
       razorpay_payment_id,
+      razorpay_order_id,
       razorpay_signature,
     } = await request.json();
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    if (!bookingId || !razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
       return NextResponse.json(
-        { message: 'Missing required fields' },
+        { message: 'Missing required payment details' },
         { status: 400 }
       );
     }
 
-    // Verify payment signature
-    const isValid = validatePaymentVerification({
-      order_id: razorpay_order_id,
-      payment_id: razorpay_payment_id,
-      signature: razorpay_signature,
-    });
-
-    if (!isValid) {
-      return NextResponse.json(
-        { message: 'Invalid payment signature' },
-        { status: 400 }
-      );
-    }
-
-    // Update booking status
-    const [booking] = await db
-      .update(bookings)
-      .set({
-        payment_id: razorpay_payment_id,
-        payment_status: 'paid',
-        status: 'confirmed',
-        updated_at: sql`strftime('%s', 'now')`
-      })
-      .where(eq(bookings.payment_id, razorpay_order_id))
-      .returning();
+    // Get booking
+    const booking = await db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, bookingId))
+      .limit(1)
+      .execute()
+      .then(rows => rows[0]);
 
     if (!booking) {
       return NextResponse.json(
@@ -59,13 +46,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (booking.user_id !== user.id) {
+      return NextResponse.json(
+        { message: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Verify signature
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    const body = razorpay_order_id + '|' + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac('sha256', secret!)
+      .update(body)
+      .digest('hex');
+
+    if (expectedSignature !== razorpay_signature) {
+      return NextResponse.json(
+        { message: 'Invalid payment signature' },
+        { status: 400 }
+      );
+    }
+
+    // Update booking with payment details
+    await db
+      .update(bookings)
+      .set({
+        payment_status: 'paid',
+        status: 'confirmed',
+        payment_details: JSON.stringify({
+          payment_id: razorpay_payment_id,
+          order_id: razorpay_order_id,
+          signature: razorpay_signature,
+          verified_at: new Date().toISOString()
+        }),
+        updated_at: sql`CURRENT_TIMESTAMP`
+      })
+      .where(eq(bookings.id, bookingId))
+      .execute();
+
     return NextResponse.json({
-      message: 'Payment verified successfully',
-      booking: {
-        id: booking.id,
-        payment_status: booking.payment_status,
-        status: booking.status
-      }
+      message: 'Payment verified successfully'
     });
 
   } catch (error) {

@@ -20,6 +20,7 @@ interface Booking {
   total_price: number;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   created_at: string;
+  payment_status: 'paid' | 'unpaid';
 }
 
 export default function AdminBookingsPage() {
@@ -46,6 +47,11 @@ export default function AdminBookingsPage() {
 
   useEffect(() => {
     fetchBookings();
+    // Set up automatic refresh every 30 seconds
+    const refreshInterval = setInterval(fetchBookings, 30000);
+    
+    // Cleanup interval on component unmount
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const handleStatusChange = async (bookingId: string, newStatus: Booking['status']) => {
@@ -105,6 +111,9 @@ export default function AdminBookingsPage() {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Payment Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -140,17 +149,31 @@ export default function AdminBookingsPage() {
                           'pending': 'bg-yellow-100 text-yellow-800',
                           'completed': 'bg-blue-100 text-blue-800',
                           'cancelled': 'bg-red-100 text-red-800'
-                        }[booking.status] || 'bg-gray-100 text-gray-800'
+                        }[booking.payment_status === 'paid' ? 'confirmed' : booking.status] || 'bg-gray-100 text-gray-800'
                       }`}
                     >
-                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                      {booking.payment_status === 'paid' ? 'Confirmed' : booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span 
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        booking.payment_status === 'paid'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {booking.payment_status === 'paid' ? 'Payment Completed' : 'Payment Not Completed'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <select
                       value={booking.status}
                       onChange={(e) => handleStatusChange(booking.id, e.target.value as Booking['status'])}
-                      className="rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                      className={`rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary ${
+                        booking.payment_status === 'paid' ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                      disabled={booking.payment_status === 'paid'}
                     >
                       <option value="pending">Pending</option>
                       <option value="confirmed">Confirm</option>

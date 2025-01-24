@@ -78,25 +78,24 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
 
     try {
       setLoading(true);
-      const formDataToSend = new FormData();
       
-      // Append basic fields
-      formDataToSend.append('name', formData.name);
-      formDataToSend.append('type', formData.type);
-      formDataToSend.append('location', JSON.stringify(formData.location));
-      formDataToSend.append('price_per_hour', formData.price_per_hour.toString());
-      formDataToSend.append('is_available', formData.is_available.toString());
-      formDataToSend.append('status', formData.status);
-      formDataToSend.append('existingImages', JSON.stringify(formData.existingImages));
-      
-      // Append new images
-      formData.images.forEach((file, index) => {
-        formDataToSend.append(`images`, file);
-      });
+      // Prepare the data as a regular object
+      const updateData = {
+        name: formData.name,
+        type: formData.type,
+        location: formData.location,
+        price_per_hour: formData.price_per_hour,
+        is_available: formData.is_available,
+        status: formData.status,
+        images: formData.existingImages
+      };
 
       const response = await fetch(`/api/admin/vehicles/${vehicle.id}`, {
         method: 'PUT',
-        body: formDataToSend,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
       });
 
       if (!response.ok) {
@@ -109,6 +108,7 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
       onSuccess(updatedVehicle);
       onClose();
     } catch (error) {
+      logger.error('Error updating vehicle:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update vehicle');
     } finally {
       setLoading(false);

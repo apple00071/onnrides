@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import { Providers } from './providers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -36,6 +37,10 @@ export default async function RootLayout({
           <Toaster position="top-center" />
           {children}
         </Providers>
+        <Script
+          src="https://checkout.razorpay.com/v1/checkout.js"
+          strategy="lazyOnload"
+        />
       </body>
     </html>
   );

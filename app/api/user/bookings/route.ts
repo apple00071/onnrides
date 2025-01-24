@@ -48,20 +48,52 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(bookings.created_at));
 
     // Format the response
-    const formattedBookings = userBookings.map(booking => ({
-      ...booking,
-      total_price: Number(booking.total_price),
-      vehicle: {
-        ...booking.vehicle,
-        location: typeof booking.vehicle.location === 'string' 
-          ? JSON.parse(booking.vehicle.location)
-          : booking.vehicle.location,
-        images: typeof booking.vehicle.images === 'string'
-          ? JSON.parse(booking.vehicle.images)
-          : booking.vehicle.images,
-        price_per_hour: Number(booking.vehicle.price_per_hour),
-      },
-    }));
+    const formattedBookings = userBookings.map(booking => {
+      // Safely parse location
+      let location = booking.vehicle.location;
+      try {
+        if (typeof location === 'string') {
+          const parsedLocation = JSON.parse(location);
+          location = Array.isArray(parsedLocation) ? parsedLocation[0] : location;
+        }
+      } catch (error) {
+        // If parsing fails, keep the original string
+        location = location;
+      }
+
+      // Safely parse images
+      let images = booking.vehicle.images;
+      try {
+        if (typeof images === 'string') {
+          const parsedImages = JSON.parse(images);
+          images = Array.isArray(parsedImages) ? parsedImages[0] : images;
+        }
+      } catch (error) {
+        // If parsing fails, keep the original string
+        images = images;
+      }
+
+      // Convert timestamps to ISO strings
+      const start_date = new Date(Number(booking.start_date) * 1000).toISOString();
+      const end_date = new Date(Number(booking.end_date) * 1000).toISOString();
+      const created_at = new Date(Number(booking.created_at) * 1000).toISOString();
+      const updated_at = new Date(Number(booking.updated_at) * 1000).toISOString();
+
+      return {
+        ...booking,
+        start_date,
+        end_date,
+        created_at,
+        updated_at,
+        total_price: Number(booking.total_price),
+        vehicle: {
+          ...booking.vehicle,
+          location,
+          images,
+          price_per_hour: Number(booking.vehicle.price_per_hour),
+        },
+      };
+    });
 
     return NextResponse.json(formattedBookings);
   } catch (error) {

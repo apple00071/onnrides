@@ -134,9 +134,11 @@ export default function BookingPage({ params, searchParams }: Props) {
 
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
 
     try {
-      const response = await fetch('/api/user/bookings', {
+      // Create booking first
+      const bookingResponse = await fetch('/api/user/bookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,10 +150,9 @@ export default function BookingPage({ params, searchParams }: Props) {
         }),
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        if (response.status === 401) {
-          // Store current URL in localStorage
+      if (!bookingResponse.ok) {
+        const data = await bookingResponse.json();
+        if (bookingResponse.status === 401) {
           localStorage.setItem('redirectAfterLogin', window.location.pathname);
           toast.error('Please sign in or sign up to complete your booking');
           router.push('/auth/login');
@@ -160,11 +161,85 @@ export default function BookingPage({ params, searchParams }: Props) {
         throw new Error(data.error || 'Failed to create booking');
       }
 
-      const data = await response.json();
-      router.push(`/bookings/${data.id}/payment`);
+      const bookingData = await bookingResponse.json();
+
+      // Create payment order
+      const orderResponse = await fetch('/api/payments/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingId: bookingData.id,
+        }),
+      });
+
+      if (!orderResponse.ok) {
+        throw new Error('Failed to create payment order');
+      }
+
+      const orderData = await orderResponse.json();
+
+      // Initialize Razorpay payment
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: orderData.order.amount,
+        currency: orderData.order.currency,
+        name: 'OnnRides',
+        description: `Booking #${bookingData.id}`,
+        order_id: orderData.order.id,
+        prefill: {
+          name: session?.user?.name || '',
+          email: session?.user?.email || '',
+        },
+        theme: {
+          color: '#f26e24',
+        },
+        handler: async function (response: any) {
+          try {
+            // Verify payment
+            const verifyResponse = await fetch('/api/payments/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                bookingId: bookingData.id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+
+            if (!verifyResponse.ok) {
+              throw new Error('Payment verification failed');
+            }
+
+            // Wait for a short delay to ensure the database is updated
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            toast.success('Payment successful!');
+            router.push('/bookings');
+          } catch (error) {
+            toast.error('Payment verification failed');
+            logger.error('Payment verification error:', error);
+          }
+        },
+        modal: {
+          ondismiss: function() {
+            toast.error('Payment cancelled');
+            setIsLoading(false);
+          },
+        },
+      };
+
+      const razorpay = new (window as any).Razorpay(options);
+      razorpay.open();
     } catch (error) {
-      logger.error('Error creating booking:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create booking');
+      logger.error('Error in payment process:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to process payment');
+    } finally {
+      setIsLoading(false);
     }
   };
 

@@ -34,12 +34,30 @@ export async function GET(request: NextRequest) {
       .from(vehicles)
       .orderBy(desc(vehicles.created_at));
 
-    // Parse JSON strings back to objects
-    const formattedVehicles = allVehicles.map(vehicle => ({
-      ...vehicle,
-      location: JSON.parse(vehicle.location),
-      images: JSON.parse(vehicle.images),
-    }));
+    // Parse JSON strings back to objects safely
+    const formattedVehicles = allVehicles.map(vehicle => {
+      let parsedLocation;
+      let parsedImages;
+
+      try {
+        parsedLocation = JSON.parse(vehicle.location);
+      } catch (e) {
+        // If parsing fails, treat it as a single location string
+        parsedLocation = [vehicle.location];
+      }
+
+      try {
+        parsedImages = JSON.parse(vehicle.images);
+      } catch (e) {
+        parsedImages = vehicle.images ? [vehicle.images] : [];
+      }
+
+      return {
+        ...vehicle,
+        location: parsedLocation,
+        images: parsedImages,
+      };
+    });
 
     return NextResponse.json({
       vehicles: formattedVehicles
@@ -90,6 +108,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Ensure location is properly formatted
+    const locationJson = Array.isArray(location) 
+      ? JSON.stringify(location)
+      : JSON.stringify([location]);
+
+    // Ensure images is properly formatted
+    const imagesJson = Array.isArray(images)
+      ? JSON.stringify(images)
+      : JSON.stringify([images]);
+
     // Create vehicle
     const [vehicle] = await db
       .insert(vehicles)
@@ -97,11 +125,11 @@ export async function POST(request: NextRequest) {
         id: crypto.randomUUID(),
         name,
         type,
-        location: JSON.stringify(location),
+        location: locationJson,
         quantity,
         price_per_hour: price_per_hour.toString(),
         min_booking_hours,
-        images: JSON.stringify(images),
+        images: imagesJson,
         is_available: true,
         status: 'active',
         created_at: sql`strftime('%s', 'now')`,
@@ -111,7 +139,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: 'Vehicle created successfully',
-      vehicle
+      vehicle: {
+        ...vehicle,
+        location: JSON.parse(vehicle.location),
+        images: JSON.parse(vehicle.images)
+      }
     });
   } catch (error) {
     logger.error('Error creating vehicle:', error);

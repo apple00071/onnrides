@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
+import { users, roleEnum } from '@/lib/db/schema';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -10,7 +10,7 @@ export async function seedAdmin() {
       name: 'Admin',
       email: 'admin@onnrides.com',
       password_hash: await bcrypt.hash('admin123', 10),
-      role: 'admin',
+      role: roleEnum.enumValues[1],
       is_blocked: false,
       created_at: new Date(),
       updated_at: new Date()

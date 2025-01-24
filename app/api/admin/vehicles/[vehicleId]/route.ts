@@ -91,21 +91,32 @@ export async function PUT(
       status
     } = body;
 
+    // Prepare update data
+    const updateData: any = {
+      updated_at: sql`strftime('%s', 'now')`
+    };
+
+    // Only include fields that are provided and handle them properly
+    if (name) updateData.name = name;
+    if (type) updateData.type = type;
+    if (location) {
+      updateData.location = Array.isArray(location) 
+        ? location.join(', ')
+        : location;
+    }
+    if (quantity !== undefined) updateData.quantity = quantity;
+    if (price_per_hour !== undefined) updateData.price_per_hour = price_per_hour.toString();
+    if (min_booking_hours !== undefined) updateData.min_booking_hours = min_booking_hours;
+    if (images) {
+      updateData.images = JSON.stringify(images);
+    }
+    if (is_available !== undefined) updateData.is_available = is_available;
+    if (status) updateData.status = status;
+
     // Update vehicle
     const [vehicle] = await db
       .update(vehicles)
-      .set({
-        ...(name && { name }),
-        ...(type && { type }),
-        ...(location && { location: JSON.stringify(location) }),
-        ...(quantity && { quantity }),
-        ...(price_per_hour && { price_per_hour: price_per_hour.toString() }),
-        ...(min_booking_hours && { min_booking_hours }),
-        ...(images && { images: JSON.stringify(images) }),
-        ...(is_available !== undefined && { is_available }),
-        ...(status && { status }),
-        updated_at: sql`strftime('%s', 'now')`
-      })
+      .set(updateData)
       .where(eq(vehicles.id, vehicleId))
       .returning();
 
@@ -116,13 +127,18 @@ export async function PUT(
       );
     }
 
+    // Format the response data
+    const responseVehicle = {
+      ...vehicle,
+      location: vehicle.location.includes('[') 
+        ? JSON.parse(vehicle.location)
+        : vehicle.location.split(', '),
+      images: JSON.parse(vehicle.images)
+    };
+
     return NextResponse.json({
       message: 'Vehicle updated successfully',
-      vehicle: {
-        ...vehicle,
-        location: JSON.parse(vehicle.location),
-        images: JSON.parse(vehicle.images)
-      }
+      vehicle: responseVehicle
     });
   } catch (error) {
     logger.error('Error updating vehicle:', error);

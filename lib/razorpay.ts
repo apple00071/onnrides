@@ -3,13 +3,22 @@ import { randomUUID } from 'crypto';
 import logger from './logger';
 import crypto from 'crypto';
 
-if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-  throw new Error('RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set in environment variables');
+// Validate environment variables
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const NEXT_PUBLIC_RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+
+if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || !NEXT_PUBLIC_RAZORPAY_KEY_ID) {
+  throw new Error('Missing required Razorpay environment variables');
+}
+
+if (NEXT_PUBLIC_RAZORPAY_KEY_ID !== RAZORPAY_KEY_ID) {
+  throw new Error('NEXT_PUBLIC_RAZORPAY_KEY_ID must match RAZORPAY_KEY_ID');
 }
 
 export const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
+  key_id: RAZORPAY_KEY_ID,
+  key_secret: RAZORPAY_KEY_SECRET,
 });
 
 export interface CreateOrderParams {
@@ -40,8 +49,22 @@ export async function createOrder({
   notes = {},
 }: CreateOrderParams): Promise<RazorpayOrder> {
   try {
+    // Validate amount
+    if (typeof amount !== 'number' || amount <= 0) {
+      throw new Error('Invalid amount. Amount must be a positive number.');
+    }
+
+    // Convert to paise and ensure it's an integer
+    const amountInPaise = Math.round(amount * 100);
+    
+    logger.info('Creating Razorpay order:', { 
+      amount: amountInPaise,
+      currency,
+      receipt
+    });
+
     const order = await razorpay.orders.create({
-      amount: Math.round(amount * 100), // Convert to smallest currency unit (paise)
+      amount: amountInPaise,
       currency,
       receipt,
       notes,
@@ -87,9 +110,14 @@ export function validatePaymentVerification({
   signature,
 }: PaymentVerificationParams): boolean {
   try {
+    if (!order_id || !payment_id || !signature) {
+      logger.error('Missing required verification parameters');
+      return false;
+    }
+
     const text = `${order_id}|${payment_id}`;
     const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+      .createHmac('sha256', RAZORPAY_KEY_SECRET)
       .update(text)
       .digest('hex');
 
@@ -98,12 +126,12 @@ export function validatePaymentVerification({
     logger.info('Payment verification result:', {
       orderId: order_id,
       paymentId: payment_id,
-      isValid,
+      isValid
     });
 
     return isValid;
   } catch (error) {
-    logger.error('Error verifying payment:', error);
+    logger.error('Payment verification error:', error);
     return false;
   }
 } 
