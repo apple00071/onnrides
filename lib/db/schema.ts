@@ -1,9 +1,11 @@
 import {
   integer,
   text,
-  sqliteTable,
+  pgTable,
   real,
-} from 'drizzle-orm/sqlite-core';
+  boolean,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import type { AdapterAccount } from '@auth/core/adapters';
 
@@ -18,21 +20,21 @@ export const roleEnum = {
   enumValues: ['user', 'admin'] as const,
 } as const;
 
-export const users = sqliteTable('users', {
+export const users = pgTable('users', {
   id: text('id').primaryKey(),
   name: text('name'),
   email: text('email').notNull().unique(),
   password_hash: text('password_hash'),
   phone: text('phone'),
   reset_token: text('reset_token'),
-  reset_token_expiry: integer('reset_token_expiry', { mode: 'timestamp' }),
-  is_blocked: integer('is_blocked', { mode: 'boolean' }).default(false),
+  reset_token_expiry: timestamp('reset_token_expiry'),
+  is_blocked: boolean('is_blocked').default(false),
   role: text('role', { enum: roleEnum.enumValues }).default('user').notNull(),
-  created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updated_at: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
 
-export const vehicles = sqliteTable('vehicles', {
+export const vehicles = pgTable('vehicles', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   type: text('type').notNull(),
@@ -40,14 +42,14 @@ export const vehicles = sqliteTable('vehicles', {
   quantity: integer('quantity').notNull(),
   price_per_hour: real('price_per_hour').notNull(),
   min_booking_hours: integer('min_booking_hours').notNull(),
-  is_available: integer('is_available', { mode: 'boolean' }).default(true),
+  is_available: boolean('is_available').default(true),
   images: text('images').notNull(),
   status: text('status').default('active').notNull(),
-  created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updated_at: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
 
-export const bookings = sqliteTable('bookings', {
+export const bookings = pgTable('bookings', {
   id: text('id').primaryKey(),
   user_id: text('user_id')
     .notNull()
@@ -55,18 +57,18 @@ export const bookings = sqliteTable('bookings', {
   vehicle_id: text('vehicle_id')
     .notNull()
     .references(() => vehicles.id),
-  start_date: integer('start_date', { mode: 'timestamp' }).notNull(),
-  end_date: integer('end_date', { mode: 'timestamp' }).notNull(),
+  start_date: timestamp('start_date').notNull(),
+  end_date: timestamp('end_date').notNull(),
   total_hours: real('total_hours').notNull(),
   total_price: real('total_price').notNull(),
   status: text('status').default('pending').notNull(),
   payment_status: text('payment_status').default('pending').notNull(),
   payment_details: text('payment_details'),
-  created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updated_at: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
 
-export const documents = sqliteTable('documents', {
+export const documents = pgTable('documents', {
   id: text('id').primaryKey(),
   user_id: text('user_id')
     .notNull()
@@ -75,8 +77,8 @@ export const documents = sqliteTable('documents', {
   status: text('status').default('pending').notNull(),
   file_url: text('file_url').notNull(),
   rejection_reason: text('rejection_reason'),
-  created_at: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updated_at: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
 
 export const usersRelations = relations(users, ({ many }) => ({

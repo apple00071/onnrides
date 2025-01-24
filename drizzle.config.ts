@@ -10,8 +10,12 @@ if (!process.env.DATABASE_URL) {
 export default {
   schema: './lib/db/schema.ts',
   out: './drizzle',
-  driver: 'pg',
+  dialect: 'postgresql',
   dbCredentials: {
-    connectionString: process.env.DATABASE_URL,
+    host: 'ep-long-dream-a6avbuml-pooler.us-west-2.aws.neon.tech',
+    database: 'neondb',
+    user: 'neondb_owner',
+    password: 'fpBXEsTct9g1',
+    ssl: true,
   },
 } satisfies Config; 
