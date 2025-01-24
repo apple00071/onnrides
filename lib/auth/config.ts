@@ -31,6 +31,8 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
+          console.log('Attempting to authenticate user:', credentials.email);
+          
           const [user] = await db
             .select()
             .from(users)
@@ -42,6 +44,8 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
+          console.log('User found:', { id: user.id, email: user.email, role: user.role });
+
           if (!user?.password_hash) {
             console.error('User has no password hash:', credentials.email);
             return null;
@@ -50,9 +54,11 @@ export const authOptions: NextAuthOptions = {
           const passwordMatch = await bcrypt.compare(credentials.password, user.password_hash);
 
           if (!passwordMatch) {
-            console.error('Password does not match');
+            console.error('Password does not match for user:', credentials.email);
             return null;
           }
+
+          console.log('Authentication successful for user:', credentials.email);
 
           return {
             id: user.id,
@@ -62,7 +68,14 @@ export const authOptions: NextAuthOptions = {
           };
         } catch (error) {
           console.error('Database or auth error:', error);
-          throw error; // Re-throw to get full error in logs
+          if (error instanceof Error) {
+            console.error('Error details:', {
+              message: error.message,
+              stack: error.stack,
+              name: error.name
+            });
+          }
+          throw error;
         }
       }
     })
@@ -85,5 +98,6 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     }
-  }
+  },
+  debug: process.env.NODE_ENV === 'development'
 }; 

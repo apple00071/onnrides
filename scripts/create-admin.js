@@ -1,11 +1,9 @@
-import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
-import * as argon2 from 'argon2';
-import { createId } from '@paralleldrive/cuid2';
-import * as dotenv from 'dotenv';
-
-dotenv.config();
+const { db } = require('../lib/db');
+const { users } = require('../lib/db/schema');
+const { eq } = require('drizzle-orm');
+const argon2 = require('argon2');
+const { createId } = require('@paralleldrive/cuid2');
+require('dotenv').config();
 
 async function createAdmin() {
   const email = 'admin@onnrides.com';
