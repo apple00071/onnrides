@@ -3,8 +3,7 @@ import { db } from '@/lib/db';
 import { documents } from '@/lib/schema';
 import logger from '@/lib/logger';
 import { put } from '@vercel/blob';
-import { NextResponse } from 'next/server';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { Session } from 'next-auth';
 import { randomUUID } from 'crypto';
 import { NextRequest } from 'next/server';
@@ -30,22 +29,30 @@ export async function GET() {
     const auth = await verifyAuth();
     if (!auth) {
       logger.warn('Unauthorized access attempt to documents');
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     logger.info('Fetching documents for user:', auth.id);
     const userDocuments = await db
       .select()
       .from(documents)
-      .where(eq(documents.user_id, auth.id)) as DocumentRow[];
+      .where(eq(documents.user_id, auth.id));
 
     logger.info('Found documents:', userDocuments.length);
-    return NextResponse.json(userDocuments);
+    return new Response(JSON.stringify(userDocuments), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     logger.error('Error fetching documents:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
     );
   }
 }
@@ -55,10 +62,10 @@ export async function POST(request: NextRequest) {
     const auth = await verifyAuth();
     if (!auth) {
       logger.warn('Unauthorized access attempt to upload document');
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+      return new Response(JSON.stringify({ error: "Authentication required" }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const formData = await request.formData();
@@ -66,31 +73,31 @@ export async function POST(request: NextRequest) {
     const type = formData.get("type") as string;
 
     if (!file) {
-      return NextResponse.json(
-        { error: "No file uploaded" },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ error: "No file uploaded" }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     if (!type || !VALID_DOCUMENT_TYPES.includes(type as DocumentType)) {
-      return NextResponse.json(
-        { error: "Invalid document type" },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ error: "Invalid document type" }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     if (!ALLOWED_FILE_TYPES.includes(file.type as typeof ALLOWED_FILE_TYPES[number])) {
-      return NextResponse.json(
-        { error: "Invalid file type" },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ error: "Invalid file type" }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: "File size exceeds 5MB limit" },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ error: "File size exceeds 5MB limit" }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const blob = await put(randomUUID(), file, {
@@ -106,18 +113,21 @@ export async function POST(request: NextRequest) {
         type: type as DocumentType,
         file_url: blob.url,
         status: 'pending',
-        created_at: sql`CURRENT_TIMESTAMP`,
-        updated_at: sql`CURRENT_TIMESTAMP`
+        created_at: new Date(),
+        updated_at: new Date()
       })
-      .returning() as [DocumentRow];
+      .returning();
 
     logger.info('Document uploaded successfully:', document.id);
-    return NextResponse.json(document);
+    return new Response(JSON.stringify(document), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     logger.error("Error uploading document:", error);
-    return NextResponse.json(
-      { error: "Failed to upload document" },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: "Failed to upload document" }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 } 

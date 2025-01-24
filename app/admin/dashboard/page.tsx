@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { Session } from 'next-auth';
 
 interface DashboardStats {
   totalUsers: number;
@@ -23,8 +24,15 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
+      return;
     }
-  }, [status, router]);
+    
+    const userSession = session as Session | null;
+    if (status === 'authenticated' && userSession?.user?.role !== 'admin') {
+      router.push('/');
+      return;
+    }
+  }, [status, session, router]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -40,12 +48,13 @@ export default function AdminDashboard() {
       }
     };
 
-    if (session?.user?.role === 'admin') {
+    const userSession = session as Session | null;
+    if (status === 'authenticated' && userSession?.user?.role === 'admin') {
       fetchDashboardData();
     }
-  }, [session]);
+  }, [session, status]);
 
-  if (loading) {
+  if (status === 'loading' || loading) {
     return (
       <div className="p-6 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

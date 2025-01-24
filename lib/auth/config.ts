@@ -1,124 +1,92 @@
-import { type NextAuthOptions } from 'next-auth';
+import { type AuthOptions } from 'next-auth';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { db } from '@/lib/db';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
-import { users, roleEnum } from '@/lib/db/schema';
+import { users } from '@/lib/db/schema';
 
-type UserRole = typeof roleEnum.enumValues[number];
-
-export const authOptions: NextAuthOptions = {
-  adapter: DrizzleAdapter(db) as any,
-  session: {
-    strategy: 'jwt' as const,
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  pages: {
-    signIn: '/login',
-  },
+export const authOptions: AuthOptions = {
+  adapter: DrizzleAdapter(db),
   providers: [
     CredentialsProvider({
       name: 'credentials',
       credentials: {
         email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' }
+        password: { label: 'Password', type: 'password' },
+        isAdmin: { label: 'Is Admin', type: 'text' }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          console.error('Missing credentials');
-          return null;
+          throw new Error('Invalid credentials');
         }
 
         try {
-          console.log('Environment:', process.env.NODE_ENV);
-          console.log('Database URL:', process.env.DATABASE_URL?.slice(0, 35) + '...');
-          console.log('Attempting to authenticate user:', credentials.email);
-          
-          // Test database connection
-          try {
-            console.log('Testing database connection...');
-            const testQuery = await db.select().from(users).limit(1);
-            console.log('Database test query result:', JSON.stringify(testQuery));
-            console.log('Database connection test:', testQuery.length > 0 ? 'successful' : 'no users found');
-          } catch (dbError) {
-            console.error('Database connection test failed:', dbError);
-            if (dbError instanceof Error) {
-              console.error('Database error details:', {
-                message: dbError.message,
-                stack: dbError.stack,
-                name: dbError.name
-              });
-            }
-          }
-          
-          console.log('Querying user from database...');
-          const [user] = await db
-            .select()
-            .from(users)
-            .where(eq(users.email, credentials.email))
-            .limit(1);
+          const result = await db.select().from(users).where(eq(users.email, credentials.email));
+          const user = result[0];
 
           if (!user) {
-            console.error('User not found:', credentials.email);
+            console.log('User not found:', credentials.email);
             return null;
           }
 
-          console.log('User found:', { id: user.id, email: user.email, role: user.role });
+          const isValid = await bcrypt.compare(credentials.password, user.password_hash || '');
 
-          if (!user?.password_hash) {
-            console.error('User has no password hash:', credentials.email);
+          if (!isValid) {
+            console.log('Invalid password for user:', credentials.email);
             return null;
           }
 
-          console.log('Comparing passwords...');
-          const passwordMatch = await bcrypt.compare(credentials.password, user.password_hash);
-
-          if (!passwordMatch) {
-            console.error('Password does not match for user:', credentials.email);
+          // Check if admin login is requested but user is not an admin
+          if (credentials.isAdmin === 'true' && user.role !== 'admin') {
+            console.log('Admin access denied for user:', credentials.email);
             return null;
           }
-
-          console.log('Authentication successful for user:', credentials.email);
 
           return {
             id: user.id,
             email: user.email,
-            name: user.name,
+            name: user.name || '',
             role: user.role
           };
         } catch (error) {
-          console.error('Database or auth error:', error);
-          if (error instanceof Error) {
-            console.error('Error details:', {
-              message: error.message,
-              stack: error.stack,
-              name: error.name
-            });
-          }
-          throw error;
+          console.error('Auth error:', error);
+          return null;
         }
       }
     })
   ],
+  session: {
+    strategy: 'jwt'
+  },
+  pages: {
+    signIn: '/auth/login'
+  },
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      if (trigger === "update" && session?.name) {
-        token.name = session.name;
-      }
+    async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.role = user.role;
+        return {
+          ...token,
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        };
       }
       return token;
     },
     async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as UserRole;
-      }
-      return session;
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: token.id,
+          name: token.name || '',
+          email: token.email,
+          role: token.role
+        }
+      };
     }
   },
-  debug: true // Enable debug mode to see more logs
+  secret: process.env.NEXTAUTH_SECRET
 }; 

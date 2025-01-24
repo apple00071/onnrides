@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import logger from '@/lib/logger';
 import { db } from '@/lib/db';
-import { bookings } from '@/lib/schema';
-import { eq, sql } from 'drizzle-orm';
+import { bookings } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 interface BookingRow {
   id: string;
@@ -14,10 +14,10 @@ export async function POST(request: NextRequest) {
   try {
     const { bookingId } = await request.json();
     if (!bookingId) {
-      return NextResponse.json(
-        { message: 'Booking ID is required' },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ message: 'Booking ID is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Get booking
@@ -30,10 +30,10 @@ export async function POST(request: NextRequest) {
 
     if (!booking) {
       logger.error('Booking not found:', { bookingId });
-      return NextResponse.json(
-        { message: 'Booking not found' },
-        { status: 404 }
-      );
+      return new Response(JSON.stringify({ message: 'Booking not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Update booking status
@@ -42,25 +42,27 @@ export async function POST(request: NextRequest) {
       .set({
         payment_status: 'completed',
         status: 'confirmed',
-        updated_at: sql`CURRENT_TIMESTAMP`
+        updated_at: new Date()
       })
-      .where(eq(bookings.id, bookingId))
-      .execute();
+      .where(eq(bookings.id, bookingId));
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       message: 'Payment confirmed successfully',
       booking: {
         id: booking.id,
         payment_status: 'completed',
         status: 'confirmed'
       }
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
     logger.error('Payment confirmation error:', error);
-    return NextResponse.json(
-      { message: 'Internal server error' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ message: 'Internal server error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 } 

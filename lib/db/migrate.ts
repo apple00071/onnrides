@@ -10,22 +10,22 @@ const runMigrate = async () => {
     throw new Error('DATABASE_URL is not set');
   }
 
-  const sql = neon(process.env.DATABASE_URL);
+  const sql = await neon(process.env.DATABASE_URL);
   const db = drizzle(sql, { schema });
   
   try {
     console.log('⏳ Preparing database...');
     
     // Drop existing tables in the correct order (respecting foreign key constraints)
-    await sql`DROP TABLE IF EXISTS documents CASCADE`;
-    await sql`DROP TABLE IF EXISTS bookings CASCADE`;
-    await sql`DROP TABLE IF EXISTS vehicles CASCADE`;
-    await sql`DROP TABLE IF EXISTS users CASCADE`;
+    await sql.query('DROP TABLE IF EXISTS documents CASCADE');
+    await sql.query('DROP TABLE IF EXISTS bookings CASCADE');
+    await sql.query('DROP TABLE IF EXISTS vehicles CASCADE');
+    await sql.query('DROP TABLE IF EXISTS users CASCADE');
     
     console.log('✅ Existing tables dropped');
     
     // Create tables
-    await sql`
+    await sql.query(`
       CREATE TABLE IF NOT EXISTS "users" (
         "id" text PRIMARY KEY NOT NULL,
         "name" text,
@@ -40,9 +40,9 @@ const runMigrate = async () => {
         "updated_at" timestamp DEFAULT now() NOT NULL,
         CONSTRAINT "users_email_unique" UNIQUE("email")
       )
-    `;
+    `);
 
-    await sql`
+    await sql.query(`
       CREATE TABLE IF NOT EXISTS "vehicles" (
         "id" text PRIMARY KEY NOT NULL,
         "name" text NOT NULL,
@@ -57,9 +57,9 @@ const runMigrate = async () => {
         "created_at" timestamp DEFAULT now() NOT NULL,
         "updated_at" timestamp DEFAULT now() NOT NULL
       )
-    `;
+    `);
 
-    await sql`
+    await sql.query(`
       CREATE TABLE IF NOT EXISTS "bookings" (
         "id" text PRIMARY KEY NOT NULL,
         "user_id" text NOT NULL,
@@ -76,9 +76,9 @@ const runMigrate = async () => {
         CONSTRAINT "bookings_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
         CONSTRAINT "bookings_vehicle_id_vehicles_id_fk" FOREIGN KEY ("vehicle_id") REFERENCES "vehicles"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
       )
-    `;
+    `);
 
-    await sql`
+    await sql.query(`
       CREATE TABLE IF NOT EXISTS "documents" (
         "id" text PRIMARY KEY NOT NULL,
         "user_id" text NOT NULL,
@@ -90,12 +90,12 @@ const runMigrate = async () => {
         "updated_at" timestamp DEFAULT now() NOT NULL,
         CONSTRAINT "documents_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
       )
-    `;
+    `);
 
     console.log('✅ Tables created');
 
     // Create admin user
-    await sql`
+    await sql.query(`
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@onnrides.com') THEN
@@ -121,7 +121,7 @@ const runMigrate = async () => {
           RAISE NOTICE 'Admin user already exists';
         END IF;
       END $$;
-    `;
+    `);
 
     console.log('✅ Admin user created');
     

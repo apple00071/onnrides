@@ -1,34 +1,42 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import logger from '@/lib/logger';
 import { db } from '@/lib/db';
 import { bookings } from '@/lib/schema';
 import { verifyAuth } from '@/lib/auth';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { createOrder } from '@/lib/razorpay';
 
 interface BookingRow {
   id: string;
   user_id: string;
-  total_price: string;
-  [key: string]: any;
+  vehicle_id: string;
+  total_price: number;
+  start_date: Date;
+  end_date: Date;
+  total_hours: number;
+  status: string;
+  payment_status: string;
+  payment_details: string | null;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth();
     if (!user) {
-      return NextResponse.json(
-        { message: 'Authentication required' },
-        { status: 401 }
-      );
+      return new Response(JSON.stringify({ message: 'Authentication required' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const { bookingId } = await request.json();
     if (!bookingId) {
-      return NextResponse.json(
-        { message: 'Booking ID is required' },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ message: 'Booking ID is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const booking = await db
@@ -36,25 +44,25 @@ export async function POST(request: NextRequest) {
       .from(bookings)
       .where(eq(bookings.id, bookingId))
       .limit(1)
-      .then((rows: BookingRow[]) => rows[0]);
+      .then((rows) => rows[0]);
 
     if (!booking) {
-      return NextResponse.json(
-        { message: 'Booking not found' },
-        { status: 404 }
-      );
+      return new Response(JSON.stringify({ message: 'Booking not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     if (booking.user_id !== user.id) {
-      return NextResponse.json(
-        { message: 'Forbidden' },
-        { status: 403 }
-      );
+      return new Response(JSON.stringify({ message: 'Forbidden' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Create Razorpay order
     const razorpayOrder = await createOrder({
-      amount: Number(Number(booking.total_price).toFixed(2)),
+      amount: Number(booking.total_price.toFixed(2)),
       currency: 'INR',
       receipt: bookingId,
       notes: {
@@ -74,25 +82,28 @@ export async function POST(request: NextRequest) {
           status: razorpayOrder.status,
           created_at: new Date().toISOString()
         }),
-        updated_at: sql`CURRENT_TIMESTAMP`
+        updated_at: new Date()
       })
       .where(eq(bookings.id, bookingId))
       .execute();
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       message: 'Order created successfully',
       order: {
         id: razorpayOrder.id,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency
       }
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     logger.error('Error creating order:', error);
-    return NextResponse.json(
-      { message: 'Failed to create order' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ message: 'Failed to create order' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 } 

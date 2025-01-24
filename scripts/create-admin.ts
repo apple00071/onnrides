@@ -1,52 +1,46 @@
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import * as argon2 from 'argon2';
+import bcrypt from 'bcryptjs';
 import { createId } from '@paralleldrive/cuid2';
 import * as dotenv from 'dotenv';
+import type { User } from '@/lib/db/schema';
 
 dotenv.config();
 
 async function createAdmin() {
-  const email = 'admin@onnrides.com';
-  const password = 'admin123'; // You should change this after first login
-
   try {
-    // Check if admin already exists
-    const existingAdmin = await db
+    // Check if admin exists
+    const adminUsers = await db
       .select()
       .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
+      .where(eq(users.role, 'admin')) as User[];
 
-    if (existingAdmin.length > 0) {
-      console.log('Admin user already exists');
-      process.exit(0);
+    if (adminUsers.length > 0) {
+      console.log('Admin user already exists:', adminUsers[0].email);
+      return;
     }
 
     // Create admin user
-    const hashedPassword = await argon2.hash(password);
-    
-    await db.insert(users).values({
-      id: createId(),
-      email,
-      name: 'Admin',
-      password_hash: hashedPassword,
-      role: 'admin',
-      created_at: new Date(),
-      updated_at: new Date(),
-    });
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    const result = await db.insert(users)
+      .values({
+        id: createId(),
+        email: 'admin@onnrides.com',
+        name: 'Admin',
+        password_hash: hashedPassword,
+        role: 'admin',
+        created_at: new Date(),
+        updated_at: new Date(),
+      })
+      .returning() as User[];
 
-    console.log('Admin user created successfully');
-    console.log('Email:', email);
-    console.log('Password:', password);
-    console.log('Please change the password after first login');
+    const newAdmin = result[0];
+    console.log('Admin user created successfully:', newAdmin.email);
+    console.log('Default password: admin123');
   } catch (error) {
-    console.error('Failed to create admin user:', error);
-    process.exit(1);
+    console.error('Error creating admin user:', error);
   }
-
-  process.exit(0);
 }
 
 createAdmin(); 

@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { users } from '@/lib/schema';
 import { verifyAuth } from '@/lib/auth';
 import type { User } from '@/lib/types';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -16,10 +16,10 @@ interface AuthResult {
 
 interface UserRow {
   id: string;
-  name: string;
+  name: string | null;
   email: string;
-  phone: string;
-  role: string;
+  phone: string | null;
+  role: 'user' | 'admin';
   created_at: Date;
   updated_at: Date;
 }
@@ -29,10 +29,10 @@ export async function GET(request: NextRequest) {
     const auth = await verifyAuth() as AuthResult | null;
 
     if (!auth) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Get user profile
@@ -49,22 +49,25 @@ export async function GET(request: NextRequest) {
       .from(users)
       .where(eq(users.id, auth.user.id))
       .limit(1)
-      .then((rows: UserRow[]) => rows[0]);
+      .then((rows) => rows[0]);
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return new Response(JSON.stringify({ error: 'User not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    return NextResponse.json(user);
+    return new Response(JSON.stringify(user), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     logger.error('Error fetching profile:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch profile' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Failed to fetch profile' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
@@ -73,18 +76,18 @@ export async function PUT(request: NextRequest) {
     const auth = await verifyAuth() as AuthResult | null;
 
     if (!auth) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const { name } = await request.json();
     if (!name) {
-      return NextResponse.json(
-        { error: 'Name is required' },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ error: 'Name is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Update user profile
@@ -92,19 +95,19 @@ export async function PUT(request: NextRequest) {
       .update(users)
       .set({
         name,
-        updated_at: sql`CURRENT_TIMESTAMP`
+        updated_at: new Date()
       })
       .where(eq(users.id, auth.user.id))
       .returning();
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return new Response(JSON.stringify({ error: 'User not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       message: 'Profile updated successfully',
       user: {
         id: user.id,
@@ -113,12 +116,15 @@ export async function PUT(request: NextRequest) {
         phone: user.phone,
         role: user.role
       }
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     logger.error('Error updating profile:', error);
-    return NextResponse.json(
-      { error: 'Failed to update profile' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Failed to update profile' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 } 

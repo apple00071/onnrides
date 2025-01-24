@@ -1,199 +1,183 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { NextRequest } from 'next/server';
+import { getServerSession } from 'next-auth';
 import { db } from '@/lib/db';
-import { bookings, vehicles, users } from '@/lib/schema';
-import { verifyAuth } from '@/lib/auth';
-import type { User } from '@/lib/types';
+import { bookings, users, vehicles } from '@/lib/db/schema';
 import { eq, desc, and, sql } from 'drizzle-orm';
 import logger from '@/lib/logger';
-
-export const dynamic = 'force-dynamic';
-
-interface UpdateBookingBody {
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
-}
-
-interface AuthResult {
-  user: User;
-}
+import { authOptions } from '@/lib/auth/config';
 
 interface UserRow {
   id: string;
-  name: string;
+  name: string | null;
   email: string;
-  phone: string;
-  role: string;
+  role: 'user' | 'admin';
 }
 
-// GET /api/admin/bookings - List all bookings
+interface BookingWithDetails {
+  id: string;
+  status: string;
+  start_time: Date;
+  end_time: Date;
+  total_amount: number;
+  payment_status: string;
+  created_at: Date;
+  updated_at: Date;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    role: 'user' | 'admin';
+  };
+  vehicle: {
+    id: string;
+    brand: string;
+    model: string;
+    type: string;
+    location: string;
+    price_per_day: number;
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const user = await verifyAuth();
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'admin') {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // Get user details including role
-    const userDetails = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, user.id))
-      .limit(1)
-      .then((rows: UserRow[]) => rows[0]);
+    // Get query parameters
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status');
+    const userId = url.searchParams.get('userId');
 
-    if (!userDetails || userDetails.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
+    // Get user if userId is provided
+    let user: UserRow | undefined;
+    if (userId) {
+      const userResult = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          role: users.role,
+        })
+        .from(users)
+        .where(eq(users.id, userId) as any)
+        .limit(1);
+
+      if (userResult.length > 0) {
+        user = userResult[0] as UserRow;
+      }
     }
 
-    const allBookings = await db
+    // Build query
+    const result = await db
       .select({
         id: bookings.id,
-        user_id: bookings.user_id,
-        vehicle_id: bookings.vehicle_id,
-        start_date: bookings.start_date,
-        end_date: bookings.end_date,
-        total_price: bookings.total_price,
         status: bookings.status,
+        start_time: bookings.start_time,
+        end_time: bookings.end_time,
+        total_amount: bookings.total_amount,
         payment_status: bookings.payment_status,
         created_at: bookings.created_at,
         updated_at: bookings.updated_at,
-        vehicle: {
-          id: vehicles.id,
-          name: vehicles.name,
-          type: vehicles.type,
-          price_per_hour: vehicles.price_per_hour
-        },
         user: {
           id: users.id,
           name: users.name,
           email: users.email,
-          phone: users.phone
-        }
+          role: users.role,
+        },
+        vehicle: {
+          id: vehicles.id,
+          brand: vehicles.brand,
+          model: vehicles.model,
+          type: vehicles.type,
+          location: vehicles.location,
+          price_per_day: vehicles.price_per_day,
+        },
       })
       .from(bookings)
-      .innerJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
-      .innerJoin(users, eq(bookings.user_id, users.id))
-      .orderBy(desc(bookings.created_at));
+      .innerJoin(vehicles, eq(bookings.vehicle_id, vehicles.id) as any)
+      .innerJoin(users, eq(bookings.user_id, users.id) as any)
+      .where(
+        status && userId 
+          ? and(eq(bookings.status, status) as any, eq(bookings.user_id, userId) as any) as any
+          : status 
+          ? eq(bookings.status, status) as any
+          : userId
+          ? eq(bookings.user_id, userId) as any
+          : undefined
+      )
+      .orderBy(desc(bookings.created_at) as any) as unknown as BookingWithDetails[];
 
-    return NextResponse.json({
-      success: true,
-      bookings: allBookings
+    return new Response(JSON.stringify({ bookings: result, user }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
-    logger.error('Failed to fetch bookings:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch bookings' },
-      { status: 500 }
-    );
+    logger.error('Error fetching admin bookings:', error);
+    return new Response(JSON.stringify({ error: 'Failed to fetch bookings' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
-// PUT /api/admin/bookings - Update booking status
 export async function PUT(request: NextRequest) {
   try {
-    const user = await verifyAuth();
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'admin') {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    // Get user details including role
-    const userDetails = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, user.id))
-      .limit(1)
-      .then(rows => rows[0]);
+    const body = await request.json();
+    const { bookingId, status } = body;
 
-    if (!userDetails || userDetails.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
-    }
-
-    const body = await request.json() as UpdateBookingBody & { id: string };
-    const { id, status } = body;
-
-    if (!id || !status) {
-      return NextResponse.json(
-        { error: 'Booking ID and status are required' },
-        { status: 400 }
-      );
+    if (!bookingId || !status) {
+      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Get booking
-    const [booking] = await db
+    const existingBooking = await db
       .select()
       .from(bookings)
-      .where(eq(bookings.id, id))
+      .where(eq(bookings.id, bookingId) as any)
       .limit(1);
 
-    if (!booking) {
-      return NextResponse.json(
-        { error: 'Booking not found' },
-        { status: 404 }
-      );
-    }
-
-    // Validate status transition
-    if (!isValidStatusTransition(booking.status, status)) {
-      return NextResponse.json(
-        { error: 'Invalid status transition' },
-        { status: 400 }
-      );
+    if (!existingBooking.length) {
+      return new Response(JSON.stringify({ error: 'Booking not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // Update booking
-    await db
+    const [updatedBooking] = await db
       .update(bookings)
       .set({
         status,
-        updated_at: sql`CURRENT_TIMESTAMP`
+        updated_at: new Date(),
       })
-      .where(eq(bookings.id, id));
+      .where(eq(bookings.id, bookingId) as any)
+      .returning();
 
-    // Get updated booking with details
-    const [updatedBooking] = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, id))
-      .limit(1);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Booking updated successfully',
-      booking: updatedBooking
+    return new Response(JSON.stringify(updatedBooking), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
     });
-
   } catch (error) {
-    logger.error('Failed to update booking:', error);
-    return NextResponse.json(
-      { error: 'Failed to update booking' },
-      { status: 500 }
-    );
+    logger.error('Error updating booking:', error);
+    return new Response(JSON.stringify({ error: 'Failed to update booking' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
-}
-
-// Helper function to validate booking status transitions
-function isValidStatusTransition(currentStatus: string, newStatus: string): boolean {
-  const validTransitions: Record<string, string[]> = {
-    pending: ['confirmed', 'cancelled'],
-    confirmed: ['completed', 'cancelled'],
-    cancelled: [],
-    completed: []
-  };
-
-  return validTransitions[currentStatus]?.includes(newStatus) || false;
 } 

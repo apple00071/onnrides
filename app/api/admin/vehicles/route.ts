@@ -1,73 +1,45 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { vehicles } from '@/lib/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { NextRequest } from 'next/server';
 import logger from '@/lib/logger';
-import { randomUUID } from 'crypto';
-import { nanoid } from 'nanoid';
+import { db } from '@/lib/db';
+import { vehicles, vehicleTypeEnum } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import { verifyAuth } from '@/lib/auth';
-import crypto from 'crypto';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/config";
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await verifyAuth();
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    // Check if user is admin
-    if (user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
-    }
-
-    // Get all vehicles
-    const allVehicles = await db
+    const result = await db
       .select()
       .from(vehicles)
-      .orderBy(desc(vehicles.created_at));
+      .orderBy(vehicles.created_at);
 
-    // Parse JSON strings back to objects safely
-    const formattedVehicles = allVehicles.map(vehicle => {
+    const formattedVehicles = result.map(vehicle => {
       let parsedLocation;
-      let parsedImages;
 
       try {
         parsedLocation = JSON.parse(vehicle.location);
       } catch (e) {
-        // If parsing fails, treat it as a single location string
         parsedLocation = [vehicle.location];
-      }
-
-      try {
-        parsedImages = JSON.parse(vehicle.images);
-      } catch (e) {
-        parsedImages = vehicle.images ? [vehicle.images] : [];
       }
 
       return {
         ...vehicle,
         location: parsedLocation,
-        images: parsedImages,
+        display_name: `${vehicle.brand} ${vehicle.model} (${vehicle.year})`,
       };
     });
 
-    return NextResponse.json({
-      vehicles: formattedVehicles
+    return new Response(JSON.stringify({ vehicles: formattedVehicles }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch vehicles' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Failed to fetch vehicles' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
@@ -75,37 +47,38 @@ export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth();
     if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Check if user is admin
     if (user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
+      return new Response(JSON.stringify({ error: 'Admin access required' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const body = await request.json();
     const {
-      name,
+      brand,
+      model,
       type,
+      year,
+      color,
       location,
-      quantity = 1,
-      price_per_hour,
-      min_booking_hours = 12,
-      images,
+      description,
+      price_per_day,
     } = body;
 
     // Validate required fields
-    if (!name || !type || !location || !price_per_hour || !images) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+    if (!brand || !model || !type || !year || !color || !location || !price_per_day) {
+      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Ensure location is properly formatted
@@ -113,44 +86,40 @@ export async function POST(request: NextRequest) {
       ? JSON.stringify(location)
       : JSON.stringify([location]);
 
-    // Ensure images is properly formatted
-    const imagesJson = Array.isArray(images)
-      ? JSON.stringify(images)
-      : JSON.stringify([images]);
-
     // Create vehicle
     const [vehicle] = await db
       .insert(vehicles)
       .values({
-        id: crypto.randomUUID(),
-        name,
+        owner_id: user.id,
+        brand,
+        model,
         type,
+        year,
+        color,
         location: locationJson,
-        quantity,
-        price_per_hour: price_per_hour.toString(),
-        min_booking_hours,
-        images: imagesJson,
+        description,
+        price_per_day: price_per_day.toString(),
         is_available: true,
-        status: 'active',
-        created_at: sql`CURRENT_TIMESTAMP`,
-        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .returning();
 
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       message: 'Vehicle created successfully',
       vehicle: {
         ...vehicle,
         location: JSON.parse(vehicle.location),
-        images: JSON.parse(vehicle.images)
+        display_name: `${vehicle.brand} ${vehicle.model} (${vehicle.year})`,
       }
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     logger.error('Error creating vehicle:', error);
-    return NextResponse.json(
-      { error: 'Failed to create vehicle' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Failed to create vehicle' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
@@ -159,38 +128,41 @@ export async function DELETE(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session?.user) {
-      return NextResponse.json(
-        { message: 'Authentication required' },
-        { status: 401 }
-      );
+      return new Response(JSON.stringify({ message: 'Authentication required' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     if (session.user.role !== 'admin') {
-      return NextResponse.json(
-        { message: 'Admin access required' },
-        { status: 403 }
-      );
+      return new Response(JSON.stringify({ message: 'Admin access required' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json(
-        { message: 'Vehicle ID is required' },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify({ message: 'Vehicle ID is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Delete vehicle
     await db.delete(vehicles).where(eq(vehicles.id, id));
 
-    return NextResponse.json({ message: 'Vehicle deleted successfully' });
+    return new Response(JSON.stringify({ message: 'Vehicle deleted successfully' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     logger.error('Error deleting vehicle:', error);
-    return NextResponse.json(
-      { message: 'Failed to delete vehicle' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ message: 'Failed to delete vehicle' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 } 
