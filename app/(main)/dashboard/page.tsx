@@ -4,7 +4,12 @@ import logger from '@/lib/logger';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
-import { UsersIcon, CurrencyRupeeIcon, TruckIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { 
+  BarChart, 
+  DollarSign, 
+  Users, 
+  Calendar 
+} from 'lucide-react';
 
 interface DashboardStats {
   total_bookings: number;
@@ -71,13 +76,11 @@ export default function DashboardPage() {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-              <UsersIcon className="h-6 w-6" />
+              <Users className="h-6 w-6" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Bookings</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {stats.total_bookings}
-              </p>
+              <h3 className="text-lg font-semibold">Total Bookings</h3>
+              <p className="text-gray-600">{stats.total_bookings}</p>
             </div>
           </div>
         </div>
@@ -85,13 +88,11 @@ export default function DashboardPage() {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-green-100 text-green-600">
-              <CurrencyRupeeIcon className="h-6 w-6" />
+              <DollarSign className="h-6 w-6" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Spent</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                ₹{stats.total_spent}
-              </p>
+              <h3 className="text-lg font-semibold">Total Spent</h3>
+              <p className="text-gray-600">₹{stats.total_spent}</p>
             </div>
           </div>
         </div>
@@ -99,13 +100,11 @@ export default function DashboardPage() {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
-              <TruckIcon className="h-6 w-6" />
+              <BarChart className="h-6 w-6" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Vehicles</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {stats.total_vehicles}
-              </p>
+              <h3 className="text-lg font-semibold">Total Vehicles</h3>
+              <p className="text-gray-600">{stats.total_vehicles}</p>
             </div>
           </div>
         </div>
@@ -113,15 +112,11 @@ export default function DashboardPage() {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-red-100 text-red-600">
-              <DocumentTextIcon className="h-6 w-6" />
+              <Calendar className="h-6 w-6" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">
-                Pending Documents
-              </p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {stats.pending_documents}
-              </p>
+              <h3 className="text-lg font-semibold">Pending Documents</h3>
+              <p className="text-gray-600">{stats.pending_documents}</p>
             </div>
           </div>
         </div>
