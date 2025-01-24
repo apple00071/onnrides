@@ -9,7 +9,7 @@ import { users, roleEnum } from '@/lib/db/schema';
 type UserRole = typeof roleEnum.enumValues[number];
 
 export const authOptions: NextAuthOptions = {
-  adapter: DrizzleAdapter(db) as any, // Type assertion needed due to adapter version mismatch
+  adapter: DrizzleAdapter(db) as any,
   session: {
     strategy: 'jwt' as const,
     maxAge: 30 * 24 * 60 * 60, // 30 days
