@@ -10,7 +10,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx lib/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
-    "create:admin": "tsx scripts/create-admin.ts"
+    "create:admin": "tsx scripts/create-admin.ts",
+    "init-admin": "tsx scripts/init-admin.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.7.4",
