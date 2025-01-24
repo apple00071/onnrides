@@ -4,6 +4,11 @@ import { db } from '@/lib/db';
 import { bookings } from '@/lib/schema';
 import { eq, sql } from 'drizzle-orm';
 
+interface BookingRow {
+  id: string;
+  [key: string]: any;
+}
+
 // POST /api/payments/success - Handle successful payment
 export async function POST(request: NextRequest) {
   try {
@@ -21,8 +26,7 @@ export async function POST(request: NextRequest) {
       .from(bookings)
       .where(eq(bookings.id, bookingId))
       .limit(1)
-      .execute()
-      .then(rows => rows[0]);
+      .then((rows: BookingRow[]) => rows[0]);
 
     if (!booking) {
       logger.error('Booking not found:', { bookingId });
@@ -36,9 +40,9 @@ export async function POST(request: NextRequest) {
     await db
       .update(bookings)
       .set({
-        payment_status: 'paid',
+        payment_status: 'completed',
         status: 'confirmed',
-        updated_at: sql`strftime('%s', 'now')`
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .where(eq(bookings.id, bookingId))
       .execute();
@@ -47,7 +51,7 @@ export async function POST(request: NextRequest) {
       message: 'Payment confirmed successfully',
       booking: {
         id: booking.id,
-        payment_status: 'paid',
+        payment_status: 'completed',
         status: 'confirmed'
       }
     });

@@ -5,10 +5,32 @@ import { eq, sql } from 'drizzle-orm';
 import { verifyAuth } from '@/lib/auth';
 import logger from '@/lib/logger';
 import { put } from '@vercel/blob';
-import { nanoid } from 'nanoid';
+import { randomUUID } from 'crypto';
 import type { Session } from 'next-auth';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
+
+interface VehicleRow {
+  id: string;
+  name: string;
+  type: string;
+  location: string;
+  images: string;
+  [key: string]: any;
+}
+
+interface UpdateVehicleData {
+  name?: string;
+  type?: string;
+  location?: string | string[];
+  quantity?: number;
+  price_per_hour?: number;
+  min_booking_hours?: number;
+  images?: string[];
+  is_available?: boolean;
+  status?: typeof VEHICLE_STATUS[number];
+  updated_at: unknown;
+}
 
 export async function GET(
   request: Request,
@@ -23,7 +45,7 @@ export async function GET(
     const vehicle = await db
       .select()
       .from(vehicles)
-      .where(eq(vehicles.id, params.vehicleId));
+      .where(eq(vehicles.id, params.vehicleId)) as VehicleRow[];
 
     if (!vehicle || vehicle.length === 0) {
       return NextResponse.json(
@@ -92,8 +114,8 @@ export async function PUT(
     } = body;
 
     // Prepare update data
-    const updateData: any = {
-      updated_at: sql`strftime('%s', 'now')`
+    const updateData: UpdateVehicleData = {
+      updated_at: sql`CURRENT_TIMESTAMP`
     };
 
     // Only include fields that are provided and handle them properly
@@ -105,7 +127,7 @@ export async function PUT(
         : location;
     }
     if (quantity !== undefined) updateData.quantity = quantity;
-    if (price_per_hour !== undefined) updateData.price_per_hour = price_per_hour.toString();
+    if (price_per_hour !== undefined) updateData.price_per_hour = price_per_hour;
     if (min_booking_hours !== undefined) updateData.min_booking_hours = min_booking_hours;
     if (images) {
       updateData.images = JSON.stringify(images);
@@ -118,7 +140,7 @@ export async function PUT(
       .update(vehicles)
       .set(updateData)
       .where(eq(vehicles.id, vehicleId))
-      .returning();
+      .returning() as [VehicleRow];
 
     if (!vehicle) {
       return NextResponse.json(
@@ -181,7 +203,7 @@ export async function DELETE(
     const [vehicle] = await db
       .delete(vehicles)
       .where(eq(vehicles.id, vehicleId))
-      .returning();
+      .returning() as [VehicleRow];
 
     if (!vehicle) {
       return NextResponse.json(

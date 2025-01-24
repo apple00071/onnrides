@@ -6,6 +6,13 @@ import { verifyAuth } from '@/lib/auth';
 import { eq, sql } from 'drizzle-orm';
 import { createOrder } from '@/lib/razorpay';
 
+interface BookingRow {
+  id: string;
+  user_id: string;
+  total_price: string;
+  [key: string]: any;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await verifyAuth();
@@ -29,8 +36,7 @@ export async function POST(request: NextRequest) {
       .from(bookings)
       .where(eq(bookings.id, bookingId))
       .limit(1)
-      .execute()
-      .then(rows => rows[0]);
+      .then((rows: BookingRow[]) => rows[0]);
 
     if (!booking) {
       return NextResponse.json(
@@ -68,7 +74,7 @@ export async function POST(request: NextRequest) {
           status: razorpayOrder.status,
           created_at: new Date().toISOString()
         }),
-        updated_at: sql`strftime('%s', 'now')`
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .where(eq(bookings.id, bookingId))
       .execute();

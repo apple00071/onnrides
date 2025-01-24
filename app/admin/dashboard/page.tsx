@@ -1,184 +1,136 @@
-import Link from 'next/link';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface DashboardStats {
   totalUsers: number;
   totalRevenue: number;
   totalBookings: number;
   totalVehicles: number;
-  recentBookings: {
-    id: string;
-    user: {
-      name: string;
-      email: string;
-    };
-    vehicle: {
-      name: string;
-      model: string;
-    };
-    start_date: string;
-    end_date: string;
-    total_amount: number;
-    status: string;
-  }[];
+  recentBookings: any[];
 }
 
-export default async function AdminDashboardPage() {
-  const stats: DashboardStats = {
-    totalUsers: 150,
-    totalRevenue: 250000,
-    totalBookings: 75,
-    totalVehicles: 25,
-    recentBookings: [
-      {
-        id: '1',
-        user: {
-          name: 'John Doe',
-          email: 'john@example.com'
-        },
-        vehicle: {
-          name: 'Honda City',
-          model: '2021'
-        },
-        start_date: '2024-03-01',
-        end_date: '2024-03-03',
-        total_amount: 5000,
-        status: 'completed'
-      },
-      // Add more mock bookings as needed
-    ]
-  };
+export default function AdminDashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  return (
-    <div>
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        {/* Total Users */}
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-gray-500 text-sm font-medium">Total Users</h3>
-            <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-              +12% this month
-            </span>
-          </div>
-          <div className="flex items-center">
-            <span className="text-3xl font-bold">{stats.totalUsers}</span>
-          </div>
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await fetch('/api/admin/dashboard');
+        if (!response.ok) throw new Error('Failed to fetch dashboard data');
+        const data = await response.json();
+        setStats(data);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (session?.user?.role === 'admin') {
+      fetchDashboardData();
+    }
+  }, [session]);
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="p-6">
+              <Skeleton className="h-4 w-24 mb-2" />
+              <Skeleton className="h-8 w-32" />
+            </Card>
+          ))}
         </div>
-
-        {/* Total Revenue */}
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-gray-500 text-sm font-medium">Total Revenue</h3>
-            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-              +8% this month
-            </span>
-          </div>
-          <div className="flex items-center">
-            <span className="text-3xl font-bold">₹{stats.totalRevenue.toLocaleString('en-IN')}</span>
-          </div>
-        </div>
-
-        {/* Total Bookings */}
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-gray-500 text-sm font-medium">Total Bookings</h3>
-            <span className="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-              +15% this month
-            </span>
-          </div>
-          <div className="flex items-center">
-            <span className="text-3xl font-bold">{stats.totalBookings}</span>
-          </div>
-        </div>
-
-        {/* Total Vehicles */}
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-gray-500 text-sm font-medium">Total Vehicles</h3>
-            <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-              +5% this month
-            </span>
-          </div>
-          <div className="flex items-center">
-            <span className="text-3xl font-bold">{stats.totalVehicles}</span>
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-48" />
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
           </div>
         </div>
       </div>
+    );
+  }
 
-      {/* Recent Bookings */}
-      <div className="bg-white rounded-xl shadow-sm">
-        <div className="p-6 border-b">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Recent Bookings</h2>
-            <Link
-              href="/admin/bookings"
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-            >
-              View All
-            </Link>
-          </div>
+  if (!stats) return null;
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="p-6">
+          <h3 className="text-sm text-gray-500">Total Users</h3>
+          <p className="text-3xl font-bold">{stats.totalUsers}</p>
+          <span className="text-sm text-blue-500">+12% this month</span>
+        </Card>
+        <Card className="p-6">
+          <h3 className="text-sm text-gray-500">Total Revenue</h3>
+          <p className="text-3xl font-bold">₹{stats.totalRevenue.toLocaleString()}</p>
+          <span className="text-sm text-green-500">+8% this month</span>
+        </Card>
+        <Card className="p-6">
+          <h3 className="text-sm text-gray-500">Total Bookings</h3>
+          <p className="text-3xl font-bold">{stats.totalBookings}</p>
+          <span className="text-sm text-purple-500">+15% this month</span>
+        </Card>
+        <Card className="p-6">
+          <h3 className="text-sm text-gray-500">Total Vehicles</h3>
+          <p className="text-3xl font-bold">{stats.totalVehicles}</p>
+          <span className="text-sm text-yellow-500">+5% this month</span>
+        </Card>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold">Recent Bookings</h2>
+          <a href="/admin/bookings" className="text-blue-500 hover:underline">
+            View All
+          </a>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Vehicle
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Dates
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {stats.recentBookings.map((booking) => (
-                <tr key={booking.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{booking.user.name}</div>
-                      <div className="text-sm text-gray-500">{booking.user.email}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {booking.vehicle.name} {booking.vehicle.model}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      <div>{new Date(booking.start_date).toLocaleDateString()}</div>
-                      <div>{new Date(booking.end_date).toLocaleDateString()}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ₹{booking.total_amount.toLocaleString('en-IN')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        booking.status === 'completed'
-                          ? 'bg-green-100 text-green-800'
-                          : booking.status === 'cancelled'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}
-                    >
-                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-2">
+          {stats.recentBookings.map((booking) => (
+            <Card key={booking.id} className="p-4">
+              <div className="grid grid-cols-5 gap-4">
+                <div>
+                  <p className="font-medium">{booking.user.name}</p>
+                  <p className="text-sm text-gray-500">{booking.user.email}</p>
+                </div>
+                <div>
+                  <p className="font-medium">{booking.vehicle.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm">{new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="font-medium">₹{booking.amount}</p>
+                </div>
+                <div>
+                  <span className={`px-2 py-1 rounded-full text-xs ${
+                    booking.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                  </span>
+                </div>
+              </div>
+            </Card>
+          ))}
         </div>
       </div>
     </div>

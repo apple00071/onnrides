@@ -51,7 +51,7 @@ export async function POST(
       .update(bookings)
       .set({
         status: 'cancelled',
-        updated_at: sql`strftime('%s', 'now')`
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .where(eq(bookings.id, params.bookingId))
       .returning();

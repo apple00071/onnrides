@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { users } from '@/lib/schema';
@@ -12,6 +12,16 @@ export const dynamic = 'force-dynamic';
 
 interface AuthResult {
   user: User;
+}
+
+interface UserRow {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export async function GET(request: NextRequest) {
@@ -39,7 +49,7 @@ export async function GET(request: NextRequest) {
       .from(users)
       .where(eq(users.id, auth.user.id))
       .limit(1)
-      .then(rows => rows[0]);
+      .then((rows: UserRow[]) => rows[0]);
 
     if (!user) {
       return NextResponse.json(
@@ -82,7 +92,7 @@ export async function PUT(request: NextRequest) {
       .update(users)
       .set({
         name,
-        updated_at: sql`strftime('%s', 'now')`
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .where(eq(users.id, auth.user.id))
       .returning();

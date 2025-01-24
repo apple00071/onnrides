@@ -6,14 +6,24 @@ import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import type { Session } from 'next-auth';
-import crypto from 'crypto';
+import { randomUUID } from 'crypto';
 import { NextRequest } from 'next/server';
 
 const VALID_DOCUMENT_TYPES = ['license', 'id_proof', 'address_proof'] as const;
 type DocumentType = typeof VALID_DOCUMENT_TYPES[number];
 
-const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"] as const;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+interface DocumentRow {
+  id: string;
+  user_id: string;
+  type: DocumentType;
+  file_url: string;
+  status: string;
+  created_at: Date;
+  updated_at: Date;
+}
 
 export async function GET() {
   try {
@@ -27,7 +37,7 @@ export async function GET() {
     const userDocuments = await db
       .select()
       .from(documents)
-      .where(eq(documents.user_id, auth.id));
+      .where(eq(documents.user_id, auth.id)) as DocumentRow[];
 
     logger.info('Found documents:', userDocuments.length);
     return NextResponse.json(userDocuments);
@@ -69,7 +79,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+    if (!ALLOWED_FILE_TYPES.includes(file.type as typeof ALLOWED_FILE_TYPES[number])) {
       return NextResponse.json(
         { error: "Invalid file type" },
         { status: 400 }
@@ -83,7 +93,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const blob = await put(crypto.randomUUID(), file, {
+    const blob = await put(randomUUID(), file, {
       access: "public",
     });
 
@@ -91,15 +101,15 @@ export async function POST(request: NextRequest) {
     const [document] = await db
       .insert(documents)
       .values({
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         user_id: auth.id,
         type: type as DocumentType,
         file_url: blob.url,
         status: 'pending',
-        created_at: sql`strftime('%s', 'now')`,
-        updated_at: sql`strftime('%s', 'now')`
+        created_at: sql`CURRENT_TIMESTAMP`,
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
-      .returning();
+      .returning() as [DocumentRow];
 
     logger.info('Document uploaded successfully:', document.id);
     return NextResponse.json(document);

@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { bookings, vehicles, users } from '@/lib/schema';
 import { verifyAuth } from '@/lib/auth';
 import type { User } from '@/lib/types';
-import { eq, desc, and } from 'drizzle-orm';
-import { sql } from 'drizzle-orm';
+import { eq, desc, and, sql } from 'drizzle-orm';
 import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +16,14 @@ interface UpdateBookingBody {
 
 interface AuthResult {
   user: User;
+}
+
+interface UserRow {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
 }
 
 // GET /api/admin/bookings - List all bookings
@@ -37,7 +44,7 @@ export async function GET(request: NextRequest) {
       .from(users)
       .where(eq(users.id, user.id))
       .limit(1)
-      .then(rows => rows[0]);
+      .then((rows: UserRow[]) => rows[0]);
 
     if (!userDetails || userDetails.role !== 'admin') {
       return NextResponse.json(
@@ -153,7 +160,7 @@ export async function PUT(request: NextRequest) {
       .update(bookings)
       .set({
         status,
-        updated_at: sql`strftime('%s', 'now')`
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .where(eq(bookings.id, id));
 

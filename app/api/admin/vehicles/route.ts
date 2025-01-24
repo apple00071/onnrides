@@ -132,8 +132,8 @@ export async function POST(request: NextRequest) {
         images: imagesJson,
         is_available: true,
         status: 'active',
-        created_at: sql`strftime('%s', 'now')`,
-        updated_at: sql`strftime('%s', 'now')`
+        created_at: sql`CURRENT_TIMESTAMP`,
+        updated_at: sql`CURRENT_TIMESTAMP`
       })
       .returning();
 

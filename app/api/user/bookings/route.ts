@@ -2,15 +2,53 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { bookings, vehicles } from '@/lib/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import logger from '@/lib/logger';
 import { calculateTotalPrice } from '@/lib/utils';
-import crypto from 'crypto';
+import { randomUUID } from 'crypto';
 
 interface BookingBody {
   vehicleId: string;
   startDate: string;
   endDate: string;
+}
+
+interface BookingResponse {
+  id: string;
+  status: string;
+  start_date: Date;
+  end_date: Date;
+  total_price: number;
+  payment_status: string;
+  created_at: Date;
+  updated_at: Date;
+  vehicle: {
+    id: string;
+    name: string;
+    type: string;
+    location: string;
+    images: string;
+    price_per_hour: number;
+  };
+}
+
+interface FormattedBooking {
+  id: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+  total_price: number;
+  payment_status: string;
+  created_at: string;
+  updated_at: string;
+  vehicle: {
+    id: string;
+    name: string;
+    type: string;
+    location: string;
+    images: string;
+    price_per_hour: number;
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -45,10 +83,10 @@ export async function GET(request: NextRequest) {
       .from(bookings)
       .innerJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
       .where(eq(bookings.user_id, user.id))
-      .orderBy(desc(bookings.created_at));
+      .orderBy(desc(bookings.created_at)) as unknown as BookingResponse[];
 
     // Format the response
-    const formattedBookings = userBookings.map(booking => {
+    const formattedBookings: FormattedBooking[] = userBookings.map((booking: BookingResponse) => {
       // Safely parse location
       let location = booking.vehicle.location;
       try {
@@ -73,18 +111,12 @@ export async function GET(request: NextRequest) {
         images = images;
       }
 
-      // Convert timestamps to ISO strings
-      const start_date = new Date(Number(booking.start_date) * 1000).toISOString();
-      const end_date = new Date(Number(booking.end_date) * 1000).toISOString();
-      const created_at = new Date(Number(booking.created_at) * 1000).toISOString();
-      const updated_at = new Date(Number(booking.updated_at) * 1000).toISOString();
-
       return {
         ...booking,
-        start_date,
-        end_date,
-        created_at,
-        updated_at,
+        start_date: booking.start_date.toISOString(),
+        end_date: booking.end_date.toISOString(),
+        created_at: booking.created_at.toISOString(),
+        updated_at: booking.updated_at.toISOString(),
         total_price: Number(booking.total_price),
         vehicle: {
           ...booking.vehicle,
@@ -153,7 +185,7 @@ export async function POST(request: NextRequest) {
     const [booking] = await db
       .insert(bookings)
       .values({
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         user_id: user.id,
         vehicle_id: vehicleId,
         start_date: start,
@@ -162,14 +194,14 @@ export async function POST(request: NextRequest) {
         total_price: totalPrice,
         status: 'pending',
         payment_status: 'pending',
-        created_at: sql`strftime('%s', 'now')`,
-        updated_at: sql`strftime('%s', 'now')`
+        created_at: new Date(),
+        updated_at: new Date()
       })
       .returning();
 
     return NextResponse.json(booking);
   } catch (error) {
-    console.error('Error creating booking:', error);
+    logger.error('Error creating booking:', error);
     return NextResponse.json(
       { error: 'Failed to create booking' },
       { status: 500 }

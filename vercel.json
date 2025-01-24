@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["sin1"],
+  "env": {
+    "NEXTAUTH_URL": "https://onnrides.vercel.app",
+    "VERCEL_URL": "https://onnrides.vercel.app"
+  }
+} 
