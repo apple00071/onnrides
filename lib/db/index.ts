@@ -1,10 +1,12 @@
+import { neon, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
-import { neon } from '@neondatabase/serverless';
 import * as schema from './schema';
 import { eq } from 'drizzle-orm';
 import { users } from './schema';
 import { createId } from '@paralleldrive/cuid2';
 import bcrypt from 'bcryptjs';
+
+neonConfig.fetchConnectionCache = true;
 
 const sql = neon(process.env.DATABASE_URL!);
 export const db = drizzle(sql, { schema });
