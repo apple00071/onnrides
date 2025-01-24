@@ -31,17 +31,28 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          console.log('Database URL:', process.env.DATABASE_URL);
+          console.log('Environment:', process.env.NODE_ENV);
+          console.log('Database URL:', process.env.DATABASE_URL?.slice(0, 35) + '...');
           console.log('Attempting to authenticate user:', credentials.email);
           
           // Test database connection
           try {
+            console.log('Testing database connection...');
             const testQuery = await db.select().from(users).limit(1);
+            console.log('Database test query result:', JSON.stringify(testQuery));
             console.log('Database connection test:', testQuery.length > 0 ? 'successful' : 'no users found');
           } catch (dbError) {
             console.error('Database connection test failed:', dbError);
+            if (dbError instanceof Error) {
+              console.error('Database error details:', {
+                message: dbError.message,
+                stack: dbError.stack,
+                name: dbError.name
+              });
+            }
           }
           
+          console.log('Querying user from database...');
           const [user] = await db
             .select()
             .from(users)
@@ -60,6 +71,7 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
+          console.log('Comparing passwords...');
           const passwordMatch = await bcrypt.compare(credentials.password, user.password_hash);
 
           if (!passwordMatch) {
