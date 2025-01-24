@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { bookings } from '@/lib/schema';
 import { verifyAuth } from '@/lib/auth';
 import { eq, sql } from 'drizzle-orm';
-import { razorpay } from '@/lib/razorpay';
+import { getRazorpayInstance } from '@/lib/razorpay';
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Create Razorpay order
+    const razorpay = getRazorpayInstance();
     const order = await razorpay.orders.create({
       amount: Math.round(amount * 100), // amount in paise
       currency: 'INR',

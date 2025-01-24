@@ -3,23 +3,37 @@ import { randomUUID } from 'crypto';
 import logger from './logger';
 import crypto from 'crypto';
 
-// Validate environment variables
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
-const NEXT_PUBLIC_RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+function validateEnvironmentVariables() {
+  const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+  const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+  const NEXT_PUBLIC_RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
-if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || !NEXT_PUBLIC_RAZORPAY_KEY_ID) {
-  throw new Error('Missing required Razorpay environment variables');
+  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || !NEXT_PUBLIC_RAZORPAY_KEY_ID) {
+    throw new Error('Missing required Razorpay environment variables');
+  }
+
+  if (NEXT_PUBLIC_RAZORPAY_KEY_ID !== RAZORPAY_KEY_ID) {
+    throw new Error('NEXT_PUBLIC_RAZORPAY_KEY_ID must match RAZORPAY_KEY_ID');
+  }
+
+  return {
+    key_id: RAZORPAY_KEY_ID,
+    key_secret: RAZORPAY_KEY_SECRET
+  };
 }
 
-if (NEXT_PUBLIC_RAZORPAY_KEY_ID !== RAZORPAY_KEY_ID) {
-  throw new Error('NEXT_PUBLIC_RAZORPAY_KEY_ID must match RAZORPAY_KEY_ID');
-}
+let razorpayInstance: Razorpay | null = null;
 
-export const razorpay = new Razorpay({
-  key_id: RAZORPAY_KEY_ID,
-  key_secret: RAZORPAY_KEY_SECRET,
-});
+export function getRazorpayInstance(): Razorpay {
+  if (!razorpayInstance) {
+    const { key_id, key_secret } = validateEnvironmentVariables();
+    razorpayInstance = new Razorpay({
+      key_id,
+      key_secret,
+    });
+  }
+  return razorpayInstance;
+}
 
 export interface CreateOrderParams {
   amount: number;
@@ -63,6 +77,7 @@ export async function createOrder({
       receipt
     });
 
+    const razorpay = getRazorpayInstance();
     const order = await razorpay.orders.create({
       amount: amountInPaise,
       currency,
@@ -115,9 +130,10 @@ export function validatePaymentVerification({
       return false;
     }
 
+    const { key_secret } = validateEnvironmentVariables();
     const text = `${order_id}|${payment_id}`;
     const expectedSignature = crypto
-      .createHmac('sha256', RAZORPAY_KEY_SECRET)
+      .createHmac('sha256', key_secret)
       .update(text)
       .digest('hex');
 
