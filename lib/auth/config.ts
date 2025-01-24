@@ -36,11 +36,11 @@ export const authOptions: NextAuthOptions = {
             .where(eq(users.email, credentials.email))
             .limit(1);
 
-          if (!user?.password) {
+          if (!user?.password_hash) {
             return null;
           }
 
-          const passwordMatch = await bcrypt.compare(credentials.password, user.password);
+          const passwordMatch = await bcrypt.compare(credentials.password, user.password_hash);
 
           if (!passwordMatch) {
             return null;
