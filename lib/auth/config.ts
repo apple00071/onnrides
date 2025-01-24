@@ -26,6 +26,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
+          console.error('Missing credentials');
           return null;
         }
 
@@ -36,13 +37,20 @@ export const authOptions: NextAuthOptions = {
             .where(eq(users.email, credentials.email))
             .limit(1);
 
+          if (!user) {
+            console.error('User not found:', credentials.email);
+            return null;
+          }
+
           if (!user?.password_hash) {
+            console.error('User has no password hash:', credentials.email);
             return null;
           }
 
           const passwordMatch = await bcrypt.compare(credentials.password, user.password_hash);
 
           if (!passwordMatch) {
+            console.error('Password does not match');
             return null;
           }
 
@@ -53,8 +61,8 @@ export const authOptions: NextAuthOptions = {
             role: user.role
           };
         } catch (error) {
-          console.error('Auth error:', error);
-          return null;
+          console.error('Database or auth error:', error);
+          throw error; // Re-throw to get full error in logs
         }
       }
     })

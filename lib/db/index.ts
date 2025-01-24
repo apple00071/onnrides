@@ -1,8 +1,10 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon, neonConfig } from '@neondatabase/serverless';
 import * as schema from './schema';
 
-const sqlite = new Database('sqlite.db');
-export const db = drizzle(sqlite, { schema });
+neonConfig.fetchConnectionCache = true;
+
+const sql = neon(process.env.DATABASE_URL!);
+export const db = drizzle(sql, { schema });
 
 // Note: Neon DB handles connection pooling automatically through their serverless driver 
