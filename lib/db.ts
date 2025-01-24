@@ -77,15 +77,21 @@ type CreateUserData = {
 export async function createUser(data: CreateUserData): Promise<User> {
   try {
     logger.info('Creating new user');
+    const now = Math.floor(Date.now() / 1000); // Convert to Unix timestamp
     const [user] = await db
       .insert(users)
       .values({
+        id: crypto.randomUUID(),
         email: data.email,
         password_hash: data.password_hash,
         name: data.name || null,
         role: data.role || 'user',
-        created_at: new Date(),
-        updated_at: new Date(),
+        created_at: now.toString(),
+        updated_at: now.toString(),
+        is_blocked: 0,
+        reset_token: null,
+        reset_token_expiry: null,
+        phone: null
       })
       .returning();
     logger.info('User created successfully');
