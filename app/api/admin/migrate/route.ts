@@ -5,6 +5,8 @@ import { neon } from '@neondatabase/serverless';
 import logger from '@/lib/logger';
 import { verifyAuth } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const user = await verifyAuth();

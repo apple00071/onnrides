@@ -1,13 +1,12 @@
-import logger from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { sql } from 'drizzle-orm';
+import logger from '@/lib/logger';
+import { User } from '@/lib/types';
 
-interface User {
-  id: string;
-  role: string;
-}
+export const dynamic = 'force-dynamic';
 
 interface Reports {
   total_bookings: number;

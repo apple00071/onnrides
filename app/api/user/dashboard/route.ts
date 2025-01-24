@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { bookings, vehicles } from '@/lib/schema';
-import { eq, desc, and } from 'drizzle-orm';
-import { verifyAuth } from '@/lib/auth';
+import { users, bookings, vehicles } from '@/lib/schema';
+import { eq, desc, and, sql } from 'drizzle-orm';
 import logger from '@/lib/logger';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {

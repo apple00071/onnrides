@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import logger from '@/lib/logger';
 import { bookings, vehicles, users } from '@/lib/schema';
 import { verifyAuth } from '@/lib/auth';
 import type { User } from '@/lib/types';
 import { eq, desc, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
+import logger from '@/lib/logger';
+
+export const dynamic = 'force-dynamic';
 
 interface UpdateBookingBody {
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';

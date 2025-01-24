@@ -7,6 +7,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import Script from 'next/script';
 
+export const dynamic = 'force-dynamic';
+
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {

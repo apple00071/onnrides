@@ -6,6 +6,8 @@ import logger from '@/lib/logger';
 import { users } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

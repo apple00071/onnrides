@@ -6,6 +6,8 @@ import { users, vehicles, bookings } from '@/lib/schema';
 import { count, sql } from 'drizzle-orm';
 import logger from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

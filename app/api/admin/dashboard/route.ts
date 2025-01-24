@@ -6,6 +6,8 @@ import { users, vehicles, bookings, documents } from '@/lib/schema';
 import { count, sql, eq, desc } from 'drizzle-orm';
 import logger from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+
 interface DashboardStats {
   total_users: number;
   total_revenue: number;

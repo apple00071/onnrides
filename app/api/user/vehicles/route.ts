@@ -4,6 +4,8 @@ import { vehicles } from '@/lib/schema';
 import { eq, and, like, sql } from 'drizzle-orm';
 import logger from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
