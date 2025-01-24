@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import logger from '@/lib/logger';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { users } from '@/lib/schema';
 import { verifyAuth } from '@/lib/auth';
 import type { User } from '@/lib/types';
 import { eq, sql } from 'drizzle-orm';
+import logger from '@/lib/logger';
+
+export const dynamic = 'force-dynamic';
 
 interface AuthResult {
   user: User;

@@ -10,8 +10,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const user = await verifyAuth();
-    if (!user) {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -32,7 +33,7 @@ export async function GET() {
       })
       .from(bookings)
       .innerJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
-      .where(eq(bookings.user_id, user.id))
+      .where(eq(bookings.user_id, session.user.id))
       .orderBy(desc(bookings.created_at))
       .limit(5);
 
@@ -40,7 +41,7 @@ export async function GET() {
     const [bookingsCount] = await db
       .select({ count: bookings.id })
       .from(bookings)
-      .where(eq(bookings.user_id, user.id));
+      .where(eq(bookings.user_id, session.user.id));
 
     // Get total amount spent
     const [totalSpent] = await db
@@ -48,7 +49,7 @@ export async function GET() {
       .from(bookings)
       .where(
         and(
-          eq(bookings.user_id, user.id),
+          eq(bookings.user_id, session.user.id),
           eq(bookings.status, 'completed')
         )
       );
