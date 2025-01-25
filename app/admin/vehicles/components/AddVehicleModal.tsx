@@ -94,6 +94,7 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
           ...formData,
           images: imageUrls,
           price_per_hour: formData.price_per_hour.toString(),
+          min_booking_hours: 1,
         }),
       });
 

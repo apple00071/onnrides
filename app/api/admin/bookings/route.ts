@@ -1,41 +1,75 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { db } from '@/lib/db';
-import { bookings, users, vehicles } from '@/lib/db/schema';
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { Kysely, PostgresDialect } from 'kysely';
+import { Pool } from 'pg';
+import { bookingStatusEnum } from '@/lib/db/schema';
 import logger from '@/lib/logger';
 import { authOptions } from '@/lib/auth/config';
 
-interface UserRow {
-  id: string;
-  name: string | null;
-  email: string;
-  role: 'user' | 'admin';
-}
-
-interface BookingWithDetails {
-  id: string;
-  status: string;
-  start_time: Date;
-  end_time: Date;
-  total_amount: number;
-  payment_status: string;
-  created_at: Date;
-  updated_at: Date;
-  user: {
+// Define database interface for Kysely
+interface Database {
+  bookings: {
+    id: string;
+    user_id: string;
+    vehicle_id: string;
+    status: typeof bookingStatusEnum.enumValues[number];
+    start_date: Date;
+    end_date: Date;
+    total_hours: number;
+    total_price: number;
+    payment_status: string;
+    payment_details: string | null;
+    created_at: Date;
+    updated_at: Date;
+  };
+  users: {
     id: string;
     name: string | null;
     email: string;
     role: 'user' | 'admin';
   };
-  vehicle: {
+  vehicles: {
     id: string;
-    brand: string;
-    model: string;
+    name: string;
     type: string;
     location: string;
-    price_per_day: number;
+    price_per_hour: number;
   };
+}
+
+// Initialize Kysely instance
+const db = new Kysely<Database>({
+  dialect: new PostgresDialect({
+    pool: new Pool({
+      connectionString: process.env.DATABASE_URL,
+    }),
+  }),
+});
+
+// Helper function to format date
+function formatDate(dateStr: string | Date | null): string {
+  if (!dateStr) return 'Invalid Date';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch (error) {
+    return 'Invalid Date';
+  }
+}
+
+// Helper function to format amount
+function formatAmount(amount: number | string | null): string {
+  if (amount === null || amount === undefined) return '₹0.00';
+  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(numericAmount)) return '₹0.00';
+  return `₹${numericAmount.toFixed(2)}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -50,69 +84,75 @@ export async function GET(request: NextRequest) {
 
     // Get query parameters
     const url = new URL(request.url);
-    const status = url.searchParams.get('status');
+    const status = url.searchParams.get('status') as typeof bookingStatusEnum.enumValues[number] | null;
     const userId = url.searchParams.get('userId');
+    const isHistoryView = url.searchParams.get('history') === 'true';
 
-    // Get user if userId is provided
-    let user: UserRow | undefined;
+    // Build base query
+    let query = db
+      .selectFrom('bookings')
+      .leftJoin('users', 'users.id', 'bookings.user_id')
+      .leftJoin('vehicles', 'vehicles.id', 'bookings.vehicle_id')
+      .select([
+        'bookings.id',
+        'bookings.status',
+        'bookings.start_date',
+        'bookings.end_date',
+        'bookings.total_price',
+        'bookings.payment_status',
+        'bookings.created_at',
+        'users.id as user_id',
+        'users.name as user_name',
+        'users.email as user_email',
+        'vehicles.name as vehicle_name',
+        'vehicles.type as vehicle_type'
+      ]);
+
+    // Add filters
+    if (status && bookingStatusEnum.enumValues.includes(status)) {
+      query = query.where('bookings.status', '=', status);
+    }
     if (userId) {
-      const userResult = await db
-        .select({
-          id: users.id,
-          name: users.name,
-          email: users.email,
-          role: users.role,
-        })
-        .from(users)
-        .where(eq(users.id, userId) as any)
-        .limit(1);
-
-      if (userResult.length > 0) {
-        user = userResult[0] as UserRow;
+      query = query.where('bookings.user_id', '=', userId);
+      if (isHistoryView) {
+        // For history view, get all bookings for the user
+        query = query.orderBy('bookings.created_at', 'desc');
       }
+    } else {
+      // For main view, get only recent bookings
+      query = query.orderBy('bookings.created_at', 'desc').limit(10);
     }
 
-    // Build query
-    const result = await db
-      .select({
-        id: bookings.id,
-        status: bookings.status,
-        start_time: bookings.start_time,
-        end_time: bookings.end_time,
-        total_amount: bookings.total_amount,
-        payment_status: bookings.payment_status,
-        created_at: bookings.created_at,
-        updated_at: bookings.updated_at,
-        user: {
-          id: users.id,
-          name: users.name,
-          email: users.email,
-          role: users.role,
-        },
-        vehicle: {
-          id: vehicles.id,
-          brand: vehicles.brand,
-          model: vehicles.model,
-          type: vehicles.type,
-          location: vehicles.location,
-          price_per_day: vehicles.price_per_day,
-        },
-      })
-      .from(bookings)
-      .innerJoin(vehicles, eq(bookings.vehicle_id, vehicles.id) as any)
-      .innerJoin(users, eq(bookings.user_id, users.id) as any)
-      .where(
-        status && userId 
-          ? and(eq(bookings.status, status) as any, eq(bookings.user_id, userId) as any) as any
-          : status 
-          ? eq(bookings.status, status) as any
-          : userId
-          ? eq(bookings.user_id, userId) as any
-          : undefined
-      )
-      .orderBy(desc(bookings.created_at) as any) as unknown as BookingWithDetails[];
+    // Execute query
+    const result = await query.execute();
 
-    return new Response(JSON.stringify({ bookings: result, user }), {
+    // Transform the result
+    const transformedBookings = result.map((booking) => ({
+      id: booking.id,
+      customer: {
+        id: booking.user_id,
+        name: booking.user_name || 'Unknown',
+        email: booking.user_email || ''
+      },
+      vehicle: {
+        name: booking.vehicle_name || 'Unknown',
+        type: booking.vehicle_type || 'car'
+      },
+      booking_date: formatDate(booking.created_at),
+      duration: {
+        from: formatDate(booking.start_date),
+        to: formatDate(booking.end_date)
+      },
+      amount: formatAmount(booking.total_price),
+      status: booking.status || 'pending',
+      payment_status: booking.payment_status || 'Payment Not Confirmed'
+    }));
+
+    return new Response(JSON.stringify({ 
+      bookings: transformedBookings,
+      isHistoryView,
+      userId
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
@@ -145,29 +185,16 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    // Get booking
-    const existingBooking = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, bookingId) as any)
-      .limit(1);
-
-    if (!existingBooking.length) {
-      return new Response(JSON.stringify({ error: 'Booking not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
     // Update booking
     const [updatedBooking] = await db
-      .update(bookings)
+      .updateTable('bookings')
       .set({
         status,
         updated_at: new Date(),
       })
-      .where(eq(bookings.id, bookingId) as any)
-      .returning();
+      .where('id', '=', bookingId)
+      .returning(['id', 'status', 'updated_at'])
+      .execute();
 
     return new Response(JSON.stringify(updatedBooking), {
       status: 200,

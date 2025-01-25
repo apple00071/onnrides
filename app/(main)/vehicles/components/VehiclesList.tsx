@@ -19,6 +19,14 @@ export default function VehiclesList({ vehicles, searchParams, onBookClick }: Ve
     if (Array.isArray(location)) {
       return location.join(', ');
     }
+    try {
+      const parsedLocation = JSON.parse(location);
+      if (Array.isArray(parsedLocation)) {
+        return parsedLocation.join(', ');
+      }
+    } catch (e) {
+      // If parsing fails, return the original string
+    }
     return location;
   };
 

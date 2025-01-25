@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'react-hot-toast';
 
 export default function Home() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function Home() {
     e.preventDefault();
     
     if (!pickupDate || !pickupTime || !dropoffDate || !dropoffTime) {
-      alert('Please fill in all fields');
+      toast.error('Please fill in all fields');
       return;
     }
 
@@ -57,7 +58,7 @@ export default function Home() {
                 <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl">
                   Let's find your perfect ride
                 </p>
-
+                
                 {/* Search Form */}
                 <div className="mt-10 max-w-xl mx-auto bg-white rounded-lg shadow-lg p-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">

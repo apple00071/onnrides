@@ -12,18 +12,39 @@ interface DashboardStats {
   totalRevenue: number;
   totalBookings: number;
   totalVehicles: number;
-  recentBookings: any[];
+  recentBookings: Array<{
+    id: string;
+    user: {
+      name: string;
+      email: string;
+    };
+    vehicle: {
+      name: string;
+    };
+    startDate: string;
+    endDate: string;
+    amount: number;
+    status: string;
+  }>;
 }
+
+const defaultStats: DashboardStats = {
+  totalUsers: 0,
+  totalRevenue: 0,
+  totalBookings: 0,
+  totalVehicles: 0,
+  recentBookings: []
+};
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [stats, setStats] = useState<DashboardStats>(defaultStats);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login');
+      router.push('/admin/login');
       return;
     }
     
@@ -43,6 +64,7 @@ export default function AdminDashboard() {
         setStats(data);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        setStats(defaultStats);
       } finally {
         setLoading(false);
       }
@@ -77,29 +99,27 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!stats) return null;
-
   return (
     <div className="p-6 space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="p-6">
           <h3 className="text-sm text-gray-500">Total Users</h3>
-          <p className="text-3xl font-bold">{stats.totalUsers}</p>
+          <p className="text-3xl font-bold">{stats?.totalUsers || 0}</p>
           <span className="text-sm text-blue-500">+12% this month</span>
         </Card>
         <Card className="p-6">
           <h3 className="text-sm text-gray-500">Total Revenue</h3>
-          <p className="text-3xl font-bold">₹{stats.totalRevenue.toLocaleString()}</p>
+          <p className="text-3xl font-bold">₹{(stats?.totalRevenue || 0).toLocaleString()}</p>
           <span className="text-sm text-green-500">+8% this month</span>
         </Card>
         <Card className="p-6">
           <h3 className="text-sm text-gray-500">Total Bookings</h3>
-          <p className="text-3xl font-bold">{stats.totalBookings}</p>
+          <p className="text-3xl font-bold">{stats?.totalBookings || 0}</p>
           <span className="text-sm text-purple-500">+15% this month</span>
         </Card>
         <Card className="p-6">
           <h3 className="text-sm text-gray-500">Total Vehicles</h3>
-          <p className="text-3xl font-bold">{stats.totalVehicles}</p>
+          <p className="text-3xl font-bold">{stats?.totalVehicles || 0}</p>
           <span className="text-sm text-yellow-500">+5% this month</span>
         </Card>
       </div>
@@ -112,21 +132,23 @@ export default function AdminDashboard() {
           </a>
         </div>
         <div className="space-y-2">
-          {stats.recentBookings.map((booking) => (
+          {(stats?.recentBookings || []).map((booking) => (
             <Card key={booking.id} className="p-4">
               <div className="grid grid-cols-5 gap-4">
                 <div>
-                  <p className="font-medium">{booking.user.name}</p>
-                  <p className="text-sm text-gray-500">{booking.user.email}</p>
+                  <p className="font-medium">{booking.user?.name || 'N/A'}</p>
+                  <p className="text-sm text-gray-500">{booking.user?.email || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="font-medium">{booking.vehicle.name}</p>
+                  <p className="font-medium">{booking.vehicle?.name || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-sm">{new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}</p>
+                  <p className="text-sm">
+                    {booking.startDate ? new Date(booking.startDate).toLocaleDateString() : 'N/A'} - {booking.endDate ? new Date(booking.endDate).toLocaleDateString() : 'N/A'}
+                  </p>
                 </div>
                 <div>
-                  <p className="font-medium">₹{booking.amount}</p>
+                  <p className="font-medium">₹{booking.amount || 0}</p>
                 </div>
                 <div>
                   <span className={`px-2 py-1 rounded-full text-xs ${
@@ -134,12 +156,17 @@ export default function AdminDashboard() {
                     booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-red-100 text-red-800'
                   }`}>
-                    {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                    {(booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1)) || 'N/A'}
                   </span>
                 </div>
               </div>
             </Card>
           ))}
+          {(!stats?.recentBookings || stats.recentBookings.length === 0) && (
+            <Card className="p-4">
+              <p className="text-center text-gray-500">No recent bookings</p>
+            </Card>
+          )}
         </div>
       </div>
     </div>

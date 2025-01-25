@@ -43,7 +43,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(vehicle);
+    return NextResponse.json({ vehicle });
 
   } catch (error) {
     logger.error('Failed to fetch vehicle:', error);

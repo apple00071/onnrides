@@ -14,12 +14,12 @@ export interface User {
 export interface Vehicle {
   id: string;
   name: string;
-  type: 'car' | 'bike' | 'scooter';
-  location: string | string[];
+  type: string;
+  location: string[];
   quantity: number;
-  price_per_hour: string;
+  price_per_hour: number;
   min_booking_hours: number;
-  images: string | string[];
+  images: string[];
   is_available: boolean;
   status: 'active' | 'maintenance' | 'retired';
   created_at: string;

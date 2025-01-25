@@ -382,7 +382,20 @@ export default function VehiclesPage() {
                     key={vehicle.id}
                     name={vehicle.name}
                     imageUrl={imageUrl}
-                    locations={Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location]}
+                    locations={(() => {
+                      if (Array.isArray(vehicle.location)) {
+                        return vehicle.location;
+                      }
+                      if (typeof vehicle.location === 'string') {
+                        try {
+                          const parsed = JSON.parse(vehicle.location);
+                          return Array.isArray(parsed) ? parsed : [vehicle.location];
+                        } catch (e) {
+                          return [vehicle.location];
+                        }
+                      }
+                      return [];
+                    })()}
                     price={vehicle.pricing?.total_price || vehicle.price_per_hour}
                     startTime={searchParams.get('pickupTime') || ''}
                     endTime={searchParams.get('dropoffTime') || ''}

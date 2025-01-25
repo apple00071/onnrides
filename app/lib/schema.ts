@@ -1,105 +1,116 @@
 import {
+  pgEnum,
   pgTable,
   text,
   timestamp,
-  boolean,
-  integer,
-  json,
   uuid,
   decimal,
+  jsonb,
+  boolean
 } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
 
-export const DOCUMENT_TYPES = {
-  LICENSE: 'license',
-  ID_PROOF: 'id_proof',
-  ADDRESS_PROOF: 'address_proof'
-} as const;
+// Define enums
+export const roleEnum = pgEnum("role", ["user", "admin"]);
+export const statusEnum = pgEnum("status", ["pending", "approved", "rejected"]);
+export const documentTypeEnum = pgEnum("document_type", ["license", "insurance", "registration"]);
+export const vehicleTypeEnum = pgEnum('vehicle_type', [
+  'car',
+  'bike',
+  'scooter',
+  'bicycle',
+]);
+export const bookingStatusEnum = pgEnum('booking_status', ['pending', 'confirmed', 'cancelled', 'completed']);
+export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'completed', 'failed', 'refunded']);
 
-export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  email: text('email').notNull().unique(),
-  name: text('name'),
-  phone: text('phone'),
-  password_hash: text('password_hash').notNull(),
-  role: text('role', { enum: ['user', 'admin'] }).notNull().default('user'),
-  reset_token: text('reset_token'),
-  reset_token_expiry: timestamp('reset_token_expiry'),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
+// Define tables
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  password_hash: text("password_hash").notNull(),
+  role: roleEnum("role").notNull().default("user"),
+  phone: text("phone"),
+  reset_token: text("reset_token"),
+  reset_token_expiry: timestamp("reset_token_expiry"),
+  is_blocked: boolean("is_blocked").default(false),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow()
 });
 
 export const vehicles = pgTable('vehicles', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
-  type: text('type').notNull(),
-  quantity: integer('quantity').notNull().default(1),
-  price_per_day: decimal('price_per_day', { precision: 10, scale: 2 }).notNull(),
-  price_12hrs: decimal('price_12hrs', { precision: 10, scale: 2 }),
-  price_24hrs: decimal('price_24hrs', { precision: 10, scale: 2 }),
-  price_7days: decimal('price_7days', { precision: 10, scale: 2 }),
-  price_15days: decimal('price_15days', { precision: 10, scale: 2 }),
-  price_30days: decimal('price_30days', { precision: 10, scale: 2 }),
-  min_booking_hours: integer('min_booking_hours').notNull().default(12),
+  type: vehicleTypeEnum('type').notNull(),
   location: text('location').notNull(),
-  images: json('images').$type<string[]>().notNull().default([]),
-  is_available: boolean('is_available').notNull().default(true),
-  status: text('status', { enum: ['active', 'maintenance', 'retired'] })
-    .notNull()
-    .default('active'),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
+  quantity: decimal('quantity', { precision: 10, scale: 0 }).notNull(),
+  price_per_hour: decimal('price_per_hour', { precision: 10, scale: 2 }).notNull(),
+  min_booking_hours: decimal('min_booking_hours', { precision: 10, scale: 2 }).notNull(),
+  images: text('images').notNull(),
+  is_available: boolean('is_available').default(true).notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
 });
 
 export const bookings = pgTable('bookings', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  user_id: uuid('user_id')
-    .notNull()
-    .references(() => users.id),
-  vehicle_id: uuid('vehicle_id')
-    .notNull()
-    .references(() => vehicles.id),
-  start_date: timestamp('start_date').notNull(),
-  end_date: timestamp('end_date').notNull(),
-  total_price: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
-  status: text('status', {
-    enum: ['pending', 'confirmed', 'cancelled', 'completed'],
-  })
-    .notNull()
-    .default('pending'),
-  payment_status: text('payment_status', {
-    enum: ['pending', 'paid', 'refunded', 'failed'],
-  })
-    .notNull()
-    .default('pending'),
-  payment_id: text('payment_id'),
-  payment_method: text('payment_method'),
-  payment_details: json('payment_details').$type<{
-    order_id?: string;
-    payment_id?: string;
-    signature?: string;
-    method?: string;
-    amount?: number;
-    currency?: string;
-    status?: string;
-    created_at?: string;
-  }>(),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
+  id: uuid('id').defaultRandom().primaryKey(),
+  user_id: uuid('user_id').notNull().references(() => users.id),
+  vehicle_id: uuid('vehicle_id').notNull().references(() => vehicles.id),
+  pickup_datetime: timestamp('pickup_datetime', { withTimezone: true }).notNull(),
+  dropoff_datetime: timestamp('dropoff_datetime', { withTimezone: true }).notNull(),
+  total_amount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
+  status: bookingStatusEnum('status').notNull().default('pending'),
+  payment_status: paymentStatusEnum('payment_status').notNull().default('pending'),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 });
 
-export const documents = pgTable('documents', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  user_id: uuid('user_id')
-    .notNull()
-    .references(() => users.id),
-  type: text('type', {
-    enum: ['license', 'id_proof', 'address_proof'],
-  }).notNull(),
-  file_url: text('file_url').notNull(),
-  status: text('status', { enum: ['pending', 'approved', 'rejected'] })
-    .notNull()
-    .default('pending'),
-  rejection_reason: text('rejection_reason'),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
-}); 
+export const documents = pgTable("documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id").notNull().references(() => users.id),
+  type: documentTypeEnum("type").notNull(),
+  file_url: text("file_url").notNull(),
+  status: statusEnum("status").notNull().default("pending"),
+  rejection_reason: text("rejection_reason"),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow()
+});
+
+// Define relations
+export const usersRelations = relations(users, ({ many }) => ({
+  vehicles: many(vehicles),
+  bookings: many(bookings),
+  documents: many(documents)
+}));
+
+export const vehiclesRelations = relations(vehicles, ({ many }) => ({
+  bookings: many(bookings)
+}));
+
+export const bookingsRelations = relations(bookings, ({ one }) => ({
+  user: one(users, {
+    fields: [bookings.user_id],
+    references: [users.id]
+  }),
+  vehicle: one(vehicles, {
+    fields: [bookings.vehicle_id],
+    references: [vehicles.id]
+  })
+}));
+
+export const documentsRelations = relations(documents, ({ one }) => ({
+  user: one(users, {
+    fields: [documents.user_id],
+    references: [users.id]
+  })
+}));
+
+// Export types
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type Vehicle = typeof vehicles.$inferSelect;
+export type NewVehicle = typeof vehicles.$inferInsert;
+export type Booking = typeof bookings.$inferSelect;
+export type NewBooking = typeof bookings.$inferInsert;
+export type Document = typeof documents.$inferSelect;
+export type NewDocument = typeof documents.$inferInsert; 

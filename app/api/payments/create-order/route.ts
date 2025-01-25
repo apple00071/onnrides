@@ -88,11 +88,17 @@ export async function POST(request: NextRequest) {
       .execute();
 
     return new Response(JSON.stringify({
-      message: 'Order created successfully',
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       order: {
         id: razorpayOrder.id,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency
+      },
+      prefill: {
+        email: user.email || '',
+      },
+      theme: {
+        color: '#F8B602'
       }
     }), {
       status: 200,

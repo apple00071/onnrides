@@ -1,46 +1,64 @@
-import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { Client } from 'pg';
 import bcrypt from 'bcryptjs';
-import { createId } from '@paralleldrive/cuid2';
 import * as dotenv from 'dotenv';
-import type { User } from '@/lib/db/schema';
+import { randomUUID } from 'crypto';
 
 dotenv.config();
 
 async function createAdmin() {
-  try {
-    // Check if admin exists
-    const adminUsers = await db
-      .select()
-      .from(users)
-      .where(eq(users.role, 'admin')) as User[];
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is not set');
+  }
 
-    if (adminUsers.length > 0) {
-      console.log('Admin user already exists:', adminUsers[0].email);
-      return;
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+
+  const email = 'admin@onnrides.com';
+  const password = 'admin123'; // You can change this password
+  
+  try {
+    await client.connect();
+
+    // Check if admin exists
+    const existingAdmin = await client.query(
+      'SELECT * FROM users WHERE email = $1 LIMIT 1',
+      [email]
+    );
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    if (existingAdmin.rows.length > 0) {
+      // Update admin password
+      await client.query(
+        'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE email = $2',
+        [passwordHash, email]
+      );
+      
+      console.log('✅ Admin password updated successfully');
+    } else {
+      // Create new admin
+      await client.query(
+        `INSERT INTO users (id, email, name, password_hash, role, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+        [randomUUID(), email, 'Admin', passwordHash, 'admin']
+      );
+      
+      console.log('✅ Admin user created successfully');
     }
 
-    // Create admin user
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    const result = await db.insert(users)
-      .values({
-        id: createId(),
-        email: 'admin@onnrides.com',
-        name: 'Admin',
-        password_hash: hashedPassword,
-        role: 'admin',
-        created_at: new Date(),
-        updated_at: new Date(),
-      })
-      .returning() as User[];
-
-    const newAdmin = result[0];
-    console.log('Admin user created successfully:', newAdmin.email);
-    console.log('Default password: admin123');
+    console.log('Admin credentials:');
+    console.log('Email:', email);
+    console.log('Password:', password);
   } catch (error) {
-    console.error('Error creating admin user:', error);
+    console.error('Failed to create/update admin:', error);
+    process.exit(1);
+  } finally {
+    await client.end();
   }
+
+  process.exit(0);
 }
 
 createAdmin(); 

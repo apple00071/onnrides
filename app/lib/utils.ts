@@ -138,4 +138,26 @@ export function calculateTotalPrice(startDate: Date, endDate: Date, pricePerDay:
   const durationInMs = endDate.getTime() - startDate.getTime();
   const durationInDays = Math.ceil(durationInMs / (1000 * 60 * 60 * 24));
   return durationInDays * pricePerDay;
-} 
+}
+
+/**
+ * Default fetcher for SWR
+ * @param url The URL to fetch from
+ * @returns The parsed JSON response
+ */
+export const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  
+  // If the status code is not in the range 200-299,
+  // we still try to parse and throw it.
+  if (!res.ok) {
+    const error = new Error('An error occurred while fetching the data.');
+    // Attach extra info to the error object.
+    const info = await res.json();
+    (error as any).status = res.status;
+    (error as any).info = info;
+    throw error;
+  }
+
+  return res.json();
+}; 

@@ -20,7 +20,7 @@ export function formatPrice(price: number) {
   }).format(price);
 }
 
-export function formatCurrency(amount: number) {
+export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
@@ -127,34 +127,35 @@ export function calculateBookingPrice(
   return billableHours * perHourRate;
 }
 
-export function calculateTotalPrice(startDate: Date, endDate: Date, pricePerHour: number): number {
-  // Calculate base price using the booking price logic
-  const basePrice = calculateBookingPrice(
-    { 
-      price_per_day: pricePerHour,
-      price_12hrs: pricePerHour * 12,
-      price_24hrs: pricePerHour * 24,
-      price_7days: pricePerHour * 24 * 7,
-      price_15days: pricePerHour * 24 * 15,
-      price_30days: pricePerHour * 24 * 30,
-      min_booking_hours: 1
-    },
-    startDate,
-    endDate
-  );
-  
-  // Add GST (18%)
-  const gst = basePrice * 0.18;
-  
-  // Add service fee (5%)
-  const serviceFee = basePrice * 0.05;
-  
-  // Return total price with exactly 2 decimal places
-  return Number((basePrice + gst + serviceFee).toFixed(2));
+export function calculateDuration(startDate: Date, endDate: Date): number {
+  const diffInMs = endDate.getTime() - startDate.getTime();
+  const diffInHours = Math.ceil(diffInMs / (1000 * 60 * 60));
+  return diffInHours;
 }
 
-export function calculateDuration(startDate: Date, endDate: Date): number {
-  const diffInMilliseconds = endDate.getTime() - startDate.getTime();
-  const diffInHours = diffInMilliseconds / (1000 * 60 * 60);
-  return Math.max(Math.round(diffInHours), 1);
-} 
+export function calculateTotalPrice(startDate: Date, endDate: Date, pricePerHour: number): number {
+  const duration = calculateDuration(startDate, endDate);
+  return duration * pricePerHour;
+}
+
+/**
+ * Default fetcher for SWR
+ * @param url The URL to fetch from
+ * @returns The parsed JSON response
+ */
+export const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  
+  // If the status code is not in the range 200-299,
+  // we still try to parse and throw it.
+  if (!res.ok) {
+    const error = new Error('An error occurred while fetching the data.');
+    // Attach extra info to the error object.
+    const info = await res.json();
+    (error as any).status = res.status;
+    (error as any).info = info;
+    throw error;
+  }
+
+  return res.json();
+}; 

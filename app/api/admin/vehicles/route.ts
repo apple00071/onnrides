@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server';
 import logger from '@/lib/logger';
 import { db } from '@/lib/db';
-import { vehicles, vehicleTypeEnum } from '@/lib/db/schema';
+import { vehicles } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyAuth } from '@/lib/auth';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
+import { randomUUID } from 'crypto';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
 
     const formattedVehicles = result.map(vehicle => {
       let parsedLocation;
+      let parsedImages;
 
       try {
         parsedLocation = JSON.parse(vehicle.location);
@@ -23,10 +25,16 @@ export async function GET(request: NextRequest) {
         parsedLocation = [vehicle.location];
       }
 
+      try {
+        parsedImages = JSON.parse(vehicle.images);
+      } catch (e) {
+        parsedImages = vehicle.images ? [vehicle.images] : [];
+      }
+
       return {
         ...vehicle,
         location: parsedLocation,
-        display_name: `${vehicle.brand} ${vehicle.model} (${vehicle.year})`,
+        images: parsedImages,
       };
     });
 
@@ -63,18 +71,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      brand,
-      model,
+      name,
       type,
-      year,
-      color,
       location,
-      description,
-      price_per_day,
+      quantity,
+      price_per_hour,
+      min_booking_hours,
+      images,
+      is_available = true,
     } = body;
 
     // Validate required fields
-    if (!brand || !model || !type || !year || !color || !location || !price_per_day) {
+    if (!name || !type || !location || !quantity || !price_per_hour || !min_booking_hours || !images) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -86,20 +94,24 @@ export async function POST(request: NextRequest) {
       ? JSON.stringify(location)
       : JSON.stringify([location]);
 
-    // Create vehicle
+    // Ensure images is properly formatted
+    const imagesJson = Array.isArray(images)
+      ? JSON.stringify(images)
+      : JSON.stringify([images]);
+
+    // Create vehicle with explicit ID
     const [vehicle] = await db
       .insert(vehicles)
       .values({
-        owner_id: user.id,
-        brand,
-        model,
+        id: randomUUID(),
+        name,
         type,
-        year,
-        color,
         location: locationJson,
-        description,
-        price_per_day: price_per_day.toString(),
-        is_available: true,
+        quantity: quantity.toString(),
+        price_per_hour: price_per_hour.toString(),
+        min_booking_hours: min_booking_hours.toString(),
+        images: imagesJson,
+        is_available,
       })
       .returning();
 
@@ -108,7 +120,7 @@ export async function POST(request: NextRequest) {
       vehicle: {
         ...vehicle,
         location: JSON.parse(vehicle.location),
-        display_name: `${vehicle.brand} ${vehicle.model} (${vehicle.year})`,
+        images: JSON.parse(vehicle.images),
       }
     }), {
       status: 200,

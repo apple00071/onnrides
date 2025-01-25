@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 interface VehicleCardProps {
   name: string;
@@ -37,8 +37,28 @@ export function VehicleCard({
   onBook,
   className,
 }: VehicleCardProps) {
+  // Parse and clean locations
+  const parsedLocations = (() => {
+    if (!locations || locations.length === 0) return [];
+    
+    return locations.map(location => {
+      // If the location is a JSON string (e.g., from database)
+      if (typeof location === 'string') {
+        try {
+          // Try to parse if it's a JSON string
+          const parsed = JSON.parse(location);
+          return Array.isArray(parsed) ? parsed[0] : location.replace(/[\[\]'"]/g, '').trim();
+        } catch (e) {
+          // If parsing fails, just clean the string
+          return location.replace(/[\[\]'"]/g, '').trim();
+        }
+      }
+      return location;
+    }).filter(Boolean); // Remove any empty values
+  })();
+
   const handleBookClick = () => {
-    if (!locations || locations.length === 0) {
+    if (!parsedLocations || parsedLocations.length === 0) {
       toast.error('Please select a location to proceed');
       return;
     }
@@ -60,10 +80,6 @@ export function VehicleCard({
   const formatDate = (date: string) => {
     if (!date) return '';
     return new Date(date).toISOString().split('T')[0];
-  };
-
-  const formatCurrency = (value: number) => {
-    return value.toFixed(2);
   };
 
   return (
@@ -94,14 +110,14 @@ export function VehicleCard({
             <div>
               <p className="text-sm text-gray-500 mb-1">Available at</p>
               <Select
-                value={locations[0]}
+                value={parsedLocations[0] || ''}
                 onValueChange={onLocationChange}
               >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Select location" />
                 </SelectTrigger>
                 <SelectContent>
-                  {locations.map((location) => (
+                  {parsedLocations.map((location) => (
                     <SelectItem key={location} value={location}>
                       {location}
                     </SelectItem>
@@ -113,7 +129,7 @@ export function VehicleCard({
           <div className="text-right">
             <div className="flex items-center justify-between">
               <div className="text-lg font-semibold">
-                ₹{formatCurrency(price)}
+                {formatCurrency(price)}
               </div>
             </div>
           </div>

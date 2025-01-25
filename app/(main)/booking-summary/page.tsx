@@ -5,46 +5,53 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'react-hot-toast'
-import { signIn } from 'next-auth/react'
-import type { SignInResponse } from 'next-auth/react'
+import { format } from 'date-fns'
+import Script from 'next/script'
+import { formatCurrency, calculateBookingPrice } from '@/lib/utils'
 
 interface BookingDetails {
-  vehicleId: string
-  vehicleName: string
-  vehicleImage: string
-  price: string
-  pickupDate: string
-  dropoffDate: string
-  pickupTime: string
-  dropoffTime: string
-  returnUrl?: string
+  id: string;
+  vehicleId: string;
+  vehicleName: string;
+  vehicleImage: string;
+  pricePerHour: number;
+  pickupDate: string;
+  dropoffDate: string;
+  pickupTime: string;
+  dropoffTime: string;
+  location: string;
+}
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
 }
 
 export default function BookingSummaryPage() {
-  const { user, isLoading: authLoading, isAuthenticated } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [showLoginForm, setShowLoginForm] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  })
+  const [loading, setLoading] = useState(false)
+  const [couponCode, setCouponCode] = useState('')
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null)
 
   useEffect(() => {
     // Get booking details from URL params
     const details: BookingDetails = {
+      id: searchParams.get('bookingId') || '',
       vehicleId: searchParams.get('vehicleId') || '',
       vehicleName: searchParams.get('vehicleName') || '',
-      vehicleImage: searchParams.get('vehicleImage') || '',
-      price: searchParams.get('price') || '',
+      vehicleImage: decodeURIComponent(searchParams.get('vehicleImage') || ''),
+      pricePerHour: Number(searchParams.get('pricePerHour')) || 0,
       pickupDate: searchParams.get('pickupDate') || '',
       dropoffDate: searchParams.get('dropoffDate') || '',
       pickupTime: searchParams.get('pickupTime') || '',
       dropoffTime: searchParams.get('dropoffTime') || '',
-      returnUrl: searchParams.get('returnUrl') || ''
+      location: searchParams.get('location') || ''
     }
+
+    console.log('Booking details:', details) // Debug log
 
     if (!details.vehicleId || !details.pickupDate || !details.dropoffDate) {
       toast.error('Missing booking details')
@@ -55,242 +62,312 @@ export default function BookingSummaryPage() {
     setBookingDetails(details)
   }, [searchParams, router])
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    
-    try {
-      const result = await signIn('credentials', {
-        redirect: false,
-        email: formData.email,
-        password: formData.password
-      })
-
-      if (!result?.error) {
-        toast.success('Logged in successfully')
-        setShowLoginForm(false)
-      } else {
-        toast.error(result.error)
-      }
-    } catch (error) {
-      toast.error('Failed to sign in')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleCancel = () => {
-    if (bookingDetails?.returnUrl) {
-      router.push(bookingDetails.returnUrl)
-    } else {
-      setShowLoginForm(false)
-    }
-  }
-
   const handleConfirmBooking = async () => {
     if (!user) {
-      setShowLoginForm(true)
+      router.push('/auth/signin')
       return
     }
 
     if (!bookingDetails) return
 
     try {
-      // First check if user has verified documents
-      const docResponse = await fetch(`/api/users/${user.id}/documents`)
-      if (!docResponse.ok) {
-        throw new Error('Failed to fetch user documents')
-      }
-      const documents = await docResponse.json()
+      setLoading(true)
+      
+      // Format dates properly
+      const pickupDateTime = new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`)
+      const dropoffDateTime = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`)
+      
+      // Calculate base price using the same logic as vehicle card
+      const basePrice = calculateBookingPrice(
+        {
+          price_per_day: bookingDetails.pricePerHour,
+          price_12hrs: bookingDetails.pricePerHour * 12,
+          price_24hrs: bookingDetails.pricePerHour * 24,
+          price_7days: bookingDetails.pricePerHour * 24 * 7,
+          price_15days: bookingDetails.pricePerHour * 24 * 15,
+          price_30days: bookingDetails.pricePerHour * 24 * 30,
+          min_booking_hours: 5
+        },
+        pickupDateTime,
+        dropoffDateTime
+      );
+      
+      // Calculate taxes and fees
+      const gst = basePrice * 0.18
+      const serviceFee = basePrice * 0.05
+      const totalAmount = basePrice + gst + serviceFee
 
-      if (!documents || !documents.is_approved) {
-        toast.error('Please verify your documents before booking')
-        router.push('/profile')
-        return
-      }
-
-      // Calculate total days and amount
-      const pickupDate = new Date(bookingDetails.pickupDate)
-      const dropoffDate = new Date(bookingDetails.dropoffDate)
-      const days = Math.ceil((dropoffDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))
-      const totalAmount = days * parseFloat(bookingDetails.price)
-
-      // Create booking
+      // Create booking first
       const bookingResponse = await fetch('/api/bookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          user_id: user.id,
           vehicle_id: bookingDetails.vehicleId,
-          pickup_date: bookingDetails.pickupDate,
-          dropoff_date: bookingDetails.dropoffDate,
-          pickup_time: bookingDetails.pickupTime,
-          dropoff_time: bookingDetails.dropoffTime,
+          pickup_datetime: pickupDateTime.toISOString(),
+          dropoff_datetime: dropoffDateTime.toISOString(),
+          total_hours: Math.ceil((dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60)),
           total_amount: totalAmount,
-          status: 'pending'
+          status: 'pending',
+          payment_status: 'pending',
+          location: bookingDetails.location
         }),
-      })
+      });
 
       if (!bookingResponse.ok) {
-        throw new Error('Failed to create booking')
+        const error = await bookingResponse.json();
+        throw new Error(error.message || 'Failed to create booking');
       }
 
-      toast.success('Booking confirmed successfully!')
-      router.push('/bookings') // Redirect to bookings list
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to confirm booking')
+      const { booking } = await bookingResponse.json();
+      console.log('Booking created:', booking);
+
+      // Create payment order
+      const orderResponse = await fetch('/api/payments/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingId: booking.id,
+          amount: totalAmount,
+        }),
+      });
+
+      if (!orderResponse.ok) {
+        throw new Error('Failed to create payment order');
+      }
+
+      const { order } = await orderResponse.json();
+      console.log('Payment order created:', order);
+
+      // Initialize Razorpay
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'OnnRides',
+        description: `Booking for ${bookingDetails.vehicleName}`,
+        order_id: order.id,
+        handler: async function (response: any) {
+          try {
+            console.log('Payment successful, verifying...', response);
+            const verifyResponse = await fetch('/api/payments/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                bookingId: booking.id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+
+            if (!verifyResponse.ok) {
+              throw new Error('Payment verification failed');
+            }
+
+            toast.success('Payment successful!');
+            router.push('/bookings');
+          } catch (error) {
+            console.error('Payment verification error:', error);
+            toast.error('Payment verification failed');
+          }
+        },
+        prefill: {
+          email: user.email || '',
+        },
+        theme: {
+          color: '#F8B602',
+        },
+        modal: {
+          ondismiss: function() {
+            setLoading(false);
+          }
+        }
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+    } catch (error) {
+      console.error('Payment initiation error:', error);
+      toast.error('Failed to initiate payment');
+    } finally {
+      setLoading(false)
     }
   }
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#f26e24]"></div>
-      </div>
-    )
+  if (authLoading || !bookingDetails) return null
+
+  // Format dates and times
+  const formatTimeToAMPM = (time: string) => {
+    const [hours, minutes] = time.split(':')
+    const hour = parseInt(hours, 10)
+    const ampm = hour >= 12 ? 'PM' : 'AM'
+    const hour12 = hour % 12 || 12
+    return `${hour12}:${minutes} ${ampm}`
   }
 
-  if (!bookingDetails) {
-    return null
-  }
+  // Calculate base price using the same logic as vehicle card
+  const pickupDateTime = new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`);
+  const dropoffDateTime = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`);
+  
+  const basePrice = calculateBookingPrice(
+    {
+      price_per_day: bookingDetails.pricePerHour,
+      price_12hrs: bookingDetails.pricePerHour * 12,
+      price_24hrs: bookingDetails.pricePerHour * 24,
+      price_7days: bookingDetails.pricePerHour * 24 * 7,
+      price_15days: bookingDetails.pricePerHour * 24 * 15,
+      price_30days: bookingDetails.pricePerHour * 24 * 30,
+      min_booking_hours: 5
+    },
+    pickupDateTime,
+    dropoffDateTime
+  );
 
-  // Calculate total amount
-  const days = Math.ceil((new Date(bookingDetails.dropoffDate).getTime() - new Date(bookingDetails.pickupDate).getTime()) / (1000 * 60 * 60 * 24))
-  const totalAmount = days * parseFloat(bookingDetails.price)
+  // Calculate taxes and fees
+  const gst = basePrice * 0.18;
+  const serviceFee = basePrice * 0.05;
+  const totalDue = basePrice + gst + serviceFee;
+
+  // Parse location
+  const displayLocation = (() => {
+    try {
+      const parsed = JSON.parse(bookingDetails.location);
+      return Array.isArray(parsed) ? parsed[0] : bookingDetails.location;
+    } catch (e) {
+      return bookingDetails.location.replace(/[\[\]'"]/g, '').trim();
+    }
+  })();
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div className="bg-[#f26e24] px-6 py-4">
-            <h1 className="text-2xl font-bold text-white">Booking Summary</h1>
+    <>
+      <Script
+        src="https://checkout.razorpay.com/v1/checkout.js"
+        strategy="beforeInteractive"
+      />
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-[1fr_400px] gap-6">
+          {/* Left Column - Summary */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h1 className="text-xl font-bold mb-6">SUMMARY</h1>
+            
+            <div className="grid md:grid-cols-[300px_1fr] gap-8">
+              {/* Vehicle Image */}
+              <div>
+                <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100">
+                  {bookingDetails?.vehicleImage ? (
+                    <Image
+                      src={bookingDetails.vehicleImage}
+                      alt={bookingDetails.vehicleName}
+                      fill
+                      className="object-contain"
+                      priority
+                      sizes="(max-width: 300px) 100vw, 300px"
+                      onError={(e) => {
+                        console.error('Image load error:', e);
+                        const img = e.target as HTMLImageElement;
+                        img.style.display = 'none';
+                        // Show fallback image
+                        img.src = '/placeholder.png';
+                        img.style.display = 'block';
+                      }}
+                    />
+                  ) : (
+                    <Image
+                      src="/placeholder.png"
+                      alt="Vehicle placeholder"
+                      fill
+                      className="object-contain"
+                      priority
+                      sizes="(max-width: 300px) 100vw, 300px"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Vehicle Details */}
+              <div>
+                <h2 className="text-xl font-semibold mb-2">{bookingDetails.vehicleName}</h2>
+                <p className="text-gray-600 mb-4">Car</p>
+
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-center">
+                    <p className="text-base font-medium">{formatTimeToAMPM(bookingDetails.pickupTime)}</p>
+                    <p className="text-sm text-gray-500">{bookingDetails.pickupDate}</p>
+                  </div>
+                  <div className="text-gray-400">to</div>
+                  <div className="text-center">
+                    <p className="text-base font-medium">{formatTimeToAMPM(bookingDetails.dropoffTime)}</p>
+                    <p className="text-sm text-gray-500">{bookingDetails.dropoffDate}</p>
+                  </div>
+                </div>
+
+                <div className="text-gray-600">
+                  <p>{displayLocation}</p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="p-6 space-y-8">
-            {/* Vehicle Details */}
-            <div className="flex gap-6">
-              <div className="relative w-48 h-32">
-                <Image
-                  src={bookingDetails.vehicleImage}
-                  alt={bookingDetails.vehicleName}
-                  fill
-                  className="object-cover rounded-lg"
+          {/* Right Column - Billing Details */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-bold mb-6">Billing Details</h2>
+
+            {/* Coupon Code */}
+            <div className="mb-6">
+              <p className="text-sm font-medium mb-2">Apply Coupon</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value)}
+                  placeholder="Coupon code"
+                  className="flex-1 px-3 py-2 border rounded-md text-sm"
                 />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">{bookingDetails.vehicleName}</h2>
-                <p className="text-xl font-semibold text-[#f26e24]">₹{bookingDetails.price}/day</p>
-              </div>
-            </div>
-
-            {/* Trip Details */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold">Trip Details</h2>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm text-gray-600">Pickup Date & Time</p>
-                  <p className="font-medium">
-                    {new Date(bookingDetails.pickupDate).toLocaleDateString()} at {bookingDetails.pickupTime}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Drop-off Date & Time</p>
-                  <p className="font-medium">
-                    {new Date(bookingDetails.dropoffDate).toLocaleDateString()} at {bookingDetails.dropoffTime}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Price Summary */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-medium text-gray-900">Price Summary</h3>
-              <div className="mt-4 space-y-2">
-                <div className="flex justify-between">
-                  <span>Daily Rate</span>
-                  <span>₹{bookingDetails.price}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Number of Days</span>
-                  <span>{days} {days === 1 ? 'day' : 'days'}</span>
-                </div>
-                <div className="flex justify-between font-medium text-lg pt-2 border-t">
-                  <span>Total Amount</span>
-                  <span>₹{totalAmount}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Login Form (shown only when needed) */}
-            {showLoginForm && !user ? (
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Sign in to Complete Booking</h2>
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                      Email address
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] sm:text-sm"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      id="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] sm:text-sm"
-                      required
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="flex-1 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#f26e24] hover:bg-[#e05d13] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24]"
-                    >
-                      {isSubmitting ? 'Signing in...' : 'Sign in'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCancel}
-                      className="flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24]"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            ) : (
-              <div className="flex gap-3">
-                <button
-                  onClick={handleConfirmBooking}
-                  className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#f26e24] hover:bg-[#e05d13] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24]"
-                >
-                  Confirm Booking
-                </button>
-                <button
-                  onClick={handleCancel}
-                  className="flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24]"
-                >
-                  Cancel
+                <button className="px-4 py-2 bg-black text-white rounded-md text-sm font-medium">
+                  APPLY
                 </button>
               </div>
-            )}
+            </div>
+
+            {/* Price Breakdown */}
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Vehicle Rental Charges</span>
+                <span>{formatCurrency(basePrice)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">GST (18%)</span>
+                <span>{formatCurrency(gst)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Service Fee (5%)</span>
+                <span>{formatCurrency(serviceFee)}</span>
+              </div>
+            </div>
+
+            {/* Total */}
+            <div className="flex justify-between items-center border-t pt-4 mb-6">
+              <span className="text-lg font-bold">Total Due</span>
+              <span className="text-lg font-bold">{formatCurrency(totalDue)}</span>
+            </div>
+
+            {/* Make Payment Button */}
+            <button
+              onClick={handleConfirmBooking}
+              disabled={loading}
+              className="w-full bg-yellow-400 text-black py-3 rounded-md font-medium hover:bg-yellow-500 transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Processing...' : 'Make payment'}
+            </button>
           </div>
         </div>
       </div>
-    </div>
-  )
+    </>
+  );
 } 
