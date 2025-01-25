@@ -56,24 +56,30 @@ export default function VehiclesPage() {
   const [searchDuration, setSearchDuration] = useState<string>('');
 
   const calculateDuration = useCallback((pickupStr: string, dropoffStr: string) => {
-    const pickup = new Date(pickupStr);
-    const dropoff = new Date(dropoffStr);
-    const diff = dropoff.getTime() - pickup.getTime();
-    
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    try {
+      const pickup = new Date(pickupStr);
+      const dropoff = new Date(dropoffStr);
+      const diff = dropoff.getTime() - pickup.getTime();
+      
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
-    let duration = '';
-    if (days > 0) duration += `${days} ${days === 1 ? 'Day' : 'Days'}`;
-    if (hours > 0) duration += `${duration ? ', ' : ''}${hours} ${hours === 1 ? 'Hour' : 'Hours'}`;
-    if (minutes > 0) duration += `${duration ? ' and ' : ''}${minutes} ${minutes === 1 ? 'Minute' : 'Minutes'}`;
+      let duration = '';
+      if (days > 0) duration += `${days} ${days === 1 ? 'Day' : 'Days'}`;
+      if (hours > 0) duration += `${duration ? ', ' : ''}${hours} ${hours === 1 ? 'Hour' : 'Hours'}`;
+      if (minutes > 0) duration += `${duration ? ' and ' : ''}${minutes} ${minutes === 1 ? 'Minute' : 'Minutes'}`;
 
-    return duration || '0 Minutes';
+      return duration || '0 Minutes';
+    } catch (error) {
+      logger.error('Error calculating duration:', error);
+      return '0 Minutes';
+    }
   }, []);
 
   const fetchVehicles = useCallback(async () => {
     try {
+      setLoading(true);
       // Get search params
       const pickupDate = searchParams.get('pickupDate');
       const pickupTime = searchParams.get('pickupTime');
@@ -104,66 +110,36 @@ export default function VehiclesPage() {
 
       // Fetch vehicles with query params
       const response = await fetch(`/api/vehicles?${queryParams.toString()}`);
-      const data = await response.json();
-
       if (!response.ok) {
+        const data = await response.json();
         throw new Error(data.message || 'Failed to fetch vehicles');
       }
 
-      // Add detailed logging for the entire response
-      console.log('Full API Response:', JSON.stringify(data, null, 2));
-
-      // Debug log for image URLs with more detail
-      data.vehicles.forEach((vehicle: Vehicle) => {
-        console.log('Vehicle Debug Info:', {
-          name: vehicle.name,
-          imageType: typeof vehicle.images,
-          rawImages: vehicle.images,
-          parsedImages: (() => {
-            try {
-              return typeof vehicle.images === 'string' ? JSON.parse(vehicle.images) : vehicle.images;
-            } catch (e: unknown) {
-              if (e instanceof Error) {
-                return `Error parsing: ${e.message}`;
-              }
-              return 'Error parsing images';
-            }
-          })()
-        });
-      });
-
+      const data = await response.json();
       if (!data.vehicles || !Array.isArray(data.vehicles)) {
         throw new Error('Invalid response format');
       }
 
-      // Debug log each vehicle's location
-      data.vehicles.forEach((vehicle: Vehicle) => {
-        logger.info(`Vehicle ${vehicle.id} locations:`, {
-          location: vehicle.location,
-          isArray: Array.isArray(vehicle.location),
-          type: typeof vehicle.location
-        });
-      });
+      // Process vehicles data
+      const processedVehicles = data.vehicles.map((vehicle: Vehicle) => ({
+        ...vehicle,
+        location: Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location],
+        images: Array.isArray(vehicle.images) ? vehicle.images : []
+      }));
 
       // Sort vehicles based on selected option
-      const sortedVehicles = [...data.vehicles];
+      const sortedVehicles = [...processedVehicles];
+      if (sortBy === 'price-low-high') {
+        sortedVehicles.sort((a, b) => a.price_per_hour - b.price_per_hour);
+      } else if (sortBy === 'price-high-low') {
+        sortedVehicles.sort((a, b) => b.price_per_hour - a.price_per_hour);
+      }
 
       // Filter vehicles based on selected locations
       const filteredVehicles = selectedLocations.length > 0
-        ? sortedVehicles.filter(vehicle => {
-            const vehicleLocations = Array.isArray(vehicle.location) 
-              ? vehicle.location 
-              : [vehicle.location];
-            return selectedLocations.some(selected => vehicleLocations.includes(selected));
-          })
+        ? sortedVehicles.filter(vehicle => 
+            selectedLocations.some(selected => vehicle.location.includes(selected)))
         : sortedVehicles;
-
-      // Sort filtered vehicles
-      if (sortBy === 'price-low-high') {
-        filteredVehicles.sort((a, b) => a.price_per_hour - b.price_per_hour);
-      } else if (sortBy === 'price-high-low') {
-        filteredVehicles.sort((a, b) => b.price_per_hour - a.price_per_hour);
-      }
 
       setVehicles(filteredVehicles);
     } catch (error) {
@@ -382,43 +358,20 @@ export default function VehiclesPage() {
                     key={vehicle.id}
                     name={vehicle.name}
                     imageUrl={imageUrl}
-                    locations={(() => {
-                      if (Array.isArray(vehicle.location)) {
-                        return vehicle.location;
-                      }
-                      if (typeof vehicle.location === 'string') {
-                        try {
-                          const parsed = JSON.parse(vehicle.location);
-                          return Array.isArray(parsed) ? parsed : [vehicle.location];
-                        } catch (e) {
-                          return [vehicle.location];
-                        }
-                      }
-                      return [];
-                    })()}
-                    price={vehicle.pricing?.total_price || vehicle.price_per_hour}
+                    locations={vehicle.location}
+                    price={vehicle.price_per_hour}
                     startTime={searchParams.get('pickupTime') || ''}
                     endTime={searchParams.get('dropoffTime') || ''}
                     startDate={searchParams.get('pickupDate') || ''}
                     endDate={searchParams.get('dropoffDate') || ''}
-                    onLocationChange={(location) => {
-                      console.log('Location selected for vehicle:', vehicle.id, location);
-                    }}
+                    onLocationChange={handleLocationChange}
                     onBook={() => {
-                      const currentLocation = searchParams.get('location');
-                      // If no location in search params, use the vehicle's first location
-                      if (!currentLocation && Array.isArray(vehicle.location) && vehicle.location.length > 0) {
-                        const newSearchParams = new URLSearchParams(searchParams.toString());
-                        newSearchParams.set('location', vehicle.location[0]);
-                        router.push(`/vehicles/${vehicle.id}/booking?${newSearchParams.toString()}`);
+                      const location = vehicle.location[0];
+                      if (!location) {
+                        toast.error('Please select a location');
                         return;
                       }
-                      // If no location available at all, show error
-                      if (!currentLocation && (!Array.isArray(vehicle.location) || vehicle.location.length === 0)) {
-                        toast.error('Please select a location first');
-                        return;
-                      }
-                      router.push(`/vehicles/${vehicle.id}/booking?${searchParams.toString()}`);
+                      router.push(`/booking-summary?${searchParams.toString()}&vehicleId=${vehicle.id}&vehicleName=${encodeURIComponent(vehicle.name)}&vehicleImage=${encodeURIComponent(vehicle.images[0] || '')}&pricePerHour=${vehicle.price_per_hour}&location=${encodeURIComponent(JSON.stringify([location]))}`);
                     }}
                   />
                 );
