@@ -7,10 +7,10 @@ import {
   decimal,
   jsonb,
   boolean,
-  sql
+  sql,
+  real
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
-import { InferModel } from 'drizzle-orm';
+import { relations, type InferModel } from 'drizzle-orm';
 
 // Define enums
 export const roleEnum = pgEnum("role", ["user", "admin"]);
@@ -55,18 +55,22 @@ export const vehicles = pgTable('vehicles', {
 });
 
 export const bookings = pgTable('bookings', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  user_id: uuid('user_id').notNull().references(() => users.id),
-  vehicle_id: uuid('vehicle_id').notNull().references(() => vehicles.id),
-  pickup_datetime: timestamp('pickup_datetime').notNull(),
-  dropoff_datetime: timestamp('dropoff_datetime').notNull(),
-  total_hours: decimal('total_hours', { precision: 10, scale: 2 }).notNull(),
-  total_price: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
-  status: bookingStatusEnum('status').notNull().default('pending'),
-  payment_status: paymentStatusEnum('payment_status').notNull().default('pending'),
+  id: text('id').primaryKey(),
+  user_id: text('user_id')
+    .notNull()
+    .references(() => users.id),
+  vehicle_id: text('vehicle_id')
+    .notNull()
+    .references(() => vehicles.id),
+  start_date: timestamp('start_date').notNull(),
+  end_date: timestamp('end_date').notNull(),
+  total_hours: real('total_hours').notNull(),
+  total_price: real('total_price').notNull(),
+  status: text('status').default('pending').notNull(),
+  payment_status: text('payment_status').default('pending').notNull(),
   payment_details: text('payment_details'),
-  created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull()
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
 
 export const documents = pgTable("documents", {

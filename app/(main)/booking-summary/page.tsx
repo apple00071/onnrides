@@ -72,6 +72,11 @@ export default function BookingSummaryPage() {
 
     try {
       setLoading(true)
+
+      // Check if Razorpay is loaded
+      if (typeof window.Razorpay === 'undefined') {
+        throw new Error('Payment system is not loaded. Please refresh the page.');
+      }
       
       // Format dates properly
       const pickupDateTime = new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`)
@@ -108,9 +113,7 @@ export default function BookingSummaryPage() {
           pickup_datetime: pickupDateTime.toISOString(),
           dropoff_datetime: dropoffDateTime.toISOString(),
           total_hours: Math.ceil((dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60)),
-          total_amount: totalAmount,
-          status: 'pending',
-          payment_status: 'pending',
+          total_price: totalAmount,
           location: bookingDetails.location
         }),
       });
@@ -131,7 +134,7 @@ export default function BookingSummaryPage() {
         },
         body: JSON.stringify({
           bookingId: booking.id,
-          amount: totalAmount,
+          amount: totalAmount, // Server will handle conversion to paise
         }),
       });
 
@@ -139,17 +142,17 @@ export default function BookingSummaryPage() {
         throw new Error('Failed to create payment order');
       }
 
-      const { order } = await orderResponse.json();
-      console.log('Payment order created:', order);
+      const orderData = await orderResponse.json();
+      console.log('Payment order created:', orderData);
 
       // Initialize Razorpay
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: order.amount,
-        currency: order.currency,
+        key: orderData.key,
+        amount: Math.round(totalAmount * 100), // Convert to paise here
+        currency: orderData.currency,
         name: 'OnnRides',
         description: `Booking for ${bookingDetails.vehicleName}`,
-        order_id: order.id,
+        order_id: orderData.id,
         handler: async function (response: any) {
           try {
             console.log('Payment successful, verifying...', response);
@@ -181,7 +184,7 @@ export default function BookingSummaryPage() {
           email: user.email || '',
         },
         theme: {
-          color: '#F8B602',
+          color: '#f26e24',
         },
         modal: {
           ondismiss: function() {
@@ -190,6 +193,7 @@ export default function BookingSummaryPage() {
         }
       };
 
+      console.log('Initializing Razorpay with options:', { ...options, key: '***' });
       const razorpay = new window.Razorpay(options);
       razorpay.open();
     } catch (error) {
@@ -248,7 +252,7 @@ export default function BookingSummaryPage() {
     <>
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
-        strategy="beforeInteractive"
+        strategy="afterInteractive"
       />
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto grid md:grid-cols-[1fr_400px] gap-6">

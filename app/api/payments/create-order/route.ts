@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     // Create Razorpay order
     const razorpayOrder = await createOrder({
-      amount: Number(booking.total_price.toFixed(2)),
+      amount: Math.round(Number(booking.total_price) * 100), // Convert to paise and ensure it's an integer
       currency: 'INR',
       receipt: bookingId,
       notes: {
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       .set({
         payment_details: JSON.stringify({
           order_id: razorpayOrder.id,
-          amount: Number((razorpayOrder.amount / 100).toFixed(2)),
+          amount: razorpayOrder.amount,
           currency: razorpayOrder.currency,
           status: razorpayOrder.status,
           created_at: new Date().toISOString()
@@ -88,18 +88,10 @@ export async function POST(request: NextRequest) {
       .execute();
 
     return new Response(JSON.stringify({
+      id: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+      currency: razorpayOrder.currency,
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-      order: {
-        id: razorpayOrder.id,
-        amount: razorpayOrder.amount,
-        currency: razorpayOrder.currency
-      },
-      prefill: {
-        email: user.email || '',
-      },
-      theme: {
-        color: '#F8B602'
-      }
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

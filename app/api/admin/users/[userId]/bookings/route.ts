@@ -28,10 +28,10 @@ export async function GET(
     const bookings = await sql`
       SELECT 
         b.id,
-        b.start_time,
-        b.end_time,
+        b.start_date,
+        b.end_date,
         b.total_hours,
-        b.total_amount,
+        b.total_price,
         b.status,
         b.payment_status,
         b.created_at,

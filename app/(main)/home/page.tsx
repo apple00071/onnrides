@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import Image from 'next/image';
 import { toast } from 'react-hot-toast';
+import { FaCar, FaBicycle, FaQuestionCircle, FaStar, FaMapMarkerAlt, FaCalendar, FaClock } from 'react-icons/fa';
 
 export default function Home() {
   const router = useRouter();
@@ -44,146 +45,258 @@ export default function Home() {
   }));
 
   return (
-    <div className="min-h-screen bg-[#fff8f0]">
+    <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="relative z-10 pb-8 sm:pb-16 md:pb-20 lg:pb-28 xl:pb-32">
-            <main className="mt-10 mx-auto max-w-7xl px-4 sm:mt-12 sm:px-6 md:mt-16 lg:mt-20 lg:px-8 xl:mt-28">
-              <div className="text-center">
-                <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-                  <span className="block">MAKE IT A DECEMBER TO</span>
-                  <span className="block">REMEMBER</span>
-                </h1>
-                <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl">
-                  Let's find your perfect ride
-                </p>
-                
-                {/* Search Form */}
-                <div className="mt-10 max-w-xl mx-auto bg-white rounded-lg shadow-lg p-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                    Search your next ride
-                  </h2>
-                  <form onSubmit={handleSearch} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Pickup
-                        </label>
-                        <div className="mt-1 grid grid-cols-2 gap-2">
-                          <input
-                            type="date"
-                            value={pickupDate}
-                            onChange={(e) => setPickupDate(e.target.value)}
-                            min={new Date().toISOString().split('T')[0]}
-                            className="shadow-sm focus:ring-[#f26e24] focus:border-[#f26e24] block w-full sm:text-sm border-gray-300 rounded-md"
-                            required
-                          />
-                          <select
-                            value={pickupTime}
-                            onChange={(e) => setPickupTime(e.target.value)}
-                            className="shadow-sm focus:ring-[#f26e24] focus:border-[#f26e24] block w-full sm:text-sm border-gray-300 rounded-md"
-                            required
-                          >
-                            <option value="">Select time</option>
-                            {timeOptions.map(({ value, label }) => (
-                              <option key={value} value={value}>
-                                {label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Dropoff
-                        </label>
-                        <div className="mt-1 grid grid-cols-2 gap-2">
-                          <input
-                            type="date"
-                            value={dropoffDate}
-                            onChange={(e) => setDropoffDate(e.target.value)}
-                            min={pickupDate || new Date().toISOString().split('T')[0]}
-                            className="shadow-sm focus:ring-[#f26e24] focus:border-[#f26e24] block w-full sm:text-sm border-gray-300 rounded-md"
-                            required
-                          />
-                          <select
-                            value={dropoffTime}
-                            onChange={(e) => setDropoffTime(e.target.value)}
-                            className="shadow-sm focus:ring-[#f26e24] focus:border-[#f26e24] block w-full sm:text-sm border-gray-300 rounded-md"
-                            required
-                          >
-                            <option value="">Select time</option>
-                            {timeOptions.map(({ value, label }) => (
-                              <option key={value} value={value}>
-                                {label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="submit"
-                      className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#f26e24] hover:bg-[#e05d13] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24]"
-                    >
-                      Search
-                    </button>
-                  </form>
-                </div>
-              </div>
-            </main>
-          </div>
+      <section className="relative min-h-[800px] bg-[#f8fafc]">
+        {/* City Illustration */}
+        <div className="absolute inset-0 w-full h-full">
+          <Image
+            src="/images/7xm.xyz418925.png"
+            alt="Hyderabad Landmarks"
+            fill
+            className="object-contain object-bottom opacity-90"
+            priority
+          />
         </div>
-      </div>
 
-      {/* Services Section */}
-      <div className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900">
-              Services We Offer
-            </h2>
-            <div className="mt-10 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="text-center">
-                <div className="flex items-center justify-center h-12 w-12 rounded-md bg-[#f26e24] text-white mx-auto">
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="mt-3 text-lg font-medium text-gray-900">24/7 Support</h3>
-                <p className="mt-2 text-base text-gray-500">
-                  Round the clock customer support for all your needs
-                </p>
-              </div>
+        {/* Content Container */}
+        <div className="relative z-10 container mx-auto px-4">
+          {/* Main heading and text */}
+          <div className="text-center max-w-3xl mx-auto pt-16 md:pt-24">
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900">
+              Explore Hyderabad Your Way
+            </h1>
+            <p className="mt-6 text-lg md:text-xl text-gray-700 max-w-2xl mx-auto">
+              Experience the freedom of the open road with our premium vehicle rental service.
+              Choose from our wide selection of cars and bikes.
+            </p>
+          </div>
 
-              <div className="text-center">
-                <div className="flex items-center justify-center h-12 w-12 rounded-md bg-[#f26e24] text-white mx-auto">
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-                  </svg>
+          {/* Search Form */}
+          <div className="max-w-3xl mx-auto mt-12 md:mt-16">
+            <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-xl p-6 md:p-8">
+              <h2 className="text-2xl md:text-3xl font-semibold text-center mb-8">Find Your Perfect Ride</h2>
+              <form onSubmit={handleSearch}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="flex items-center text-gray-700 text-lg mb-3">
+                      <FaCalendar className="text-[#f26e24] mr-2" />
+                      Pickup Date & Time
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="date"
+                        value={pickupDate}
+                        onChange={(e) => setPickupDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent transition-all"
+                        placeholder="dd-mm-yyyy"
+                        required
+                      />
+                      <select
+                        value={pickupTime}
+                        onChange={(e) => setPickupTime(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent transition-all"
+                        required
+                      >
+                        <option value="">Select time</option>
+                        {timeOptions.map(({ value, label }) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="flex items-center text-gray-700 text-lg mb-3">
+                      <FaClock className="text-[#f26e24] mr-2" />
+                      Drop-off Date & Time
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="date"
+                        value={dropoffDate}
+                        onChange={(e) => setDropoffDate(e.target.value)}
+                        min={pickupDate || new Date().toISOString().split('T')[0]}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent transition-all"
+                        placeholder="dd-mm-yyyy"
+                        required
+                      />
+                      <select
+                        value={dropoffTime}
+                        onChange={(e) => setDropoffTime(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent transition-all"
+                        required
+                      >
+                        <option value="">Select time</option>
+                        {timeOptions.map(({ value, label }) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="mt-3 text-lg font-medium text-gray-900">Best Prices</h3>
-                <p className="mt-2 text-base text-gray-500">
-                  Competitive rates and transparent pricing
-                </p>
-              </div>
-
-              <div className="text-center">
-                <div className="flex items-center justify-center h-12 w-12 rounded-md bg-[#f26e24] text-white mx-auto">
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
+                <div className="mt-8 text-center">
+                  <button
+                    type="submit"
+                    className="bg-[#f26e24] text-white px-12 py-3 rounded-lg text-lg font-medium hover:bg-[#e05d13] transition-colors focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-offset-2"
+                  >
+                    Search
+                  </button>
                 </div>
-                <h3 className="mt-3 text-lg font-medium text-gray-900">Quality Vehicles</h3>
-                <p className="mt-2 text-base text-gray-500">
-                  Well-maintained and regularly serviced vehicles
-                </p>
-              </div>
+              </form>
             </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* Services Section */}
+      <section className="py-20 max-w-7xl mx-auto px-4">
+        <div className="grid md:grid-cols-2 gap-12">
+          <div className="space-y-8">
+            <div className="bg-gray-50 p-8 rounded-lg">
+              <FaCar className="text-4xl text-[#f26e24] mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Rent A Car</h3>
+              <p className="text-gray-600">
+                Choose from our fleet of well-maintained vehicles for any occasion.
+                From economy to luxury, we have the perfect car for you.
+              </p>
+            </div>
+            <div className="bg-gray-50 p-8 rounded-lg">
+              <FaBicycle className="text-4xl text-[#f26e24] mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Rent A Bike</h3>
+              <p className="text-gray-600">
+                Explore the city on two wheels with our range of bikes.
+                Perfect for short trips and eco-friendly transportation.
+              </p>
+            </div>
+          </div>
+          <div className="relative h-[400px] rounded-lg overflow-hidden">
+            <Image
+              src="/images/rental-services.jpg"
+              alt="Rental Services"
+              fill
+              className="object-cover"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Why Choose Us Section */}
+      <section className="bg-gray-50 py-20">
+        <div className="max-w-7xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-12">Why Choose Us</h2>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-[#f26e24]">24h</span>
+              </div>
+              <h3 className="font-semibold mb-2">24/7 Support</h3>
+              <p className="text-gray-600">Round-the-clock assistance for all your needs</p>
+            </div>
+            <div className="text-center">
+              <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FaMapMarkerAlt className="text-2xl text-[#f26e24]" />
+              </div>
+              <h3 className="font-semibold mb-2">Convenient Locations</h3>
+              <p className="text-gray-600">Multiple pickup and drop-off points</p>
+            </div>
+            <div className="text-center">
+              <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FaStar className="text-2xl text-[#f26e24]" />
+              </div>
+              <h3 className="font-semibold mb-2">Best Rates</h3>
+              <p className="text-gray-600">Competitive pricing and special offers</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Customer Reviews Section */}
+      <section className="py-20">
+        <div className="max-w-7xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-12">What Our Customer Saying</h2>
+          <div className="grid md:grid-cols-3 gap-8">
+            {[1, 2, 3].map((review) => (
+              <div key={review} className="bg-white p-6 rounded-lg shadow-lg">
+                <div className="flex items-center mb-4">
+                  <Image
+                    src={`/images/avatar-${review}.jpg`}
+                    alt="Customer"
+                    width={48}
+                    height={48}
+                    className="rounded-full"
+                  />
+                  <div className="ml-4">
+                    <h4 className="font-semibold">Customer Name</h4>
+                    <div className="flex text-yellow-400">
+                      {[...Array(5)].map((_, i) => (
+                        <FaStar key={i} className="w-4 h-4" />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-gray-600">
+                  "Great service and well-maintained vehicles. The staff was very helpful
+                  and professional. Will definitely use again!"
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Service Locations Section */}
+      <section className="bg-gray-50 py-20">
+        <div className="max-w-7xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-12">Local Service We Provide</h2>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[1, 2, 3, 4, 5].map((location) => (
+              <div key={location} className="relative h-32 rounded-lg overflow-hidden group">
+                <Image
+                  src={`/images/location-${location}.jpg`}
+                  alt="Service Location"
+                  fill
+                  className="object-cover"
+                />
+                <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                  <span className="text-white font-semibold">Location {location}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-20">
+        <div className="max-w-3xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-12">Have Any Question</h2>
+          <div className="space-y-4">
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="font-semibold flex items-center">
+                <FaQuestionCircle className="text-[#f26e24] mr-2" />
+                How do I rent a vehicle?
+              </h3>
+              <p className="mt-2 text-gray-600">
+                Simply browse our available vehicles, select your dates, and complete the booking process online.
+              </p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="font-semibold flex items-center">
+                <FaQuestionCircle className="text-[#f26e24] mr-2" />
+                What documents do I need?
+              </h3>
+              <p className="mt-2 text-gray-600">
+                You'll need a valid driver's license, proof of insurance, and a credit card for the security deposit.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 } 

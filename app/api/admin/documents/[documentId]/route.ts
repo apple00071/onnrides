@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import logger from '@/lib/logger';
-import { documents } from '@/lib/schema';
+import { documents, statusEnum } from '@/lib/db/schema';
 import { verifyAuth } from '@/lib/auth';
 import type { User } from '@/lib/types';
 import { eq, sql } from 'drizzle-orm';
@@ -30,7 +30,7 @@ export async function PUT(
     }
 
     const { status } = await request.json();
-    if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
+    if (!status || !statusEnum.enumValues.includes(status)) {
       return NextResponse.json(
         { error: 'Invalid status value' },
         { status: 400 }
@@ -41,7 +41,7 @@ export async function PUT(
     const [updatedDocument] = await db
       .update(documents)
       .set({
-        status,
+        status: status as typeof statusEnum.enumValues[number],
         updated_at: sql`CURRENT_TIMESTAMP`
       })
       .where(eq(documents.id, documentId))

@@ -15,11 +15,15 @@ declare global {
 
 interface BookingDetails {
   id: string;
-  total_amount: number;
+  total_price: number;
   vehicle: {
+    id: string;
     name: string;
     type: string;
   };
+  pickup_datetime: Date;
+  dropoff_datetime: Date;
+  total_hours: number;
 }
 
 export default function PaymentPage() {
@@ -27,16 +31,37 @@ export default function PaymentPage() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState<BookingDetails | null>(null);
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
   const bookingId = searchParams.get('bookingId');
+
+  // Add Razorpay script loading handler
+  const handleRazorpayLoad = () => {
+    console.log('Razorpay script loaded');
+    setRazorpayLoaded(true);
+  };
 
   useEffect(() => {
     const fetchBooking = async () => {
       try {
+        console.log('Fetching booking details for:', bookingId);
         const response = await fetch(`/api/user/bookings/${bookingId}`);
-        if (!response.ok) throw new Error('Failed to fetch booking details');
+        
+        if (!response.ok) {
+          console.error('Failed to fetch booking:', response.status);
+          throw new Error('Failed to fetch booking details');
+        }
+        
         const data = await response.json();
+        console.log('Booking data received:', data);
+        
+        if (!data.booking?.total_price) {
+          console.error('Invalid booking data:', data);
+          throw new Error('Invalid booking data received');
+        }
+        
         setBooking(data.booking);
       } catch (error) {
+        console.error('Booking fetch error:', error);
         toast.error('Failed to load booking details');
         router.push('/bookings');
       } finally {
@@ -46,75 +71,119 @@ export default function PaymentPage() {
 
     if (bookingId) {
       fetchBooking();
+    } else {
+      console.error('No booking ID provided');
+      toast.error('No booking ID provided');
+      router.push('/bookings');
     }
   }, [bookingId, router]);
 
   const handlePayment = async () => {
     try {
-      setLoading(true);
+      if (!booking) {
+        throw new Error('No booking details available');
+      }
 
-      // Create Razorpay order
+      setLoading(true);
+      console.log('Starting payment process...');
+
+      // Check if Razorpay is loaded
+      if (typeof window.Razorpay === 'undefined') {
+        console.error('Razorpay not loaded');
+        throw new Error('Payment system is not loaded yet. Please refresh the page.');
+      }
+      console.log('Razorpay SDK loaded successfully');
+
+      // Create Razorpay order directly (no need to create booking as it already exists)
+      console.log('Creating payment order for booking:', booking.id);
       const orderResponse = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          bookingId,
-          amount: booking?.total_amount,
+          bookingId: booking.id,
+          amount: booking.total_price,
         }),
       });
 
+      const responseData = await orderResponse.json();
+      console.log('Order API response:', responseData);
+
       if (!orderResponse.ok) {
-        throw new Error('Failed to create payment order');
+        throw new Error(responseData.error || 'Failed to create payment order');
       }
 
-      const { orderId } = await orderResponse.json();
+      const { orderId, key, amount } = responseData;
+      console.log('Payment configuration:', { orderId, key: '***', amount });
+
+      if (!key || !orderId || !amount) {
+        throw new Error('Invalid payment configuration received from server');
+      }
 
       // Initialize Razorpay
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: booking?.total_amount * 100, // Amount in paise
+        key,
+        amount,
         currency: 'INR',
         name: 'OnnRides',
-        description: `Booking for ${booking?.vehicle.name}`,
+        description: `Booking for ${booking.vehicle.name}`,
         order_id: orderId,
+        notes: {
+          booking_id: booking.id
+        },
+        retry: {
+          enabled: true,
+          max_count: 3
+        },
         handler: async (response: any) => {
           try {
+            console.log('Payment successful, received response:', {
+              ...response,
+              razorpay_payment_id: '***',
+              razorpay_signature: '***'
+            });
+
+            if (!response.razorpay_payment_id || !response.razorpay_order_id || !response.razorpay_signature) {
+              throw new Error('Incomplete payment response received');
+            }
+
             // Verify payment
+            console.log('Verifying payment...');
             const verifyResponse = await fetch('/api/payment/verify', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                bookingId,
+                bookingId: booking.id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_signature: response.razorpay_signature,
               }),
             });
 
+            const verifyData = await verifyResponse.json();
+            console.log('Verification response:', verifyData);
+
             if (!verifyResponse.ok) {
-              throw new Error('Payment verification failed');
+              throw new Error(verifyData.error || 'Payment verification failed');
             }
 
-            // Send WhatsApp confirmation
-            await fetch('/api/notifications/whatsapp', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                bookingId,
-              }),
-            });
-
-            toast.success('Payment successful!');
+            toast.success('Payment successful! Redirecting to bookings...');
             router.push('/bookings');
           } catch (error) {
-            toast.error('Payment verification failed. Please contact support.');
+            console.error('Payment verification error:', error);
+            toast.error(error instanceof Error ? error.message : 'Payment verification failed. Please contact support.');
           }
+        },
+        modal: {
+          ondismiss: function() {
+            console.log('Payment modal dismissed');
+            setLoading(false);
+          },
+          confirm_close: true,
+          escape: false
         },
         prefill: {
           name: '', // Add user's name from session
@@ -126,10 +195,17 @@ export default function PaymentPage() {
         },
       };
 
+      console.log('Initializing Razorpay with options:', {
+        ...options,
+        key: '***',
+        handler: '[Function]'
+      });
+
       const razorpay = new window.Razorpay(options);
       razorpay.open();
     } catch (error) {
-      toast.error('Payment failed. Please try again.');
+      console.error('Payment error:', error);
+      toast.error(error instanceof Error ? error.message : 'Payment failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -147,7 +223,13 @@ export default function PaymentPage() {
     <>
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
-        strategy="lazyOnload"
+        strategy="afterInteractive"
+        onLoad={handleRazorpayLoad}
+        onError={(e) => {
+          console.error('Failed to load Razorpay script:', e);
+          toast.error('Failed to load payment system. Please refresh the page.');
+        }}
+        onReady={() => console.log('Razorpay script ready')}
       />
       
       <div className="container max-w-2xl py-8">
@@ -164,17 +246,17 @@ export default function PaymentPage() {
               <div className="flex justify-between font-medium">
                 <span>Total Amount</span>
                 <span className="text-primary">
-                  {formatCurrency(booking.total_amount)}
+                  {formatCurrency(booking.total_price)}
                 </span>
               </div>
             </div>
 
             <button
               onClick={handlePayment}
-              disabled={loading}
+              disabled={loading || !razorpayLoaded}
               className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Processing...' : 'Pay Now'}
+              {loading ? 'Processing...' : !razorpayLoaded ? 'Loading Payment System...' : 'Pay Now'}
             </button>
           </div>
         </div>

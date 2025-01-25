@@ -67,19 +67,16 @@ export async function createOrder({
     if (typeof amount !== 'number' || amount <= 0) {
       throw new Error('Invalid amount. Amount must be a positive number.');
     }
-
-    // Convert to paise and ensure it's an integer
-    const amountInPaise = Math.round(amount * 100);
     
     logger.info('Creating Razorpay order:', { 
-      amount: amountInPaise,
+      amount,
       currency,
       receipt
     });
 
     const razorpay = getRazorpayInstance();
     const order = await razorpay.orders.create({
-      amount: amountInPaise,
+      amount,
       currency,
       receipt,
       notes,
