@@ -360,7 +360,7 @@ export default function BookingSummaryPage() {
             <button
               onClick={handleConfirmBooking}
               disabled={loading}
-              className="w-full bg-yellow-400 text-black py-3 rounded-md font-medium hover:bg-yellow-500 transition-colors disabled:opacity-50"
+              className="w-full bg-primary text-primary-foreground py-3 rounded-md font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {loading ? 'Processing...' : 'Make payment'}
             </button>
