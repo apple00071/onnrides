@@ -1,37 +1,6 @@
-<<<<<<< HEAD
-import { db } from '@/lib/db';
-import { sql } from 'drizzle-orm';
-
-async function runMigration() {
-  try {
-    // Add phone column to users table
-    await db.execute(sql`
-      ALTER TABLE users
-      ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
-    `);
-    console.log('✅ Added phone column to users table');
-
-    // Add location columns to bookings table
-    await db.execute(sql`
-      ALTER TABLE bookings
-      ADD COLUMN IF NOT EXISTS pickup_location TEXT,
-      ADD COLUMN IF NOT EXISTS dropoff_location TEXT;
-    `);
-    console.log('✅ Added location columns to bookings table');
-
-    console.log('Migration completed successfully!');
-    process.exit(0);
-  } catch (error) {
-    console.error('Migration failed:', error);
-    process.exit(1);
-  }
-}
-
-runMigration(); 
-=======
-import { Pool } from 'pg';
-import { readFile, readdir } from 'fs/promises';
-import { join } from 'path';
+const { Pool } = require('pg');
+const { readFile, readdir } = require('fs/promises');
+const { join } = require('path');
 
 async function migrate() {
   // Load environment variables from .env.local if it exists
@@ -105,6 +74,7 @@ async function migrate() {
             console.log(`Migration ${file} completed successfully`);
           } catch (error) {
             await client.query('ROLLBACK');
+            console.error(`Error running migration ${file}:`, error);
             throw error;
           }
         } else {
@@ -126,4 +96,3 @@ async function migrate() {
 
 // Run migrations
 migrate(); 
->>>>>>> 2713306f81d92cd2504e69b3e0ce2da54fce797e

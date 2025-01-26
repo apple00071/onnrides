@@ -77,6 +77,12 @@ export default function BookingSummaryPage() {
       return
     }
 
+    if (!user.id) {
+      toast.error('User session is invalid. Please sign in again.')
+      router.push('/auth/signin')
+      return
+    }
+
     if (!bookingDetails) return
 
     try {
@@ -129,7 +135,14 @@ export default function BookingSummaryPage() {
 
       if (!bookingResponse.ok) {
         const error = await bookingResponse.json();
-        throw new Error(error.message || 'Failed to create booking');
+        console.error('Booking creation error:', error);
+        if (error.message?.includes('user session')) {
+          toast.error('Your session has expired. Please sign in again.');
+          router.push('/auth/signin');
+        } else {
+          toast.error(error.message || 'Failed to create booking. Please try again.');
+        }
+        return;
       }
 
       const { booking } = await bookingResponse.json();
@@ -328,7 +341,7 @@ export default function BookingSummaryPage() {
                   placeholder="Coupon code"
                   className="flex-1 px-3 py-2 border rounded-md text-sm"
                 />
-                <button className="px-4 py-2 bg-black text-white rounded-md text-sm font-medium">
+                <button className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors">
                   APPLY
                 </button>
               </div>
@@ -360,7 +373,7 @@ export default function BookingSummaryPage() {
             <button
               onClick={handleConfirmBooking}
               disabled={loading}
-              className="w-full bg-yellow-400 text-black py-3 rounded-md font-medium hover:bg-yellow-500 transition-colors disabled:opacity-50"
+              className="w-full bg-primary text-primary-foreground py-3 rounded-md font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {loading ? 'Processing...' : 'Make payment'}
             </button>
