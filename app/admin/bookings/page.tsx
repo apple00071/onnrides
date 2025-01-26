@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/utils';
-import { BookingHistoryModal } from '@/components/admin/BookingHistoryModal';
+import BookingHistoryModal from './components/BookingHistoryModal';
+import BookingDetailsModal from './components/BookingDetailsModal';
 
 interface Customer {
   id: string;
   name: string;
   email: string;
+  phone: string;
 }
 
 interface Vehicle {
@@ -27,6 +29,8 @@ interface Booking {
   vehicle: Vehicle;
   booking_date: string;
   duration: Duration;
+  pickup_location: string;
+  dropoff_location: string;
   amount: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   payment_status: 'pending' | 'completed' | 'failed';
@@ -41,6 +45,8 @@ interface ApiResponse {
 export default function AdminBookingsPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   const { data, error, isLoading } = useSWR<ApiResponse>(
     '/api/admin/bookings',
@@ -63,6 +69,11 @@ export default function AdminBookingsPage() {
     setIsHistoryModalOpen(true);
   };
 
+  const handleViewDetails = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setIsDetailsModalOpen(true);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">Bookings Management</h1>
@@ -71,19 +82,19 @@ export default function AdminBookingsPage() {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking Date</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {bookings.map((booking) => (
-              <tr key={booking.id}>
+              <tr key={booking.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">{booking.customer.name}</div>
                   <div className="text-sm text-gray-500">{booking.customer.email}</div>
@@ -96,7 +107,8 @@ export default function AdminBookingsPage() {
                   {booking.booking_date}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {booking.duration.from} - {booking.duration.to}
+                  <div>{booking.duration.from}</div>
+                  <div>{booking.duration.to}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {booking.amount}
@@ -119,12 +131,20 @@ export default function AdminBookingsPage() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
-                    onClick={() => handleViewHistory(booking.customer.id)}
-                    className="text-indigo-600 hover:text-indigo-900"
-                  >
-                    View History
-                  </button>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleViewDetails(booking)}
+                      className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-md"
+                    >
+                      View
+                    </button>
+                    <button
+                      onClick={() => handleViewHistory(booking.customer.id)}
+                      className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-3 py-1 rounded-md"
+                    >
+                      History
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -138,6 +158,14 @@ export default function AdminBookingsPage() {
           onClose={() => setIsHistoryModalOpen(false)}
           bookings={customerHistory}
           customerName={bookings.find(b => b.customer.id === selectedCustomerId)?.customer.name || ''}
+        />
+      )}
+
+      {isDetailsModalOpen && selectedBooking && (
+        <BookingDetailsModal
+          isOpen={isDetailsModalOpen}
+          onClose={() => setIsDetailsModalOpen(false)}
+          booking={selectedBooking}
         />
       )}
     </div>

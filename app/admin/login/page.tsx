@@ -36,10 +36,13 @@ export default function AdminLoginPage() {
       }
 
       if (result.error) {
-        toast.error(result.error === 'CredentialsSignin' 
-          ? 'Invalid email or password' 
-          : 'Failed to sign in. Please try again.'
-        );
+        if (result.error === 'Admin access required') {
+          toast.error('This account does not have admin access');
+        } else if (result.error === 'Invalid email or password') {
+          toast.error('Invalid email or password');
+        } else {
+          toast.error('Failed to sign in. Please try again.');
+        }
       } else {
         toast.success('Welcome back, admin!');
         const returnUrl = searchParams.get('from') || '/admin/dashboard';

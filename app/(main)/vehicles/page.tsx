@@ -337,38 +337,54 @@ export default function VehiclesPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {vehicles.map((vehicle) => {
-                const imageUrl = (() => {
-                  try {
-                    if (Array.isArray(vehicle.images) && vehicle.images.length > 0) {
-                      return vehicle.images[0];
-                    }
-                    if (typeof vehicle.images === 'string') {
-                      const parsedImages = JSON.parse(vehicle.images);
-                      if (Array.isArray(parsedImages) && parsedImages.length > 0) {
-                        return parsedImages[0];
-                      }
-                    }
-                    return '/placeholder.png';
-                  } catch (error) {
-                    return '/placeholder.png';
-                  }
-                })();
+              {vehicles.map(vehicle => {
+                // Calculate total price based on selected dates
+                const pickupDate = searchParams.get('pickupDate');
+                const pickupTime = searchParams.get('pickupTime');
+                const dropoffDate = searchParams.get('dropoffDate');
+                const dropoffTime = searchParams.get('dropoffTime');
+
+                let totalPrice = vehicle.price_per_hour;
+
+                if (pickupDate && pickupTime && dropoffDate && dropoffTime) {
+                  const pickupDateTime = new Date(`${pickupDate}T${pickupTime}`);
+                  const dropoffDateTime = new Date(`${dropoffDate}T${dropoffTime}`);
+
+                  // Calculate base price using the same logic as booking summary
+                  const basePrice = calculateBookingPrice(
+                    {
+                      price_per_day: vehicle.price_per_hour,
+                      price_12hrs: vehicle.price_per_hour * 12,
+                      price_24hrs: vehicle.price_per_hour * 24,
+                      price_7days: vehicle.price_per_hour * 24 * 7,
+                      price_15days: vehicle.price_per_hour * 24 * 15,
+                      price_30days: vehicle.price_per_hour * 24 * 30,
+                      min_booking_hours: vehicle.min_booking_hours
+                    },
+                    pickupDateTime,
+                    dropoffDateTime
+                  );
+
+                  // Calculate taxes and fees
+                  const gst = basePrice * 0.18;
+                  const serviceFee = basePrice * 0.05;
+                  totalPrice = basePrice + gst + serviceFee;
+                }
 
                 return (
                   <VehicleCard
                     key={vehicle.id}
                     name={vehicle.name}
-                    imageUrl={imageUrl}
-                    locations={vehicle.location}
-                    price={vehicle.price_per_hour}
+                    imageUrl={Array.isArray(vehicle.images) ? vehicle.images[0] : vehicle.images}
+                    locations={Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location]}
+                    price={totalPrice}
                     startTime={searchParams.get('pickupTime') || ''}
                     endTime={searchParams.get('dropoffTime') || ''}
                     startDate={searchParams.get('pickupDate') || ''}
                     endDate={searchParams.get('dropoffDate') || ''}
                     onLocationChange={handleLocationChange}
                     onBook={() => {
-                      const location = vehicle.location[0];
+                      const location = Array.isArray(vehicle.location) ? vehicle.location[0] : vehicle.location;
                       if (!location) {
                         toast.error('Please select a location');
                         return;

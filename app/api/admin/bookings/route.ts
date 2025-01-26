@@ -21,12 +21,15 @@ interface Database {
     payment_details: string | null;
     created_at: Date;
     updated_at: Date;
+    pickup_location: string | null;
+    dropoff_location: string | null;
   };
   users: {
     id: string;
     name: string | null;
     email: string;
     role: 'user' | 'admin';
+    phone: string | null;
   };
   vehicles: {
     id: string;
@@ -101,9 +104,12 @@ export async function GET(request: NextRequest) {
         'bookings.total_price',
         'bookings.payment_status',
         'bookings.created_at',
+        'bookings.pickup_location',
+        'bookings.dropoff_location',
         'users.id as user_id',
         'users.name as user_name',
         'users.email as user_email',
+        'users.phone as user_phone',
         'vehicles.name as vehicle_name',
         'vehicles.type as vehicle_type'
       ]);
@@ -132,7 +138,8 @@ export async function GET(request: NextRequest) {
       customer: {
         id: booking.user_id,
         name: booking.user_name || 'Unknown',
-        email: booking.user_email || ''
+        email: booking.user_email || '',
+        phone: booking.user_phone || ''
       },
       vehicle: {
         name: booking.vehicle_name || 'Unknown',
@@ -143,6 +150,8 @@ export async function GET(request: NextRequest) {
         from: formatDate(booking.start_date),
         to: formatDate(booking.end_date)
       },
+      pickup_location: booking.pickup_location || '',
+      dropoff_location: booking.dropoff_location || '',
       amount: formatAmount(booking.total_price),
       status: booking.status || 'pending',
       payment_status: booking.payment_status || 'Payment Not Confirmed'

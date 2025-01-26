@@ -46,7 +46,8 @@ export const authOptions: NextAuthOptions = {
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
+        isAdmin: { label: "Is Admin", type: "text" }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -74,7 +75,15 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid email or password");
         }
 
-        if (user.role === "admin") {
+        const isAdminLogin = credentials.isAdmin === 'true';
+
+        // For admin login, require admin role
+        if (isAdminLogin && user.role !== 'admin') {
+          throw new Error("Admin access required");
+        }
+
+        // For regular login, prevent admin from using it
+        if (!isAdminLogin && user.role === 'admin') {
           throw new Error("Please use the admin login page");
         }
 
