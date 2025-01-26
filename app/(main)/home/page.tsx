@@ -47,33 +47,29 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="relative min-h-[800px] bg-[#f8fafc]">
+      <section className="relative h-screen bg-[#f8fafc]">
         {/* City Illustration */}
         <div className="absolute inset-0 w-full h-full">
           <Image
             src="/images/7xm.xyz418925.png"
             alt="Hyderabad Landmarks"
             fill
-            className="object-contain object-bottom opacity-90"
+            className="object-cover object-center"
             priority
           />
         </div>
 
         {/* Content Container */}
-        <div className="relative z-10 container mx-auto px-4">
-          {/* Main heading and text */}
-          <div className="text-center max-w-3xl mx-auto pt-16 md:pt-24">
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+          {/* Main heading */}
+          <div className="text-center mb-8">
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900">
               Explore Hyderabad Your Way
             </h1>
-            <p className="mt-6 text-lg md:text-xl text-gray-700 max-w-2xl mx-auto">
-              Experience the freedom of the open road with our premium vehicle rental service.
-              Choose from our wide selection of cars and bikes.
-            </p>
           </div>
 
           {/* Search Form */}
-          <div className="max-w-3xl mx-auto mt-12 md:mt-16">
+          <div className="w-full max-w-3xl px-4">
             <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-xl p-6 md:p-8">
               <h2 className="text-2xl md:text-3xl font-semibold text-center mb-8">Find Your Perfect Ride</h2>
               <form onSubmit={handleSearch}>

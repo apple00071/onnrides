@@ -42,7 +42,16 @@ export default function BookingSummaryPage() {
       id: searchParams.get('bookingId') || '',
       vehicleId: searchParams.get('vehicleId') || '',
       vehicleName: searchParams.get('vehicleName') || '',
-      vehicleImage: decodeURIComponent(searchParams.get('vehicleImage') || ''),
+      vehicleImage: (() => {
+        const imageUrl = searchParams.get('vehicleImage');
+        if (!imageUrl) return '/placeholder.png';
+        try {
+          return decodeURIComponent(imageUrl);
+        } catch (e) {
+          console.error('Failed to decode image URL:', e);
+          return '/placeholder.png';
+        }
+      })(),
       pricePerHour: Number(searchParams.get('pricePerHour')) || 0,
       pickupDate: searchParams.get('pickupDate') || '',
       dropoffDate: searchParams.get('dropoffDate') || '',
@@ -263,34 +272,20 @@ export default function BookingSummaryPage() {
             <div className="grid md:grid-cols-[300px_1fr] gap-8">
               {/* Vehicle Image */}
               <div>
-                <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100">
-                  {bookingDetails?.vehicleImage ? (
-                    <Image
-                      src={bookingDetails.vehicleImage}
-                      alt={bookingDetails.vehicleName}
-                      fill
-                      className="object-contain"
-                      priority
-                      sizes="(max-width: 300px) 100vw, 300px"
-                      onError={(e) => {
-                        console.error('Image load error:', e);
-                        const img = e.target as HTMLImageElement;
-                        img.style.display = 'none';
-                        // Show fallback image
-                        img.src = '/placeholder.png';
-                        img.style.display = 'block';
-                      }}
-                    />
-                  ) : (
-                    <Image
-                      src="/placeholder.png"
-                      alt="Vehicle placeholder"
-                      fill
-                      className="object-contain"
-                      priority
-                      sizes="(max-width: 300px) 100vw, 300px"
-                    />
-                  )}
+                <div className="relative aspect-[4/3] w-full max-w-[300px] rounded-lg overflow-hidden bg-gray-100">
+                  <Image
+                    src={bookingDetails.vehicleImage}
+                    alt={`${bookingDetails.vehicleName || 'Vehicle'} image`}
+                    fill
+                    className="object-cover"
+                    priority
+                    sizes="(max-width: 768px) 100vw, 300px"
+                    onError={(e) => {
+                      console.error('Image load error for:', bookingDetails.vehicleImage);
+                      const img = e.target as HTMLImageElement;
+                      img.src = '/placeholder.png';
+                    }}
+                  />
                 </div>
               </div>
 

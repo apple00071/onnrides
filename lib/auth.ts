@@ -1,16 +1,16 @@
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
-import { db } from './db';
-import { users } from './schema';
+import { db } from '@/lib/db';
+import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import type { User } from './types';
-import { findUserById } from './db';
+import type { User } from '@/lib/db/schema';
 import { NextResponse } from 'next/server';
-import { getServerSession, type AuthOptions } from 'next-auth';
+import { getServerSession, type AuthOptions, NextAuthOptions } from 'next-auth';
 import type { DefaultJWT, JWT } from 'next-auth/jwt';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import logger from './logger';
+import { compare } from "bcrypt";
 
 export type UserRole = 'user' | 'admin';
 
@@ -40,126 +40,92 @@ function getJwtKey() {
   return new TextEncoder().encode(secretKey);
 }
 
-export const authOptions: AuthOptions = {
-  debug: process.env.NODE_ENV === 'development',
+export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      name: 'Credentials',
+      name: "credentials",
       credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' }
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
       },
-      async authorize(credentials, req) {
-        try {
-          logger.info('Authorizing credentials:', { email: credentials?.email });
-
-          if (!credentials?.email || !credentials?.password) {
-            logger.warn('Missing credentials');
-            return null;
-          }
-
-          // Find user by email
-          const user = await db
-            .select()
-            .from(users)
-            .where(eq(users.email, credentials.email))
-            .limit(1);
-
-          if (!user.length) {
-            logger.warn('User not found:', { email: credentials.email });
-            return null;
-          }
-
-          // Verify password
-          const isValid = await bcrypt.compare(credentials.password, user[0].password_hash);
-          if (!isValid) {
-            logger.warn('Invalid password for user:', { email: credentials.email });
-            return null;
-          }
-
-          logger.info('User authorized successfully:', { userId: user[0].id, email: user[0].email });
-          
-          if (user[0].role !== 'user' && user[0].role !== 'admin') {
-            logger.error('Invalid user role:', { userId: user[0].id, role: user[0].role });
-            return null;
-          }
-
-          return {
-            id: user[0].id,
-            email: user[0].email,
-            name: user[0].name || '',
-            role: user[0].role as UserRole
-          };
-        } catch (error) {
-          logger.error('Authorization error:', { error: (error as Error).message });
-          return null;
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Please enter your email and password");
         }
-      }
+
+        const result = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, credentials.email))
+          .limit(1);
+
+        const user = result[0];
+
+        if (!user || !user.password_hash) {
+          throw new Error("Invalid email or password");
+        }
+
+        const isPasswordValid = await compare(
+          credentials.password,
+          user.password_hash
+        );
+
+        if (!isPasswordValid) {
+          throw new Error("Invalid email or password");
+        }
+
+        if (user.role === "admin") {
+          throw new Error("Please use the admin login page");
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name || "",
+          role: user.role,
+        };
+      },
     }),
   ],
+  pages: {
+    signIn: "/auth/signin",
+    error: "/auth/error",
+  },
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        logger.debug('Creating new JWT token for user:', { 
-          userId: user.id,
-          userEmail: user.email,
-          userRole: user.role 
-        });
-        
-        if (user.role !== 'user' && user.role !== 'admin') {
-          logger.error('Invalid user role in JWT:', { userId: user.id, role: user.role });
-          throw new Error('Invalid user role');
-        }
-
-        const jwt: JWT = {
+        return {
           ...token,
           id: user.id,
-          email: user.email,
-          name: user.name || '',
-          role: user.role
+          role: user.role,
         };
-        return jwt;
       }
-      return token as JWT;
+      return token;
     },
     async session({ session, token }) {
-      logger.debug('Creating new session from token:', { 
-        tokenId: token.id,
-        tokenEmail: token.email,
-        tokenRole: token.role 
-      });
-
-      if (token.role !== 'user' && token.role !== 'admin') {
-        logger.error('Invalid token role:', { tokenId: token.id, role: token.role });
-        throw new Error('Invalid token role');
-      }
-
-      session.user = {
-        id: token.id,
-        email: token.email,
-        name: token.name || '',
-        role: token.role
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: token.id as string,
+          role: token.role as string,
+        },
       };
-      return session;
     },
   },
-  pages: {
-    signIn: '/auth/signin',
-  },
-  session: {
-    strategy: 'jwt',
-    maxAge: 7 * 24 * 60 * 60, // 7 days
-  },
-  secret: process.env.NEXTAUTH_SECRET,
-  logger: {
-    error(code, metadata) {
-      logger.error('NextAuth error:', { code, metadata });
-    },
-    warn(code) {
-      logger.warn('NextAuth warning:', { code });
-    },
-    debug(code, metadata) {
-      logger.debug('NextAuth debug:', { code, metadata });
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === "production" ? "__Secure-next-auth.session-token" : "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
     },
   },
 };
