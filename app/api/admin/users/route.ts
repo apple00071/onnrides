@@ -7,11 +7,10 @@ import {
   ApiResponse, 
   User, 
   DocumentCounts, 
-  BookingCounts, 
-  DbQueryResult 
+  BookingCounts
 } from '@/lib/types';
 
-export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse<User[]>>> {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -21,7 +20,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
       }, { status: 401 });
     }
 
-    const usersResult = await query<DbQueryResult<User>>(`
+    const usersResult = await query(`
       SELECT id, name, email, phone, role, created_at 
       FROM users 
       WHERE role != 'admin'
@@ -29,7 +28,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
 
     const usersWithDetails = await Promise.all(
       usersResult.rows.map(async (user) => {
-        const documentCountsResult = await query<DbQueryResult<DocumentCounts>>(`
+        const documentCountsResult = await query(`
           SELECT 
             COUNT(*) as total,
             SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved
@@ -38,7 +37,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
         `, [user.id]);
         const documentCounts = documentCountsResult.rows[0];
 
-        const bookingCountsResult = await query<DbQueryResult<BookingCounts>>(`
+        const bookingCountsResult = await query(`
           SELECT 
             COUNT(*) as total,
             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
@@ -70,7 +69,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
   }
 }
 
-export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResponse<void>>> {
+export async function DELETE(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'admin') {
@@ -81,7 +80,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResp
       }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(_request.url);
     const userId = searchParams.get('id');
 
     if (!userId) {
@@ -91,7 +90,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResp
       }, { status: 400 });
     }
 
-    const userCheck = await query<DbQueryResult<User>>(`
+    const userCheck = await query(`
       SELECT role 
       FROM users 
       WHERE id = $1

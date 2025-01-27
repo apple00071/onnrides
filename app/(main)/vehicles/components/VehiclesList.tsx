@@ -1,12 +1,5 @@
 'use client';
 
-import { 
-  _useState,
-  _useEffect,
-  _useRouter,
-  _useSearchParams
-} from 'react';
-import { _Link } from 'next/link';
 import Image from 'next/image';
 import { Vehicle } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
@@ -27,7 +20,7 @@ export default function VehiclesList({ vehicles, onBookClick }: VehicleListProps
       if (Array.isArray(parsedLocation)) {
         return parsedLocation.join(', ');
       }
-    } catch (e) {
+    } catch (_e) {
       // If parsing fails, return the original string
     }
     return location;

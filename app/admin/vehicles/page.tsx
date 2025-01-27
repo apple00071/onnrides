@@ -25,6 +25,7 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
+import { getVehicles } from '@/lib/api';
 
 export default function VehiclesPage() {
   const { data: session, status } = useSession({
@@ -42,7 +43,7 @@ export default function VehiclesPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
-    console.log('Add Modal State:', isAddModalOpen);
+    logger.debug('Add Modal State:', isAddModalOpen);
   }, [isAddModalOpen]);
 
   useEffect(() => {
@@ -87,7 +88,7 @@ export default function VehiclesPage() {
 
       setVehicles(vehicles.filter(v => v.id !== id));
     } catch (error) {
-      console.error('Error deleting vehicle:', error);
+      logger.error('Error deleting vehicle:', error);
     }
   };
 
@@ -106,9 +107,9 @@ export default function VehiclesPage() {
 
   const handleAddClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    console.log('Add button clicked');
+    logger.debug('Add button clicked');
     setIsAddModalOpen(true);
-    console.log('isAddModalOpen set to:', true);
+    logger.debug('isAddModalOpen set to:', true);
   };
 
   let content;
@@ -175,7 +176,6 @@ export default function VehiclesPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Price/Hour</TableHead>
-                <TableHead>Min Hours</TableHead>
                 <TableHead>Locations</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
@@ -207,8 +207,7 @@ export default function VehiclesPage() {
                   </TableCell>
                   <TableCell>{vehicle.name}</TableCell>
                   <TableCell className="capitalize">{vehicle.type}</TableCell>
-                  <TableCell>{formatCurrency(Number(vehicle.price_per_hour))}</TableCell>
-                  <TableCell>{vehicle.min_booking_hours} hours</TableCell>
+                  <TableCell>{formatCurrency(vehicle.price_per_hour)}</TableCell>
                   <TableCell>
                     {typeof vehicle.location === 'string' 
                       ? vehicle.location.split(', ').map((loc) => (

@@ -1,63 +1,51 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import logger from '@/lib/logger';
-
-export const dynamic = 'force-dynamic';
-
-interface DashboardStats {
-  total_users: number;
-  total_revenue: number;
-  total_vehicles: number;
-  pending_documents: number;
-  recent_bookings: Array<{
-    id: string;
-    amount: number;
-    created_at: string;
-    pickup_datetime: string;
-    dropoff_datetime: string;
-    status: string;
-    user: {
-      name: string | null;
-      email: string;
-    };
-    vehicle: {
-      name: string;
-      type: string;
-    };
-  }>;
-}
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
-    }
-
-    // Get total users
-    const [usersResult] = await query(`
-      SELECT COUNT(*) as value 
+    // Get total users count
+    const usersCountResult = await query(`
+      SELECT COUNT(*) as count
       FROM users
+      WHERE role = 'user'
     `);
+    const usersCount = usersCountResult.rows[0].count;
 
     // Get total revenue
-    const [revenueResult] = await query(`
-      SELECT COALESCE(SUM(amount), 0) as value 
-      FROM bookings 
-      WHERE status = 'completed'
+    const revenueResult = await query(`
+      SELECT COALESCE(SUM(CAST(total_price AS DECIMAL)), 0) as total
+      FROM bookings
+      WHERE payment_status = 'paid'
     `);
+    const totalRevenue = revenueResult.rows[0].total;
 
-    // ... existing code ...
+    // Get total bookings count
+    const bookingsCountResult = await query(`
+      SELECT COUNT(*) as count
+      FROM bookings
+    `);
+    const bookingsCount = bookingsCountResult.rows[0].count;
+
+    // Get total vehicles count
+    const vehiclesCountResult = await query(`
+      SELECT COUNT(*) as count
+      FROM vehicles
+    `);
+    const vehiclesCount = vehiclesCountResult.rows[0].count;
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        users: usersCount,
+        revenue: totalRevenue,
+        bookings: bookingsCount,
+        vehicles: vehiclesCount
+      }
+    });
   } catch (error) {
-    logger.error('Dashboard stats error:', error);
+    console.error('Error fetching dashboard stats:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch dashboard stats' },
+      { success: false, error: 'Failed to fetch dashboard stats' },
       { status: 500 }
     );
   }

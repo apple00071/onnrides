@@ -38,12 +38,18 @@ export interface AuthUser {
 export interface Vehicle {
   id: string;
   name: string;
-  type: string;
-  location: string[];
+  type: 'car' | 'bike' | 'scooter';
+  model: string;
+  year: number;
+  daily_rate: number;
+  price_per_hour: number;
+  availability: boolean;
+  location: string | string[];
+  images: string | string[];
+  description?: string;
   quantity: number;
   price_per_day: number;
   min_booking_days: number;
-  images: string[];
   is_available: boolean;
   status: VehicleStatus;
   created_at: string;

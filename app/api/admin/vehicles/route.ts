@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { randomUUID } from 'crypto';
 
 // ... existing code remains unchanged as it already uses query and raw SQL ...
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const result = await query(
       'SELECT * FROM vehicles ORDER BY created_at'

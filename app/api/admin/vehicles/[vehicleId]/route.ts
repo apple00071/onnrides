@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
+import logger from '@/lib/logger';
 import { type UpdateVehicleBody } from '@/app/types';
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { vehicleId: string } }
 ) {
   try {
@@ -23,7 +24,7 @@ export async function GET(
 
     return NextResponse.json(result.rows[0]);
   } catch (error) {
-    console.error('Error fetching vehicle:', error);
+    logger.error('Error fetching vehicle:', error);
     return NextResponse.json(
       { error: 'Failed to fetch vehicle' },
       { status: 500 }
@@ -91,7 +92,7 @@ export async function PUT(
 
     return NextResponse.json(result.rows[0]);
   } catch (error) {
-    console.error('Error updating vehicle:', error);
+    logger.error('Error updating vehicle:', error);
     return NextResponse.json(
       { error: 'Failed to update vehicle' },
       { status: 500 }
@@ -100,7 +101,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { vehicleId: string } }
 ) {
   try {
@@ -145,7 +146,7 @@ export async function DELETE(
 
     return NextResponse.json(result.rows[0]);
   } catch (error) {
-    console.error('Error deleting vehicle:', error);
+    logger.error('Error deleting vehicle:', error);
     return NextResponse.json(
       { error: 'Failed to delete vehicle' },
       { status: 500 }
