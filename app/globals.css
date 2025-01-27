@@ -1,7 +1,9 @@
+/* Tailwind directives */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Font face declaration */
 @font-face {
   font-family: 'Goodtimes';
   src: url('/fonts/goodtimes.woff2') format('woff2'),
@@ -88,59 +90,57 @@
   }
 }
 
-/* Upload box styles */
-.upload-box {
-  @apply border-2 border-dashed border-gray-200 rounded-lg p-4 text-center cursor-pointer transition-colors duration-200;
-}
+/* Custom utility classes */
+@layer components {
+  .upload-box {
+    @apply border-2 border-dashed border-gray-200 rounded-lg p-4 text-center cursor-pointer transition-colors duration-200;
+  }
 
-.upload-box:hover {
-  @apply border-[#f26e24];
-}
+  .upload-box:hover {
+    @apply border-[#f26e24];
+  }
 
-/* Progress step styles */
-.step-circle {
-  @apply w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors duration-200;
-}
+  .step-circle {
+    @apply w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors duration-200;
+  }
 
-.step-circle.active {
-  @apply bg-[#f26e24] text-white;
-}
+  .step-circle.active {
+    @apply bg-[#f26e24] text-white;
+  }
 
-.step-circle.completed {
-  @apply bg-green-500 text-white;
-}
+  .step-circle.completed {
+    @apply bg-green-500 text-white;
+  }
 
-.step-circle.inactive {
-  @apply bg-gray-200 text-gray-500;
-}
+  .step-circle.inactive {
+    @apply bg-gray-200 text-gray-500;
+  }
 
-.step-label {
-  @apply text-xs text-gray-500 mt-1 text-center;
-}
+  .step-label {
+    @apply text-xs text-gray-500 mt-1 text-center;
+  }
 
-/* Progress line */
-.progress-line {
-  @apply absolute top-4 left-0 right-0 h-0.5 bg-gray-200 -z-10;
-}
+  .progress-line {
+    @apply absolute top-4 left-0 right-0 h-0.5 bg-gray-200 -z-10;
+  }
 
-.progress-line-fill {
-  @apply h-full bg-[#f26e24] transition-all duration-300;
-}
+  .progress-line-fill {
+    @apply h-full bg-[#f26e24] transition-all duration-300;
+  }
 
-/* Input styles */
-.input-field {
-  @apply w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#f26e24] transition-colors duration-200;
-}
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#f26e24] transition-colors duration-200;
+  }
 
-.input-icon {
-  @apply text-gray-400 group-hover:text-[#f26e24] transition-colors duration-200;
-}
+  .input-icon {
+    @apply text-gray-400 group-hover:text-[#f26e24] transition-colors duration-200;
+  }
 
-/* Button styles */
-.primary-button {
-  @apply bg-[#f26e24] text-white px-4 py-2 rounded-lg hover:bg-[#e05d13] transition-colors duration-200;
-}
+  .primary-button {
+    @apply bg-[#f26e24] text-white px-4 py-2 rounded-lg hover:bg-[#e05d13] transition-colors duration-200;
+  }
 
-.secondary-button {
-  @apply text-[#f26e24] hover:text-[#e05d13] transition-colors duration-200;
+  .secondary-button {
+    @apply text-[#f26e24] hover:text-[#e05d13] transition-colors duration-200;
+  }
 }

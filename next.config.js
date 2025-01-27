@@ -1,27 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        crypto: false
-      };
-    }
-    return config;
-  },
+  reactStrictMode: true,
+  swcMinify: true,
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '*.public.blob.vercel-storage.com',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'hnamzevcrob5uib6.public.blob.vercel-storage.com',
-        pathname: '/**',
-      }
-    ],
+    domains: ['localhost', 'res.cloudinary.com'],
+  },
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+      crypto: require.resolve('crypto-browserify'),
+    };
+    return config;
   },
   async redirects() {
     return [
@@ -42,7 +34,8 @@ const nextConfig = {
     // !! WARN !!
     ignoreBuildErrors: true,
   },
-  output: 'standalone'
+  output: 'standalone',
+  transpilePackages: ['lucide-react']
 }
 
 module.exports = nextConfig

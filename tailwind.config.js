@@ -1,12 +1,18 @@
+const { fontFamily } = require('tailwindcss/defaultTheme');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ['class'],
   content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}',
+    './pages/**/*.{ts,tsx,js,jsx}',
+    './components/**/*.{ts,tsx,js,jsx}',
+    './app/**/*.{ts,tsx,js,jsx}',
+    './src/**/*.{ts,tsx,js,jsx}',
+    './@/**/*.{ts,tsx,js,jsx}',
   ],
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   theme: {
     container: {
       center: true,
@@ -17,6 +23,7 @@ module.exports = {
     },
     extend: {
       fontFamily: {
+        sans: ['var(--font-sans)', ...fontFamily.sans],
         goodtimes: ['Good Times', 'sans-serif'],
       },
       colors: {
@@ -75,6 +82,12 @@ module.exports = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [
+    require('tailwindcss-animate'),
+    require('@tailwindcss/forms')({
+      strategy: 'class',
+    }),
+    require('@tailwindcss/aspect-ratio'),
+  ],
 }
 
