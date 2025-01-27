@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { users } from '@/lib/schema';
-import { eq, sql } from 'drizzle-orm';
+import { query } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
 import logger from '@/lib/logger';
 import { nanoid } from 'nanoid';
@@ -26,13 +24,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
+    const existingUser = await query(
+      'SELECT * FROM users WHERE email = $1 LIMIT 1',
+      [email]
+    );
 
-    if (existingUser.length > 0) {
+    if (existingUser.rows.length > 0) {
       return NextResponse.json(
         { error: 'Email already registered' },
         { status: 400 }
@@ -43,21 +40,11 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await hashPassword(password);
 
     // Create new user
-    const [user] = await db
-      .insert(users)
-      .values({
-        id: nanoid(),
-        email: email,
-        name: name || null,
-        phone: null,
-        password_hash: hashedPassword,
-        role: 'user',
-        reset_token: null,
-        reset_token_expiry: null,
-        created_at: sql`CURRENT_TIMESTAMP`,
-        updated_at: sql`CURRENT_TIMESTAMP`
-      })
-      .returning();
+    const userId = nanoid();
+    const user = await query(
+      'INSERT INTO users (id, email, password) VALUES ($1, $2, $3) RETURNING *',
+      [userId, email, hashedPassword]
+    );
 
     logger.info('New user registered:', { userId: user.id, email: user.email });
 

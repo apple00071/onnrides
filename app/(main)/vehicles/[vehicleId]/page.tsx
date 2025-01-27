@@ -1,19 +1,24 @@
 import { Metadata } from 'next';
-import { db } from '@/lib/db';
-import { vehicles } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { query } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import VehicleImages from './components/VehicleImages';
 import BookingForm from './components/BookingForm';
 
 export async function generateMetadata({ params }: { params: { vehicleId: string } }): Promise<Metadata> {
-  const [vehicle] = await db
-    .select()
-    .from(vehicles)
-    .where(eq(vehicles.id, params.vehicleId));
+  const result = await query(
+    'SELECT name FROM vehicles WHERE id = $1',
+    [params.vehicleId]
+  );
+
+  if (!result.rows || result.rows.length === 0) {
+    return {
+      title: 'Vehicle Not Found - OnnRides',
+      description: 'The requested vehicle could not be found.',
+    };
+  }
 
   return {
-    title: vehicle?.name ? `${vehicle.name} - OnnRides` : 'Vehicle Details - OnnRides',
+    title: `${result.rows[0].name} - OnnRides`,
     description: 'Book your next ride with OnnRides',
   };
 }
@@ -27,25 +32,24 @@ interface VehiclePageProps {
 export default async function VehiclePage({ params }: VehiclePageProps) {
   const { vehicleId } = params;
 
-  const [vehicle] = await db
-    .select()
-    .from(vehicles)
-    .where(eq(vehicles.id, vehicleId))
-    .limit(1);
+  const result = await query(
+    'SELECT * FROM vehicles WHERE id = $1',
+    [vehicleId]
+  );
 
-  if (!vehicle) {
+  if (!result.rows || result.rows.length === 0) {
     notFound();
   }
+
+  const vehicle = result.rows[0];
 
   // Parse images from JSON string and ensure it's an array
   let images: string[] = [];
   try {
     const parsedImages = JSON.parse(vehicle.images);
     images = Array.isArray(parsedImages) ? parsedImages : [parsedImages];
-    console.log('Vehicle images:', images); // For debugging
   } catch (error) {
     console.error('Error parsing vehicle images:', error);
-    console.log('Raw images string:', vehicle.images); // For debugging
   }
 
   // Validate image URLs

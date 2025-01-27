@@ -1,58 +1,25 @@
-'use client';
-
-import { useState, useEffect } from 'react';
+import { query } from '@/lib/db';
+import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Loader } from '@/components/ui/loader';
-import { Vehicle } from './types';
 
-interface VehicleDetailsClientProps {
-  vehicleId: string;
+interface VehicleDetailsProps {
+  params: {
+    vehicleId: string;
+  };
 }
 
-export default function VehicleDetailsClient({ vehicleId }: VehicleDetailsClientProps) {
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export default async function VehicleDetails({ params }: VehicleDetailsProps) {
+  const result = await query(
+    'SELECT * FROM vehicles WHERE id = $1',
+    [params.vehicleId]
+  );
 
-  useEffect(() => {
-    const fetchVehicle = async () => {
-      try {
-        const response = await fetch(`/api/vehicles/${vehicleId}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch vehicle details');
-        }
-        const data = await response.json();
-        setVehicle(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load vehicle');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchVehicle();
-  }, [vehicleId]);
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <Loader className="w-8 h-8" />
-      </div>
-    );
+  if (!result.rows || result.rows.length === 0) {
+    notFound();
   }
 
-  if (error || !vehicle) {
-    return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-red-600">Error</h2>
-        <p className="mt-2 text-gray-600">{error || 'Vehicle not found'}</p>
-        <Link href="/vehicles" className="mt-4 text-primary hover:underline">
-          Back to Vehicles
-        </Link>
-      </div>
-    );
-  }
+  const vehicle = result.rows[0];
 
   return (
     <div className="container mx-auto px-4 py-8">

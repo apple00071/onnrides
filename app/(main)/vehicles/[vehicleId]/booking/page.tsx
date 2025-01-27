@@ -1,63 +1,59 @@
-'use client';
+import { Metadata } from 'next';
+import { query } from '@/lib/db';
+import { notFound } from 'next/navigation';
+import BookingForm from '../components/BookingForm';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader } from '@/components/ui/loader';
-import { toast } from 'react-hot-toast';
-import { Vehicle } from '@/lib/types';
+export async function generateMetadata({ params }: { params: { vehicleId: string } }): Promise<Metadata> {
+  const result = await query(
+    'SELECT name FROM vehicles WHERE id = $1',
+    [params.vehicleId]
+  );
 
-export default function BookingPage({ params }: { params: { vehicleId: string } }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchVehicleAndRedirect = async () => {
-      try {
-        // Fetch vehicle data
-        const response = await fetch(`/api/vehicles/${params.vehicleId}`);
-        if (!response.ok) throw new Error('Failed to fetch vehicle');
-        const data = await response.json();
-        const vehicle: Vehicle = data.vehicle;
-
-        console.log('Vehicle data:', vehicle); // Debug log
-
-        // Get all the search params
-        const pickupDate = searchParams.get('pickupDate');
-        const pickupTime = searchParams.get('pickupTime');
-        const dropoffDate = searchParams.get('dropoffDate');
-        const dropoffTime = searchParams.get('dropoffTime');
-        const location = searchParams.get('location');
-
-        // Redirect to booking summary with all params
-        const queryParams = new URLSearchParams({
-          vehicleId: params.vehicleId,
-          vehicleName: vehicle.name,
-          vehicleImage: Array.isArray(vehicle.images) && vehicle.images.length > 0 ? vehicle.images[0] : '',
-          pricePerHour: vehicle.price_per_hour?.toString() || '0',
-          pickupDate: pickupDate || '',
-          pickupTime: pickupTime || '',
-          dropoffDate: dropoffDate || '',
-          dropoffTime: dropoffTime || '',
-          location: location || ''
-        });
-
-        console.log('Query params:', Object.fromEntries(queryParams.entries())); // Debug log
-
-        router.push(`/booking-summary?${queryParams.toString()}`);
-      } catch (error) {
-        console.error('Error fetching vehicle:', error); // Debug log
-        toast.error('Failed to load vehicle details');
-        router.push('/');
-      }
+  if (!result.rows || result.rows.length === 0) {
+    return {
+      title: 'Vehicle Not Found - OnnRides',
+      description: 'The requested vehicle could not be found.',
     };
+  }
 
-    fetchVehicleAndRedirect();
-  }, [params.vehicleId, searchParams, router]);
+  return {
+    title: `Book ${result.rows[0].name} - OnnRides`,
+    description: 'Complete your booking with OnnRides',
+  };
+}
+
+interface BookingPageProps {
+  params: {
+    vehicleId: string;
+  };
+}
+
+export default async function BookingPage({ params }: BookingPageProps) {
+  const { vehicleId } = params;
+
+  const result = await query(
+    'SELECT * FROM vehicles WHERE id = $1',
+    [vehicleId]
+  );
+
+  if (!result.rows || result.rows.length === 0) {
+    notFound();
+  }
+
+  const vehicle = result.rows[0];
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <Loader className="w-8 h-8" />
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6">Book {vehicle.name}</h1>
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <BookingForm
+            vehicleId={vehicle.id}
+            pricePerHour={Number(vehicle.price_per_hour)}
+            vehicleName={vehicle.name}
+          />
+        </div>
+      </div>
     </div>
   );
 } 

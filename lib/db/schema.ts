@@ -7,11 +7,9 @@ import {
   decimal,
   jsonb,
   boolean,
-  sql,
   real,
   varchar
 } from 'drizzle-orm/pg-core';
-import { relations, type InferModel } from 'drizzle-orm';
 
 // Define enums
 export const roleEnum = pgEnum("role", ["user", "admin"]);
@@ -25,6 +23,12 @@ export const vehicleTypeEnum = pgEnum('vehicle_type', [
 ]);
 export const bookingStatusEnum = pgEnum('booking_status', ['pending', 'confirmed', 'cancelled', 'completed']);
 export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'completed', 'failed', 'refunded']);
+export const vehicleStatusEnum = pgEnum('vehicle_status', ['available', 'unavailable', 'maintenance']);
+export const VEHICLE_STATUS = {
+  AVAILABLE: 'available',
+  UNAVAILABLE: 'unavailable',
+  MAINTENANCE: 'maintenance'
+} as const;
 
 // Define tables
 export const users = pgTable("users", {
@@ -45,12 +49,11 @@ export const vehicles = pgTable('vehicles', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
   type: vehicleTypeEnum('type').notNull(),
-  location: text('location').notNull(),
-  quantity: decimal('quantity', { precision: 10, scale: 0 }).notNull(),
-  price_per_hour: decimal('price_per_hour', { precision: 10, scale: 2 }).notNull(),
-  min_booking_hours: decimal('min_booking_hours', { precision: 10, scale: 2 }).notNull(),
-  images: text('images').notNull(),
-  is_available: boolean('is_available').default(true).notNull(),
+  status: vehicleStatusEnum('status').notNull().default('available'),
+  price_per_day: decimal('price_per_day', { precision: 10, scale: 2 }).notNull(),
+  description: text('description'),
+  features: text('features').array(),
+  images: text('images').array(),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -82,35 +85,6 @@ export const documents = pgTable("documents", {
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow()
 });
-
-// Define relations
-export const usersRelations = relations(users, ({ many }) => ({
-  vehicles: many(vehicles),
-  bookings: many(bookings),
-  documents: many(documents)
-}));
-
-export const vehiclesRelations = relations(vehicles, ({ many }) => ({
-  bookings: many(bookings)
-}));
-
-export const bookingsRelations = relations(bookings, ({ one }) => ({
-  user: one(users, {
-    fields: [bookings.user_id],
-    references: [users.id]
-  }),
-  vehicle: one(vehicles, {
-    fields: [bookings.vehicle_id],
-    references: [vehicles.id]
-  })
-}));
-
-export const documentsRelations = relations(documents, ({ one }) => ({
-  user: one(users, {
-    fields: [documents.user_id],
-    references: [users.id]
-  })
-}));
 
 // Export types
 export type User = typeof users.$inferSelect;

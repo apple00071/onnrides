@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { del } from '@vercel/blob';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { vehicles } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
-import { verifyAuth } from '@/lib/auth';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 
 interface UpdateVehicleBody {
   name?: string;
@@ -30,23 +28,24 @@ export async function GET(
   { params }: { params: { vehicleId: string } }
 ) {
   try {
-    const [vehicle] = await db
-      .select()
-      .from(vehicles)
-      .where(eq(vehicles.id, params.vehicleId))
-      .limit(1);
+    const result = await query(`
+      SELECT 
+        id, name, type, location, price_per_day, 
+        image_url, created_at, updated_at
+      FROM vehicles
+      WHERE id = $1
+    `, [params.vehicleId]);
 
-    if (!vehicle) {
+    if (result.rowCount === 0) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ vehicle });
-
+    return NextResponse.json(result.rows[0]);
   } catch (error) {
-    logger.error('Failed to fetch vehicle:', error);
+    logger.error('Error fetching vehicle:', error);
     return NextResponse.json(
       { error: 'Failed to fetch vehicle' },
       { status: 500 }
@@ -54,56 +53,87 @@ export async function GET(
   }
 }
 
-// PATCH /api/vehicles/[vehicleId] - Update vehicle
-export async function PATCH(
+// PUT /api/vehicles/[vehicleId] - Update vehicle
+export async function PUT(
   request: NextRequest,
   { params }: { params: { vehicleId: string } }
 ) {
   try {
-    // Verify authentication
-    const user = await verifyAuth();
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    // Check if user is authenticated and is an admin
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { name, type, location, price_per_hour, min_booking_hours, is_available, images, status } = body;
+    const {
+      name,
+      description,
+      type,
+      brand,
+      model,
+      year,
+      color,
+      transmission,
+      fuel_type,
+      mileage,
+      seating_capacity,
+      price_per_day,
+      is_available,
+      image_url,
+      location
+    } = body;
 
-    // Update vehicle
-    const [updatedVehicle] = await db
-      .update(vehicles)
-      .set({
-        ...(name && { name }),
-        ...(type && { type }),
-        ...(location && { location }),
-        ...(price_per_hour && { price_per_hour }),
-        ...(min_booking_hours && { min_booking_hours }),
-        ...(typeof is_available === 'boolean' && { is_available }),
-        ...(images && { images }),
-        ...(status && { status }),
-        updated_at: sql`CURRENT_TIMESTAMP`
-      })
-      .where(eq(vehicles.id, params.vehicleId))
-      .returning();
+    const result = await query(`
+      UPDATE vehicles
+      SET 
+        name = COALESCE($1, name),
+        description = COALESCE($2, description),
+        type = COALESCE($3, type),
+        brand = COALESCE($4, brand),
+        model = COALESCE($5, model),
+        year = COALESCE($6, year),
+        color = COALESCE($7, color),
+        transmission = COALESCE($8, transmission),
+        fuel_type = COALESCE($9, fuel_type),
+        mileage = COALESCE($10, mileage),
+        seating_capacity = COALESCE($11, seating_capacity),
+        price_per_day = COALESCE($12, price_per_day),
+        is_available = COALESCE($13, is_available),
+        image_url = COALESCE($14, image_url),
+        location = COALESCE($15, location),
+        updated_at = NOW()
+      WHERE id = $16
+      RETURNING *
+    `, [
+      name,
+      description,
+      type,
+      brand,
+      model,
+      year,
+      color,
+      transmission,
+      fuel_type,
+      mileage,
+      seating_capacity,
+      price_per_day,
+      is_available,
+      image_url,
+      location,
+      params.vehicleId
+    ]);
 
-    if (!updatedVehicle) {
+    if (result.rowCount === 0) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Vehicle updated successfully',
-      vehicle: updatedVehicle
-    });
-
+    return NextResponse.json(result.rows[0]);
   } catch (error) {
-    logger.error('Failed to update vehicle:', error);
+    logger.error('Error updating vehicle:', error);
     return NextResponse.json(
       { error: 'Failed to update vehicle' },
       { status: 500 }
@@ -117,48 +147,43 @@ export async function DELETE(
   { params }: { params: { vehicleId: string } }
 ) {
   try {
-    // Verify authentication and admin role
-    const authResult = await verifyAuth();
-    if (!authResult || authResult.role !== 'admin') {
+    // Check if user is authenticated and is an admin
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check for active bookings
+    const bookingsResult = await query(`
+      SELECT COUNT(*) FROM bookings 
+      WHERE vehicle_id = $1 
+      AND status IN ('pending', 'confirmed', 'active')
+    `, [params.vehicleId]);
+
+    if (parseInt(bookingsResult.rows[0].count) > 0) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'Cannot delete vehicle with active bookings' },
+        { status: 400 }
       );
     }
 
-    // Get vehicle
-    const [vehicle] = await db
-      .select()
-      .from(vehicles)
-      .where(eq(vehicles.id, params.vehicleId))
-      .limit(1);
+    // Delete the vehicle
+    const result = await query(`
+      DELETE FROM vehicles
+      WHERE id = $1
+      RETURNING *
+    `, [params.vehicleId]);
 
-    if (!vehicle) {
+    if (result.rowCount === 0) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }
       );
     }
 
-    // Delete vehicle images from blob storage
-    if (vehicle.images) {
-      for (const image of vehicle.images) {
-        await del(image);
-      }
-    }
-
-    // Delete vehicle from database
-    await db
-      .delete(vehicles)
-      .where(eq(vehicles.id, params.vehicleId));
-
-    return NextResponse.json({
-      success: true,
-      message: 'Vehicle deleted successfully'
-    });
-
+    return NextResponse.json({ message: 'Vehicle deleted successfully' });
   } catch (error) {
-    logger.error('Failed to delete vehicle:', error);
+    logger.error('Error deleting vehicle:', error);
     return NextResponse.json(
       { error: 'Failed to delete vehicle' },
       { status: 500 }

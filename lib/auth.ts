@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
-import { db } from '@/lib/db';
+import { query } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import type { User } from '@/lib/db/schema';
@@ -54,13 +54,12 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Please enter your email and password");
         }
 
-        const result = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, credentials.email))
-          .limit(1);
+        const result = await query(
+          'SELECT * FROM users WHERE email = $1 LIMIT 1',
+          [credentials.email]
+        );
 
-        const user = result[0];
+        const user = result.rows[0];
 
         if (!user || !user.password_hash) {
           throw new Error("Invalid email or password");
@@ -139,7 +138,7 @@ export const authOptions: NextAuthOptions = {
   },
 };
 
-export async function verifyAuth() {
+export async function getCurrentUser() {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
@@ -162,12 +161,11 @@ export async function comparePasswords(password: string, hash: string): Promise<
 }
 
 export async function findUserByEmail(email: string): Promise<User | null> {
-  const result = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  return result[0] || null;
+  const result = await query(
+    'SELECT * FROM users WHERE email = $1 LIMIT 1',
+    [email]
+  );
+  return result.rows[0] || null;
 }
 
 export async function validateUser(email: string, password: string): Promise<User | null> {

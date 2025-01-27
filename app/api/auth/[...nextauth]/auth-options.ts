@@ -1,31 +1,30 @@
-import { AuthOptions } from 'next-auth';
+import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { db } from '@/lib/db';
-import { users } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import logger from '@/lib/logger';
+
+type UserRole = 'user' | 'admin';
+
+interface AuthUser {
+  id: string;
+  name: string | null;
+  email: string;
+  role: UserRole;
+}
 
 declare module 'next-auth' {
-  interface User {
-    id: string;
-    name: string | null;
-    email: string;
-    role: 'user' | 'admin';
+  interface User extends AuthUser {}
+  interface Session {
+    user: AuthUser;
   }
-}
-
-declare module 'next-auth/jwt' {
   interface JWT {
     id: string;
-    email: string;
-    name: string | null;
-    role: 'user' | 'admin';
-    sub?: string;
-    picture?: string | null;
+    role: UserRole;
   }
 }
 
-export const authOptions: AuthOptions = {
+export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -35,52 +34,71 @@ export const authOptions: AuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null;
+          throw new Error('Email and password are required');
         }
 
-        const [user] = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, credentials.email));
+        try {
+          // Find user by email
+          const result = await query(
+            'SELECT * FROM users WHERE email = $1 LIMIT 1',
+            [credentials.email]
+          );
+          const user = result.rows[0];
 
-        if (!user || !user.password_hash) {
-          return null;
+          if (!user) {
+            throw new Error('No user found with this email');
+          }
+
+          // Check if user is blocked
+          if (user.is_blocked) {
+            throw new Error('Your account has been blocked. Please contact support.');
+          }
+
+          // Verify password
+          const isValidPassword = await bcrypt.compare(
+            credentials.password,
+            user.password_hash
+          );
+
+          if (!isValidPassword) {
+            throw new Error('Invalid password');
+          }
+
+          // Update last login timestamp
+          await query(
+            'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
+            [user.id]
+          );
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role as UserRole
+          };
+        } catch (error) {
+          logger.error('Auth error:', error);
+          throw error;
         }
-
-        const isValid = await bcrypt.compare(credentials.password, user.password_hash);
-
-        if (!isValid) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role as 'user' | 'admin'
-        };
       }
     })
   ],
   pages: {
-    signIn: '/auth/signin',
+    signIn: '/login',
+    error: '/login'
   },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.email = user.email;
-        token.name = user.name;
         token.role = user.role;
+        token.id = user.id;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id;
-        session.user.email = token.email;
-        session.user.name = token.name;
         session.user.role = token.role;
+        session.user.id = token.id;
       }
       return session;
     }

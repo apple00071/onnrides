@@ -15,7 +15,7 @@ export default function HeroSection() {
 
   // Generate time options with 30-minute intervals
   const generateTimeOptions = () => {
-    const options = [];
+    const options: string[] = [];
     for (let hour = 0; hour < 24; hour++) {
       for (let minute of ['00', '30']) {
         const time = `${hour.toString().padStart(2, '0')}:${minute}`;
@@ -71,7 +71,15 @@ export default function HeroSection() {
       return;
     }
 
-    router.push(`/vehicles?pickup=${pickupDate}T${pickupTime}&dropoff=${dropoffDate}T${dropoffTime}`);
+    // Create the search URL with all required parameters
+    const searchParams = new URLSearchParams({
+      pickupDate,
+      pickupTime,
+      dropoffDate,
+      dropoffTime
+    });
+
+    router.push(`/vehicles?${searchParams.toString()}`);
   };
 
   return (
@@ -98,13 +106,15 @@ export default function HeroSection() {
                   min={today}
                   value={pickupDate}
                   onChange={(e) => setPickupDate(e.target.value)}
-                  className="p-2 border rounded-lg w-full text-gray-900 bg-white"
+                  className="p-2 border rounded-lg w-full text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
+                  placeholder="Select date"
+                  required
                 />
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setShowTimePicker('pickup')}
-                    className="p-2 border rounded-lg w-full text-left text-gray-900 bg-white flex justify-between items-center"
+                    className="p-2 border rounded-lg w-full text-left text-gray-900 bg-white flex justify-between items-center hover:border-[#f26e24] focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                   >
                     {pickupTime || 'Select time'}
                     <ChevronDownIcon className="w-5 h-5 text-gray-400" />
@@ -136,13 +146,15 @@ export default function HeroSection() {
                   min={pickupDate || today}
                   value={dropoffDate}
                   onChange={(e) => setDropoffDate(e.target.value)}
-                  className="p-2 border rounded-lg w-full text-gray-900 bg-white"
+                  className="p-2 border rounded-lg w-full text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
+                  placeholder="Select date"
+                  required
                 />
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setShowTimePicker('dropoff')}
-                    className="p-2 border rounded-lg w-full text-left text-gray-900 bg-white flex justify-between items-center"
+                    className="p-2 border rounded-lg w-full text-left text-gray-900 bg-white flex justify-between items-center hover:border-[#f26e24] focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                   >
                     {dropoffTime || 'Select time'}
                     <ChevronDownIcon className="w-5 h-5 text-gray-400" />

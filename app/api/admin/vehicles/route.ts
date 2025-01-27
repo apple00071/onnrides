@@ -1,21 +1,17 @@
 import { NextRequest } from 'next/server';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { vehicles } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
-import { verifyAuth } from '@/lib/auth';
+import { query } from '@/lib/db';
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/config";
+import { authOptions } from "@/lib/auth";
 import { randomUUID } from 'crypto';
 
 export async function GET(request: NextRequest) {
   try {
-    const result = await db
-      .select()
-      .from(vehicles)
-      .orderBy(vehicles.created_at);
+    const result = await query(
+      'SELECT * FROM vehicles ORDER BY created_at'
+    );
 
-    const formattedVehicles = result.map(vehicle => {
+    const formattedVehicles = result.rows.map(vehicle => {
       let parsedLocation;
       let parsedImages;
 
@@ -53,8 +49,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyAuth();
-    if (!user) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
@@ -62,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is admin
-    if (user.role !== 'admin') {
+    if (session.user.role !== 'admin') {
       return new Response(JSON.stringify({ error: 'Admin access required' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json' },
@@ -100,20 +96,26 @@ export async function POST(request: NextRequest) {
       : JSON.stringify([images]);
 
     // Create vehicle with explicit ID
-    const [vehicle] = await db
-      .insert(vehicles)
-      .values({
-        id: randomUUID(),
+    const result = await query(
+      `INSERT INTO vehicles (
+        id, name, type, location, quantity, price_per_hour, 
+        min_booking_hours, images, is_available, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()) 
+      RETURNING *`,
+      [
+        randomUUID(),
         name,
         type,
-        location: locationJson,
-        quantity: quantity.toString(),
-        price_per_hour: price_per_hour.toString(),
-        min_booking_hours: min_booking_hours.toString(),
-        images: imagesJson,
+        locationJson,
+        quantity.toString(),
+        price_per_hour.toString(),
+        min_booking_hours.toString(),
+        imagesJson,
         is_available,
-      })
-      .returning();
+      ]
+    );
+
+    const vehicle = result.rows[0];
 
     return new Response(JSON.stringify({
       message: 'Vehicle created successfully',
@@ -129,50 +131,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error('Error creating vehicle:', error);
     return new Response(JSON.stringify({ error: 'Failed to create vehicle' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
-      return new Response(JSON.stringify({ message: 'Authentication required' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (session.user.role !== 'admin') {
-      return new Response(JSON.stringify({ message: 'Admin access required' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return new Response(JSON.stringify({ message: 'Vehicle ID is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Delete vehicle
-    await db.delete(vehicles).where(eq(vehicles.id, id));
-
-    return new Response(JSON.stringify({ message: 'Vehicle deleted successfully' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    logger.error('Error deleting vehicle:', error);
-    return new Response(JSON.stringify({ message: 'Failed to delete vehicle' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

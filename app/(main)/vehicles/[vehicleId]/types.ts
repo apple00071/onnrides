@@ -15,7 +15,7 @@ export interface VehicleDetailsProps {
 }
 
 export interface PageParams {
-  id: string;
+  vehicleId: string;
 }
 
 export interface PageProps {

@@ -14,9 +14,14 @@ interface User {
   role: string;
   phone: string | null;
   created_at: string;
-  documents_status?: {
-    approved: number;
+  documents?: {
     total: number;
+    approved: number;
+  };
+  bookings?: {
+    total: number;
+    completed: number;
+    cancelled: number;
   };
 }
 
@@ -32,17 +37,20 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     try {
+      setLoading(true);
       const response = await fetch('/api/admin/users');
-      const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch users');
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to fetch users');
       }
       
-      setUsers(data.users);
+      const data = await response.json();
+      setUsers(Array.isArray(data) ? data : []);
     } catch (error) {
       logger.error('Error fetching users:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to fetch users');
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -54,6 +62,9 @@ export default function UsersPage() {
   };
 
   const handleUserUpdated = (updatedUser: User) => {
+    setUsers(users.map(user => 
+      user.id === updatedUser.id ? updatedUser : user
+    ));
     setSelectedUser(updatedUser);
   };
 
@@ -82,13 +93,14 @@ export default function UsersPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Documents</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bookings</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {users.map((user) => (
                 <tr key={user.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">{user.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{user.name || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -100,7 +112,22 @@ export default function UsersPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {user.documents_status?.approved || 0}/{user.documents_status?.total || 0}
+                    {user.documents ? (
+                      <span className="text-sm">
+                        {user.documents.approved}/{user.documents.total}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-500">0/0</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {user.bookings ? (
+                      <span className="text-sm">
+                        {user.bookings.completed}/{user.bookings.total}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-500">0/0</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button

@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { users } from '@/lib/schema';
-import { eq, sql } from 'drizzle-orm';
+import { query } from '@/lib/db';
 import type { User } from '@/lib/types';
 import { sendResetPasswordEmail } from '@/lib/email';
 
@@ -23,13 +21,11 @@ export async function POST(request: NextRequest) {
     // Step 1: Request password reset
     if (email && !token && !password) {
       // Find user by email
-      const user = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, email))
-        .limit(1)
-        .execute()
-        .then(rows => rows[0]);
+      const result = await query(
+        'SELECT * FROM users WHERE email = $1 LIMIT 1',
+        [email]
+      );
+      const user = result.rows[0];
 
       if (!user) {
         return NextResponse.json(
@@ -42,14 +38,10 @@ export async function POST(request: NextRequest) {
       const resetToken = crypto.randomUUID();
       
       // Save reset token with 24 hour expiry
-      await db
-        .update(users)
-        .set({
-          reset_token: resetToken,
-          reset_token_expiry: sql`TIMESTAMPADD(HOUR, 24, CURRENT_TIMESTAMP)`
-        })
-        .where(eq(users.id, user.id))
-        .execute();
+      await query(
+        'UPDATE users SET reset_token = $1, reset_token_expiry = CURRENT_TIMESTAMP + INTERVAL \'24 hours\' WHERE id = $2',
+        [resetToken, user.id]
+      );
 
       // Send reset email
       await sendResetPasswordEmail(email, resetToken);
@@ -63,17 +55,13 @@ export async function POST(request: NextRequest) {
     // Step 2: Reset password
     if (token && password) {
       // Find user by reset token and check if token is not expired
-      const user = await db
-        .select()
-        .from(users)
-        .where(
-          eq(users.reset_token, token)
-        )
-        .limit(1)
-        .execute()
-        .then(rows => rows[0]);
+      const result = await query(
+        'SELECT * FROM users WHERE reset_token = $1 AND reset_token_expiry > CURRENT_TIMESTAMP LIMIT 1',
+        [token]
+      );
+      const user = result.rows[0];
 
-      if (!user || !user.reset_token_expiry || new Date(user.reset_token_expiry) < new Date()) {
+      if (!user) {
         return NextResponse.json(
           { message: 'Invalid or expired reset token' },
           { status: 400 }
@@ -84,16 +72,15 @@ export async function POST(request: NextRequest) {
       const hashedPassword = await bcrypt.hash(password, 10);
 
       // Update password and clear reset token
-      await db
-        .update(users)
-        .set({
-          password_hash: hashedPassword,
-          reset_token: null,
-          reset_token_expiry: null,
-          updated_at: sql`CURRENT_TIMESTAMP`
-        })
-        .where(eq(users.id, user.id))
-        .execute();
+      await query(
+        `UPDATE users 
+         SET password_hash = $1,
+             reset_token = NULL,
+             reset_token_expiry = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2`,
+        [hashedPassword, user.id]
+      );
 
       return NextResponse.json(
         { message: 'Password reset successfully' },

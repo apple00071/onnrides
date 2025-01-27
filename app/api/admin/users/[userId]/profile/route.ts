@@ -1,45 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { users } from '@/lib/schema';
-import { verifyAuth } from '@/lib/auth';
-import type { User } from '@/lib/types';
-import { eq } from 'drizzle-orm';
-
-interface AuthResult {
-  user: User;
-}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    const auth = await verifyAuth() as AuthResult | null;
-
-    if (!auth || auth.user.role !== 'admin') {
+    const session = await getServerSession(authOptions);
+    if (!session) {
       return NextResponse.json(
-        { message: 'Unauthorized' },
+        { error: 'Not authenticated' },
         { status: 401 }
       );
     }
 
     const { userId } = params;
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
-    }
 
     // Get user profile
-    const user = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-      .execute()
-      .then(rows => rows[0]);
+    const userResult = await query(
+      'SELECT id, name, email, phone, role, created_at FROM users WHERE id = $1',
+      [userId]
+    );
+    const user = userResult.rows[0];
 
     if (!user) {
       return NextResponse.json(
@@ -48,21 +33,37 @@ export async function GET(
       );
     }
 
+    // Get document counts
+    const documentCountsResult = await query(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved
+      FROM documents
+      WHERE user_id = $1
+    `, [userId]);
+    const documentCounts = documentCountsResult.rows[0];
+
+    // Get booking counts
+    const bookingCountsResult = await query(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled
+      FROM bookings
+      WHERE user_id = $1
+    `, [userId]);
+    const bookingCounts = bookingCountsResult.rows[0];
+
     return NextResponse.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        created_at: user.created_at,
-        updated_at: user.updated_at
-      }
+      ...user,
+      documents: documentCounts,
+      bookings: bookingCounts
     });
 
   } catch (error) {
-    logger.error('Error getting user profile:', error);
+    logger.error('Error fetching user profile:', error);
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { error: 'Failed to fetch user profile' },
       { status: 500 }
     );
   }

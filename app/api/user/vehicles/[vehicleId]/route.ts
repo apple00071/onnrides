@@ -1,29 +1,36 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { vehicles } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
-import { verifyAuth } from '@/lib/auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 
 export async function GET(
   request: Request,
   { params }: { params: { vehicleId: string } }
 ) {
   try {
-    const vehicle = await db
-      .select()
-      .from(vehicles)
-      .where(eq(vehicles.id, params.vehicleId))
-      .limit(1);
+    const result = await query(
+      'SELECT * FROM vehicles WHERE id = $1',
+      [params.vehicleId]
+    );
 
-    if (!vehicle || vehicle.length === 0) {
+    if (!result.rows || result.rows.length === 0) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(vehicle[0]);
+    const vehicle = result.rows[0];
+
+    return NextResponse.json({
+      message: 'Vehicle fetched successfully',
+      vehicle: {
+        ...vehicle,
+        location: vehicle.location.split(', '),
+        images: JSON.parse(vehicle.images)
+      }
+    });
   } catch (error) {
     logger.error('Error fetching vehicle details:', error);
     return NextResponse.json(

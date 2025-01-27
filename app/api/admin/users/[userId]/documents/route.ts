@@ -1,43 +1,37 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { documents } from '@/lib/schema';
-import { eq, sql } from 'drizzle-orm';
+import { query } from '@/lib/db';
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    // Check if user is authenticated and is an admin
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
-      logger.debug('Unauthorized access attempt to user documents');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { userId } = params;
-    if (!userId) {
+    if (!session) {
       return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
+        { error: 'Not authenticated' },
+        { status: 401 }
       );
     }
 
-    const userDocuments = await db
-      .select()
-      .from(documents)
-      .where(eq(documents.user_id, userId));
+    const { userId } = params;
+
+    // Get user's documents
+    const result = await query(
+      'SELECT * FROM documents WHERE user_id = $1',
+      [userId]
+    );
 
     logger.debug(`Successfully fetched documents for user ${userId}`);
-    return NextResponse.json(userDocuments);
-    
+    return NextResponse.json(result.rows);
+
   } catch (error) {
     logger.error('Error fetching user documents:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch user documents' },
+      { error: 'Failed to fetch documents' },
       { status: 500 }
     );
   }
@@ -75,14 +69,10 @@ export async function PATCH(
 
     try {
       // Update document status
-      const [updatedDocument] = await db
-        .update(documents)
-        .set({
-          status: status as 'approved' | 'rejected',
-          updated_at: sql`CURRENT_TIMESTAMP`
-        })
-        .where(eq(documents.id, documentId))
-        .returning();
+      const [updatedDocument] = await query(
+        'UPDATE documents SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+        [status, documentId]
+      );
 
       if (!updatedDocument) {
         return NextResponse.json(
@@ -92,11 +82,11 @@ export async function PATCH(
       }
 
       // Check if all required documents are approved
-      const userDocuments = await db
-        .select()
-        .from(documents)
-        .where(eq(documents.user_id, userId));
-      const allDocsApproved = userDocuments.every(doc => doc.status === 'approved');
+      const userDocuments = await query(
+        'SELECT * FROM documents WHERE user_id = $1',
+        [userId]
+      );
+      const allDocsApproved = userDocuments.rows.every(doc => doc.status === 'approved');
 
       logger.debug(`Successfully updated document ${documentId} status to ${status}`);
       return NextResponse.json({

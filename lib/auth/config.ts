@@ -1,13 +1,31 @@
 import { type AuthOptions } from 'next-auth';
-import { DrizzleAdapter } from '@auth/drizzle-adapter';
-import { db } from '@/lib/db';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
-import { eq } from 'drizzle-orm';
-import { users } from '@/lib/db/schema';
+import { query } from '@/lib/db';
+import logger from '@/lib/logger';
+
+type UserRole = 'user' | 'admin';
+
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  role: UserRole;
+}
+
+declare module 'next-auth' {
+  interface Session {
+    user: User;
+  }
+  interface JWT {
+    id: string;
+    email: string;
+    name: string;
+    role: UserRole;
+  }
+}
 
 export const authOptions: AuthOptions = {
-  adapter: DrizzleAdapter(db),
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -22,24 +40,27 @@ export const authOptions: AuthOptions = {
         }
 
         try {
-          const result = await db.select().from(users).where(eq(users.email, credentials.email));
-          const user = result[0];
+          const result = await query(
+            'SELECT * FROM users WHERE email = $1 LIMIT 1',
+            [credentials.email]
+          );
+          const user = result.rows[0];
 
           if (!user) {
-            console.log('User not found:', credentials.email);
+            logger.debug('User not found:', credentials.email);
             return null;
           }
 
           const isValid = await bcrypt.compare(credentials.password, user.password_hash || '');
 
           if (!isValid) {
-            console.log('Invalid password for user:', credentials.email);
+            logger.debug('Invalid password for user:', credentials.email);
             return null;
           }
 
           // Check if admin login is requested but user is not an admin
           if (credentials.isAdmin === 'true' && user.role !== 'admin') {
-            console.log('Admin access denied for user:', credentials.email);
+            logger.debug('Admin access denied for user:', credentials.email);
             return null;
           }
 
@@ -47,10 +68,10 @@ export const authOptions: AuthOptions = {
             id: user.id,
             email: user.email,
             name: user.name || '',
-            role: user.role
+            role: user.role as UserRole
           };
         } catch (error) {
-          console.error('Auth error:', error);
+          logger.error('Auth error:', error);
           return null;
         }
       }
@@ -65,13 +86,10 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        return {
-          ...token,
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role
-        };
+        token.id = user.id;
+        token.name = user.name || '';
+        token.email = user.email;
+        token.role = user.role;
       }
       return token;
     },
@@ -81,7 +99,7 @@ export const authOptions: AuthOptions = {
         user: {
           ...session.user,
           id: token.id,
-          name: token.name || '',
+          name: token.name,
           email: token.email,
           role: token.role
         }

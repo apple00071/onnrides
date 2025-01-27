@@ -1,63 +1,35 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { bookings } from '@/lib/schema';
-import { verifyAuth } from '@/lib/auth';
-import { eq } from 'drizzle-orm';
 import { createOrder } from '@/lib/razorpay';
-
-interface BookingRow {
-  id: string;
-  user_id: string;
-  vehicle_id: string;
-  total_price: number;
-  start_date: Date;
-  end_date: Date;
-  total_hours: number;
-  status: string;
-  payment_status: string;
-  payment_details: string | null;
-  created_at: Date;
-  updated_at: Date;
-}
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyAuth();
-    if (!user) {
-      return new Response(JSON.stringify({ message: 'Authentication required' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { bookingId } = await request.json();
     if (!bookingId) {
-      return new Response(JSON.stringify({ message: 'Booking ID is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return NextResponse.json({ error: 'Booking ID is required' }, { status: 400 });
     }
 
-    const booking = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, bookingId))
-      .limit(1)
-      .then((rows) => rows[0]);
+    // Get booking details
+    const bookingResult = await query(
+      'SELECT * FROM bookings WHERE id = $1 LIMIT 1',
+      [bookingId]
+    );
 
+    const booking = bookingResult.rows[0];
     if (!booking) {
-      return new Response(JSON.stringify({ message: 'Booking not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
-    if (booking.user_id !== user.id) {
-      return new Response(JSON.stringify({ message: 'Forbidden' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    if (booking.user_id !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Create Razorpay order
@@ -67,41 +39,39 @@ export async function POST(request: NextRequest) {
       receipt: bookingId,
       notes: {
         booking_id: bookingId,
-        user_id: user.id
+        user_id: session.user.id
       }
     });
 
     // Update booking with order details
-    await db
-      .update(bookings)
-      .set({
-        payment_details: JSON.stringify({
+    await query(
+      `UPDATE bookings 
+       SET payment_details = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2`,
+      [
+        JSON.stringify({
           order_id: razorpayOrder.id,
           amount: razorpayOrder.amount,
           currency: razorpayOrder.currency,
           status: razorpayOrder.status,
           created_at: new Date().toISOString()
         }),
-        updated_at: new Date()
-      })
-      .where(eq(bookings.id, bookingId))
-      .execute();
+        bookingId
+      ]
+    );
 
-    return new Response(JSON.stringify({
+    return NextResponse.json({
       id: razorpayOrder.id,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     logger.error('Error creating order:', error);
-    return new Response(JSON.stringify({ message: 'Failed to create order' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json(
+      { error: 'Failed to create payment order' },
+      { status: 500 }
+    );
   }
 } 

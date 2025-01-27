@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { users } from '@/lib/schema';
-import { eq, sql } from 'drizzle-orm';
+import { query } from '@/lib/db';
 import { randomUUID } from 'crypto';
 
 interface SignupBody {
@@ -26,13 +24,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1)
-      .execute()
-      .then(rows => rows[0]);
+    const existingUser = await query(
+      'SELECT * FROM users WHERE email = $1 LIMIT 1',
+      [email]
+    ).then(result => result.rows[0]);
 
     if (existingUser) {
       return NextResponse.json(
@@ -45,18 +40,11 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const [user] = await db
-      .insert(users)
-      .values({
-        id: randomUUID(),
-        email,
-        password_hash: hashedPassword,
-        name,
-        role: 'user',
-        created_at: sql`CURRENT_TIMESTAMP`,
-        updated_at: sql`CURRENT_TIMESTAMP`
-      })
-      .returning();
+    const result = await query(
+      'INSERT INTO users (email, password, name) VALUES ($1, $2, $3) RETURNING *',
+      [email, hashedPassword, name]
+    );
+    const user = result.rows[0];
 
     logger.debug('User created successfully:', { userId: user.id, email });
 

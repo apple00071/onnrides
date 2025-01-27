@@ -1,68 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { users, documents, bookings } from '@/lib/schema';
-import { eq, ne, sql } from 'drizzle-orm';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if user is authenticated and is an admin
     const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
-      logger.warn('Unauthorized access attempt to users API');
+    if (!session) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { error: 'Not authenticated' },
         { status: 401 }
       );
     }
 
-    if (session.user.role !== 'admin') {
-      logger.warn('Non-admin access attempt to users API:', { userEmail: session.user.email });
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
-    }
-
     // Get all users except admins
-    const allUsers = await db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        phone: users.phone,
-        role: users.role,
-        created_at: users.created_at,
-      })
-      .from(users)
-      .where(ne(users.role, 'admin'));
+    const usersResult = await query(`
+      SELECT id, name, email, phone, role, created_at 
+      FROM users 
+      WHERE role != 'admin'
+    `);
 
     // Get document counts for each user
-    const usersWithDocuments = await Promise.all(
-      allUsers.map(async (user) => {
-        const documentCounts = await db
-          .select({
-            total: sql<number>`count(*)`,
-            approved: sql<number>`sum(case when ${documents.status} = 'approved' then 1 else 0 end)`,
-          })
-          .from(documents)
-          .where(eq(documents.user_id, user.id));
+    const usersWithDetails = await Promise.all(
+      usersResult.rows.map(async (user) => {
+        // Get document counts
+        const documentCountsResult = await query(`
+          SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved
+          FROM documents
+          WHERE user_id = $1
+        `, [user.id]);
+        const documentCounts = documentCountsResult.rows[0];
+
+        // Get booking counts
+        const bookingCountsResult = await query(`
+          SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+            SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled
+          FROM bookings
+          WHERE user_id = $1
+        `, [user.id]);
+        const bookingCounts = bookingCountsResult.rows[0];
 
         return {
           ...user,
-          documents_status: {
-            total: Number(documentCounts[0].total) || 0,
-            approved: Number(documentCounts[0].approved) || 0,
-          },
+          documents: documentCounts,
+          bookings: bookingCounts
         };
       })
     );
 
-    logger.info('Successfully fetched users data');
-    return NextResponse.json({ users: usersWithDocuments });
+    return NextResponse.json(usersWithDetails);
+
   } catch (error) {
     logger.error('Error fetching users:', error);
     return NextResponse.json(
@@ -92,19 +84,20 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check if trying to delete an admin
-    const userCheck = await db
-      .select({ role: users.role })
-      .from(users)
-      .where(eq(users.id, userId));
+    const userCheck = await query(`
+      SELECT role 
+      FROM users 
+      WHERE id = $1
+    `, [userId]);
 
-    if (userCheck.length === 0) {
+    if (userCheck.rows.length === 0) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
 
-    if (userCheck[0].role === 'admin') {
+    if (userCheck.rows[0].role === 'admin') {
       return NextResponse.json(
         { error: 'Cannot delete admin users' },
         { status: 403 }
@@ -112,13 +105,22 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete user's documents first
-    await db.delete(documents).where(eq(documents.user_id, userId));
+    await query(`
+      DELETE FROM documents
+      WHERE user_id = $1
+    `, [userId]);
     
     // Delete user's bookings
-    await db.delete(bookings).where(eq(bookings.user_id, userId));
+    await query(`
+      DELETE FROM bookings
+      WHERE user_id = $1
+    `, [userId]);
     
     // Delete the user
-    await db.delete(users).where(eq(users.id, userId));
+    await query(`
+      DELETE FROM users
+      WHERE id = $1
+    `, [userId]);
 
     logger.debug(`Successfully deleted user ${userId}`);
     return NextResponse.json({ message: 'User deleted successfully' });

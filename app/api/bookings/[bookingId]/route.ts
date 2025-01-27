@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { bookings, vehicles } from '@/lib/schema';
-import { verifyAuth } from '@/lib/auth';
-import { eq, and, sql } from 'drizzle-orm';
+import { query } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 import type { Booking, Vehicle } from '@/lib/types';
 
 interface UpdateBookingBody {
@@ -17,7 +15,7 @@ export async function GET(
   { params }: { params: { bookingId: string } }
 ) {
   try {
-    const user = await verifyAuth();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -27,13 +25,13 @@ export async function GET(
 
     const { bookingId } = params;
 
-    const booking = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, bookingId))
-      .limit(1);
+    const result = await query(
+      'SELECT * FROM bookings WHERE id = $1 LIMIT 1',
+      [bookingId]
+    );
+    const booking = result.rows[0];
 
-    if (!booking[0]) {
+    if (!booking) {
       return NextResponse.json(
         { error: 'Booking not found' },
         { status: 404 }
@@ -41,14 +39,14 @@ export async function GET(
     }
 
     // Only allow users to view their own bookings or admins to view any booking
-    if (user.role !== 'admin' && booking[0].user_id !== user.id) {
+    if (user.role !== 'admin' && booking.user_id !== user.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }
       );
     }
 
-    return NextResponse.json(booking[0]);
+    return NextResponse.json(booking);
   } catch (error) {
     logger.error('Failed to fetch booking:', error);
     return NextResponse.json(
@@ -64,7 +62,7 @@ export async function PUT(
   { params }: { params: { bookingId: string } }
 ) {
   try {
-    const user = await verifyAuth();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -82,13 +80,13 @@ export async function PUT(
       );
     }
 
-    const booking = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, bookingId))
-      .limit(1);
+    const result = await query(
+      'SELECT * FROM bookings WHERE id = $1 LIMIT 1',
+      [bookingId]
+    );
+    const booking = result.rows[0];
 
-    if (!booking[0]) {
+    if (!booking) {
       return NextResponse.json(
         { error: 'Booking not found' },
         { status: 404 }
@@ -96,7 +94,7 @@ export async function PUT(
     }
 
     // Only allow users to update their own bookings or admins to update any booking
-    if (user.role !== 'admin' && booking[0].user_id !== user.id) {
+    if (user.role !== 'admin' && booking.user_id !== user.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }
@@ -105,22 +103,22 @@ export async function PUT(
 
     // If booking is being cancelled, update vehicle availability
     if (status === 'cancelled') {
-      await db
-        .update(vehicles)
-        .set({ is_available: true })
-        .where(eq(vehicles.id, booking[0].vehicle_id));
+      await query(
+        'UPDATE vehicles SET is_available = true WHERE id = $1',
+        [booking.vehicle_id]
+      );
     }
 
-    const updatedBooking = await db
-      .update(bookings)
-      .set({
-        status,
-        updated_at: sql`CURRENT_TIMESTAMP`
-      })
-      .where(eq(bookings.id, bookingId))
-      .returning();
+    const updateResult = await query(
+      `UPDATE bookings 
+       SET status = $1, 
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2 
+       RETURNING *`,
+      [status, bookingId]
+    );
 
-    return NextResponse.json(updatedBooking[0]);
+    return NextResponse.json(updateResult.rows[0]);
   } catch (error) {
     console.error('Error updating booking:', error);
     return NextResponse.json(
@@ -136,7 +134,7 @@ export async function POST(
   { params }: { params: { bookingId: string } }
 ) {
   try {
-    const user = await verifyAuth();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -145,11 +143,11 @@ export async function POST(
     }
 
     // Get booking
-    const [booking] = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, params.bookingId))
-      .limit(1);
+    const result = await query(
+      'SELECT * FROM bookings WHERE id = $1 LIMIT 1',
+      [params.bookingId]
+    );
+    const booking = result.rows[0];
 
     if (!booking) {
       return NextResponse.json(
@@ -175,43 +173,22 @@ export async function POST(
     }
 
     // Update booking status to cancelled
-    const [updatedBooking] = await db
-      .update(bookings)
-      .set({
-        status: 'cancelled',
-        updated_at: sql`CURRENT_TIMESTAMP`
-      })
-      .where(eq(bookings.id, params.bookingId))
-      .returning();
+    const updateResult = await query(
+      `UPDATE bookings 
+       SET status = 'cancelled',
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $1 
+       RETURNING *`,
+      [params.bookingId]
+    );
 
-    // Update vehicle availability
-    await db
-      .update(vehicles)
-      .set({ is_available: true })
-      .where(eq(vehicles.id, booking.vehicle_id));
-
-    return NextResponse.json({
-      message: 'Booking cancelled successfully',
-      booking: updatedBooking,
-    });
+    return NextResponse.json(updateResult.rows[0]);
 
   } catch (error) {
     logger.error('Error cancelling booking:', error);
     return NextResponse.json(
-      { error: 'Failed to cancel booking', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to cancel booking' },
       { status: 500 }
     );
   }
 }
-
-// Helper function to validate booking status transitions
-function isValidStatusTransition(currentStatus: string, newStatus: string): boolean {
-  const validTransitions: Record<string, string[]> = {
-    pending: ['confirmed', 'cancelled'],
-    confirmed: ['completed', 'cancelled'],
-    cancelled: [],
-    completed: []
-  };
-
-  return validTransitions[currentStatus]?.includes(newStatus) || false;
-} 
