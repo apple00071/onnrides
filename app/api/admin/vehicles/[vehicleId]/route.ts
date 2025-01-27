@@ -3,7 +3,6 @@ import { query } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import logger from '@/lib/logger';
-import { type UpdateVehicleBody } from '@/app/types';
 
 export async function GET(
   _request: NextRequest,

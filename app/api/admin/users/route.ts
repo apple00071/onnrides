@@ -3,12 +3,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { 
-  ApiResponse, 
-  User, 
-  DocumentCounts, 
-  BookingCounts
-} from '@/lib/types';
 
 export async function GET(_request: NextRequest) {
   try {

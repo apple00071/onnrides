@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from "lucide-react";
 import { FaEye } from 'react-icons/fa';
 import logger from '../../../lib/logger';
 import UserDetailsModal from './components/UserDetailsModal';

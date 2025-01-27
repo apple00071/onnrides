@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
-import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
-import Image from 'next/image';
+import { FaPlus } from 'react-icons/fa';
 import logger from '../../../lib/logger';
 import AddVehicleModal from './components/AddVehicleModal';
 import EditVehicleModal from './components/EditVehicleModal';
@@ -16,16 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from '../../../components/ui/table';
-import { formatDate, formatCurrency } from '../../../lib/utils';
+import { formatCurrency } from '../../../lib/utils';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Vehicle } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Input } from '../../../components/ui/input';
-import { Label } from '../../../components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
-import { getVehicles } from '@/lib/api';
 
 export default function VehiclesPage() {
   const { data: session, status } = useSession({
@@ -67,8 +60,8 @@ export default function VehiclesPage() {
       }
       const data = await response.json();
       setVehicles(data.vehicles);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to fetch vehicles');
+    } catch (_error) {
+      setError(_error instanceof Error ? _error.message : 'Failed to fetch vehicles');
     } finally {
       setLoading(false);
     }
@@ -87,8 +80,8 @@ export default function VehiclesPage() {
       }
 
       setVehicles(vehicles.filter(v => v.id !== id));
-    } catch (error) {
-      logger.error('Error deleting vehicle:', error);
+    } catch (_error) {
+      logger.error('Error deleting vehicle:', _error);
     }
   };
 
@@ -105,8 +98,8 @@ export default function VehiclesPage() {
     setVehicles([...vehicles, newVehicle]);
   };
 
-  const handleAddClick = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleAddClick = (_e: React.MouseEvent) => {
+    _e.preventDefault();
     logger.debug('Add button clicked');
     setIsAddModalOpen(true);
     logger.debug('isAddModalOpen set to:', true);

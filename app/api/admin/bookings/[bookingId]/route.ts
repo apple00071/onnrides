@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import { query } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
-import type { Booking, Vehicle } from '@/lib/types';
 
 interface UpdateBookingBody {
   status?: 'pending' | 'confirmed' | 'cancelled' | 'completed';

@@ -1,12 +1,11 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import { query } from '@/lib/db';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { randomUUID } from 'crypto';
 
-// ... existing code remains unchanged as it already uses query and raw SQL ...
-export async function GET() {
+export async function GET(_request: NextRequest) {
   try {
     const result = await query(
       'SELECT * FROM vehicles ORDER BY created_at'
@@ -18,13 +17,13 @@ export async function GET() {
 
       try {
         parsedLocation = JSON.parse(vehicle.location);
-      } catch (e) {
+      } catch (_e) {
         parsedLocation = [vehicle.location];
       }
 
       try {
         parsedImages = JSON.parse(vehicle.images);
-      } catch (e) {
+      } catch (_e) {
         parsedImages = vehicle.images ? [vehicle.images] : [];
       }
 
@@ -35,16 +34,13 @@ export async function GET() {
       };
     });
 
-    return new Response(JSON.stringify({ vehicles: formattedVehicles }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json({ vehicles: formattedVehicles });
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
-    return new Response(JSON.stringify({ error: 'Failed to fetch vehicles' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json(
+      { error: 'Failed to fetch vehicles' },
+      { status: 500 }
+    );
   }
 }
 
@@ -52,18 +48,18 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return new Response(JSON.stringify({ error: 'Authentication required' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     // Check if user is admin
     if (session.user.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Admin access required' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -80,10 +76,10 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!name || !type || !location || !quantity || !price_per_hour || !min_booking_hours || !images) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
     }
 
     // Ensure location is properly formatted
@@ -118,22 +114,19 @@ export async function POST(request: NextRequest) {
 
     const vehicle = result.rows[0];
 
-    return new Response(JSON.stringify({
+    return NextResponse.json({
       message: 'Vehicle created successfully',
       vehicle: {
         ...vehicle,
         location: JSON.parse(vehicle.location),
         images: JSON.parse(vehicle.images),
       }
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     logger.error('Error creating vehicle:', error);
-    return new Response(JSON.stringify({ error: 'Failed to create vehicle' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json(
+      { error: 'Failed to create vehicle' },
+      { status: 500 }
+    );
   }
 } 
