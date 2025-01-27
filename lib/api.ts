@@ -91,7 +91,7 @@ export function updateBooking(bookingId: string, updates: Partial<Booking>): Boo
 
   try {
     const storedBookings = localStorage.getItem(BOOKINGS_STORAGE_KEY);
-    let bookings: Booking[] = storedBookings 
+    const bookings: Booking[] = storedBookings 
       ? JSON.parse(storedBookings) 
       : [];
 
@@ -123,19 +123,19 @@ export function deleteBooking(bookingId: string): boolean {
 
   try {
     const storedBookings = localStorage.getItem(BOOKINGS_STORAGE_KEY);
-    let bookings: Booking[] = storedBookings 
+    const bookings: Booking[] = storedBookings 
       ? JSON.parse(storedBookings) 
       : [];
 
     const initialLength = bookings.length;
-    bookings = bookings.filter(b => b.id !== bookingId);
+    const filteredBookings = bookings.filter(b => b.id !== bookingId);
 
-    if (bookings.length === initialLength) {
+    if (filteredBookings.length === initialLength) {
       console.error('Booking not found');
       return false;
     }
 
-    localStorage.setItem(BOOKINGS_STORAGE_KEY, JSON.stringify(bookings));
+    localStorage.setItem(BOOKINGS_STORAGE_KEY, JSON.stringify(filteredBookings));
     return true;
   } catch (error) {
     console.error('Error deleting booking:', error);
@@ -149,13 +149,13 @@ export function getVehicles(filters?: Partial<Vehicle>): Vehicle[] {
 
   try {
     const storedVehicles = localStorage.getItem(VEHICLES_STORAGE_KEY);
-    let vehicles: Vehicle[] = storedVehicles 
+    const vehicles: Vehicle[] = storedVehicles 
       ? JSON.parse(storedVehicles) 
       : [];
 
     // If filters are provided, apply them
     if (filters) {
-      vehicles = vehicles.filter(vehicle => 
+      return vehicles.filter(vehicle => 
         Object.entries(filters).every(([key, value]) => vehicle[key as keyof Vehicle] === value)
       );
     }
@@ -198,7 +198,7 @@ export function updateVehicle(vehicleId: string, updates: Partial<Vehicle>): Veh
 
   try {
     const storedVehicles = localStorage.getItem(VEHICLES_STORAGE_KEY);
-    let vehicles: Vehicle[] = storedVehicles 
+    const vehicles: Vehicle[] = storedVehicles 
       ? JSON.parse(storedVehicles) 
       : [];
 
@@ -230,19 +230,19 @@ export function deleteVehicle(vehicleId: string): boolean {
 
   try {
     const storedVehicles = localStorage.getItem(VEHICLES_STORAGE_KEY);
-    let vehicles: Vehicle[] = storedVehicles 
+    const vehicles: Vehicle[] = storedVehicles 
       ? JSON.parse(storedVehicles) 
       : [];
 
     const initialLength = vehicles.length;
-    vehicles = vehicles.filter(v => v.id !== vehicleId);
+    const filteredVehicles = vehicles.filter(v => v.id !== vehicleId);
 
-    if (vehicles.length === initialLength) {
+    if (filteredVehicles.length === initialLength) {
       console.error('Vehicle not found');
       return false;
     }
 
-    localStorage.setItem(VEHICLES_STORAGE_KEY, JSON.stringify(vehicles));
+    localStorage.setItem(VEHICLES_STORAGE_KEY, JSON.stringify(filteredVehicles));
     return true;
   } catch (error) {
     console.error('Error deleting vehicle:', error);

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { findUserByEmail, createUser } from '@/lib/db';
+import { findUserByEmail, createUser } from '@/lib/db/index';
 import bcrypt from 'bcrypt';
 
 export async function POST(request: Request) {

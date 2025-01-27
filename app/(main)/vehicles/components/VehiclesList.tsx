@@ -1,20 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { 
+  _useState,
+  _useEffect,
+  _useRouter,
+  _useSearchParams
+} from 'react';
+import { _Link } from 'next/link';
 import Image from 'next/image';
 import { Vehicle } from '@/lib/types';
-import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 interface VehicleListProps {
   vehicles: Vehicle[];
-  searchParams: URLSearchParams;
   onBookClick: (vehicleId: string) => void;
 }
 
-export default function VehiclesList({ vehicles, searchParams, onBookClick }: VehicleListProps) {
+export default function VehiclesList({ vehicles, onBookClick }: VehicleListProps) {
   const getLocationString = (location: string | string[]): string => {
     if (Array.isArray(location)) {
       return location.join(', ');
