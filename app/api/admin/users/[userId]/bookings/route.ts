@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { neon } from '@neondatabase/serverless';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { verifyAuth } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    const user = await verifyAuth();
+    const user = await getCurrentUser();
     
     if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -21,12 +21,10 @@ export async function GET(
         { status: 400 }
       );
     }
-
-    const sql = neon(process.env.DATABASE_URL!);
     
     // Get user's bookings with vehicle details
-    const bookings = await sql`
-      SELECT 
+    const bookings = await query(
+      `SELECT 
         b.id,
         b.start_date,
         b.end_date,
@@ -40,9 +38,10 @@ export async function GET(
         v.price_per_hour
       FROM bookings b
       JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.user_id = ${userId}
-      ORDER BY b.created_at DESC
-    `;
+      WHERE b.user_id = $1
+      ORDER BY b.created_at DESC`,
+      [userId]
+    );
 
     return NextResponse.json(bookings);
 

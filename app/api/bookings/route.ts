@@ -4,41 +4,52 @@ import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { nanoid } from 'nanoid';
+import { Booking, ApiResponse } from '@/lib/types';
 
-interface BookingBody {
-  vehicle_id: string;
-  pickup_datetime: string;
-  dropoff_datetime: string;
-  total_hours: number;
-  total_price: number;
-}
+type BookingBody = Pick<Booking, 'vehicle_id' | 'pickup_datetime' | 'dropoff_datetime' | 'total_hours' | 'total_price'>;
 
 // GET /api/bookings - List user's bookings
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest
+): Promise<NextResponse<ApiResponse<Booking[]>>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ 
+        success: false,
+        error: 'Unauthorized' 
+      }, { status: 401 });
     }
 
-    const result = await query(
+    const result = await query<Booking>(
       'SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC',
       [session.user.id]
     );
     
-    return NextResponse.json(result.rows);
+    return NextResponse.json({ 
+      success: true,
+      data: result.rows 
+    });
   } catch (error) {
     logger.error('Error fetching bookings:', error);
-    return NextResponse.json({ error: 'Failed to fetch bookings' }, { status: 500 });
+    return NextResponse.json({ 
+      success: false,
+      error: 'Failed to fetch bookings' 
+    }, { status: 500 });
   }
 }
 
 // POST /api/bookings - Create booking
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest
+): Promise<NextResponse<ApiResponse<{ booking: Booking }>>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ 
+        success: false,
+        error: 'Unauthorized' 
+      }, { status: 401 });
     }
 
     const body = await request.json() as BookingBody;
@@ -46,11 +57,14 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!body.vehicle_id || !body.pickup_datetime || !body.dropoff_datetime || !body.total_hours || !body.total_price) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json({ 
+        success: false,
+        error: 'Missing required fields' 
+      }, { status: 400 });
     }
 
     // Check if vehicle is available for the requested time period
-    const conflictingBookings = await query(
+    const conflictingBookings = await query<{ count: number }>(
       `SELECT COUNT(*) as count 
        FROM bookings 
        WHERE vehicle_id = $1 
@@ -60,15 +74,15 @@ export async function POST(request: NextRequest) {
     );
 
     if (conflictingBookings.rows[0].count > 0) {
-      return NextResponse.json(
-        { error: 'Vehicle is not available for the selected time period' },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        error: 'Vehicle is not available for the selected time period'
+      }, { status: 400 });
     }
 
     // Create booking
     const bookingId = nanoid();
-    const result = await query(
+    const result = await query<Booking>(
       `INSERT INTO bookings (
         id, user_id, vehicle_id, start_date, end_date,
         total_hours, total_price, status, payment_status,
@@ -88,10 +102,15 @@ export async function POST(request: NextRequest) {
       ]
     );
 
-    const booking = result.rows[0];
-    return NextResponse.json({ booking });
+    return NextResponse.json({ 
+      success: true,
+      data: { booking: result.rows[0] } 
+    });
   } catch (error) {
     logger.error('Error creating booking:', error);
-    return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 });
+    return NextResponse.json({ 
+      success: false,
+      error: 'Failed to create booking' 
+    }, { status: 500 });
   }
 } 

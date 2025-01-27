@@ -1,29 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { neon } from '@neondatabase/serverless';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { verifyAuth } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const user = await verifyAuth();
+    const user = await getCurrentUser();
     
     if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     logger.info('Starting database migration...');
-
-    const sql = neon(process.env.DATABASE_URL!);
     
     // Add min_booking_hours column using raw SQL
-    await sql`
+    await query(`
       ALTER TABLE vehicles 
       ADD COLUMN IF NOT EXISTS min_booking_hours INTEGER NOT NULL DEFAULT 12
-    `;
+    `);
 
     logger.info('Migration completed successfully');
 

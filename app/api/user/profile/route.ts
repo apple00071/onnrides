@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { users } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,11 +20,10 @@ export async function GET(request: NextRequest) {
     }
 
     logger.info('Looking for profile with ID:', session.user.id);
-    const profile = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, session.user.id))
-      .limit(1);
+    const { rows: profile } = await query(
+      'SELECT * FROM users WHERE id = $1 LIMIT 1',
+      [session.user.id]
+    );
 
     logger.info('Profile query result:', profile);
 
@@ -65,19 +62,25 @@ export async function PUT(request: NextRequest) {
     }
 
     const data = await request.json();
-    const now = new Date();
+    const now = new Date().toISOString();
 
     // Remove any sensitive fields that shouldn't be updated directly
     const { id, email, password_hash, role, created_at, ...updateData } = data;
 
+    // Convert updateData object to SQL SET clause
+    const updateFields = Object.keys(updateData)
+      .map((key, index) => `${key} = $${index + 1}`)
+      .join(', ');
+
+    const values = [...Object.values(updateData), now, session.user.id];
+
     logger.info('Updating profile for user ID:', session.user.id);
-    await db
-      .update(users)
-      .set({
-        ...updateData,
-        updated_at: now,
-      })
-      .where(eq(users.id, session.user.id));
+    await query(
+      `UPDATE users 
+       SET ${updateFields}, updated_at = $${values.length - 1}
+       WHERE id = $${values.length}`,
+      values
+    );
 
     logger.info('Profile updated successfully');
     return NextResponse.json({ message: 'Profile updated successfully' });

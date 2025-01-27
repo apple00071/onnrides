@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { bookings } from '@/lib/schema';
-import { eq, sql } from 'drizzle-orm';
+import { getCurrentUser } from '@/lib/auth';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyAuth();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
         { message: 'Authentication required' },
@@ -31,13 +29,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get booking
-    const booking = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, bookingId))
-      .limit(1)
-      .execute()
-      .then(rows => rows[0]);
+    const booking = await query(
+      `SELECT * FROM bookings WHERE id = $1 LIMIT 1`,
+      [bookingId]
+    ).then(rows => rows[0]);
 
     if (!booking) {
       return NextResponse.json(
@@ -69,21 +64,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Update booking with payment details
-    await db
-      .update(bookings)
-      .set({
-        payment_status: 'paid',
-        status: 'confirmed',
-        payment_details: JSON.stringify({
+    await query(
+      `UPDATE bookings SET payment_status = 'paid', status = 'confirmed', payment_details = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+      [
+        JSON.stringify({
           payment_id: razorpay_payment_id,
           order_id: razorpay_order_id,
           signature: razorpay_signature,
           verified_at: new Date().toISOString()
         }),
-        updated_at: sql`CURRENT_TIMESTAMP`
-      })
-      .where(eq(bookings.id, bookingId))
-      .execute();
+        bookingId
+      ]
+    );
 
     return NextResponse.json({
       message: 'Payment verified successfully'

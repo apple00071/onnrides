@@ -1,11 +1,9 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { users } from '@/lib/schema';
-import { verifyAuth } from '@/lib/auth';
+import { query } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 import type { User } from '@/lib/types';
-import { eq } from 'drizzle-orm';
 import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +24,7 @@ interface UserRow {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await verifyAuth() as AuthResult | null;
+    const auth = await getCurrentUser() as AuthResult | null;
 
     if (!auth) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
@@ -36,20 +34,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user profile
-    const user = await db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        phone: users.phone,
-        role: users.role,
-        created_at: users.created_at,
-        updated_at: users.updated_at
-      })
-      .from(users)
-      .where(eq(users.id, auth.user.id))
-      .limit(1)
-      .then((rows) => rows[0]);
+    const user = await query(
+      `SELECT id, name, email, phone, role, created_at, updated_at 
+       FROM users 
+       WHERE id = $1`,
+      [auth.user.id]
+    );
 
     if (!user) {
       return new Response(JSON.stringify({ error: 'User not found' }), {
@@ -73,7 +63,7 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const auth = await verifyAuth() as AuthResult | null;
+    const auth = await getCurrentUser() as AuthResult | null;
 
     if (!auth) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {

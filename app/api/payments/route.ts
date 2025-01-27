@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { bookings } from '@/lib/schema';
-import { verifyAuth } from '@/lib/auth';
-import { eq, sql } from 'drizzle-orm';
+import { query } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 import { getRazorpayInstance } from '@/lib/razorpay';
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyAuth();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
         { message: 'Unauthorized' },
@@ -25,13 +23,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get booking
-    const booking = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, bookingId))
-      .limit(1)
-      .execute()
-      .then(rows => rows[0]);
+    const booking = await query(
+      `SELECT * FROM bookings WHERE id = $1 LIMIT 1`,
+      [bookingId]
+    ).then(rows => rows[0]);
 
     if (!booking) {
       return NextResponse.json(
@@ -75,14 +70,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Update booking with order ID
-    await db
-      .update(bookings)
-      .set({
-        payment_id: order.id,
-        updated_at: sql`CURRENT_TIMESTAMP`
-      })
-      .where(eq(bookings.id, bookingId))
-      .execute();
+    await query(
+      `UPDATE bookings SET payment_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+      [order.id, bookingId]
+    );
 
     logger.info('Payment order created:', {
       orderId: order.id,

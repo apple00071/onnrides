@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 import pool from '@/lib/db';
 
 // Use the new route segment config format
@@ -10,16 +9,8 @@ export const runtime = 'nodejs';
 export async function POST(request: NextRequest) {
   const client = await pool.connect();
   try {
-    // Get user from token
-    const token = cookies().get('token')?.value;
-    if (!token) {
-      return NextResponse.json(
-        { message: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const user = await verifyToken(token);
+    // Get current user
+    const user = await getCurrentUser();
     if (!user?.id) {
       return NextResponse.json(
         { message: 'Unauthorized' },

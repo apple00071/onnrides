@@ -3,29 +3,33 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
+import { 
+  ApiResponse, 
+  User, 
+  DocumentCounts, 
+  BookingCounts, 
+  DbQueryResult 
+} from '@/lib/types';
 
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse<User[]>>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      );
+      return NextResponse.json({
+        success: false,
+        error: 'Not authenticated'
+      }, { status: 401 });
     }
 
-    // Get all users except admins
-    const usersResult = await query(`
+    const usersResult = await query<DbQueryResult<User>>(`
       SELECT id, name, email, phone, role, created_at 
       FROM users 
       WHERE role != 'admin'
     `);
 
-    // Get document counts for each user
     const usersWithDetails = await Promise.all(
       usersResult.rows.map(async (user) => {
-        // Get document counts
-        const documentCountsResult = await query(`
+        const documentCountsResult = await query<DbQueryResult<DocumentCounts>>(`
           SELECT 
             COUNT(*) as total,
             SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved
@@ -34,8 +38,7 @@ export async function GET(request: NextRequest) {
         `, [user.id]);
         const documentCounts = documentCountsResult.rows[0];
 
-        // Get booking counts
-        const bookingCountsResult = await query(`
+        const bookingCountsResult = await query<DbQueryResult<BookingCounts>>(`
           SELECT 
             COUNT(*) as total,
             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
@@ -53,55 +56,59 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json(usersWithDetails);
+    return NextResponse.json({
+      success: true,
+      data: usersWithDetails
+    });
 
   } catch (error) {
     logger.error('Error fetching users:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch users' },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch users'
+    }, { status: 500 });
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResponse<void>>> {
   try {
-    // Check if user is authenticated and is an admin
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'admin') {
       logger.debug('Unauthorized delete attempt');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({
+        success: false,
+        error: 'Unauthorized'
+      }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('id');
 
     if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        error: 'User ID is required'
+      }, { status: 400 });
     }
 
-    // Check if trying to delete an admin
-    const userCheck = await query(`
+    const userCheck = await query<DbQueryResult<User>>(`
       SELECT role 
       FROM users 
       WHERE id = $1
     `, [userId]);
 
     if (userCheck.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: false,
+        error: 'User not found'
+      }, { status: 404 });
     }
 
     if (userCheck.rows[0].role === 'admin') {
-      return NextResponse.json(
-        { error: 'Cannot delete admin users' },
-        { status: 403 }
-      );
+      return NextResponse.json({
+        success: false,
+        error: 'Cannot delete admin users'
+      }, { status: 403 });
     }
 
     // Delete user's documents first
@@ -123,12 +130,15 @@ export async function DELETE(request: NextRequest) {
     `, [userId]);
 
     logger.debug(`Successfully deleted user ${userId}`);
-    return NextResponse.json({ message: 'User deleted successfully' });
+    return NextResponse.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
   } catch (error) {
     logger.error('Error deleting user:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete user' },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to delete user'
+    }, { status: 500 });
   }
 } 

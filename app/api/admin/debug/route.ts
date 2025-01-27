@@ -1,29 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
 import logger from '@/lib/logger';
-import { verifyAuth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { sql } from 'drizzle-orm';
+import { query } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const user = await verifyAuth();
+    const user = await getCurrentUser();
     
     if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get table info using raw SQL
-    const tableInfo = await db.select().from(
-      sql.raw(`
-        SELECT column_name, data_type, column_default, is_nullable
-        FROM information_schema.columns
-        WHERE table_name = 'vehicles'
-      `)
-    );
+    const tableInfo = await query(`
+      SELECT column_name, data_type, column_default, is_nullable
+      FROM information_schema.columns
+      WHERE table_name = 'vehicles'
+    `);
 
     const databaseInfo = {
       tables: {

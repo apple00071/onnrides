@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { bookings } from '@/lib/db/schema';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { randomUUID } from 'crypto';
 
@@ -24,12 +23,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const userBookings = await db.query.bookings.findMany({
-      where: (bookings, { eq }) => eq(bookings.user_id, session.user.id),
-      with: {
-        vehicle: true
-      }
-    });
+    const userBookings = await query(`
+      SELECT b.*, v.* 
+      FROM bookings b 
+      JOIN vehicles v ON b.vehicle_id = v.id 
+      WHERE b.user_id = $1
+    `, [session.user.id]);
 
     return new NextResponse(JSON.stringify(userBookings), {
       status: 200,

@@ -1,8 +1,6 @@
 import { NextRequest } from 'next/server';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { bookings } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { query } from '@/lib/db';
 
 interface BookingRow {
   id: string;
@@ -21,12 +19,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Get booking
-    const booking = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, bookingId))
-      .limit(1)
-      .then((rows: BookingRow[]) => rows[0]);
+    const booking = await query<BookingRow>(`
+      SELECT * FROM bookings 
+      WHERE id = $1 
+      LIMIT 1
+    `, [bookingId]).then(rows => rows[0]);
 
     if (!booking) {
       logger.error('Booking not found:', { bookingId });
@@ -37,14 +34,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Update booking status
-    await db
-      .update(bookings)
-      .set({
-        payment_status: 'completed',
-        status: 'confirmed',
-        updated_at: new Date()
-      })
-      .where(eq(bookings.id, bookingId));
+    await query(`
+      UPDATE bookings 
+      SET payment_status = 'completed',
+          status = 'confirmed',
+          updated_at = NOW()
+      WHERE id = $1
+    `, [bookingId]);
 
     return new Response(JSON.stringify({
       message: 'Payment confirmed successfully',

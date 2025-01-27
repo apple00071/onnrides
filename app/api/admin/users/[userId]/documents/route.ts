@@ -1,107 +1,109 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 import logger from '@/lib/logger';
 import { query } from '@/lib/db';
+import { ApiResponse, Document, ApiNextResponse } from '@/lib/types';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { userId: string } }
-) {
+): Promise<ApiNextResponse<ApiResponse<Document[]>>> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json(
-        { error: 'Not authenticated' },
+        { success: false, error: 'Not authenticated' },
         { status: 401 }
-      );
+      ) as ApiNextResponse<ApiResponse<Document[]>>;
     }
 
     const { userId } = params;
 
-    // Get user's documents
     const result = await query(
-      'SELECT * FROM documents WHERE user_id = $1',
+      'SELECT * FROM documents WHERE user_id = $1 ORDER BY created_at DESC',
       [userId]
     );
 
     logger.debug(`Successfully fetched documents for user ${userId}`);
-    return NextResponse.json(result.rows);
+    return NextResponse.json({ 
+      success: true, 
+      data: result.rows 
+    }) as ApiNextResponse<ApiResponse<Document[]>>;
 
   } catch (error) {
     logger.error('Error fetching user documents:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch documents' },
+      { success: false, error: 'Failed to fetch documents' },
       { status: 500 }
-    );
+    ) as ApiNextResponse<ApiResponse<Document[]>>;
   }
 }
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { userId: string } }
-) {
+): Promise<ApiNextResponse<ApiResponse<{document: Document; user_verified: boolean}>>> {
   try {
-    // Check if user is authenticated and is an admin
-    const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
+    const user = await getCurrentUser();
+    if (!user || user.role !== 'admin') {
       logger.debug('Unauthorized document approval attempt');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' }, 
+        { status: 401 }
+      ) as ApiNextResponse<ApiResponse<{document: Document; user_verified: boolean}>>;
     }
 
     const { userId } = params;
     if (!userId) {
       return NextResponse.json(
-        { error: 'User ID is required' },
+        { success: false, error: 'User ID is required' },
         { status: 400 }
       );
     }
 
     const data = await request.json();
-    const { documentId, status } = data;
+    const { documentId, status } = data as { documentId: string; status: string };
 
     if (!documentId || !status || !['approved', 'rejected'].includes(status)) {
       return NextResponse.json(
-        { error: 'Invalid document ID or status' },
+        { success: false, error: 'Invalid document ID or status' },
         { status: 400 }
       );
     }
 
-    try {
-      // Update document status
-      const [updatedDocument] = await query(
-        'UPDATE documents SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
-        [status, documentId]
+    const result = await query(
+      'UPDATE documents SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+      [status, documentId]
+    );
+
+    if (!result.rows[0]) {
+      return NextResponse.json(
+        { success: false, error: 'Document not found' },
+        { status: 404 }
       );
-
-      if (!updatedDocument) {
-        return NextResponse.json(
-          { error: 'Document not found' },
-          { status: 404 }
-        );
-      }
-
-      // Check if all required documents are approved
-      const userDocuments = await query(
-        'SELECT * FROM documents WHERE user_id = $1',
-        [userId]
-      );
-      const allDocsApproved = userDocuments.rows.every(doc => doc.status === 'approved');
-
-      logger.debug(`Successfully updated document ${documentId} status to ${status}`);
-      return NextResponse.json({
-        message: `Document ${status} successfully`,
-        document: updatedDocument,
-        user_verified: allDocsApproved
-      });
-    } catch (error) {
-      throw error;
     }
+
+    const userDocuments = await query(
+      'SELECT * FROM documents WHERE user_id = $1',
+      [userId]
+    );
+    const allDocsApproved = userDocuments.rows.every(doc => doc.status === 'approved');
+
+    logger.debug(`Successfully updated document ${documentId} status to ${status}`);
+    return NextResponse.json({
+      success: true,
+      data: {
+        document: result.rows[0],
+        user_verified: allDocsApproved
+      },
+      message: `Document ${status} successfully`
+    }) as ApiNextResponse<ApiResponse<{document: Document; user_verified: boolean}>>;
+
   } catch (error) {
     logger.error('Error updating document status:', error);
     return NextResponse.json(
-      { error: 'Failed to update document status' },
+      { success: false, error: 'Failed to update document status' },
       { status: 500 }
-    );
+    ) as ApiNextResponse<ApiResponse<{document: Document; user_verified: boolean}>>;
   }
 } 

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { users } from '@/lib/schema';
-import { eq } from 'drizzle-orm';
+import { query } from '@/lib/db';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
@@ -23,11 +21,11 @@ export async function POST(request: NextRequest) {
 
     logger.debug('Attempting login for:', email);
 
-    // Get user from database
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email));
+    // Get user from database using raw SQL
+    const { rows: [user] } = await query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    );
 
     if (!user) {
       logger.error('User not found:', email);

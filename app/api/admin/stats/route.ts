@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { users, vehicles, bookings } from '@/lib/schema';
-import { count, sql } from 'drizzle-orm';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -20,25 +18,25 @@ export async function GET(request: NextRequest) {
     }
 
     // Get total users
-    const [userStats] = await db
-      .select({ value: count() })
-      .from(users);
+    const { rows: [userStats] } = await query(
+      'SELECT COUNT(*) as value FROM users'
+    );
     const totalUsers = userStats?.value || 0;
 
     // Get total vehicles
-    const [vehicleStats] = await db
-      .select({ value: count() })
-      .from(vehicles);
+    const { rows: [vehicleStats] } = await query(
+      'SELECT COUNT(*) as value FROM vehicles'
+    );
     const totalVehicles = vehicleStats?.value || 0;
 
     // Get total bookings and revenue
-    const [bookingStats] = await db
-      .select({
-        count: count(),
-        revenue: sql<string>`COALESCE(SUM(CAST(total_price AS DECIMAL)), 0)`
-      })
-      .from(bookings)
-      .where(sql`status = 'completed'`);
+    const { rows: [bookingStats] } = await query(`
+      SELECT 
+        COUNT(*) as count,
+        COALESCE(SUM(CAST(total_price AS DECIMAL)), 0) as revenue
+      FROM bookings 
+      WHERE status = 'completed'
+    `);
     
     const totalBookings = bookingStats?.count || 0;
     const totalRevenue = parseFloat(bookingStats?.revenue || '0');

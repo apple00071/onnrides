@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { bookings, vehicles } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
 export async function GET(
@@ -19,16 +17,14 @@ export async function GET(
       );
     }
 
-    const booking = await db.query.bookings.findFirst({
-      where: (bookings, { eq, and }) => 
-        and(
-          eq(bookings.id, params.bookingId),
-          eq(bookings.user_id, session.user.id)
-        ),
-      with: {
-        vehicle: true
-      }
-    });
+    const { rows: [booking] } = await query(
+      `SELECT b.*, v.* 
+       FROM bookings b 
+       LEFT JOIN vehicles v ON b.vehicle_id = v.id 
+       WHERE b.id = $1 AND b.user_id = $2 
+       LIMIT 1`,
+      [params.bookingId, session.user.id]
+    );
 
     if (!booking) {
       return NextResponse.json(

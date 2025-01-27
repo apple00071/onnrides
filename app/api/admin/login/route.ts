@@ -2,16 +2,18 @@ import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { db } from '@/lib/db';
-import { eq } from 'drizzle-orm';
-import { users } from '@/lib/schema';
+import { query } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
 
-    // Get admin user from database
-    const user = await db.select().from(users).where(eq(users.email, email)).limit(1).execute().then(rows => rows[0]);
+    // Get admin user from database using raw SQL
+    const { rows } = await query(
+      'SELECT * FROM users WHERE email = $1 LIMIT 1',
+      [email]
+    );
+    const user = rows[0];
 
     if (!user || user.role !== 'admin') {
       return NextResponse.json(

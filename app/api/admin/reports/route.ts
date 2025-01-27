@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { sql } from 'drizzle-orm';
-import { bookings, users, vehicles, documents } from '@/lib/schema';
-import { eq, count } from 'drizzle-orm';
-import logger from '@/lib/logger';
+import { query } from '@/lib/db';
 import { User } from '@/lib/types';
+import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,7 +53,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Get total bookings and revenue
-    const [bookingsStats] = await db
+    const [bookingsStats] = await query
       .select({
         total_bookings: count(),
         total_revenue: sql<number>`COALESCE(SUM(CAST(${bookings.total_price} AS DECIMAL)), 0)`
@@ -67,26 +64,26 @@ export async function GET(request: NextRequest) {
     reports.total_revenue = bookingsStats.total_revenue;
 
     // Get total users
-    const [usersStats] = await db
+    const [usersStats] = await query
       .select({ total: count() })
       .from(users);
     reports.total_users = Number(usersStats.total);
 
     // Get total vehicles
-    const [vehiclesStats] = await db
+    const [vehiclesStats] = await query
       .select({ total: count() })
       .from(vehicles);
     reports.total_vehicles = Number(vehiclesStats.total);
 
     // Get pending documents
-    const [documentsStats] = await db
+    const [documentsStats] = await query
       .select({ total: count() })
       .from(documents)
       .where(eq(documents.status, 'pending'));
     reports.pending_documents = Number(documentsStats.total);
 
     // Get monthly revenue
-    const monthlyRevenue = await db
+    const monthlyRevenue = await query
       .select({
         month: sql<string>`TO_CHAR(${bookings.created_at}, 'YYYY-MM')`,
         revenue: sql<number>`COALESCE(SUM(CAST(${bookings.total_price} AS DECIMAL)), 0)`
@@ -102,7 +99,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // Get vehicle type distribution
-    const distribution = await db
+    const distribution = await query
       .select({
         type: vehicles.type,
         count: count()

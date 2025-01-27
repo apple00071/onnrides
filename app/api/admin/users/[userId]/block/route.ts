@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { neon } from '@neondatabase/serverless';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { verifyAuth } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    const user = await verifyAuth();
+    const user = await getCurrentUser();
     
     if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -21,16 +21,15 @@ export async function POST(
         { status: 400 }
       );
     }
-
-    const sql = neon(process.env.DATABASE_URL!);
     
     // Block user by updating their status
-    await sql`
-      UPDATE users 
-      SET status = 'blocked', 
-          updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ${userId}
-    `;
+    await query(
+      `UPDATE users 
+       SET status = 'blocked', 
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $1`,
+      [userId]
+    );
 
     logger.info('User blocked successfully:', { userId });
 

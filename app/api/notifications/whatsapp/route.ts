@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { bookings } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import twilio from 'twilio';
 
@@ -19,19 +17,16 @@ export async function POST(request: NextRequest) {
 
     const { bookingId } = await request.json();
 
-    // Get booking details with vehicle
-    const booking = await db.query.bookings.findFirst({
-      where: (bookings, { eq, and }) => 
-        and(
-          eq(bookings.id, bookingId),
-          eq(bookings.user_id, session.user.id)
-        ),
-      with: {
-        vehicle: true,
-      },
-    });
+    // Get booking details with vehicle using raw SQL
+    const booking = await query(`
+      SELECT b.*, v.* 
+      FROM bookings b
+      LEFT JOIN vehicles v ON b.vehicle_id = v.id
+      WHERE b.id = $1 AND b.user_id = $2
+      LIMIT 1
+    `, [bookingId, session.user.id]);
 
-    if (!booking) {
+    if (!booking?.[0]) {
       return NextResponse.json(
         { error: 'Booking not found' },
         { status: 404 }
@@ -39,11 +34,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Format dates for message
-    const pickupDate = new Date(booking.pickup_datetime).toLocaleString('en-IN', {
+    const pickupDate = new Date(booking[0].pickup_datetime).toLocaleString('en-IN', {
       dateStyle: 'medium',
       timeStyle: 'short',
     });
-    const dropoffDate = new Date(booking.dropoff_datetime).toLocaleString('en-IN', {
+    const dropoffDate = new Date(booking[0].dropoff_datetime).toLocaleString('en-IN', {
       dateStyle: 'medium',
       timeStyle: 'short',
     });
@@ -58,10 +53,10 @@ export async function POST(request: NextRequest) {
       to: `whatsapp:${session.user.phone}`,
       body: `🎉 Booking Confirmed!
 
-Vehicle: ${booking.vehicle.name}
+Vehicle: ${booking[0].vehicle.name}
 Pickup: ${pickupDate}
 Drop-off: ${dropoffDate}
-Booking ID: ${booking.id}
+Booking ID: ${booking[0].id}
 
 Thank you for choosing OnnRides! Drive safe! 🚗`,
     });

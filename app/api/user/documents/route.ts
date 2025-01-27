@@ -1,9 +1,7 @@
-import { verifyAuth } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { documents } from '@/lib/schema';
+import { getCurrentUser } from '@/lib/auth';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { put } from '@vercel/blob';
-import { eq } from 'drizzle-orm';
 import type { Session } from 'next-auth';
 import { randomUUID } from 'crypto';
 import { NextRequest } from 'next/server';
@@ -26,7 +24,7 @@ interface DocumentRow {
 
 export async function GET() {
   try {
-    const auth = await verifyAuth();
+    const auth = await getCurrentUser();
     if (!auth) {
       logger.warn('Unauthorized access attempt to documents');
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
@@ -36,10 +34,10 @@ export async function GET() {
     }
 
     logger.info('Fetching documents for user:', auth.id);
-    const userDocuments = await db
-      .select()
-      .from(documents)
-      .where(eq(documents.user_id, auth.id));
+    const userDocuments = await query(
+      'SELECT * FROM documents WHERE user_id = $1',
+      [auth.id]
+    );
 
     logger.info('Found documents:', userDocuments.length);
     return new Response(JSON.stringify(userDocuments), {
@@ -59,7 +57,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await verifyAuth();
+    const auth = await getCurrentUser();
     if (!auth) {
       logger.warn('Unauthorized access attempt to upload document');
       return new Response(JSON.stringify({ error: "Authentication required" }), {

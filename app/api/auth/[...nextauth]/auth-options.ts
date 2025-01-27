@@ -3,15 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import logger from '@/lib/logger';
-
-type UserRole = 'user' | 'admin';
-
-interface AuthUser {
-  id: string;
-  name: string | null;
-  email: string;
-  role: UserRole;
-}
+import { UserRole, AuthUser, DbUser, DbQueryResult } from '@/lib/types';
 
 declare module 'next-auth' {
   interface User extends AuthUser {}
@@ -32,29 +24,25 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' }
       },
-      async authorize(credentials) {
+      async authorize(credentials): Promise<AuthUser | null> {
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Email and password are required');
         }
 
         try {
-          // Find user by email
-          const result = await query(
-            'SELECT * FROM users WHERE email = $1 LIMIT 1',
+          const { rows: [user] } = await query<DbQueryResult<DbUser>>(
+            'SELECT id, name, email, role, password_hash, is_blocked FROM users WHERE email = $1 LIMIT 1',
             [credentials.email]
           );
-          const user = result.rows[0];
 
           if (!user) {
             throw new Error('No user found with this email');
           }
 
-          // Check if user is blocked
           if (user.is_blocked) {
             throw new Error('Your account has been blocked. Please contact support.');
           }
 
-          // Verify password
           const isValidPassword = await bcrypt.compare(
             credentials.password,
             user.password_hash
@@ -64,18 +52,19 @@ export const authOptions: NextAuthOptions = {
             throw new Error('Invalid password');
           }
 
-          // Update last login timestamp
-          await query(
+          await query<DbQueryResult<never>>(
             'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
             [user.id]
           );
 
-          return {
+          const authUser: AuthUser = {
             id: user.id,
             name: user.name,
             email: user.email,
             role: user.role as UserRole
           };
+
+          return authUser;
         } catch (error) {
           logger.error('Auth error:', error);
           throw error;

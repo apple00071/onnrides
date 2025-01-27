@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { users, bookings, vehicles } from '@/lib/schema';
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -20,39 +18,36 @@ export async function GET() {
     }
 
     // Get user's recent bookings
-    const recentBookings = await db
-      .select({
-        id: bookings.id,
-        vehicle_name: vehicles.name,
-        start_date: bookings.start_date,
-        end_date: bookings.end_date,
-        total_price: bookings.total_price,
-        status: bookings.status,
-        payment_status: bookings.payment_status,
-        created_at: bookings.created_at
-      })
-      .from(bookings)
-      .innerJoin(vehicles, eq(bookings.vehicle_id, vehicles.id))
-      .where(eq(bookings.user_id, session.user.id))
-      .orderBy(desc(bookings.created_at))
-      .limit(5);
+    const recentBookings = await query(`
+      SELECT 
+        b.id,
+        v.name as vehicle_name,
+        b.start_date,
+        b.end_date,
+        b.total_price,
+        b.status,
+        b.payment_status,
+        b.created_at
+      FROM bookings b
+      INNER JOIN vehicles v ON b.vehicle_id = v.id
+      WHERE b.user_id = $1
+      ORDER BY b.created_at DESC
+      LIMIT 5
+    `, [session.user.id]);
 
     // Get total bookings count
-    const [bookingsCount] = await db
-      .select({ count: bookings.id })
-      .from(bookings)
-      .where(eq(bookings.user_id, session.user.id));
+    const bookingsCount = await query(`
+      SELECT COUNT(id) as count
+      FROM bookings
+      WHERE user_id = $1
+    `, [session.user.id]);
 
     // Get total amount spent
-    const [totalSpent] = await db
-      .select({ total: bookings.total_price })
-      .from(bookings)
-      .where(
-        and(
-          eq(bookings.user_id, session.user.id),
-          eq(bookings.status, 'completed')
-        )
-      );
+    const totalSpent = await query(`
+      SELECT SUM(total_price) as total
+      FROM bookings
+      WHERE user_id = $1
+    `, [session.user.id]);
 
     return NextResponse.json({
       recent_bookings: recentBookings,

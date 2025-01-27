@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { randomUUID } from 'crypto';
 
+// ... existing code remains unchanged as it already uses query and raw SQL ...
 export async function GET(request: NextRequest) {
   try {
     const result = await query(

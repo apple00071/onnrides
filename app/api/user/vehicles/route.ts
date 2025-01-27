@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { vehicles } from '@/lib/schema';
-import { eq, and, like, sql } from 'drizzle-orm';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -15,34 +13,37 @@ export async function GET(request: Request) {
     const maxPrice = searchParams.get('maxPrice');
     const isAvailable = searchParams.get('isAvailable');
 
-    const conditions = [];
+    let sqlQuery = 'SELECT * FROM vehicles WHERE 1=1';
+    const params: any[] = [];
 
     if (type) {
-      conditions.push(eq(vehicles.type, type));
+      sqlQuery += ' AND type = $1';
+      params.push(type);
     }
 
     if (location) {
-      conditions.push(like(vehicles.location, `%${location}%`));
+      sqlQuery += ` AND location ILIKE $${params.length + 1}`;
+      params.push(`%${location}%`);
     }
 
     if (minPrice) {
-      conditions.push(sql`${vehicles.price_per_hour} >= ${minPrice}`);
+      sqlQuery += ` AND price_per_hour >= $${params.length + 1}`;
+      params.push(minPrice);
     }
 
     if (maxPrice) {
-      conditions.push(sql`${vehicles.price_per_hour} <= ${maxPrice}`);
+      sqlQuery += ` AND price_per_hour <= $${params.length + 1}`;
+      params.push(maxPrice);
     }
 
     if (isAvailable === 'true') {
-      conditions.push(eq(vehicles.is_available, true));
+      sqlQuery += ` AND is_available = $${params.length + 1}`;
+      params.push(true);
     }
 
-    const availableVehicles = await db
-      .select()
-      .from(vehicles)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(vehicles.created_at);
+    sqlQuery += ' ORDER BY created_at';
 
+    const availableVehicles = await query(sqlQuery, params);
     return NextResponse.json(availableVehicles);
   } catch (error) {
     logger.error('Error fetching vehicles:', error);

@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { bookings, vehicles } from '@/lib/db/schema';
-import { verifyAuth } from '@/lib/auth';
-import { eq } from 'drizzle-orm';
-import { sql } from 'drizzle-orm';
+import { query } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 import type { Booking, Vehicle } from '@/lib/types';
 
 interface UpdateBookingBody {
@@ -19,7 +16,7 @@ export async function GET(
 ) {
   try {
     // Verify authentication
-    const user = await verifyAuth();
+    const user = await getCurrentUser();
     if (!user || user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -27,13 +24,14 @@ export async function GET(
       );
     }
 
-    const [booking] = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, params.bookingId))
-      .limit(1);
+    // Get booking details
+    const booking = await query(`
+      SELECT * FROM bookings 
+      WHERE id = $1 
+      LIMIT 1
+    `, [params.bookingId]);
 
-    if (!booking) {
+    if (!booking[0]) {
       return NextResponse.json(
         { error: 'Booking not found' },
         { status: 404 }
@@ -41,15 +39,15 @@ export async function GET(
     }
 
     // Get vehicle details
-    const [vehicle] = await db
-      .select()
-      .from(vehicles)
-      .where(eq(vehicles.id, booking.vehicle_id))
-      .limit(1);
+    const vehicle = await query(`
+      SELECT * FROM vehicles 
+      WHERE id = $1 
+      LIMIT 1
+    `, [booking[0].vehicle_id]);
 
     return NextResponse.json({
       booking: {
-        ...booking,
+        ...booking[0],
         vehicle
       }
     });
@@ -69,7 +67,7 @@ export async function PATCH(
 ) {
   try {
     // Verify authentication
-    const user = await verifyAuth();
+    const user = await getCurrentUser();
     if (!user || user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -81,17 +79,16 @@ export async function PATCH(
     const { status, paymentStatus } = body;
 
     // Update booking
-    const updatedBooking = await db
-      .update(bookings)
-      .set({
-        ...(status && { status }),
-        ...(paymentStatus && { payment_status: paymentStatus }),
-        updated_at: sql`CURRENT_TIMESTAMP`
-      })
-      .where(eq(bookings.id, params.bookingId))
-      .returning();
+    const updatedBooking = await query(`
+      UPDATE bookings 
+      SET status = COALESCE($1, status),
+          payment_status = COALESCE($2, payment_status),
+          updated_at = CURRENT_TIMESTAMP 
+      WHERE id = $3 
+      RETURNING *
+    `, [status, paymentStatus, params.bookingId]);
 
-    if (!updatedBooking.length) {
+    if (!updatedBooking[0]) {
       return NextResponse.json(
         { error: 'Booking not found' },
         { status: 404 }
@@ -99,11 +96,11 @@ export async function PATCH(
     }
 
     // Get vehicle details
-    const [vehicle] = await db
-      .select()
-      .from(vehicles)
-      .where(eq(vehicles.id, updatedBooking[0].vehicle_id))
-      .limit(1);
+    const vehicle = await query(`
+      SELECT * FROM vehicles 
+      WHERE id = $1 
+      LIMIT 1
+    `, [updatedBooking[0].vehicle_id]);
 
     return NextResponse.json({
       success: true,
@@ -129,7 +126,7 @@ export async function DELETE(
 ) {
   try {
     // Verify authentication
-    const user = await verifyAuth();
+    const user = await getCurrentUser();
     if (!user || user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -137,12 +134,13 @@ export async function DELETE(
       );
     }
 
-    const deletedBooking = await db
-      .delete(bookings)
-      .where(eq(bookings.id, params.bookingId))
-      .returning();
+    const deletedBooking = await query(`
+      DELETE FROM bookings 
+      WHERE id = $1 
+      RETURNING *
+    `, [params.bookingId]);
 
-    if (!deletedBooking.length) {
+    if (!deletedBooking[0]) {
       return NextResponse.json(
         { error: 'Booking not found' },
         { status: 404 }

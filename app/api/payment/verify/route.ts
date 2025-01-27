@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { bookings } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { query } from '@/lib/db';
 import crypto from 'crypto';
 import logger from '@/lib/logger';
 
@@ -25,15 +23,12 @@ export async function POST(request: NextRequest) {
     } = await request.json();
 
     // Verify booking belongs to user
-    const booking = await db.query.bookings.findFirst({
-      where: (bookings, { eq, and }) => 
-        and(
-          eq(bookings.id, bookingId),
-          eq(bookings.user_id, session.user.id)
-        ),
-    });
+    const booking = await query(
+      'SELECT * FROM bookings WHERE id = $1 AND user_id = $2 LIMIT 1',
+      [bookingId, session.user.id]
+    );
 
-    if (!booking) {
+    if (!booking?.length) {
       return NextResponse.json(
         { error: 'Booking not found' },
         { status: 404 }
@@ -55,15 +50,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Update booking status
-    await db
-      .update(bookings)
-      .set({
-        payment_status: 'paid',
-        payment_id: razorpay_payment_id,
-        status: 'confirmed',
-        updated_at: new Date(),
-      })
-      .where(eq(bookings.id, bookingId));
+    await query(
+      'UPDATE bookings SET payment_status = $1, payment_id = $2, status = $3, updated_at = $4 WHERE id = $5',
+      ['paid', razorpay_payment_id, 'confirmed', new Date(), bookingId]
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {

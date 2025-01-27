@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { vehicles } from '@/lib/db/schema';
 import { getCurrentUser } from '@/lib/auth';
-import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { type UpdateVehicleBody } from '@/app/types';
-import { VEHICLE_STATUS } from '@/lib/db/schema';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { vehicleId: string } }
 ) {
   try {
-    const result = await query('SELECT * FROM vehicles WHERE id = $1', [params.vehicleId]);
+    const result = await query(
+      'SELECT * FROM vehicles WHERE id = $1',
+      [params.vehicleId]
+    );
 
     if (result.rows.length === 0) {
       return NextResponse.json(

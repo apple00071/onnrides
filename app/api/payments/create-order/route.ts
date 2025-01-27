@@ -4,37 +4,49 @@ import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { createOrder } from '@/lib/razorpay';
+import { 
+  ApiResponse, 
+  Booking, 
+  RazorpayOrderResponse, 
+  PaymentDetails,
+  DbQueryResult 
+} from '@/lib/types';
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest
+): Promise<NextResponse<ApiResponse<RazorpayOrderResponse>>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({
+        success: false,
+        error: 'Unauthorized'
+      } as ApiResponse<never>, { status: 401 });
     }
 
     const { bookingId } = await request.json();
     if (!bookingId) {
-      return NextResponse.json({ error: 'Booking ID is required' }, { status: 400 });
+      return NextResponse.json({
+        success: false,
+        error: 'Booking ID is required'
+      } as ApiResponse<never>, { status: 400 });
     }
 
-    // Get booking details
-    const bookingResult = await query(
-      'SELECT * FROM bookings WHERE id = $1 LIMIT 1',
-      [bookingId]
+    const bookingResult: DbQueryResult<Booking> = await query<Booking>(
+      'SELECT * FROM bookings WHERE id = $1 AND user_id = $2 LIMIT 1',
+      [bookingId, session.user.id]
     );
 
     const booking = bookingResult.rows[0];
     if (!booking) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+      return NextResponse.json({
+        success: false,
+        error: 'Booking not found'
+      } as ApiResponse<never>, { status: 404 });
     }
 
-    if (booking.user_id !== session.user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    // Create Razorpay order
     const razorpayOrder = await createOrder({
-      amount: Math.round(Number(booking.total_price) * 100), // Convert to paise and ensure it's an integer
+      amount: Math.round(Number(booking.total_price) * 100),
       currency: 'INR',
       receipt: bookingId,
       notes: {
@@ -43,35 +55,36 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Update booking with order details
-    await query(
+    const paymentDetails: PaymentDetails = {
+      order_id: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+      currency: razorpayOrder.currency,
+      status: razorpayOrder.status,
+      created_at: new Date().toISOString()
+    };
+
+    await query<void>(
       `UPDATE bookings 
-       SET payment_details = $1, updated_at = CURRENT_TIMESTAMP 
+       SET payment_details = $1::jsonb, updated_at = CURRENT_TIMESTAMP 
        WHERE id = $2`,
-      [
-        JSON.stringify({
-          order_id: razorpayOrder.id,
-          amount: razorpayOrder.amount,
-          currency: razorpayOrder.currency,
-          status: razorpayOrder.status,
-          created_at: new Date().toISOString()
-        }),
-        bookingId
-      ]
+      [JSON.stringify(paymentDetails), bookingId]
     );
 
     return NextResponse.json({
-      id: razorpayOrder.id,
-      amount: razorpayOrder.amount,
-      currency: razorpayOrder.currency,
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-    });
+      success: true,
+      data: {
+        id: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+      }
+    } as ApiResponse<RazorpayOrderResponse>);
 
   } catch (error) {
     logger.error('Error creating order:', error);
-    return NextResponse.json(
-      { error: 'Failed to create payment order' },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to create payment order'
+    } as ApiResponse<never>, { status: 500 });
   }
-} 
+}

@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { bookings, vehicles } from '@/lib/schema';
-import { verifyAuth } from '@/lib/auth';
-import { eq } from 'drizzle-orm';
+import { query } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 
 export async function POST(
   request: NextRequest,
@@ -11,7 +9,7 @@ export async function POST(
 ) {
   try {
     // Verify authentication
-    const user = await verifyAuth();
+    const user = await getCurrentUser();
     if (!user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
@@ -20,11 +18,10 @@ export async function POST(
     }
 
     // Get booking
-    const [booking] = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.id, params.bookingId))
-      .limit(1);
+    const { rows: [booking] } = await query(
+      `SELECT * FROM bookings WHERE id = $1 LIMIT 1`,
+      [params.bookingId]
+    );
 
     if (!booking) {
       return new Response(JSON.stringify({ error: 'Booking not found' }), {

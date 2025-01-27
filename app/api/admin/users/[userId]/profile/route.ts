@@ -1,26 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
+import { 
+  User, 
+  DocumentCounts, 
+  BookingCounts,
+  ApiResponse 
+} from '@/lib/types';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { userId: string } }
-) {
+): Promise<NextResponse<ApiResponse<User & {
+  documents: DocumentCounts;
+  bookings: BookingCounts;
+}>>> {
   try {
-    const session = await getServerSession(authOptions);
+    // ... authentication check ...
+    const session = await getCurrentUser();
     if (!session) {
       return NextResponse.json(
-        { error: 'Not authenticated' },
+        { success: false, error: 'Not authenticated' },
         { status: 401 }
       );
     }
 
     const { userId } = params;
 
-    // Get user profile
-    const userResult = await query(
+    // User query
+    const userResult = await query<User>(
       'SELECT id, name, email, phone, role, created_at FROM users WHERE id = $1',
       [userId]
     );
@@ -28,13 +37,13 @@ export async function GET(
 
     if (!user) {
       return NextResponse.json(
-        { error: 'User not found' },
+        { success: false, error: 'User not found' },
         { status: 404 }
       );
     }
 
-    // Get document counts
-    const documentCountsResult = await query(`
+    // ... document counts query ...
+    const documentCountsResult = await query<DocumentCounts>(`
       SELECT 
         COUNT(*) as total,
         SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved
@@ -43,8 +52,8 @@ export async function GET(
     `, [userId]);
     const documentCounts = documentCountsResult.rows[0];
 
-    // Get booking counts
-    const bookingCountsResult = await query(`
+    // ... booking counts query ...
+    const bookingCountsResult = await query<BookingCounts>(`
       SELECT 
         COUNT(*) as total,
         SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
@@ -55,15 +64,18 @@ export async function GET(
     const bookingCounts = bookingCountsResult.rows[0];
 
     return NextResponse.json({
-      ...user,
-      documents: documentCounts,
-      bookings: bookingCounts
+      success: true,
+      data: {
+        ...user,
+        documents: documentCounts,
+        bookings: bookingCounts
+      }
     });
 
   } catch (error) {
     logger.error('Error fetching user profile:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch user profile' },
+      { success: false, error: 'Failed to fetch user profile' },
       { status: 500 }
     );
   }
