@@ -1,53 +1,9 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { Kysely, PostgresDialect } from 'kysely';
-import { Pool } from 'pg';
-import { bookingStatusEnum } from '@/lib/db/schema';
 import logger from '@/lib/logger';
 import { authOptions } from '@/lib/auth/config';
-
-// Define database interface for Kysely
-interface Database {
-  bookings: {
-    id: string;
-    user_id: string;
-    vehicle_id: string;
-    status: typeof bookingStatusEnum.enumValues[number];
-    start_date: Date;
-    end_date: Date;
-    total_hours: number;
-    total_price: number;
-    payment_status: string;
-    payment_details: string | null;
-    created_at: Date;
-    updated_at: Date;
-    pickup_location: string | null;
-    dropoff_location: string | null;
-  };
-  users: {
-    id: string;
-    name: string | null;
-    email: string;
-    role: 'user' | 'admin';
-    phone: string | null;
-  };
-  vehicles: {
-    id: string;
-    name: string;
-    type: string;
-    location: string;
-    price_per_hour: number;
-  };
-}
-
-// Initialize Kysely instance
-const db = new Kysely<Database>({
-  dialect: new PostgresDialect({
-    pool: new Pool({
-      connectionString: process.env.DATABASE_URL,
-    }),
-  }),
-});
+import { getDb } from '@/lib/db';
+import type { Database, BookingStatus } from '@/lib/schema';
 
 // Helper function to format date
 function formatDate(dateStr: string | Date | null): string {
@@ -87,25 +43,19 @@ export async function GET(request: NextRequest) {
 
     // Get query parameters
     const url = new URL(request.url);
-    const status = url.searchParams.get('status') as typeof bookingStatusEnum.enumValues[number] | null;
+    const status = url.searchParams.get('status') as BookingStatus | null;
     const userId = url.searchParams.get('userId');
     const isHistoryView = url.searchParams.get('history') === 'true';
+
+    const db = getDb();
 
     // Build base query
     let query = db
       .selectFrom('bookings')
       .leftJoin('users', 'users.id', 'bookings.user_id')
       .leftJoin('vehicles', 'vehicles.id', 'bookings.vehicle_id')
+      .selectAll('bookings')
       .select([
-        'bookings.id',
-        'bookings.status',
-        'bookings.start_date',
-        'bookings.end_date',
-        'bookings.total_price',
-        'bookings.payment_status',
-        'bookings.created_at',
-        'bookings.pickup_location',
-        'bookings.dropoff_location',
         'users.id as user_id',
         'users.name as user_name',
         'users.email as user_email',
@@ -115,7 +65,7 @@ export async function GET(request: NextRequest) {
       ]);
 
     // Add filters
-    if (status && bookingStatusEnum.enumValues.includes(status)) {
+    if (status) {
       query = query.where('bookings.status', '=', status);
     }
     if (userId) {
@@ -193,6 +143,8 @@ export async function PUT(request: NextRequest) {
         headers: { 'Content-Type': 'application/json' }
       });
     }
+
+    const db = getDb();
 
     // Update booking
     const [updatedBooking] = await db

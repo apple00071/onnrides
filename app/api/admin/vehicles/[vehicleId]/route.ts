@@ -1,27 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { getDb } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import logger from '@/lib/logger';
+import type { Vehicle, VehicleStatus } from '@/lib/schema';
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: { vehicleId: string } }
 ) {
   try {
-    const result = await query(
-      'SELECT * FROM vehicles WHERE id = $1',
-      [params.vehicleId]
-    );
+    const db = getDb();
+    const vehicle = await db
+      .selectFrom('vehicles')
+      .selectAll()
+      .where('id', '=', params.vehicleId)
+      .executeTakeFirst();
 
-    if (result.rows.length === 0) {
+    if (!vehicle) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(result.rows[0]);
+    return NextResponse.json(vehicle);
   } catch (error) {
     logger.error('Error fetching vehicle:', error);
     return NextResponse.json(
@@ -47,39 +50,43 @@ export async function PUT(
     const data = await request.json();
 
     // Validate required fields
-    if (!data.name || !data.type || !data.status || !data.price_per_day) {
+    if (!data.name || !data.type || !data.status || !data.price_per_hour) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Update vehicle
-    const result = await query(
-      `UPDATE vehicles 
-       SET name = $1, 
-           type = $2, 
-           status = $3, 
-           price_per_day = $4, 
-           description = $5, 
-           features = $6, 
-           images = $7, 
-           updated_at = NOW() 
-       WHERE id = $8 
-       RETURNING *`,
-      [
-        data.name,
-        data.type,
-        data.status,
-        data.price_per_day,
-        data.description || null,
-        data.features || [],
-        data.images || [],
-        params.vehicleId
-      ]
-    );
+    const db = getDb();
 
-    if (result.rows.length === 0) {
+    // Update vehicle
+    const [vehicle] = await db
+      .updateTable('vehicles')
+      .set({
+        name: data.name,
+        type: data.type,
+        status: data.status as VehicleStatus,
+        price_per_hour: data.price_per_hour,
+        description: data.description || null,
+        features: data.features ? JSON.stringify(data.features) : null,
+        images: data.images ? JSON.stringify(data.images) : '[]',
+        updated_at: new Date()
+      })
+      .where('id', '=', params.vehicleId)
+      .returning([
+        'id',
+        'name',
+        'type',
+        'status',
+        'price_per_hour',
+        'description',
+        'features',
+        'images',
+        'updated_at'
+      ])
+      .execute();
+
+    if (!vehicle) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }
@@ -89,7 +96,7 @@ export async function PUT(
     revalidatePath('/vehicles');
     revalidatePath('/admin/vehicles');
 
-    return NextResponse.json(result.rows[0]);
+    return NextResponse.json(vehicle);
   } catch (error) {
     logger.error('Error updating vehicle:', error);
     return NextResponse.json(
@@ -112,15 +119,17 @@ export async function DELETE(
       );
     }
 
-    // Check if vehicle has any active bookings
-    const bookingsResult = await query(
-      `SELECT COUNT(*) FROM bookings 
-       WHERE vehicle_id = $1 
-       AND status NOT IN ('cancelled', 'completed')`,
-      [params.vehicleId]
-    );
+    const db = getDb();
 
-    if (parseInt(bookingsResult.rows[0].count) > 0) {
+    // Check if vehicle has any active bookings
+    const activeBookings = await db
+      .selectFrom('bookings')
+      .select(({ fn }) => [fn.count<number>('id').as('count')])
+      .where('vehicle_id', '=', params.vehicleId)
+      .where('status', 'not in', ['cancelled', 'completed'])
+      .executeTakeFirst();
+
+    if (activeBookings && activeBookings.count > 0) {
       return NextResponse.json(
         { error: 'Cannot delete vehicle with active bookings' },
         { status: 400 }
@@ -128,12 +137,18 @@ export async function DELETE(
     }
 
     // Delete vehicle
-    const result = await query(
-      'DELETE FROM vehicles WHERE id = $1 RETURNING *',
-      [params.vehicleId]
-    );
+    const [deletedVehicle] = await db
+      .deleteFrom('vehicles')
+      .where('id', '=', params.vehicleId)
+      .returning([
+        'id',
+        'name',
+        'type',
+        'status'
+      ])
+      .execute();
 
-    if (result.rows.length === 0) {
+    if (!deletedVehicle) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }
@@ -143,7 +158,7 @@ export async function DELETE(
     revalidatePath('/vehicles');
     revalidatePath('/admin/vehicles');
 
-    return NextResponse.json(result.rows[0]);
+    return NextResponse.json(deletedVehicle);
   } catch (error) {
     logger.error('Error deleting vehicle:', error);
     return NextResponse.json(

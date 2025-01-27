@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { query } from '@/lib/db';
+import { getDb } from '@/lib/db';
 import logger from '@/lib/logger';
+import { sql } from 'kysely';
 
 export async function GET(_request: NextRequest) {
   try {
@@ -14,32 +15,37 @@ export async function GET(_request: NextRequest) {
       }, { status: 401 });
     }
 
-    const usersResult = await query(`
-      SELECT id, name, email, phone, role, created_at 
-      FROM users 
-      WHERE role != 'admin'
-    `);
+    const db = getDb();
+
+    // Get all non-admin users
+    const users = await db
+      .selectFrom('users')
+      .select(['id', 'name', 'email', 'phone', 'role', 'created_at'])
+      .where('role', '!=', 'admin')
+      .execute();
 
     const usersWithDetails = await Promise.all(
-      usersResult.rows.map(async (user) => {
-        const documentCountsResult = await query(`
-          SELECT 
-            COUNT(*) as total,
-            SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved
-          FROM documents
-          WHERE user_id = $1
-        `, [user.id]);
-        const documentCounts = documentCountsResult.rows[0];
+      users.map(async (user) => {
+        // Get document counts
+        const documentCounts = await db
+          .selectFrom('documents')
+          .select([
+            sql<number>`count(*)`.as('total'),
+            sql<number>`sum(case when status = 'approved' then 1 else 0 end)`.as('approved')
+          ])
+          .where('user_id', '=', user.id)
+          .executeTakeFirst();
 
-        const bookingCountsResult = await query(`
-          SELECT 
-            COUNT(*) as total,
-            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-            SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled
-          FROM bookings
-          WHERE user_id = $1
-        `, [user.id]);
-        const bookingCounts = bookingCountsResult.rows[0];
+        // Get booking counts
+        const bookingCounts = await db
+          .selectFrom('bookings')
+          .select([
+            sql<number>`count(*)`.as('total'),
+            sql<number>`sum(case when status = 'completed' then 1 else 0 end)`.as('completed'),
+            sql<number>`sum(case when status = 'cancelled' then 1 else 0 end)`.as('cancelled')
+          ])
+          .where('user_id', '=', user.id)
+          .executeTakeFirst();
 
         return {
           ...user,
@@ -84,43 +90,49 @@ export async function DELETE(_request: NextRequest) {
       }, { status: 400 });
     }
 
-    const userCheck = await query(`
-      SELECT role 
-      FROM users 
-      WHERE id = $1
-    `, [userId]);
+    const db = getDb();
 
-    if (userCheck.rows.length === 0) {
+    // Check if user exists and is not an admin
+    const userCheck = await db
+      .selectFrom('users')
+      .select('role')
+      .where('id', '=', userId)
+      .executeTakeFirst();
+
+    if (!userCheck) {
       return NextResponse.json({
         success: false,
         error: 'User not found'
       }, { status: 404 });
     }
 
-    if (userCheck.rows[0].role === 'admin') {
+    if (userCheck.role === 'admin') {
       return NextResponse.json({
         success: false,
         error: 'Cannot delete admin users'
       }, { status: 403 });
     }
 
-    // Delete user's documents first
-    await query(`
-      DELETE FROM documents
-      WHERE user_id = $1
-    `, [userId]);
-    
-    // Delete user's bookings
-    await query(`
-      DELETE FROM bookings
-      WHERE user_id = $1
-    `, [userId]);
-    
-    // Delete the user
-    await query(`
-      DELETE FROM users
-      WHERE id = $1
-    `, [userId]);
+    // Use a transaction to ensure all deletes succeed or none do
+    await db.transaction().execute(async (trx) => {
+      // Delete user's documents
+      await trx
+        .deleteFrom('documents')
+        .where('user_id', '=', userId)
+        .execute();
+      
+      // Delete user's bookings
+      await trx
+        .deleteFrom('bookings')
+        .where('user_id', '=', userId)
+        .execute();
+      
+      // Delete the user
+      await trx
+        .deleteFrom('users')
+        .where('id', '=', userId)
+        .execute();
+    });
 
     logger.debug(`Successfully deleted user ${userId}`);
     return NextResponse.json({

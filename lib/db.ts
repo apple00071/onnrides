@@ -1,4 +1,6 @@
 import { Pool } from 'pg';
+import { Kysely, PostgresDialect } from 'kysely';
+import type { Database } from './schema';
 
 function parseConnectionString(connectionString: string) {
   try {
@@ -212,6 +214,18 @@ testConnection().then(success => {
     error instanceof Error ? error.message : 'Unknown error'
   );
 });
+
+// Create a new Kysely instance with the PostgreSQL dialect
+export const db = new Kysely<Database>({
+  dialect: new PostgresDialect({
+    pool,
+  }),
+});
+
+// Export a function to get the database instance
+export function getDb() {
+  return db;
+}
 
 export default pool;
 export { isConnected, testConnection, query }; 

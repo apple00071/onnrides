@@ -1,13 +1,4 @@
-import {
-  integer,
-  text,
-  pgTable,
-  real,
-  boolean,
-  timestamp,
-} from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
-import type { AdapterAccount } from '@auth/core/adapters';
+import { Generated, Insertable, Selectable, ColumnType } from 'kysely';
 
 export const VEHICLE_TYPES = ['bike', 'car'] as const;
 export type VehicleType = typeof VEHICLE_TYPES[number];
@@ -26,95 +17,96 @@ export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 export type DocumentType = 'license' | 'id_proof' | 'address_proof';
 export type DocumentStatus = 'pending' | 'approved' | 'rejected';
+export type UserRole = 'user' | 'admin';
 
 // Define role enum
 export const roleEnum = {
   enumValues: ['user', 'admin'] as const,
 } as const;
 
-export const users = pgTable('users', {
-  id: text('id').primaryKey(),
-  name: text('name'),
-  email: text('email').notNull().unique(),
-  password_hash: text('password_hash'),
-  phone: text('phone'),
-  reset_token: text('reset_token'),
-  reset_token_expiry: timestamp('reset_token_expiry'),
-  is_blocked: boolean('is_blocked').default(false),
-  role: text('role', { enum: roleEnum.enumValues }).default('user').notNull(),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
-});
+// Database interface
+interface Database {
+  users: UsersTable;
+  vehicles: VehiclesTable;
+  bookings: BookingsTable;
+  documents: DocumentsTable;
+}
 
-export const vehicles = pgTable('vehicles', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  type: text('type').notNull(),
-  location: text('location').notNull(),
-  quantity: integer('quantity').notNull(),
-  price_per_hour: real('price_per_hour').notNull(),
-  min_booking_hours: integer('min_booking_hours').notNull(),
-  is_available: boolean('is_available').default(true),
-  images: text('images').notNull(),
-  status: text('status').default('active').notNull(),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
-});
+// Users table interface
+interface UsersTable {
+  id: string;
+  name: string | null;
+  email: string;
+  password_hash: string | null;
+  phone: string | null;
+  reset_token: string | null;
+  reset_token_expiry: Date | null;
+  is_blocked: Generated<boolean>;
+  role: UserRole;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
 
-export const bookings = pgTable('bookings', {
-  id: text('id').primaryKey(),
-  user_id: text('user_id')
-    .notNull()
-    .references(() => users.id),
-  vehicle_id: text('vehicle_id')
-    .notNull()
-    .references(() => vehicles.id),
-  start_date: timestamp('start_date').notNull(),
-  end_date: timestamp('end_date').notNull(),
-  total_hours: real('total_hours').notNull(),
-  total_price: real('total_price').notNull(),
-  status: text('status').default('pending').notNull(),
-  payment_status: text('payment_status').default('pending').notNull(),
-  payment_details: text('payment_details'),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
-});
+// Vehicles table interface
+interface VehiclesTable {
+  id: string;
+  name: string;
+  type: VehicleType;
+  location: string;
+  quantity: number;
+  price_per_hour: number;
+  min_booking_hours: number;
+  is_available: Generated<boolean>;
+  images: string;
+  status: Generated<VehicleStatus>;
+  description: string | null;
+  features: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
 
-export const documents = pgTable('documents', {
-  id: text('id').primaryKey(),
-  user_id: text('user_id')
-    .notNull()
-    .references(() => users.id),
-  type: text('type').notNull(),
-  status: text('status').default('pending').notNull(),
-  file_url: text('file_url').notNull(),
-  rejection_reason: text('rejection_reason'),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
-});
+// Bookings table interface
+interface BookingsTable {
+  id: string;
+  user_id: string;
+  vehicle_id: string;
+  start_date: Date;
+  end_date: Date;
+  total_hours: number;
+  total_price: number;
+  status: Generated<BookingStatus>;
+  payment_status: Generated<PaymentStatus>;
+  payment_details: string | null;
+  pickup_location: string | null;
+  dropoff_location: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
 
-export const usersRelations = relations(users, ({ many }) => ({
-  bookings: many(bookings),
-}));
+// Documents table interface
+interface DocumentsTable {
+  id: string;
+  user_id: string;
+  type: DocumentType;
+  status: Generated<DocumentStatus>;
+  file_url: string;
+  rejection_reason: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
 
-export const vehiclesRelations = relations(vehicles, ({ many }) => ({
-  bookings: many(bookings),
-}));
+// Export types for insert and select operations
+export type User = Selectable<UsersTable>;
+export type NewUser = Insertable<UsersTable>;
 
-export const bookingsRelations = relations(bookings, ({ one }) => ({
-  user: one(users, {
-    fields: [bookings.user_id],
-    references: [users.id],
-  }),
-  vehicle: one(vehicles, {
-    fields: [bookings.vehicle_id],
-    references: [vehicles.id],
-  }),
-}));
+export type Vehicle = Selectable<VehiclesTable>;
+export type NewVehicle = Insertable<VehiclesTable>;
 
-export const documentsRelations = relations(documents, ({ one }) => ({
-  user: one(users, {
-    fields: [documents.user_id],
-    references: [users.id],
-  }),
-})); 
+export type Booking = Selectable<BookingsTable>;
+export type NewBooking = Insertable<BookingsTable>;
+
+export type Document = Selectable<DocumentsTable>;
+export type NewDocument = Insertable<DocumentsTable>;
+
+// Export the Database interface
+export type { Database }; 

@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { query } from '@/lib/db';
+import { getDb } from '@/lib/db';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { randomUUID } from 'crypto';
+import type { NewVehicle, Vehicle } from '@/lib/schema';
 
 export async function GET(_request: NextRequest) {
   try {
-    const result = await query(
-      'SELECT * FROM vehicles ORDER BY created_at'
-    );
+    const db = getDb();
+    const vehicles = await db
+      .selectFrom('vehicles')
+      .selectAll()
+      .orderBy('created_at')
+      .execute();
 
-    const formattedVehicles = result.rows.map(vehicle => {
+    const formattedVehicles = vehicles.map(vehicle => {
       let parsedLocation;
       let parsedImages;
 
@@ -92,27 +96,30 @@ export async function POST(request: NextRequest) {
       ? JSON.stringify(images)
       : JSON.stringify([images]);
 
-    // Create vehicle with explicit ID
-    const result = await query(
-      `INSERT INTO vehicles (
-        id, name, type, location, quantity, price_per_hour, 
-        min_booking_hours, images, is_available, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()) 
-      RETURNING *`,
-      [
-        randomUUID(),
-        name,
-        type,
-        locationJson,
-        quantity.toString(),
-        price_per_hour.toString(),
-        min_booking_hours.toString(),
-        imagesJson,
-        is_available,
-      ]
-    );
+    const db = getDb();
+    
+    // Create new vehicle using Kysely
+    const newVehicle: NewVehicle = {
+      id: randomUUID(),
+      name,
+      type,
+      location: locationJson,
+      quantity,
+      price_per_hour,
+      min_booking_hours,
+      images: imagesJson,
+      is_available,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
 
-    const vehicle = result.rows[0];
+    const [vehicle] = await db
+      .insertInto('vehicles')
+      .values(newVehicle)
+      .returning(['id', 'name', 'type', 'location', 'quantity', 'price_per_hour', 
+                 'min_booking_hours', 'images', 'is_available', 'status', 
+                 'created_at', 'updated_at'])
+      .execute();
 
     return NextResponse.json({
       message: 'Vehicle created successfully',
