@@ -1,97 +1,108 @@
-import {
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-  decimal,
-  jsonb,
-  boolean,
-  real,
-  varchar
-} from 'drizzle-orm/pg-core';
+// Enums
+export const ROLE = {
+  USER: 'user',
+  ADMIN: 'admin'
+} as const;
 
-// Define enums
-export const roleEnum = pgEnum("role", ["user", "admin"]);
-export const statusEnum = pgEnum("status", ["pending", "approved", "rejected"]);
-export const documentTypeEnum = pgEnum("document_type", ["license", "insurance", "registration"]);
-export const vehicleTypeEnum = pgEnum('vehicle_type', [
-  'car',
-  'bike',
-  'scooter',
-  'bicycle',
-]);
-export const bookingStatusEnum = pgEnum('booking_status', ['pending', 'confirmed', 'cancelled', 'completed']);
-export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'completed', 'failed', 'refunded']);
-export const vehicleStatusEnum = pgEnum('vehicle_status', ['available', 'unavailable', 'maintenance']);
+export const STATUS = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  REJECTED: 'rejected'
+} as const;
+
+export const DOCUMENT_TYPE = {
+  LICENSE: 'license',
+  INSURANCE: 'insurance',
+  REGISTRATION: 'registration'
+} as const;
+
+export const VEHICLE_TYPE = {
+  CAR: 'car',
+  BIKE: 'bike',
+  SCOOTER: 'scooter',
+  BICYCLE: 'bicycle'
+} as const;
+
+export const BOOKING_STATUS = {
+  PENDING: 'pending',
+  CONFIRMED: 'confirmed',
+  CANCELLED: 'cancelled',
+  COMPLETED: 'completed'
+} as const;
+
+export const PAYMENT_STATUS = {
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+  REFUNDED: 'refunded'
+} as const;
+
 export const VEHICLE_STATUS = {
   AVAILABLE: 'available',
   UNAVAILABLE: 'unavailable',
   MAINTENANCE: 'maintenance'
 } as const;
 
-// Define tables
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name"),
-  email: text("email").notNull().unique(),
-  password_hash: text("password_hash").notNull(),
-  role: roleEnum("role").notNull().default("user"),
-  phone: varchar('phone', { length: 20 }),
-  reset_token: text("reset_token"),
-  reset_token_expiry: timestamp("reset_token_expiry"),
-  is_blocked: boolean("is_blocked").default(false),
-  created_at: timestamp("created_at").notNull().defaultNow(),
-  updated_at: timestamp("updated_at").notNull().defaultNow()
-});
+// Types
+export type Role = typeof ROLE[keyof typeof ROLE];
+export type Status = typeof STATUS[keyof typeof STATUS];
+export type DocumentType = typeof DOCUMENT_TYPE[keyof typeof DOCUMENT_TYPE];
+export type VehicleType = typeof VEHICLE_TYPE[keyof typeof VEHICLE_TYPE];
+export type BookingStatus = typeof BOOKING_STATUS[keyof typeof BOOKING_STATUS];
+export type PaymentStatus = typeof PAYMENT_STATUS[keyof typeof PAYMENT_STATUS];
+export type VehicleStatus = typeof VEHICLE_STATUS[keyof typeof VEHICLE_STATUS];
 
-export const vehicles = pgTable('vehicles', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  name: text('name').notNull(),
-  type: vehicleTypeEnum('type').notNull(),
-  status: vehicleStatusEnum('status').notNull().default('available'),
-  price_per_day: decimal('price_per_day', { precision: 10, scale: 2 }).notNull(),
-  description: text('description'),
-  features: text('features').array(),
-  images: text('images').array(),
-  created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull(),
-});
+export type User = {
+  id: string;
+  name: string | null;
+  email: string;
+  password_hash: string;
+  role: Role;
+  phone: string | null;
+  reset_token: string | null;
+  reset_token_expiry: Date | null;
+  is_blocked: boolean;
+  created_at: Date;
+  updated_at: Date;
+};
 
-export const bookings = pgTable('bookings', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  user_id: uuid('user_id').references(() => users.id).notNull(),
-  vehicle_id: uuid('vehicle_id').references(() => vehicles.id).notNull(),
-  pickup_location: text('pickup_location'),
-  dropoff_location: text('dropoff_location'),
-  start_date: timestamp('start_date').notNull(),
-  end_date: timestamp('end_date').notNull(),
-  total_hours: real('total_hours').notNull(),
-  total_price: real('total_price').notNull(),
-  status: text('status').default('pending').notNull(),
-  payment_status: text('payment_status').default('pending').notNull(),
-  payment_details: text('payment_details'),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
-});
+export type Vehicle = {
+  id: string;
+  name: string;
+  type: VehicleType;
+  status: VehicleStatus;
+  price_per_day: number;
+  description: string | null;
+  features: string[];
+  images: string[];
+  created_at: Date;
+  updated_at: Date;
+};
 
-export const documents = pgTable("documents", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  user_id: uuid("user_id").notNull().references(() => users.id),
-  type: documentTypeEnum("type").notNull(),
-  file_url: text("file_url").notNull(),
-  status: statusEnum("status").notNull().default("pending"),
-  rejection_reason: text("rejection_reason"),
-  created_at: timestamp("created_at").notNull().defaultNow(),
-  updated_at: timestamp("updated_at").notNull().defaultNow()
-});
+export type Booking = {
+  id: string;
+  user_id: string;
+  vehicle_id: string;
+  pickup_location: string | null;
+  dropoff_location: string | null;
+  start_date: Date;
+  end_date: Date;
+  total_hours: number;
+  total_price: number;
+  status: BookingStatus;
+  payment_status: PaymentStatus;
+  payment_details: string | null;
+  created_at: Date;
+  updated_at: Date;
+};
 
-// Export types
-export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
-export type Vehicle = typeof vehicles.$inferSelect;
-export type NewVehicle = typeof vehicles.$inferInsert;
-export type Booking = typeof bookings.$inferSelect;
-export type NewBooking = typeof bookings.$inferInsert;
-export type Document = typeof documents.$inferSelect;
-export type NewDocument = typeof documents.$inferInsert; 
+export type Document = {
+  id: string;
+  user_id: string;
+  type: DocumentType;
+  file_url: string;
+  status: Status;
+  rejection_reason: string | null;
+  created_at: Date;
+  updated_at: Date;
+}; 

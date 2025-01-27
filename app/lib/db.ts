@@ -1,29 +1,7 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
-import { eq, and, gte, lte, SQLWrapper } from 'drizzle-orm';
-import { users, vehicles, bookings, documents } from './schema';
+import { sql } from '@vercel/postgres';
 import type { User, Vehicle, Booking, Document } from './types';
 import logger from './logger';
 import { env } from './env';
-
-// Create a new pool instance
-const pool = new Pool({
-  connectionString: env.DATABASE_URL
-});
-
-// Create a new drizzle instance
-const db = drizzle(pool);
-
-export { db };
-export default db;
-
-// Export collections
-export const COLLECTIONS = {
-  users,
-  vehicles,
-  bookings,
-  documents
-};
 
 // Export common database operations
 export const get = findDocumentById;
@@ -31,22 +9,18 @@ export const findOneBy = findUserById;
 export const findMany = findBookings;
 export const findAll = findVehicles;
 export const set = createDocument;
-export const update = updateBooking;
 export const remove = deleteVehicle;
 export const insertOne = createVehicle;
-export const updateOne = updateBooking;
 export const generateId = () => crypto.randomUUID();
 
 export async function findUserByEmail(email: string): Promise<User | null> {
   try {
     logger.info('Finding user by email:', email);
-    const result = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-    logger.info('User search result:', result[0] ? 'Found' : 'Not found');
-    return result[0] || null;
+    const result = await sql<User>`
+      SELECT * FROM users WHERE email = ${email} LIMIT 1
+    `;
+    logger.info('User search result:', result.rows[0] ? 'Found' : 'Not found');
+    return result.rows[0] || null;
   } catch (error) {
     logger.error('Error finding user by email:', error);
     throw error;
@@ -56,13 +30,11 @@ export async function findUserByEmail(email: string): Promise<User | null> {
 export async function findUserById(id: string): Promise<User | null> {
   try {
     logger.info('Finding user by ID:', id);
-    const result = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, id))
-      .limit(1);
-    logger.info('User search result:', result[0] ? 'Found' : 'Not found');
-    return result[0] || null;
+    const result = await sql<User>`
+      SELECT * FROM users WHERE id = ${id} LIMIT 1
+    `;
+    logger.info('User search result:', result.rows[0] ? 'Found' : 'Not found');
+    return result.rows[0] || null;
   } catch (error) {
     logger.error('Error finding user by ID:', error);
     throw error;
@@ -79,19 +51,21 @@ type CreateUserData = {
 export async function createUser(data: CreateUserData): Promise<User> {
   try {
     logger.info('Creating new user');
-    const [user] = await db
-      .insert(users)
-      .values({
-        email: data.email,
-        password_hash: data.password_hash,
-        name: data.name || null,
-        role: data.role || 'user',
-        created_at: new Date(),
-        updated_at: new Date(),
-      })
-      .returning();
+    const result = await sql<User>`
+      INSERT INTO users (
+        email, password_hash, name, role, created_at, updated_at
+      ) VALUES (
+        ${data.email}, 
+        ${data.password_hash}, 
+        ${data.name || null}, 
+        ${data.role || 'user'}, 
+        NOW(), 
+        NOW()
+      )
+      RETURNING *
+    `;
     logger.info('User created successfully');
-    return user;
+    return result.rows[0];
   } catch (error) {
     logger.error('Error creating user:', error);
     throw error;
@@ -99,24 +73,25 @@ export async function createUser(data: CreateUserData): Promise<User> {
 }
 
 export async function updateUser(id: string, data: Partial<User>): Promise<User | null> {
-  const [user] = await db
-    .update(users)
-    .set({
-      ...data,
-      updated_at: new Date(),
-    })
-    .where(eq(users.id, id))
-    .returning();
-  return user || null;
+  const updates = Object.entries(data)
+    .filter(([key]) => key !== 'id' && key !== 'created_at')
+    .map(([key, value]) => `${key} = ${value === null ? 'NULL' : `'${value}'`}`)
+    .join(', ');
+
+  const result = await sql<User>`
+    UPDATE users 
+    SET ${updates}, updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `;
+  return result.rows[0] || null;
 }
 
 export async function findVehicleById(id: string): Promise<Vehicle | null> {
-  const result = await db
-    .select()
-    .from(vehicles)
-    .where(eq(vehicles.id, id))
-    .limit(1);
-  return result[0] || null;
+  const result = await sql<Vehicle>`
+    SELECT * FROM vehicles WHERE id = ${id} LIMIT 1
+  `;
+  return result.rows[0] || null;
 }
 
 export async function findVehicles(filters?: {
@@ -126,95 +101,112 @@ export async function findVehicles(filters?: {
   minPrice?: string;
   maxPrice?: string;
 }): Promise<Vehicle[]> {
-  const conditions: SQLWrapper[] = [];
+  let query = 'SELECT * FROM vehicles';
+  const values: any[] = [];
+  const conditions: string[] = [];
+  let paramIndex = 1;
 
   if (filters) {
     if (typeof filters.isAvailable === 'boolean') {
-      conditions.push(eq(vehicles.is_available, filters.isAvailable));
+      conditions.push(`is_available = $${paramIndex}`);
+      values.push(filters.isAvailable);
+      paramIndex++;
     }
-
     if (filters.type) {
-      conditions.push(eq(vehicles.type, filters.type));
+      conditions.push(`type = $${paramIndex}`);
+      values.push(filters.type);
+      paramIndex++;
     }
-
     if (filters.location) {
-      conditions.push(eq(vehicles.location, filters.location));
+      conditions.push(`location = $${paramIndex}`);
+      values.push(filters.location);
+      paramIndex++;
     }
-
     if (filters.minPrice) {
-      conditions.push(gte(vehicles.price_per_day, filters.minPrice));
+      conditions.push(`price_per_day >= $${paramIndex}`);
+      values.push(filters.minPrice);
+      paramIndex++;
     }
-
     if (filters.maxPrice) {
-      conditions.push(lte(vehicles.price_per_day, filters.maxPrice));
+      conditions.push(`price_per_day <= $${paramIndex}`);
+      values.push(filters.maxPrice);
+      paramIndex++;
     }
   }
 
-  const result = await db
-    .select()
-    .from(vehicles)
-    .where(conditions.length > 0 ? and(...conditions) : undefined);
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(' AND ')}`;
+  }
 
-  return result.map(vehicle => ({
+  const result = await sql.query<Vehicle>(query, values);
+
+  return result.rows.map(vehicle => ({
     ...vehicle,
-    price_per_day: vehicle.price_per_day.toString(),
+    price_per_day: vehicle.price_per_day.toString()
   }));
 }
 
 export async function createVehicle(data: Partial<Vehicle>): Promise<Vehicle> {
-  const [vehicle] = await db
-    .insert(vehicles)
-    .values({
-      name: data.name!,
-      type: data.type!,
-      quantity: data.quantity || 1,
-      price_per_day: data.price_per_day!,
-      location: data.location!,
-      images: data.images || [],
-      is_available: data.is_available ?? true,
-      status: data.status || 'active',
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
-    .returning();
+  const values = [
+    data.name!,
+    data.type!,
+    data.quantity || 1,
+    data.price_per_day!,
+    data.location!,
+    data.images || [],
+    data.is_available ?? true,
+    data.status || 'active'
+  ];
+
+  const result = await sql.query<Vehicle>(`
+    INSERT INTO vehicles (
+      name, type, quantity, price_per_day, location, images, 
+      is_available, status, created_at, updated_at
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
+    )
+    RETURNING *
+  `, values);
+
   return {
-    ...vehicle,
-    price_per_day: vehicle.price_per_day.toString(),
+    ...result.rows[0],
+    price_per_day: result.rows[0].price_per_day.toString()
   };
 }
 
 export async function updateVehicle(id: string, data: Partial<Vehicle>): Promise<Vehicle | null> {
-  const [vehicle] = await db
-    .update(vehicles)
-    .set({
-      ...data,
-      updated_at: new Date(),
-    })
-    .where(eq(vehicles.id, id))
-    .returning();
-  return vehicle ? {
-    ...vehicle,
-    price_per_day: vehicle.price_per_day.toString(),
+  const updates = Object.entries(data)
+    .filter(([key]) => key !== 'id' && key !== 'created_at')
+    .map(([key, value]) => `${key} = ${value === null ? 'NULL' : `'${value}'`}`)
+    .join(', ');
+
+  const result = await sql<Vehicle>`
+    UPDATE vehicles 
+    SET ${updates}, updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `;
+
+  return result.rows[0] ? {
+    ...result.rows[0],
+    price_per_day: result.rows[0].price_per_day.toString()
   } : null;
 }
 
 export async function deleteVehicle(id: string): Promise<boolean> {
-  const result = await db
-    .delete(vehicles)
-    .where(eq(vehicles.id, id))
-    .returning();
-  return result.length > 0;
+  const result = await sql`
+    DELETE FROM vehicles WHERE id = ${id} RETURNING *
+  `;
+  return result.rows.length > 0;
 }
 
 export async function findBookingById(id: string): Promise<Booking | null> {
-  const result = await db
-    .select()
-    .from(bookings)
-    .where(eq(bookings.id, id))
-    .limit(1);
-  return result[0] ? {
-    ...result[0],
-    total_price: result[0].total_price.toString(),
+  const result = await sql<Booking>`
+    SELECT * FROM bookings WHERE id = ${id} LIMIT 1
+  `;
+  return result.rows[0] ? {
+    ...result.rows[0],
+    total_price: result.rows[0].total_price.toString()
   } : null;
 }
 
@@ -223,78 +215,94 @@ export async function findBookings(filters?: {
   vehicleId?: string;
   status?: 'pending' | 'confirmed' | 'cancelled' | 'completed';
 }): Promise<Booking[]> {
-  const conditions: SQLWrapper[] = [];
+  let query = 'SELECT * FROM bookings';
+  const values: any[] = [];
+  const conditions: string[] = [];
+  let paramIndex = 1;
 
   if (filters) {
     if (filters.userId) {
-      conditions.push(eq(bookings.user_id, filters.userId));
+      conditions.push(`user_id = $${paramIndex}`);
+      values.push(filters.userId);
+      paramIndex++;
     }
-
     if (filters.vehicleId) {
-      conditions.push(eq(bookings.vehicle_id, filters.vehicleId));
+      conditions.push(`vehicle_id = $${paramIndex}`);
+      values.push(filters.vehicleId);
+      paramIndex++;
     }
-
     if (filters.status) {
-      conditions.push(eq(bookings.status, filters.status));
+      conditions.push(`status = $${paramIndex}`);
+      values.push(filters.status);
+      paramIndex++;
     }
   }
 
-  const result = await db
-    .select()
-    .from(bookings)
-    .where(conditions.length > 0 ? and(...conditions) : undefined);
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(' AND ')}`;
+  }
 
-  return result.map(booking => ({
+  const result = await sql.query<Booking>(query, values);
+
+  return result.rows.map(booking => ({
     ...booking,
-    total_price: booking.total_price.toString(),
+    total_price: booking.total_price.toString()
   }));
 }
 
 export async function createBooking(data: Partial<Booking>): Promise<Booking> {
-  const [booking] = await db
-    .insert(bookings)
-    .values({
-      user_id: data.user_id!,
-      vehicle_id: data.vehicle_id!,
-      start_date: data.start_date!,
-      end_date: data.end_date!,
-      total_price: data.total_price!,
-      status: data.status || 'pending',
-      payment_status: data.payment_status || 'pending',
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
-    .returning();
+  const values = [
+    data.user_id!,
+    data.vehicle_id!,
+    data.start_date!,
+    data.end_date!,
+    data.total_price!,
+    data.status || 'pending',
+    data.payment_status || 'pending'
+  ];
+
+  const result = await sql.query<Booking>(`
+    INSERT INTO bookings (
+      user_id, vehicle_id, start_date, end_date, total_price,
+      status, payment_status, created_at, updated_at
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
+    )
+    RETURNING *
+  `, values);
+
   return {
-    ...booking,
-    total_price: booking.total_price.toString(),
+    ...result.rows[0],
+    total_price: result.rows[0].total_price.toString()
   };
 }
 
 export async function updateBooking(id: string, data: Partial<Booking>): Promise<Booking | null> {
-  const [booking] = await db
-    .update(bookings)
-    .set({
-      ...data,
-      updated_at: new Date(),
-    })
-    .where(eq(bookings.id, id))
-    .returning();
-  return booking ? {
-    ...booking,
-    total_price: booking.total_price.toString(),
+  const updates = Object.entries(data)
+    .filter(([key]) => key !== 'id' && key !== 'created_at')
+    .map(([key, value]) => `${key} = ${value === null ? 'NULL' : `'${value}'`}`)
+    .join(', ');
+
+  const result = await sql<Booking>`
+    UPDATE bookings 
+    SET ${updates}, updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `;
+
+  return result.rows[0] ? {
+    ...result.rows[0],
+    total_price: result.rows[0].total_price.toString()
   } : null;
 }
 
 export async function findDocumentById(id: string): Promise<Document | null> {
-  const result = await db
-    .select()
-    .from(documents)
-    .where(eq(documents.id, id))
-    .limit(1);
-  return result[0] ? {
-    ...result[0],
-    rejection_reason: result[0].rejection_reason || undefined,
+  const result = await sql<Document>`
+    SELECT * FROM documents WHERE id = ${id} LIMIT 1
+  `;
+  return result.rows[0] ? {
+    ...result.rows[0],
+    rejection_reason: result.rows[0].rejection_reason || undefined
   } : null;
 }
 
@@ -303,63 +311,82 @@ export async function findDocuments(filters?: {
   type?: 'license' | 'id_proof' | 'address_proof';
   status?: 'pending' | 'approved' | 'rejected';
 }): Promise<Document[]> {
-  const conditions: SQLWrapper[] = [];
+  let query = 'SELECT * FROM documents';
+  const values: any[] = [];
+  const conditions: string[] = [];
+  let paramIndex = 1;
 
   if (filters) {
     if (filters.userId) {
-      conditions.push(eq(documents.user_id, filters.userId));
+      conditions.push(`user_id = $${paramIndex}`);
+      values.push(filters.userId);
+      paramIndex++;
     }
-
     if (filters.type) {
-      conditions.push(eq(documents.type, filters.type));
+      conditions.push(`type = $${paramIndex}`);
+      values.push(filters.type);
+      paramIndex++;
     }
-
     if (filters.status) {
-      conditions.push(eq(documents.status, filters.status));
+      conditions.push(`status = $${paramIndex}`);
+      values.push(filters.status);
+      paramIndex++;
     }
   }
 
-  const result = await db
-    .select()
-    .from(documents)
-    .where(conditions.length > 0 ? and(...conditions) : undefined);
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(' AND ')}`;
+  }
 
-  return result.map(doc => ({
+  const result = await sql.query<Document>(query, values);
+
+  return result.rows.map(doc => ({
     ...doc,
-    rejection_reason: doc.rejection_reason || undefined,
+    rejection_reason: doc.rejection_reason || undefined
   }));
 }
 
 export async function createDocument(data: Partial<Document>): Promise<Document> {
-  const [document] = await db
-    .insert(documents)
-    .values({
-      user_id: data.user_id!,
-      type: data.type!,
-      file_url: data.file_url!,
-      status: data.status || 'pending',
-      rejection_reason: data.rejection_reason,
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
-    .returning();
+  const values = [
+    data.user_id!,
+    data.type!,
+    data.file_url!,
+    data.status || 'pending',
+    data.rejection_reason
+  ];
+
+  const result = await sql.query<Document>(`
+    INSERT INTO documents (
+      user_id, type, file_url, status, rejection_reason, created_at, updated_at
+    ) VALUES (
+      $1, $2, $3, $4, $5, NOW(), NOW()
+    )
+    RETURNING *
+  `, values);
+
   return {
-    ...document,
-    rejection_reason: document.rejection_reason || undefined,
+    ...result.rows[0],
+    rejection_reason: result.rows[0].rejection_reason || undefined
   };
 }
 
 export async function updateDocument(id: string, data: Partial<Document>): Promise<Document | null> {
-  const [document] = await db
-    .update(documents)
-    .set({
-      ...data,
-      updated_at: new Date(),
-    })
-    .where(eq(documents.id, id))
-    .returning();
-  return document ? {
-    ...document,
-    rejection_reason: document.rejection_reason || undefined,
+  const updates = Object.entries(data)
+    .filter(([key]) => key !== 'id' && key !== 'created_at')
+    .map(([key, value]) => `${key} = ${value === null ? 'NULL' : `'${value}'`}`)
+    .join(', ');
+
+  const result = await sql<Document>`
+    UPDATE documents 
+    SET ${updates}, updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `;
+
+  return result.rows[0] ? {
+    ...result.rows[0],
+    rejection_reason: result.rows[0].rejection_reason || undefined
   } : null;
-} 
+}
+
+export { sql }; 

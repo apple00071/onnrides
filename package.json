@@ -7,9 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "touch postcss.config.js tailwind.config.js",
-    "migrate": "tsx migrations/migrator.ts",
-    "migrate:create": "tsx scripts/create-migration.ts"
+    "postinstall": "touch postcss.config.js tailwind.config.js"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.734.0",
