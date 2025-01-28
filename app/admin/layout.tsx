@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { FaHome, FaCar, FaUsers, FaBookmark, FaBars, FaTimes } from 'react-icons/fa';
-import { Sidebar, SidebarBody, SidebarLink, useSidebar } from '@/components/admin/Sidebar';
+import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarProvider } from '@/components/admin/Sidebar';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const dynamic = 'force-dynamic';
@@ -39,59 +39,61 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Mobile Menu Button */}
-      <div className="fixed top-4 left-4 z-50 md:hidden">
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 bg-white rounded-lg shadow-md"
-        >
-          {isMobileMenuOpen ? (
-            <FaTimes className="h-6 w-6 text-gray-600" />
-          ) : (
-            <FaBars className="h-6 w-6 text-gray-600" />
+    <SidebarProvider>
+      <div className="min-h-screen bg-gray-100">
+        {/* Mobile Menu Button */}
+        <div className="fixed top-4 left-4 z-50 md:hidden">
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 bg-white rounded-lg shadow-md"
+          >
+            {isMobileMenuOpen ? (
+              <FaTimes className="h-6 w-6 text-gray-600" />
+            ) : (
+              <FaBars className="h-6 w-6 text-gray-600" />
+            )}
+          </button>
+        </div>
+
+        {/* Mobile Sidebar Overlay */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+            />
           )}
-        </button>
+        </AnimatePresence>
+
+        {/* Sidebar */}
+        <div className={`fixed inset-y-0 left-0 transform ${
+          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        } md:translate-x-0 transition-transform duration-300 ease-in-out z-50 md:z-30`}>
+          <Sidebar>
+            <SidebarBody>
+              {menuItems.map((item) => (
+                <SidebarLink
+                  key={item.href}
+                  link={item}
+                  className={pathname === item.href ? 'text-[#f26e24]' : 'text-gray-600'}
+                  props={{
+                    href: item.href,
+                    onClick: () => setIsMobileMenuOpen(false)
+                  }}
+                />
+              ))}
+            </SidebarBody>
+          </Sidebar>
+        </div>
+
+        <MainContent>
+          {children}
+        </MainContent>
       </div>
-
-      {/* Mobile Sidebar Overlay */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 transform ${
-        isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-      } md:translate-x-0 transition-transform duration-300 ease-in-out z-50 md:z-30`}>
-        <Sidebar>
-          <SidebarBody>
-            {menuItems.map((item) => (
-              <SidebarLink
-                key={item.href}
-                link={item}
-                className={pathname === item.href ? 'text-[#f26e24]' : 'text-gray-600'}
-                props={{
-                  href: item.href,
-                  onClick: () => setIsMobileMenuOpen(false)
-                }}
-              />
-            ))}
-          </SidebarBody>
-        </Sidebar>
-      </div>
-
-      <MainContent>
-        {children}
-      </MainContent>
-    </div>
+    </SidebarProvider>
   );
 }
 
