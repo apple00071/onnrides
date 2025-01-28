@@ -2,26 +2,36 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Handle error from URL
+  const error = searchParams.get('error');
+  if (error === 'unauthorized') {
+    toast.error('You are not authorized to access the admin area');
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
 
     try {
+      const callbackUrl = searchParams.get('from') || '/admin/dashboard';
       const result = await signIn('credentials', {
         email,
         password,
         isAdmin: 'true',
         redirect: false,
+        callbackUrl,
       });
 
       if (!result) {
@@ -30,13 +40,16 @@ export default function AdminLoginPage() {
       }
 
       if (result.error) {
-        toast.error(result.error === 'CredentialsSignin' 
-          ? 'Invalid email or password' 
-          : 'Failed to sign in. Please try again.'
-        );
-      } else {
+        if (result.error === 'CredentialsSignin') {
+          toast.error('Invalid email or password');
+        } else if (result.error === 'AccessDenied') {
+          toast.error('You do not have permission to access the admin area');
+        } else {
+          toast.error('Failed to sign in. Please try again.');
+        }
+      } else if (result.ok) {
         toast.success('Welcome back, admin!');
-        router.push('/admin/dashboard');
+        router.push(callbackUrl);
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -79,6 +92,7 @@ export default function AdminLoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] sm:text-sm"
                 placeholder="Enter admin email"
+                disabled={loading}
               />
             </div>
             <div>
@@ -95,6 +109,7 @@ export default function AdminLoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24] sm:text-sm"
                 placeholder="Enter admin password"
+                disabled={loading}
               />
             </div>
           </div>
@@ -105,7 +120,14 @@ export default function AdminLoginPage() {
               disabled={loading}
               className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#f26e24] hover:bg-[#e05d13] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24] disabled:opacity-50 transition-colors"
             >
-              {loading ? 'Signing in...' : 'Sign in as Admin'}
+              {loading ? (
+                <div className="flex items-center">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2"></div>
+                  Signing in...
+                </div>
+              ) : (
+                'Sign in as Admin'
+              )}
             </button>
           </div>
         </form>

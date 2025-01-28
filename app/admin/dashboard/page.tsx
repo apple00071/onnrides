@@ -7,6 +7,8 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Session } from 'next-auth';
 
+export const dynamic = 'force-dynamic';
+
 interface DashboardStats {
   totalUsers: number;
   totalRevenue: number;

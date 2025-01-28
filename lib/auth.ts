@@ -1,8 +1,6 @@
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
 import { query } from '@/lib/db';
-import { users } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
 import type { User } from '@/lib/db/schema';
 import { NextResponse } from 'next/server';
 import { getServerSession, type AuthOptions, NextAuthOptions } from 'next-auth';
@@ -14,22 +12,26 @@ import { compare } from "bcrypt";
 
 export type UserRole = 'user' | 'admin';
 
-interface AuthUser {
+type UserInfo = {
   id: string;
   email: string;
-  name: string | null;
+  name: string;
   role: UserRole;
-}
+};
 
 declare module 'next-auth' {
   interface Session {
-    user: AuthUser;
+    user: UserInfo;
   }
-  interface User extends AuthUser {}
 }
 
 declare module 'next-auth/jwt' {
-  interface JWT extends DefaultJWT, AuthUser {}
+  interface JWT extends DefaultJWT {
+    id: string;
+    email: string;
+    name: string;
+    role: UserRole;
+  }
 }
 
 function getJwtKey() {
@@ -50,48 +52,55 @@ export const authOptions: NextAuthOptions = {
         isAdmin: { label: "Is Admin", type: "text" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Please enter your email and password");
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            throw new Error("Please enter your email and password");
+          }
+
+          const result = await query(
+            'SELECT * FROM users WHERE email = $1 LIMIT 1',
+            [credentials.email]
+          );
+
+          const user = result.rows[0];
+
+          if (!user || !user.password_hash) {
+            throw new Error("Invalid email or password");
+          }
+
+          const isPasswordValid = await compare(
+            credentials.password,
+            user.password_hash
+          );
+
+          if (!isPasswordValid) {
+            throw new Error("Invalid email or password");
+          }
+
+          const isAdminLogin = credentials.isAdmin === 'true';
+
+          // For admin login, require admin role
+          if (isAdminLogin && user.role !== 'admin') {
+            throw new Error("AccessDenied");
+          }
+
+          // For regular login, prevent admin from using it
+          if (!isAdminLogin && user.role === 'admin') {
+            throw new Error("Please use the admin login page");
+          }
+
+          const userInfo: UserInfo = {
+            id: user.id,
+            email: user.email,
+            name: user.name || "",
+            role: user.role as UserRole,
+          };
+
+          return userInfo;
+        } catch (error) {
+          logger.error('Auth error:', error);
+          throw error;
         }
-
-        const result = await query(
-          'SELECT * FROM users WHERE email = $1 LIMIT 1',
-          [credentials.email]
-        );
-
-        const user = result.rows[0];
-
-        if (!user || !user.password_hash) {
-          throw new Error("Invalid email or password");
-        }
-
-        const isPasswordValid = await compare(
-          credentials.password,
-          user.password_hash
-        );
-
-        if (!isPasswordValid) {
-          throw new Error("Invalid email or password");
-        }
-
-        const isAdminLogin = credentials.isAdmin === 'true';
-
-        // For admin login, require admin role
-        if (isAdminLogin && user.role !== 'admin') {
-          throw new Error("Admin access required");
-        }
-
-        // For regular login, prevent admin from using it
-        if (!isAdminLogin && user.role === 'admin') {
-          throw new Error("Please use the admin login page");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name || "",
-          role: user.role,
-        };
       },
     }),
   ],
@@ -109,6 +118,8 @@ export const authOptions: NextAuthOptions = {
         return {
           ...token,
           id: user.id,
+          email: user.email,
+          name: user.name,
           role: user.role,
         };
       }
@@ -118,11 +129,19 @@ export const authOptions: NextAuthOptions = {
       return {
         ...session,
         user: {
-          ...session.user,
-          id: token.id as string,
-          role: token.role as string,
+          id: token.id,
+          email: token.email,
+          name: token.name || "",
+          role: token.role as UserRole,
         },
       };
+    },
+    async redirect({ url, baseUrl }) {
+      // Allows relative callback URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
     },
   },
   cookies: {
@@ -133,9 +152,11 @@ export const authOptions: NextAuthOptions = {
         sameSite: "lax",
         path: "/",
         secure: process.env.NODE_ENV === "production",
+        domain: process.env.NODE_ENV === "production" ? process.env.NEXT_PUBLIC_DOMAIN : undefined,
       },
     },
   },
+  debug: process.env.NODE_ENV === 'development',
 };
 
 export async function getCurrentUser() {

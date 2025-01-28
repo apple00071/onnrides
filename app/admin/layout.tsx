@@ -7,6 +7,8 @@ import { FaHome, FaCar, FaUsers, FaBookmark, FaBars, FaTimes } from 'react-icons
 import { Sidebar, SidebarBody, SidebarLink, useSidebar } from '@/components/admin/Sidebar';
 import { motion, AnimatePresence } from 'framer-motion';
 
+export const dynamic = 'force-dynamic';
+
 const menuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="h-5 w-5" /> },
   { href: '/admin/vehicles', label: 'Vehicles', icon: <FaCar className="h-5 w-5" /> },

@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { headers } from 'next/headers';
 import { authOptions } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const headersList = headers();
