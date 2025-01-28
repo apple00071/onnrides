@@ -6,14 +6,15 @@ import { Providers } from './providers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import Script from 'next/script';
+import { Footer } from '@/components/ui/footer';
 
 export const dynamic = 'force-dynamic';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'OnnRides - Your Perfect Ride',
-  description: 'Find and book your perfect ride with OnnRides',
+  title: 'OnnRides - Vehicle Rental Service',
+  description: 'Your trusted partner for vehicle rentals.',
 };
 
 export default async function RootLayout({
@@ -21,7 +22,13 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
+  let session;
+  try {
+    session = await getServerSession(authOptions);
+  } catch (error) {
+    console.error('Session error:', error);
+    session = null;
+  }
 
   return (
     <html lang="en">
@@ -37,7 +44,12 @@ export default async function RootLayout({
       <body className={inter.className}>
         <Providers session={session}>
           <Toaster position="top-center" />
-          {children}
+          <main className="min-h-screen flex flex-col">
+            <div className="flex-grow">
+              {children}
+            </div>
+            <Footer />
+          </main>
         </Providers>
         <Script
           src="https://checkout.razorpay.com/v1/checkout.js"

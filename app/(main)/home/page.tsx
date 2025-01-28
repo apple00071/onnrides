@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 import { FaCar, FaBicycle, FaQuestionCircle, FaStar, FaMapMarkerAlt, FaCalendar, FaClock } from 'react-icons/fa';
+import { StatsCarousel } from '@/components/ui/stats-carousel';
 
 export default function Home() {
   const router = useRouter();
@@ -148,6 +149,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Stats Carousel */}
+      <StatsCarousel />
 
       {/* Services Section */}
       <section className="py-20 max-w-7xl mx-auto px-4">

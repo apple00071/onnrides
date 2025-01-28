@@ -2,15 +2,57 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
-import { FaHome, FaCar, FaUsers, FaBookmark, FaSignOutAlt } from 'react-icons/fa';
-import { useSession, signOut } from 'next-auth/react';
-import { IconType } from 'react-icons';
+import { useSession } from 'next-auth/react';
+import { FaHome, FaCar, FaUsers, FaBookmark } from 'react-icons/fa';
+import { Sidebar, SidebarBody, SidebarLink, useSidebar } from '@/components/admin/Sidebar';
+import { motion } from 'framer-motion';
 
-interface MenuItem {
-  href: string;
-  label: string;
-  icon: IconType;
+const menuItems = [
+  { href: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="h-5 w-5" /> },
+  { href: '/admin/vehicles', label: 'Vehicles', icon: <FaCar className="h-5 w-5" /> },
+  { href: '/admin/users', label: 'Users', icon: <FaUsers className="h-5 w-5" /> },
+  { href: '/admin/bookings', label: 'Bookings', icon: <FaBookmark className="h-5 w-5" /> },
+];
+
+function MainContent({ children }: { children: React.ReactNode }) {
+  const { open, animate } = useSidebar();
+  
+  return (
+    <motion.main
+      className="min-h-screen bg-gray-100 transition-all duration-300"
+      animate={{
+        paddingLeft: animate ? (open ? "300px" : "60px") : "300px",
+        paddingTop: "0px",
+      }}
+    >
+      <div className="p-8">
+        {children}
+      </div>
+    </motion.main>
+  );
+}
+
+function AdminDashboard({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <Sidebar>
+        <SidebarBody>
+          {menuItems.map((item) => (
+            <SidebarLink
+              key={item.href}
+              link={item}
+              className={pathname === item.href ? 'text-[#f26e24]' : 'text-gray-600'}
+            />
+          ))}
+        </SidebarBody>
+        <MainContent>
+          {children}
+        </MainContent>
+      </Sidebar>
+    </div>
+  );
 }
 
 export default function AdminLayout({
@@ -23,8 +65,25 @@ export default function AdminLayout({
   const { data: session, status } = useSession();
 
   useEffect(() => {
-    if (status === 'unauthenticated' || (status === 'authenticated' && session?.user?.role !== 'admin')) {
-      router.push(`/admin/login?from=${encodeURIComponent(pathname || '/admin')}`);
+    // Skip auth check for login page
+    if (pathname === '/admin/login') {
+      return;
+    }
+
+    // Wait for session to be checked
+    if (status === 'loading') {
+      return;
+    }
+
+    // Redirect if not authenticated or not admin
+    if (status === 'unauthenticated') {
+      router.replace('/admin/login');
+      return;
+    }
+
+    if (session?.user && session.user.role !== 'admin') {
+      router.replace('/admin/login?error=unauthorized');
+      return;
     }
   }, [status, session, router, pathname]);
 
@@ -34,7 +93,7 @@ export default function AdminLayout({
   }
 
   // Show loading state while checking session
-  if (status === 'loading' || status === 'unauthenticated') {
+  if (status === 'loading') {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#f26e24] border-t-transparent"></div>
@@ -42,67 +101,10 @@ export default function AdminLayout({
     );
   }
 
-  // Don't render admin UI if not admin
-  if (!session?.user || session.user.role !== 'admin') {
+  // Don't render admin UI if not authenticated or not admin
+  if (status === 'unauthenticated' || !session?.user || session.user.role !== 'admin') {
     return null;
   }
 
-  const menuItems: MenuItem[] = [
-    { href: '/admin', label: 'Dashboard', icon: FaHome },
-    { href: '/admin/vehicles', label: 'Vehicles', icon: FaCar },
-    { href: '/admin/users', label: 'Users', icon: FaUsers },
-    { href: '/admin/bookings', label: 'Bookings', icon: FaBookmark },
-  ];
-
-  return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg">
-        <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="flex h-16 items-center justify-center border-b">
-            <span className="text-xl font-bold text-[#f26e24]">Admin Panel</span>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 space-y-1 px-2 py-4">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.href;
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center space-x-2 rounded-lg px-4 py-2 text-sm font-medium ${
-                    isActive
-                      ? 'bg-[#f26e24] text-white'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  {Icon && <Icon className="h-5 w-5" />}
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Sign Out Button */}
-          <div className="border-t p-4">
-            <button
-              onClick={() => signOut({ callbackUrl: '/admin/login' })}
-              className="flex w-full items-center space-x-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
-            >
-              <FaSignOutAlt className="h-5 w-5" />
-              <span>Sign out</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="pl-64">
-        <main className="min-h-screen bg-gray-100 p-8">{children}</main>
-      </div>
-    </div>
-  );
+  return <AdminDashboard>{children}</AdminDashboard>;
 } 

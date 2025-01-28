@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,15 +7,129 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Vehicle {
-  id            String   @id @default(cuid())
-  name          String
-  description   String?
-  image_url     String
-  price_per_day Decimal
-  location      String
-  address       String
-  type          String
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+model bookings {
+  id               String   @id
+  user_id          String
+  vehicle_id       String
+  start_date       DateTime @db.Timestamp(6)
+  end_date         DateTime @db.Timestamp(6)
+  total_hours      Float    @db.Real
+  total_price      Float    @db.Real
+  status           String   @default("pending")
+  payment_status   String   @default("pending")
+  payment_details  String?
+  created_at       DateTime @default(now()) @db.Timestamp(6)
+  updated_at       DateTime @default(now()) @db.Timestamp(6)
+  pickup_location  String?
+  dropoff_location String?
+  users            users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "bookings_user_id_users_id_fk")
+  vehicles         vehicles @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "bookings_vehicle_id_vehicles_id_fk")
+}
+
+model document_submissions {
+  id             Int       @id @default(autoincrement())
+  user_id        Int?
+  document_type  String    @db.VarChar(50)
+  document_url   String
+  status         String?   @default("pending") @db.VarChar(50)
+  admin_comments String?
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model documents {
+  id               String   @id
+  user_id          String
+  type             String
+  status           String   @default("pending")
+  file_url         String
+  rejection_reason String?
+  created_at       DateTime @default(now()) @db.Timestamp(6)
+  updated_at       DateTime @default(now()) @db.Timestamp(6)
+  users            users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "documents_user_id_users_id_fk")
+}
+
+model locations {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name       String    @db.VarChar(255)
+  address    String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model payments {
+  id             Int       @id @default(autoincrement())
+  booking_id     Int?
+  user_id        Int?
+  amount         Decimal   @db.Decimal
+  payment_method String?   @db.VarChar(50)
+  transaction_id String?   @db.VarChar(255)
+  status         String?   @default("pending") @db.VarChar(50)
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model profiles {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id    String?   @db.Uuid
+  name       String?   @db.VarChar(255)
+  phone      String?   @db.VarChar(50)
+  avatar_url String?
+  address    String?
+  city       String?   @db.VarChar(100)
+  state      String?   @db.VarChar(100)
+  country    String?   @db.VarChar(100)
+  zip_code   String?   @db.VarChar(20)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model reviews {
+  id         Int       @id @default(autoincrement())
+  user_id    Int?
+  vehicle_id Int?
+  booking_id Int?
+  rating     Int
+  comment    String?
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model users {
+  id                 String      @id
+  name               String?
+  email              String      @unique(map: "users_email_unique")
+  password_hash      String?
+  phone              String?
+  reset_token        String?
+  reset_token_expiry DateTime?   @db.Timestamp(6)
+  is_blocked         Boolean?    @default(false)
+  role               String      @default("user")
+  created_at         DateTime    @default(now()) @db.Timestamp(6)
+  updated_at         DateTime    @default(now()) @db.Timestamp(6)
+  bookings           bookings[]
+  documents          documents[]
+}
+
+model vehicles {
+  id                String     @id
+  name              String
+  type              String
+  location          String
+  quantity          Int
+  price_per_hour    Float      @db.Real
+  min_booking_hours Int
+  is_available      Boolean?   @default(true)
+  images            String
+  status            String     @default("active")
+  created_at        DateTime   @default(now()) @db.Timestamp(6)
+  updated_at        DateTime   @default(now()) @db.Timestamp(6)
+  bookings          bookings[]
+}
+
+enum vehicle_status {
+  active
+  maintenance
+  retired
 }

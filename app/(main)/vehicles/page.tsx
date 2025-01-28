@@ -140,7 +140,7 @@ export default function VehiclesPage() {
       // Filter vehicles based on selected locations
       const filteredVehicles = selectedLocations.length > 0
         ? sortedVehicles.filter(vehicle => 
-            selectedLocations.some(selected => vehicle.location.includes(selected)))
+            vehicle.location.some(loc => selectedLocations.includes(loc)))
         : sortedVehicles;
 
       setVehicles(filteredVehicles);
@@ -218,74 +218,76 @@ export default function VehiclesPage() {
 
       <div className="flex flex-col md:flex-row gap-8">
         {/* Filter Section - Hidden on mobile */}
-        <div className="hidden md:block w-1/5 bg-white rounded-lg shadow p-4">
-          <h2 className="text-lg font-bold mb-4">Filter</h2>
-          
-          {/* Date & Time Section */}
-          <div className="mb-4">
-            <h3 className="font-semibold mb-2 text-sm">Select Date & Time</h3>
-            <div className="space-y-2">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Pickup</label>
-                <div className="text-sm font-medium">
-                  {formatDateTime(
-                    searchParams.get('pickupDate') || '',
-                    searchParams.get('pickupTime') || ''
-                  )}
+        <div className="hidden md:block w-1/5">
+          <div className="bg-white rounded-lg shadow p-4 sticky top-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
+            <h2 className="text-lg font-bold mb-4">Filter</h2>
+            
+            {/* Date & Time Section */}
+            <div className="mb-4">
+              <h3 className="font-semibold mb-2 text-sm">Select Date & Time</h3>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Pickup</label>
+                  <div className="text-sm font-medium">
+                    {formatDateTime(
+                      searchParams.get('pickupDate') || '',
+                      searchParams.get('pickupTime') || ''
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Dropoff</label>
-                <div className="text-sm font-medium">
-                  {formatDateTime(
-                    searchParams.get('dropoffDate') || '',
-                    searchParams.get('dropoffTime') || ''
-                  )}
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Dropoff</label>
+                  <div className="text-sm font-medium">
+                    {formatDateTime(
+                      searchParams.get('dropoffDate') || '',
+                      searchParams.get('dropoffTime') || ''
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Search Duration */}
-          <div className="mb-4">
-            <h3 className="font-semibold mb-1 text-sm">Duration</h3>
-            <p className="text-orange-500 text-sm">{searchDuration}</p>
-          </div>
-
-          {/* Locations */}
-          <div className="mb-4">
-            <h3 className="font-semibold mb-2 text-sm">Locations</h3>
-            <div className="space-y-2">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={selectedLocations.includes('Eragadda')}
-                  onChange={() => handleLocationChange('Eragadda')}
-                  className="rounded text-orange-500 focus:ring-orange-500"
-                />
-                <span className="text-sm">Eragadda</span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={selectedLocations.includes('Madhapur')}
-                  onChange={() => handleLocationChange('Madhapur')}
-                  className="rounded text-orange-500 focus:ring-orange-500"
-                />
-                <span className="text-sm">Madhapur</span>
-              </label>
+            {/* Search Duration */}
+            <div className="mb-4">
+              <h3 className="font-semibold mb-1 text-sm">Duration</h3>
+              <p className="text-orange-500 text-sm">{searchDuration}</p>
             </div>
-          </div>
 
-          <button
-            onClick={() => {
-              setSelectedLocations([]);
-              setSortBy('relevance');
-            }}
-            className="w-full bg-orange-500 text-white py-1.5 text-sm rounded-md hover:bg-orange-600 transition-colors"
-          >
-            Reset Filters
-          </button>
+            {/* Locations */}
+            <div className="mb-4">
+              <h3 className="font-semibold mb-2 text-sm">Locations</h3>
+              <div className="space-y-2">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedLocations.includes('Eragadda')}
+                    onChange={() => handleLocationChange('Eragadda')}
+                    className="rounded text-orange-500 focus:ring-orange-500"
+                  />
+                  <span className="text-sm">Eragadda</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedLocations.includes('Madhapur')}
+                    onChange={() => handleLocationChange('Madhapur')}
+                    className="rounded text-orange-500 focus:ring-orange-500"
+                  />
+                  <span className="text-sm">Madhapur</span>
+                </label>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setSelectedLocations([]);
+                setSortBy('relevance');
+              }}
+              className="w-full bg-orange-500 text-white py-1.5 text-sm rounded-md hover:bg-orange-600 transition-colors"
+            >
+              Reset Filters
+            </button>
+          </div>
         </div>
 
         {/* Vehicles List Section */}
@@ -345,10 +347,18 @@ export default function VehiclesPage() {
                 const dropoffTime = searchParams.get('dropoffTime');
 
                 let totalPrice = vehicle.price_per_hour;
+                let totalHours = 0;
+                let chargeableHours = 0;
 
                 if (pickupDate && pickupTime && dropoffDate && dropoffTime) {
                   const pickupDateTime = new Date(`${pickupDate}T${pickupTime}`);
                   const dropoffDateTime = new Date(`${dropoffDate}T${dropoffTime}`);
+
+                  // Calculate total hours
+                  totalHours = Math.ceil((dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60));
+                  
+                  // Calculate chargeable hours (minimum booking hours apply)
+                  chargeableHours = Math.max(totalHours, vehicle.min_booking_hours || 0);
 
                   // Calculate base price using the same logic as booking summary
                   const basePrice = calculateBookingPrice(
@@ -374,10 +384,12 @@ export default function VehiclesPage() {
                 return (
                   <VehicleCard
                     key={vehicle.id}
+                    id={vehicle.id}
                     name={vehicle.name}
-                    imageUrl={Array.isArray(vehicle.images) ? vehicle.images[0] : vehicle.images}
-                    locations={Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location]}
-                    price={totalPrice}
+                    type={vehicle.type}
+                    location={Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location]}
+                    price_per_hour={vehicle.price_per_hour}
+                    images={Array.isArray(vehicle.images) ? vehicle.images : [vehicle.images]}
                     startTime={searchParams.get('pickupTime') || ''}
                     endTime={searchParams.get('dropoffTime') || ''}
                     startDate={searchParams.get('pickupDate') || ''}
@@ -391,6 +403,11 @@ export default function VehiclesPage() {
                       }
                       router.push(`/booking-summary?${searchParams.toString()}&vehicleId=${vehicle.id}&vehicleName=${encodeURIComponent(vehicle.name)}&vehicleImage=${encodeURIComponent(vehicle.images[0] || '')}&pricePerHour=${vehicle.price_per_hour}&location=${encodeURIComponent(JSON.stringify([location]))}`);
                     }}
+                    pricing={totalPrice && totalHours > 0 ? {
+                      totalHours,
+                      chargeableHours,
+                      totalPrice
+                    } : null}
                   />
                 );
               })}

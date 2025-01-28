@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { signIn } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { signIn, useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
@@ -13,22 +13,37 @@ import { Icons } from '@/components/icons';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
 
+  // Redirect to dashboard if already authenticated as admin
+  React.useEffect(() => {
+    if (status === 'authenticated' && session?.user?.role === 'admin') {
+      router.replace('/admin/dashboard');
+    }
+  }, [session, status, router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (loading) return;
     setLoading(true);
 
     try {
+      console.log('Attempting admin sign in for:', email);
+      
+      // First, try to sign in with admin flag
       const result = await signIn('credentials', {
         email,
         password,
-        isAdmin: 'true',
+        isAdmin: 'true', // Pass as string
         redirect: false,
+        callbackUrl: '/admin/dashboard'
       });
+
+      console.log('Sign in result:', result);
 
       if (!result) {
         toast.error('An error occurred. Please try again.');
@@ -41,12 +56,54 @@ export default function AdminLoginPage() {
         } else if (result.error === 'Invalid email or password') {
           toast.error('Invalid email or password');
         } else {
-          toast.error('Failed to sign in. Please try again.');
+          toast.error('Failed to sign in');
         }
-      } else {
-        toast.success('Welcome back, admin!');
-        const returnUrl = searchParams.get('from') || '/admin/dashboard';
-        router.push(returnUrl);
+        return;
+      }
+
+      // If sign in was successful, check if user is admin
+      try {
+        console.log('Checking admin status for:', email);
+        
+        const response = await fetch('/api/auth/check-admin', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email }),
+        });
+
+        const data = await response.json();
+        console.log('Admin check response:', data);
+
+        if (!response.ok) {
+          console.error('Admin check failed:', data);
+          throw new Error(data.error || 'Failed to verify admin access');
+        }
+
+        if (data.isAdmin) {
+          toast.success('Welcome back, admin!');
+          // Use replace to prevent going back to login page
+          router.replace('/admin/dashboard');
+        } else {
+          console.log('User is not an admin:', data);
+          toast.error('This account does not have admin access');
+          // Sign out if not admin
+          await signIn('credentials', {
+            email: '',
+            password: '',
+            redirect: false,
+          });
+        }
+      } catch (error) {
+        console.error('Admin check error:', error);
+        toast.error(error instanceof Error ? error.message : 'Failed to verify admin access');
+        // Sign out on error
+        await signIn('credentials', {
+          email: '',
+            password: '',
+            redirect: false,
+        });
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -55,6 +112,24 @@ export default function AdminLoginPage() {
       setLoading(false);
     }
   };
+
+  // Show loading state while checking session
+  if (status === 'loading') {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#f26e24] border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  // Don't show login page if already authenticated as admin
+  if (status === 'authenticated' && session?.user?.role === 'admin') {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#f26e24] border-t-transparent"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
@@ -108,7 +183,11 @@ export default function AdminLoginPage() {
                     disabled={loading}
                   />
                 </div>
-                <Button className="w-full" type="submit" disabled={loading}>
+                <Button 
+                  className="w-full" 
+                  type="submit" 
+                  disabled={loading}
+                >
                   {loading && (
                     <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
                   )}

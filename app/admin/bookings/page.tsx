@@ -5,6 +5,9 @@ import useSWR from 'swr';
 import { fetcher } from '@/lib/utils';
 import BookingHistoryModal from './components/BookingHistoryModal';
 import BookingDetailsModal from './components/BookingDetailsModal';
+import { useSidebar } from '@/components/admin/Sidebar';
+import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 interface Customer {
   id: string;
@@ -47,6 +50,7 @@ export default function AdminBookingsPage() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const { open } = useSidebar();
 
   const { data, error, isLoading } = useSWR<ApiResponse>(
     '/api/admin/bookings',
@@ -75,38 +79,46 @@ export default function AdminBookingsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Bookings Management</h1>
-      
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">Bookings Management</h1>
+      <div className="bg-white rounded-lg shadow overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booking Date</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Vehicle
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Booking Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Duration
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Amount
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Payment
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {bookings.map((booking) => (
               <tr key={booking.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{booking.customer.name}</div>
-                  <div className="text-sm text-gray-500">{booking.customer.email}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{booking.vehicle.name}</div>
+                  <div className="text-sm font-medium text-gray-900">{booking.vehicle.name}</div>
                   <div className="text-sm text-gray-500">{booking.vehicle.type}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {booking.booking_date}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap">
                   <div>{booking.duration.from}</div>
                   <div>{booking.duration.to}</div>
                 </td>
@@ -130,21 +142,27 @@ export default function AdminBookingsPage() {
                     {booking.payment_status}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleViewDetails(booking)}
-                      className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-md"
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                  <motion.div
+                    animate={{
+                      flexDirection: open ? 'row' : 'column',
+                      gap: open ? '0.5rem' : '0.25rem'
+                    }}
+                    className="flex items-center"
+                  >
+                    <Link
+                      href="/admin/bookings/view"
+                      className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-md transition-colors"
                     >
                       View
-                    </button>
-                    <button
-                      onClick={() => handleViewHistory(booking.customer.id)}
-                      className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-3 py-1 rounded-md"
+                    </Link>
+                    <Link
+                      href="/admin/bookings/history"
+                      className="text-gray-600 hover:text-gray-900 bg-gray-50 px-3 py-1 rounded-md transition-colors"
                     >
                       History
-                    </button>
-                  </div>
+                    </Link>
+                  </motion.div>
                 </td>
               </tr>
             ))}

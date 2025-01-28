@@ -11,24 +11,33 @@ import {
 import { cn, formatCurrency } from "@/lib/utils";
 
 interface VehicleCardProps {
+  id: string;
   name: string;
-  imageUrl: string;
-  locations: string[];
-  price: number;
-  startTime: string;
-  endTime: string;
-  startDate: string;
-  endDate: string;
-  onLocationChange: (location: string) => void;
-  onBook: () => void;
+  type: string;
+  location: string[];
+  price_per_hour: number;
+  images: string[];
+  startTime?: string;
+  endTime?: string;
+  startDate?: string;
+  endDate?: string;
+  onLocationChange?: (location: string) => void;
+  onBook?: () => void;
   className?: string;
+  pricing?: {
+    totalHours: number;
+    chargeableHours: number;
+    totalPrice: number;
+  } | null;
 }
 
 export function VehicleCard({
+  id,
   name,
-  imageUrl,
-  locations,
-  price,
+  type,
+  location = [], // Default empty array for safety
+  price_per_hour,
+  images,
   startTime,
   endTime,
   startDate,
@@ -36,24 +45,29 @@ export function VehicleCard({
   onLocationChange,
   onBook,
   className,
+  pricing
 }: VehicleCardProps) {
+  const imageUrl = images && images.length > 0 
+    ? images[0]
+    : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjQwMCIgeT0iMzAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMzIiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPk5vIEltYWdlIEF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
+
   // Parse and clean locations
   const parsedLocations = (() => {
-    if (!locations || locations.length === 0) return [];
+    if (!location || location.length === 0) return [];
     
-    return locations.map(location => {
+    return location.map(loc => {
       // If the location is a JSON string (e.g., from database)
-      if (typeof location === 'string') {
+      if (typeof loc === 'string') {
         try {
           // Try to parse if it's a JSON string
-          const parsed = JSON.parse(location);
-          return Array.isArray(parsed) ? parsed[0] : location.replace(/[\[\]'"]/g, '').trim();
+          const parsed = JSON.parse(loc);
+          return Array.isArray(parsed) ? parsed[0] : loc.replace(/[\[\]'"]/g, '').trim();
         } catch (e) {
           // If parsing fails, just clean the string
-          return location.replace(/[\[\]'"]/g, '').trim();
+          return loc.replace(/[\[\]'"]/g, '').trim();
         }
       }
-      return location;
+      return loc;
     }).filter(Boolean); // Remove any empty values
   })();
 
@@ -62,7 +76,7 @@ export function VehicleCard({
       toast.error('Please select a location to proceed');
       return;
     }
-    onBook();
+    onBook?.();
   };
 
   const formatTime = (time: string) => {
@@ -93,7 +107,7 @@ export function VehicleCard({
       <div className="relative h-48 flex items-center justify-center bg-gray-100">
         <div className="relative h-40 w-64">
           <Image
-            src={imageUrl || '/placeholder.png'}
+            src={imageUrl}
             alt={name}
             fill
             className="object-contain"
@@ -128,9 +142,20 @@ export function VehicleCard({
           </div>
           <div className="text-right">
             <div className="flex items-center justify-between">
-              <div className="text-lg font-semibold">
-                {formatCurrency(price)}
-              </div>
+              {pricing ? (
+                <div>
+                  <p className="text-lg font-bold text-[#f26e24]">
+                    {formatCurrency(pricing.totalPrice)}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    for {pricing.chargeableHours} hours
+                  </p>
+                </div>
+              ) : (
+                <div className="text-lg font-semibold">
+                  {formatCurrency(price_per_hour)}/hour
+                </div>
+              )}
             </div>
           </div>
         </div>

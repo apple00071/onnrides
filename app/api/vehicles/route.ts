@@ -31,7 +31,8 @@ function calculatePrice(pricePerHour: number, startDate: Date, endDate: Date): {
   totalPrice: number
 } {
   const diffMs = endDate.getTime() - startDate.getTime();
-  const totalHours = Math.ceil(diffMs / (1000 * 60 * 60));
+  // Round to nearest hour by dividing by hour in milliseconds
+  const totalHours = Math.round(diffMs / (1000 * 60 * 60));
   
   // Check if any part of the booking is on a weekend
   let weekendHours = 0;
@@ -62,7 +63,7 @@ function calculatePrice(pricePerHour: number, startDate: Date, endDate: Date): {
 // GET /api/vehicles - List all vehicles
 export async function GET(
   request: NextRequest
-): Promise<NextResponse<ApiResponse<VehicleResponse[]>>> {
+): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
@@ -74,35 +75,76 @@ export async function GET(
     const minPrice = Number(searchParams.get('minPrice')) || 0;
     const maxPrice = Number(searchParams.get('maxPrice')) || Number.MAX_SAFE_INTEGER;
 
+    // Convert time to nearest hour
+    let startDate, endDate;
+    if (pickupDate && pickupTime && dropoffDate && dropoffTime) {
+      // Time is already in 24-hour format (HH:mm)
+      const pickupHour = parseInt(pickupTime.split(':')[0]);
+      const dropoffHour = parseInt(dropoffTime.split(':')[0]);
+
+      startDate = new Date(`${pickupDate}T${pickupHour.toString().padStart(2, '0')}:00:00`);
+      endDate = new Date(`${dropoffDate}T${dropoffHour.toString().padStart(2, '0')}:00:00`);
+    }
+
     logger.info('Search params:', { 
-      type, locations, pickupDate, pickupTime, dropoffDate, dropoffTime, minPrice, maxPrice 
+      type, locations, startDate, endDate, minPrice, maxPrice 
     });
 
-    const result = await query<VehicleResponse>(`
+    const result = await query(`
       SELECT 
         v.id,
         v.name,
         v.type,
         v.status,
-        v.price_per_hour::numeric as price_per_hour,
+        CAST(v.price_per_hour AS DECIMAL) as price_per_hour,
         v.location,
-        v.features::jsonb as features
+        v.images,
+        v.quantity,
+        v.min_booking_hours,
+        v.is_available,
+        v.created_at,
+        v.updated_at
       FROM vehicles v
       WHERE ($1::text IS NULL OR v.type = $1)
       AND ($2::numeric IS NULL OR v.price_per_hour >= $2)
       AND ($3::numeric IS NULL OR v.price_per_hour <= $3)
+      AND v.status = 'active'
+      AND v.is_available = true
     `, [type, minPrice, maxPrice]);
 
-    return NextResponse.json({
-      success: true,
-      data: result.rows
+    // Process the vehicles data
+    const vehicles = result.rows.map(vehicle => {
+      let parsedLocation;
+      let parsedImages;
+
+      try {
+        parsedLocation = JSON.parse(vehicle.location);
+      } catch (e) {
+        parsedLocation = vehicle.location ? [vehicle.location] : [];
+      }
+
+      try {
+        parsedImages = JSON.parse(vehicle.images);
+      } catch (e) {
+        parsedImages = vehicle.images ? [vehicle.images] : [];
+      }
+
+      return {
+        ...vehicle,
+        location: parsedLocation,
+        images: parsedImages,
+        price_per_hour: Number(vehicle.price_per_hour).toFixed(2)
+      };
     });
+
+    return NextResponse.json({ vehicles });
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to fetch vehicles'
+        error: 'Failed to fetch vehicles',
+        vehicles: []
       },
       { status: 500 }
     );
