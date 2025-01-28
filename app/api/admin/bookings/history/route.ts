@@ -3,12 +3,15 @@ import { query } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+// Mark route as dynamic
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'admin') {
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized' }),
+      return NextResponse.json(
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
@@ -17,8 +20,8 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
 
     if (!userId) {
-      return new NextResponse(
-        JSON.stringify({ error: 'User ID is required' }),
+      return NextResponse.json(
+        { error: 'User ID is required' },
         { status: 400 }
       );
     }
@@ -57,14 +60,21 @@ export async function GET(request: NextRequest) {
       }
     }));
 
-    return new NextResponse(
-      JSON.stringify({ bookings, userName }),
-      { status: 200 }
-    );
+    return NextResponse.json({
+      success: true,
+      data: {
+        bookings,
+        userName
+      }
+    });
+
   } catch (error) {
     console.error('Error fetching booking history:', error);
-    return new NextResponse(
-      JSON.stringify({ error: 'Internal server error' }),
+    return NextResponse.json(
+      { 
+        success: false,
+        error: 'Internal server error' 
+      },
       { status: 500 }
     );
   }

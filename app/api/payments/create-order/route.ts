@@ -4,35 +4,45 @@ import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { createOrder } from '@/lib/razorpay';
-import { 
-  ApiResponse, 
-  Booking, 
-  RazorpayOrderResponse, 
-  PaymentDetails,
-  DbQueryResult 
-} from '@/lib/types';
 
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<ApiResponse<RazorpayOrderResponse>>> {
+export const dynamic = 'force-dynamic';
+
+export async function POST(request: NextRequest) {
   try {
+    // Validate environment variables
+    const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+    const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+      logger.error('Missing Razorpay environment variables');
+      return NextResponse.json({
+        success: false,
+        error: 'Payment system configuration error'
+      }, { status: 500 });
+    }
+
+    // Check authentication
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({
         success: false,
         error: 'Unauthorized'
-      } as ApiResponse<never>, { status: 401 });
+      }, { status: 401 });
     }
 
-    const { bookingId } = await request.json();
+    // Get and validate request data
+    const body = await request.json();
+    const { bookingId, amount } = body;
+
     if (!bookingId) {
       return NextResponse.json({
         success: false,
         error: 'Booking ID is required'
-      } as ApiResponse<never>, { status: 400 });
+      }, { status: 400 });
     }
 
-    const bookingResult: DbQueryResult<Booking> = await query<Booking>(
+    // Get booking details
+    const bookingResult = await query(
       'SELECT * FROM bookings WHERE id = $1 AND user_id = $2 LIMIT 1',
       [bookingId, session.user.id]
     );
@@ -42,11 +52,15 @@ export async function POST(
       return NextResponse.json({
         success: false,
         error: 'Booking not found'
-      } as ApiResponse<never>, { status: 404 });
+      }, { status: 404 });
     }
 
+    // Create Razorpay order
+    const amountInPaise = Math.round(Number(booking.total_price) * 100);
+    logger.info('Creating order with amount:', { amountInPaise, bookingId });
+
     const razorpayOrder = await createOrder({
-      amount: Math.round(Number(booking.total_price) * 100),
+      amount: amountInPaise,
       currency: 'INR',
       receipt: bookingId,
       notes: {
@@ -55,20 +69,24 @@ export async function POST(
       }
     });
 
-    const paymentDetails: PaymentDetails = {
-      order_id: razorpayOrder.id,
-      amount: razorpayOrder.amount,
-      currency: razorpayOrder.currency,
-      status: razorpayOrder.status,
-      created_at: new Date().toISOString()
-    };
-
-    await query<void>(
+    // Update booking with order details
+    await query(
       `UPDATE bookings 
        SET payment_details = $1::jsonb, updated_at = CURRENT_TIMESTAMP 
        WHERE id = $2`,
-      [JSON.stringify(paymentDetails), bookingId]
+      [JSON.stringify({
+        order_id: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        status: razorpayOrder.status,
+        created_at: new Date().toISOString()
+      }), bookingId]
     );
+
+    logger.info('Order created successfully:', { 
+      orderId: razorpayOrder.id, 
+      bookingId 
+    });
 
     return NextResponse.json({
       success: true,
@@ -76,15 +94,18 @@ export async function POST(
         id: razorpayOrder.id,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: RAZORPAY_KEY_ID,
+        receipt: razorpayOrder.receipt,
+        status: razorpayOrder.status,
+        created_at: razorpayOrder.created_at
       }
-    } as ApiResponse<RazorpayOrderResponse>);
+    });
 
   } catch (error) {
-    logger.error('Error creating order:', error);
+    logger.error('Error creating payment order:', error);
     return NextResponse.json({
       success: false,
-      error: 'Failed to create payment order'
-    } as ApiResponse<never>, { status: 500 });
+      error: error instanceof Error ? error.message : 'Failed to create payment order'
+    }, { status: 500 });
   }
 }
