@@ -5,15 +5,20 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatCurrency } from '@/lib/utils';
 import type { Session } from 'next-auth';
 
 export const dynamic = 'force-dynamic';
 
 interface DashboardStats {
   totalUsers: number;
+  userGrowth: number;
   totalRevenue: number;
+  revenueGrowth: number;
   totalBookings: number;
+  bookingGrowth: number;
   totalVehicles: number;
+  vehicleGrowth: number;
   recentBookings: Array<{
     id: string;
     user: {
@@ -32,9 +37,13 @@ interface DashboardStats {
 
 const defaultStats: DashboardStats = {
   totalUsers: 0,
+  userGrowth: 0,
   totalRevenue: 0,
+  revenueGrowth: 0,
   totalBookings: 0,
+  bookingGrowth: 0,
   totalVehicles: 0,
+  vehicleGrowth: 0,
   recentBookings: []
 };
 
@@ -106,23 +115,31 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <Card className="p-4 md:p-6">
           <h3 className="text-sm text-gray-500">Total Users</h3>
-          <p className="text-2xl md:text-3xl font-bold">{stats?.totalUsers || 0}</p>
-          <span className="text-sm text-blue-500">+12% this month</span>
+          <p className="text-2xl md:text-3xl font-bold">{stats.totalUsers}</p>
+          <span className={`text-sm ${stats.userGrowth >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
+            {stats.userGrowth >= 0 ? '+' : ''}{stats.userGrowth}% this month
+          </span>
         </Card>
         <Card className="p-4 md:p-6">
           <h3 className="text-sm text-gray-500">Total Revenue</h3>
-          <p className="text-2xl md:text-3xl font-bold">₹{(stats?.totalRevenue || 0).toLocaleString()}</p>
-          <span className="text-sm text-green-500">+8% this month</span>
+          <p className="text-2xl md:text-3xl font-bold">{formatCurrency(stats.totalRevenue)}</p>
+          <span className={`text-sm ${stats.revenueGrowth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+            {stats.revenueGrowth >= 0 ? '+' : ''}{stats.revenueGrowth}% this month
+          </span>
         </Card>
         <Card className="p-4 md:p-6">
           <h3 className="text-sm text-gray-500">Total Bookings</h3>
-          <p className="text-2xl md:text-3xl font-bold">{stats?.totalBookings || 0}</p>
-          <span className="text-sm text-purple-500">+15% this month</span>
+          <p className="text-2xl md:text-3xl font-bold">{stats.totalBookings}</p>
+          <span className={`text-sm ${stats.bookingGrowth >= 0 ? 'text-purple-500' : 'text-red-500'}`}>
+            {stats.bookingGrowth >= 0 ? '+' : ''}{stats.bookingGrowth}% this month
+          </span>
         </Card>
         <Card className="p-4 md:p-6">
           <h3 className="text-sm text-gray-500">Total Vehicles</h3>
-          <p className="text-2xl md:text-3xl font-bold">{stats?.totalVehicles || 0}</p>
-          <span className="text-sm text-yellow-500">+5% this month</span>
+          <p className="text-2xl md:text-3xl font-bold">{stats.totalVehicles}</p>
+          <span className={`text-sm ${stats.vehicleGrowth >= 0 ? 'text-yellow-500' : 'text-red-500'}`}>
+            {stats.vehicleGrowth >= 0 ? '+' : ''}{stats.vehicleGrowth}% this month
+          </span>
         </Card>
       </div>
 
@@ -134,43 +151,44 @@ export default function AdminDashboard() {
           </a>
         </div>
         <div className="space-y-2">
-          {(stats?.recentBookings || []).map((booking) => (
-            <Card key={booking.id} className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div className="space-y-1">
-                  <p className="font-medium">{booking.user?.name || 'N/A'}</p>
-                  <p className="text-sm text-gray-500 truncate">{booking.user?.email || 'N/A'}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="font-medium">{booking.vehicle?.name || 'N/A'}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm">
-                    {booking.startDate ? new Date(booking.startDate).toLocaleDateString() : 'N/A'}
-                  </p>
-                  <p className="text-sm">
-                    {booking.endDate ? new Date(booking.endDate).toLocaleDateString() : 'N/A'}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium">₹{booking.amount || 0}</p>
-                </div>
-                <div>
-                  <span className={`inline-block px-2 py-1 rounded-full text-xs ${
-                    booking.status === 'completed' ? 'bg-green-100 text-green-800' :
-                    booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {(booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1)) || 'N/A'}
-                  </span>
-                </div>
-              </div>
-            </Card>
-          ))}
-          {(!stats?.recentBookings || stats.recentBookings.length === 0) && (
+          {stats.recentBookings.length === 0 ? (
             <Card className="p-4">
               <p className="text-center text-gray-500">No recent bookings</p>
             </Card>
+          ) : (
+            stats.recentBookings.map((booking) => (
+              <Card key={booking.id} className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="space-y-1">
+                    <p className="font-medium">{booking.user.name || 'N/A'}</p>
+                    <p className="text-sm text-gray-500 truncate">{booking.user.email || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-medium">{booking.vehicle.name || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm">
+                      {new Date(booking.startDate).toLocaleDateString()}
+                    </p>
+                    <p className="text-sm">
+                      {new Date(booking.endDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-medium">{formatCurrency(booking.amount)}</p>
+                  </div>
+                  <div>
+                    <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                      booking.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            ))
           )}
         </div>
       </div>

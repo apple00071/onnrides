@@ -145,8 +145,16 @@ export default function BookingSummaryPage() {
         return;
       }
 
-      const { booking } = await bookingResponse.json();
-      console.log('Booking created:', booking);
+      const bookingData = await bookingResponse.json();
+      console.log('Booking created:', bookingData);
+
+      if (!bookingData.success || !bookingData.data?.booking?.id) {
+        console.error('Invalid booking data received:', bookingData);
+        toast.error('Failed to create booking. Please try again.');
+        return;
+      }
+
+      const booking = bookingData.data.booking;
 
       // Create payment order
       const orderResponse = await fetch('/api/payments/create-order', {
@@ -167,14 +175,24 @@ export default function BookingSummaryPage() {
       const orderData = await orderResponse.json();
       console.log('Payment order created:', orderData);
 
+      if (!orderData.success || !orderData.data) {
+        throw new Error('Invalid payment order response');
+      }
+
+      const { key, id: order_id, currency, amount } = orderData.data;
+      
+      if (!key || !order_id) {
+        throw new Error('Missing payment configuration');
+      }
+
       // Initialize Razorpay
       const options = {
-        key: orderData.key,
-        amount: Math.round(totalAmount * 100), // Convert to paise here
-        currency: orderData.currency,
+        key,
+        amount: amount, // Use the amount from the server
+        currency: currency || 'INR',
         name: 'OnnRides',
         description: `Booking for ${bookingDetails.vehicleName}`,
-        order_id: orderData.id,
+        order_id,
         handler: async function (response: any) {
           try {
             console.log('Payment successful, verifying...', response);

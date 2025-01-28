@@ -73,6 +73,11 @@ export default function BookingsPage() {
       return;
     }
 
+    if (!booking || !booking.id) {
+      toast.error('Invalid booking information');
+      return;
+    }
+
     try {
       setIsProcessingPayment(true);
       console.log('Initiating payment for booking:', booking.id);
@@ -118,6 +123,7 @@ export default function BookingsPage() {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
+                bookingId: booking.id,
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,

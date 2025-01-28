@@ -151,13 +151,13 @@ export default function AdminBookingsPage() {
                     className="flex items-center"
                   >
                     <Link
-                      href="/admin/bookings/view"
-                      className="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-md transition-colors"
+                      href={`/admin/bookings/view?bookingId=${booking.id}`}
+                      className="text-blue-500 hover:underline"
                     >
                       View
                     </Link>
                     <Link
-                      href="/admin/bookings/history"
+                      href={`/admin/bookings/history?userId=${booking.customer.id}`}
                       className="text-gray-600 hover:text-gray-900 bg-gray-50 px-3 py-1 rounded-md transition-colors"
                     >
                       History
