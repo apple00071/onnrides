@@ -78,10 +78,10 @@ export default function AdminDashboard() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="p-4 md:p-6 space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="p-6">
+            <Card key={i} className="p-4 md:p-6">
               <Skeleton className="h-4 w-24 mb-2" />
               <Skeleton className="h-8 w-32" />
             </Card>
@@ -100,58 +100,61 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="p-6">
+    <div className="p-4 md:p-6 space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <Card className="p-4 md:p-6">
           <h3 className="text-sm text-gray-500">Total Users</h3>
-          <p className="text-3xl font-bold">{stats?.totalUsers || 0}</p>
+          <p className="text-2xl md:text-3xl font-bold">{stats?.totalUsers || 0}</p>
           <span className="text-sm text-blue-500">+12% this month</span>
         </Card>
-        <Card className="p-6">
+        <Card className="p-4 md:p-6">
           <h3 className="text-sm text-gray-500">Total Revenue</h3>
-          <p className="text-3xl font-bold">₹{(stats?.totalRevenue || 0).toLocaleString()}</p>
+          <p className="text-2xl md:text-3xl font-bold">₹{(stats?.totalRevenue || 0).toLocaleString()}</p>
           <span className="text-sm text-green-500">+8% this month</span>
         </Card>
-        <Card className="p-6">
+        <Card className="p-4 md:p-6">
           <h3 className="text-sm text-gray-500">Total Bookings</h3>
-          <p className="text-3xl font-bold">{stats?.totalBookings || 0}</p>
+          <p className="text-2xl md:text-3xl font-bold">{stats?.totalBookings || 0}</p>
           <span className="text-sm text-purple-500">+15% this month</span>
         </Card>
-        <Card className="p-6">
+        <Card className="p-4 md:p-6">
           <h3 className="text-sm text-gray-500">Total Vehicles</h3>
-          <p className="text-3xl font-bold">{stats?.totalVehicles || 0}</p>
+          <p className="text-2xl md:text-3xl font-bold">{stats?.totalVehicles || 0}</p>
           <span className="text-sm text-yellow-500">+5% this month</span>
         </Card>
       </div>
 
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Recent Bookings</h2>
-          <a href="/admin/bookings" className="text-blue-500 hover:underline">
+          <h2 className="text-lg md:text-xl font-semibold">Recent Bookings</h2>
+          <a href="/admin/bookings" className="text-blue-500 hover:underline text-sm md:text-base">
             View All
           </a>
         </div>
         <div className="space-y-2">
           {(stats?.recentBookings || []).map((booking) => (
             <Card key={booking.id} className="p-4">
-              <div className="grid grid-cols-5 gap-4">
-                <div>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="space-y-1">
                   <p className="font-medium">{booking.user?.name || 'N/A'}</p>
-                  <p className="text-sm text-gray-500">{booking.user?.email || 'N/A'}</p>
+                  <p className="text-sm text-gray-500 truncate">{booking.user?.email || 'N/A'}</p>
                 </div>
-                <div>
+                <div className="space-y-1">
                   <p className="font-medium">{booking.vehicle?.name || 'N/A'}</p>
                 </div>
-                <div>
+                <div className="space-y-1">
                   <p className="text-sm">
-                    {booking.startDate ? new Date(booking.startDate).toLocaleDateString() : 'N/A'} - {booking.endDate ? new Date(booking.endDate).toLocaleDateString() : 'N/A'}
+                    {booking.startDate ? new Date(booking.startDate).toLocaleDateString() : 'N/A'}
+                  </p>
+                  <p className="text-sm">
+                    {booking.endDate ? new Date(booking.endDate).toLocaleDateString() : 'N/A'}
                   </p>
                 </div>
                 <div>
                   <p className="font-medium">₹{booking.amount || 0}</p>
                 </div>
                 <div>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
+                  <span className={`inline-block px-2 py-1 rounded-full text-xs ${
                     booking.status === 'completed' ? 'bg-green-100 text-green-800' :
                     booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-red-100 text-red-800'
