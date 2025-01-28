@@ -14,7 +14,10 @@ export async function POST(request: NextRequest) {
     const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-      logger.error('Missing Razorpay environment variables');
+      logger.error('Missing Razorpay environment variables', {
+        hasKeyId: !!RAZORPAY_KEY_ID,
+        hasKeySecret: !!RAZORPAY_KEY_SECRET
+      });
       return NextResponse.json({
         success: false,
         error: 'Payment system configuration error'
@@ -24,6 +27,7 @@ export async function POST(request: NextRequest) {
     // Check authentication
     const session = await getServerSession(authOptions);
     if (!session?.user) {
+      logger.error('Unauthorized request - no session or user');
       return NextResponse.json({
         success: false,
         error: 'Unauthorized'
@@ -35,6 +39,7 @@ export async function POST(request: NextRequest) {
     const { bookingId, amount } = body;
 
     if (!bookingId) {
+      logger.error('Missing bookingId in request');
       return NextResponse.json({
         success: false,
         error: 'Booking ID is required'
@@ -49,15 +54,35 @@ export async function POST(request: NextRequest) {
 
     const booking = bookingResult.rows[0];
     if (!booking) {
+      logger.error('Booking not found or does not belong to user', {
+        bookingId,
+        userId: session.user.id
+      });
       return NextResponse.json({
         success: false,
         error: 'Booking not found'
       }, { status: 404 });
     }
 
+    // Validate booking amount
+    if (!booking.total_price || booking.total_price <= 0) {
+      logger.error('Invalid booking amount', {
+        bookingId,
+        totalPrice: booking.total_price
+      });
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid booking amount'
+      }, { status: 400 });
+    }
+
     // Create Razorpay order
     const amountInPaise = Math.round(Number(booking.total_price) * 100);
-    logger.info('Creating order with amount:', { amountInPaise, bookingId });
+    logger.info('Creating order with amount:', { 
+      amountInPaise, 
+      bookingId,
+      originalAmount: booking.total_price 
+    });
 
     const razorpayOrder = await createOrder({
       amount: amountInPaise,
@@ -69,23 +94,31 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    if (!razorpayOrder || !razorpayOrder.id) {
+      logger.error('Failed to create Razorpay order', { razorpayOrder });
+      throw new Error('Failed to create payment order - invalid response');
+    }
+
     // Update booking with order details
+    const paymentDetails = {
+      order_id: razorpayOrder.id,
+      amount: razorpayOrder.amount,
+      currency: razorpayOrder.currency,
+      status: razorpayOrder.status,
+      created_at: new Date().toISOString()
+    };
+
     await query(
       `UPDATE bookings 
        SET payment_details = $1::jsonb, updated_at = CURRENT_TIMESTAMP 
        WHERE id = $2`,
-      [JSON.stringify({
-        order_id: razorpayOrder.id,
-        amount: razorpayOrder.amount,
-        currency: razorpayOrder.currency,
-        status: razorpayOrder.status,
-        created_at: new Date().toISOString()
-      }), bookingId]
+      [JSON.stringify(paymentDetails), bookingId]
     );
 
     logger.info('Order created successfully:', { 
       orderId: razorpayOrder.id, 
-      bookingId 
+      bookingId,
+      paymentDetails 
     });
 
     return NextResponse.json({
@@ -102,7 +135,13 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Error creating payment order:', error);
+    logger.error('Error creating payment order:', {
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack
+      } : error,
+      timestamp: new Date().toISOString()
+    });
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create payment order'

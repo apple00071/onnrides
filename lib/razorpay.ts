@@ -6,14 +6,9 @@ import crypto from 'crypto';
 function validateEnvironmentVariables() {
   const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
   const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
-  const NEXT_PUBLIC_RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
-  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET || !NEXT_PUBLIC_RAZORPAY_KEY_ID) {
+  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
     throw new Error('Missing required Razorpay environment variables');
-  }
-
-  if (NEXT_PUBLIC_RAZORPAY_KEY_ID !== RAZORPAY_KEY_ID) {
-    throw new Error('NEXT_PUBLIC_RAZORPAY_KEY_ID must match RAZORPAY_KEY_ID');
   }
 
   return {
