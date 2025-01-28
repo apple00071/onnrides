@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "touch postcss.config.js tailwind.config.js"
+    "postinstall": "prisma generate && touch postcss.config.js tailwind.config.js"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.734.0",
