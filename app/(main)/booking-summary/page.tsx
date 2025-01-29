@@ -295,60 +295,56 @@ export default function BookingSummaryPage() {
         strategy="afterInteractive"
       />
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-[1fr_400px] gap-6">
-          {/* Left Column - Summary */}
+        <h1 className="text-2xl font-bold mb-8">SUMMARY</h1>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Left Column - Vehicle Details */}
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h1 className="text-xl font-bold mb-6">SUMMARY</h1>
-            
-            <div className="grid md:grid-cols-[300px_1fr] gap-8">
-              {/* Vehicle Image */}
-              <div>
-                <div className="relative aspect-[4/3] w-full max-w-[300px] rounded-lg overflow-hidden bg-gray-100">
-                  <Image
-                    src={bookingDetails.vehicleImage}
-                    alt={`${bookingDetails.vehicleName || 'Vehicle'} image`}
-                    fill
-                    className="object-cover"
-                    priority
-                    sizes="(max-width: 768px) 100vw, 300px"
-                    onError={(e) => {
-                      console.error('Image load error for:', bookingDetails.vehicleImage);
-                      const img = e.target as HTMLImageElement;
-                      img.src = '/placeholder.png';
-                    }}
-                  />
+            <div className="relative h-64 md:h-80 w-full flex items-center justify-center bg-gray-100 rounded-lg mb-6">
+              <div className="relative h-56 md:h-72 w-full">
+                <Image
+                  src={bookingDetails.vehicleImage}
+                  alt={bookingDetails.vehicleName}
+                  fill
+                  className="object-contain p-4"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  priority
+                  onError={(e) => {
+                    const img = e.target as HTMLImageElement;
+                    img.src = '/placeholder.png';
+                    console.error('Failed to load image:', bookingDetails.vehicleImage);
+                  }}
+                />
+              </div>
+            </div>
+            <h2 className="text-xl font-semibold mb-4">{bookingDetails.vehicleName}</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between text-gray-600">
+                <div className="flex flex-col">
+                  <span className="font-medium text-gray-900">Pickup</span>
+                  <span>{formatTimeToAMPM(bookingDetails.pickupTime)}</span>
+                  <span className="text-sm">{bookingDetails.pickupDate}</span>
+                </div>
+                <div className="text-gray-400">to</div>
+                <div className="flex flex-col text-right">
+                  <span className="font-medium text-gray-900">Drop-off</span>
+                  <span>{formatTimeToAMPM(bookingDetails.dropoffTime)}</span>
+                  <span className="text-sm">{bookingDetails.dropoffDate}</span>
                 </div>
               </div>
-
-              {/* Vehicle Details */}
-              <div>
-                <h2 className="text-xl font-semibold mb-2">{bookingDetails.vehicleName}</h2>
-                <p className="text-gray-600 mb-4">Car</p>
-
-                <div className="flex items-center justify-between mb-4">
-                  <div className="text-center">
-                    <p className="text-base font-medium">{formatTimeToAMPM(bookingDetails.pickupTime)}</p>
-                    <p className="text-sm text-gray-500">{bookingDetails.pickupDate}</p>
-                  </div>
-                  <div className="text-gray-400">to</div>
-                  <div className="text-center">
-                    <p className="text-base font-medium">{formatTimeToAMPM(bookingDetails.dropoffTime)}</p>
-                    <p className="text-sm text-gray-500">{bookingDetails.dropoffDate}</p>
-                  </div>
-                </div>
-
-                <div className="text-gray-600">
-                  <p>{displayLocation}</p>
-                </div>
+              <div className="pt-4 border-t">
+                <p className="text-gray-600">
+                  <span className="font-medium text-gray-900">Location: </span>
+                  {displayLocation}
+                </p>
               </div>
             </div>
           </div>
 
           {/* Right Column - Billing Details */}
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-bold mb-6">Billing Details</h2>
-
-            {/* Coupon Code */}
+            <h2 className="text-xl font-semibold mb-6">Billing Details</h2>
+            
+            {/* Apply Coupon */}
             <div className="mb-6">
               <p className="text-sm font-medium mb-2">Apply Coupon</p>
               <div className="flex gap-2">
@@ -356,42 +352,40 @@ export default function BookingSummaryPage() {
                   type="text"
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value)}
-                  placeholder="Coupon code"
-                  className="flex-1 px-3 py-2 border rounded-md text-sm"
+                  placeholder="Enter coupon code"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
-                <button className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors">
+                <button className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors">
                   APPLY
                 </button>
               </div>
             </div>
 
-            {/* Price Breakdown */}
-            <div className="space-y-3 mb-6">
-              <div className="flex justify-between">
+            {/* Booking Details */}
+            <div className="space-y-4 mb-6">
+              <div className="flex justify-between items-center">
                 <span className="text-gray-600">Vehicle Rental Charges</span>
-                <span>{formatCurrency(basePrice)}</span>
+                <span className="font-medium">{formatCurrency(basePrice)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-gray-600">GST (18%)</span>
-                <span>{formatCurrency(gst)}</span>
+                <span className="font-medium">{formatCurrency(gst)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-gray-600">Service Fee (5%)</span>
-                <span>{formatCurrency(serviceFee)}</span>
+                <span className="font-medium">{formatCurrency(serviceFee)}</span>
               </div>
-            </div>
-
-            {/* Total */}
-            <div className="flex justify-between items-center border-t pt-4 mb-6">
-              <span className="text-lg font-bold">Total Due</span>
-              <span className="text-lg font-bold">{formatCurrency(totalDue)}</span>
+              <div className="border-t pt-4 flex justify-between items-center">
+                <span className="font-semibold">Total Due</span>
+                <span className="font-bold text-lg">{formatCurrency(totalDue)}</span>
+              </div>
             </div>
 
             {/* Make Payment Button */}
             <button
               onClick={handleConfirmBooking}
               disabled={loading}
-              className="w-full bg-primary text-primary-foreground py-3 rounded-md font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Processing...' : 'Make payment'}
             </button>

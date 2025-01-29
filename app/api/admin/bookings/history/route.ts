@@ -19,53 +19,50 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // First get the user name
-    const userResult = await query(
-      'SELECT name FROM users WHERE id = $1',
-      [userId]
-    );
-
-    const userName = userResult.rows[0]?.name || 'Unknown User';
-
-    // Then get their booking history
-    const result = await query(`
+    let query_string = `
       SELECT 
         b.*,
         v.name as vehicle_name,
-        v.type as vehicle_type
+        u.name as user_name,
+        u.email as user_email
       FROM bookings b
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.user_id = $1
-      ORDER BY b.created_at DESC
-    `, [userId]);
+      LEFT JOIN users u ON b.user_id = u.id
+    `;
+
+    let params: any[] = [];
+
+    if (userId) {
+      query_string += ' WHERE b.user_id = $1';
+      params.push(userId);
+    }
+
+    query_string += ' ORDER BY b.created_at DESC';
+
+    const result = await query(query_string, params);
 
     const bookings = result.rows.map(booking => ({
       id: booking.id,
-      start_date: booking.start_date,
-      end_date: booking.end_date,
+      user_id: booking.user_id,
+      vehicle_id: booking.vehicle_id,
+      pickup_datetime: booking.pickup_datetime,
+      dropoff_datetime: booking.dropoff_datetime,
       total_hours: booking.total_hours,
       total_price: booking.total_price,
       status: booking.status,
-      payment_status: booking.payment_status,
+      created_at: booking.created_at,
+      user: {
+        name: booking.user_name,
+        email: booking.user_email
+      },
       vehicle: {
-        name: booking.vehicle_name,
-        type: booking.vehicle_type
+        name: booking.vehicle_name
       }
     }));
 
     return NextResponse.json({
       success: true,
-      data: {
-        bookings,
-        userName
-      }
+      bookings
     });
 
   } catch (error) {
@@ -73,7 +70,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { 
         success: false,
-        error: 'Internal server error' 
+        message: 'Failed to fetch booking history'
       },
       { status: 500 }
     );

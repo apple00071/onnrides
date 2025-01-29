@@ -2,8 +2,7 @@ import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import logger from '@/lib/logger';
 import { authOptions } from '@/lib/auth/config';
-import { getDb } from '@/lib/db';
-import type { Database, BookingStatus } from '@/lib/schema';
+import { query } from '@/lib/db';
 
 // Helper function to format date
 function formatDate(dateStr: string | Date | null): string {
@@ -34,90 +33,112 @@ function formatAmount(amount: number | string | null): string {
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    
+    // Log session for debugging
+    logger.info('Session:', { session });
+
+    if (!session?.user || session.user.role !== 'admin') {
+      logger.warn('Unauthorized access attempt:', { 
+        userId: session?.user?.id,
+        role: session?.user?.role 
+      });
+      return new Response(JSON.stringify({ 
+        success: false,
+        message: 'Unauthorized' 
+      }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // Get query parameters
-    const url = new URL(request.url);
-    const status = url.searchParams.get('status') as BookingStatus | null;
-    const userId = url.searchParams.get('userId');
-    const isHistoryView = url.searchParams.get('history') === 'true';
+    // Use raw SQL with correct column names and timezone handling
+    const sqlQuery = `
+      SELECT 
+        b.id,
+        b.user_id,
+        b.vehicle_id,
+        b.start_date AT TIME ZONE 'UTC' as start_date,
+        b.end_date AT TIME ZONE 'UTC' as end_date,
+        EXTRACT(EPOCH FROM (b.end_date - b.start_date))/3600 as total_hours,
+        b.total_price,
+        b.status,
+        b.created_at AT TIME ZONE 'UTC' as created_at,
+        v.location as pickup_location,
+        u.name as user_name,
+        u.email as user_email,
+        u.phone as user_phone,
+        v.name as vehicle_name
+      FROM bookings b
+      LEFT JOIN users u ON u.id = b.user_id
+      LEFT JOIN vehicles v ON v.id = b.vehicle_id
+      ORDER BY b.created_at DESC
+    `;
 
-    const db = getDb();
+    logger.info('Executing SQL query:', { sqlQuery });
 
-    // Build base query
-    let query = db
-      .selectFrom('bookings')
-      .leftJoin('users', 'users.id', 'bookings.user_id')
-      .leftJoin('vehicles', 'vehicles.id', 'bookings.vehicle_id')
-      .selectAll('bookings')
-      .select([
-        'users.id as user_id',
-        'users.name as user_name',
-        'users.email as user_email',
-        'users.phone as user_phone',
-        'vehicles.name as vehicle_name',
-        'vehicles.type as vehicle_type'
-      ]);
+    const result = await query(sqlQuery);
 
-    // Add filters
-    if (status) {
-      query = query.where('bookings.status', '=', status);
-    }
-    if (userId) {
-      query = query.where('bookings.user_id', '=', userId);
-      if (isHistoryView) {
-        // For history view, get all bookings for the user
-        query = query.orderBy('bookings.created_at', 'desc');
+    logger.info('Query result:', { 
+      rowCount: result.rows.length,
+      firstRow: result.rows[0] 
+    });
+
+    // Transform the result with correct field mappings and timezone handling
+    const bookings = result.rows.map((booking) => {
+      try {
+        return {
+          id: booking.id,
+          user_id: booking.user_id,
+          vehicle_id: booking.vehicle_id,
+          pickup_datetime: booking.start_date instanceof Date ? booking.start_date.toISOString() : booking.start_date,
+          dropoff_datetime: booking.end_date instanceof Date ? booking.end_date.toISOString() : booking.end_date,
+          total_hours: Number(booking.total_hours || 0),
+          total_price: Number(booking.total_price || 0),
+          status: booking.status,
+          created_at: booking.created_at instanceof Date ? booking.created_at.toISOString() : booking.created_at,
+          location: booking.pickup_location || '',
+          user: {
+            name: booking.user_name || 'Unknown',
+            email: booking.user_email || '',
+            phone: booking.user_phone || ''
+          },
+          vehicle: {
+            name: booking.vehicle_name || 'Unknown'
+          }
+        };
+      } catch (err) {
+        logger.error('Error transforming booking:', { 
+          error: err, 
+          booking 
+        });
+        throw err;
       }
-    } else {
-      // For main view, get only recent bookings
-      query = query.orderBy('bookings.created_at', 'desc').limit(10);
-    }
+    });
 
-    // Execute query
-    const result = await query.execute();
-
-    // Transform the result
-    const transformedBookings = result.map((booking) => ({
-      id: booking.id,
-      customer: {
-        id: booking.user_id,
-        name: booking.user_name || 'Unknown',
-        email: booking.user_email || '',
-        phone: booking.user_phone || ''
-      },
-      vehicle: {
-        name: booking.vehicle_name || 'Unknown',
-        type: booking.vehicle_type || 'car'
-      },
-      booking_date: formatDate(booking.created_at),
-      duration: {
-        from: formatDate(booking.start_date),
-        to: formatDate(booking.end_date)
-      },
-      pickup_location: booking.pickup_location || '',
-      dropoff_location: booking.dropoff_location || '',
-      amount: formatAmount(booking.total_price),
-      status: booking.status || 'pending',
-      payment_status: booking.payment_status || 'Payment Not Confirmed'
-    }));
+    logger.info('Successfully transformed bookings:', { 
+      count: bookings.length 
+    });
 
     return new Response(JSON.stringify({ 
-      bookings: transformedBookings,
-      isHistoryView,
-      userId
+      success: true,
+      bookings 
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
-    logger.error('Error fetching admin bookings:', error);
-    return new Response(JSON.stringify({ error: 'Failed to fetch bookings' }), {
+    // Log the full error details
+    logger.error('Error fetching admin bookings:', { 
+      error,
+      stack: error instanceof Error ? error.stack : undefined,
+      message: error instanceof Error ? error.message : String(error)
+    });
+
+    return new Response(JSON.stringify({ 
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch bookings',
+      details: process.env.NODE_ENV === 'development' ? String(error) : undefined
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
@@ -127,8 +148,11 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    if (!session?.user || session.user.role !== 'admin') {
+      return new Response(JSON.stringify({ 
+        success: false,
+        message: 'Unauthorized' 
+      }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -138,32 +162,39 @@ export async function PUT(request: NextRequest) {
     const { bookingId, status } = body;
 
     if (!bookingId || !status) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+      return new Response(JSON.stringify({ 
+        success: false,
+        message: 'Missing required fields' 
+      }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    const db = getDb();
-
     // Update booking
-    const [updatedBooking] = await db
-      .updateTable('bookings')
-      .set({
-        status,
-        updated_at: new Date(),
-      })
-      .where('id', '=', bookingId)
-      .returning(['id', 'status', 'updated_at'])
-      .execute();
+    const result = await query(`
+      UPDATE bookings
+      SET status = $1,
+          updated_at = $2
+      WHERE id = $3
+      RETURNING id, status, updated_at
+    `, [status, new Date(), bookingId]);
 
-    return new Response(JSON.stringify(updatedBooking), {
+    const updatedBooking = result.rows[0];
+
+    return new Response(JSON.stringify({ 
+      success: true,
+      booking: updatedBooking 
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     logger.error('Error updating booking:', error);
-    return new Response(JSON.stringify({ error: 'Failed to update booking' }), {
+    return new Response(JSON.stringify({ 
+      success: false,
+      message: 'Failed to update booking' 
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

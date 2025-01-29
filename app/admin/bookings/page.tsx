@@ -1,191 +1,351 @@
 'use client';
 
-import { useState } from 'react';
-import useSWR from 'swr';
-import { fetcher } from '@/lib/utils';
-import BookingHistoryModal from './components/BookingHistoryModal';
-import BookingDetailsModal from './components/BookingDetailsModal';
-import { useSidebar } from '@/components/admin/Sidebar';
-import { motion } from 'framer-motion';
-import Link from 'next/link';
-
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-}
-
-interface Vehicle {
-  name: string;
-  type: string;
-}
-
-interface Duration {
-  from: string;
-  to: string;
-}
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/card';
+import { format, isValid, parseISO } from 'date-fns';
+import { toast } from 'react-hot-toast';
+import { formatCurrency } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from '@/components/ui/button';
+import { Eye, History } from 'lucide-react';
 
 interface Booking {
   id: string;
-  customer: Customer;
-  vehicle: Vehicle;
-  booking_date: string;
-  duration: Duration;
-  pickup_location: string;
-  dropoff_location: string;
-  amount: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
-  payment_status: 'pending' | 'completed' | 'failed';
+  user_id: string;
+  vehicle_id: string;
+  pickup_datetime: string;
+  dropoff_datetime: string;
+  total_hours: number;
+  total_price: number;
+  status: string;
+  created_at: string;
+  location: string;
+  user: {
+  name: string;
+  email: string;
+  phone: string;
+  };
+  vehicle: {
+  name: string;
+  };
 }
 
-interface ApiResponse {
-  bookings: Booking[];
-  isHistoryView: boolean;
-  userId: string | null;
-}
+const formatDateTime = (dateStr: string | null) => {
+  if (!dateStr) return 'N/A';
+  try {
+    const date = parseISO(dateStr);
+    return format(date, 'MMM d, yyyy hh:mm a');
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Invalid Date';
+  }
+};
 
-export default function AdminBookingsPage() {
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+export default function BookingsPage() {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const { open } = useSidebar();
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [userHistory, setUserHistory] = useState<Booking[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
-  const { data, error, isLoading } = useSWR<ApiResponse>(
-    '/api/admin/bookings',
-    fetcher
-  );
+  // Fetch all bookings
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch('/api/admin/bookings');
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to fetch bookings');
+        }
 
-  const { data: historyData } = useSWR<ApiResponse>(
-    selectedCustomerId ? `/api/admin/bookings?userId=${selectedCustomerId}&history=true` : null,
-    fetcher
-  );
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error(data.message || 'Failed to fetch bookings');
+        }
 
-  if (error) return <div className="p-4 text-red-500">Failed to load bookings</div>;
-  if (isLoading) return <div className="p-4">Loading...</div>;
+        setBookings(data.bookings || []);
+      } catch (err) {
+        console.error('Error fetching bookings:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch bookings');
+        toast.error('Failed to load bookings');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const bookings = data?.bookings || [];
-  const customerHistory = historyData?.bookings || [];
+    fetchBookings();
+  }, []);
 
-  const handleViewHistory = (customerId: string) => {
-    setSelectedCustomerId(customerId);
-    setIsHistoryModalOpen(true);
+  // Fetch user history when needed
+  const fetchUserHistory = async (userId: string) => {
+    try {
+      setLoadingHistory(true);
+      const response = await fetch(`/api/admin/bookings/history?userId=${userId}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch user history');
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to fetch user history');
+      }
+
+      setUserHistory(data.bookings || []);
+    } catch (err) {
+      console.error('Error fetching user history:', err);
+      toast.error('Failed to load user history');
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
-  const handleViewDetails = (booking: Booking) => {
+  const handleViewBooking = (booking: Booking) => {
     setSelectedBooking(booking);
-    setIsDetailsModalOpen(true);
+    setShowViewModal(true);
   };
+
+  const handleViewHistory = async (booking: Booking) => {
+    setSelectedBooking(booking);
+    await fetchUserHistory(booking.user_id);
+    setShowHistoryModal(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="p-6 text-center m-4">
+        <p className="text-red-500">{error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors"
+        >
+          Try Again
+        </button>
+      </Card>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Bookings Management</h1>
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Vehicle
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Booking Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Duration
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Amount
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Payment
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+    <>
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-8">Bookings</h1>
+
+        {!bookings || bookings.length === 0 ? (
+          <Card className="p-6 text-center">
+            <p className="text-gray-600">No bookings found.</p>
+          </Card>
+        ) : (
+          <div className="grid gap-6">
             {bookings.map((booking) => (
-              <tr key={booking.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{booking.vehicle.name}</div>
-                  <div className="text-sm text-gray-500">{booking.vehicle.type}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {booking.booking_date}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div>{booking.duration.from}</div>
-                  <div>{booking.duration.to}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {booking.amount}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${booking.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                      booking.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                      'bg-yellow-100 text-yellow-800'}`}>
-                    {booking.status}
+              <Card key={booking.id} className="p-6 hover:shadow-md transition-shadow">
+                <div className="flex flex-col md:flex-row justify-between gap-4">
+                  <div>
+                    <h3 className="font-semibold mb-2">{booking.vehicle.name}</h3>
+                    <p className="text-sm text-gray-600 mb-1">
+                      Customer: {booking.user.name}
+                    </p>
+                    <p className="text-sm text-gray-600 mb-1">
+                      Email: {booking.user.email}
+                    </p>
+                    <p className="text-sm text-gray-600 mb-2">
+                      Phone: {booking.user.phone || 'N/A'}
+                    </p>
+                    <div className="mt-2 text-sm text-gray-600">
+                      <div className="flex flex-col gap-2">
+                        <div>
+                          <span className="font-semibold">Pickup:</span>{' '}
+                          {formatDateTime(booking.pickup_datetime)}
+                        </div>
+                        <div>
+                          <span className="font-semibold">Drop-off:</span>{' '}
+                          {formatDateTime(booking.dropoff_datetime)}
+                        </div>
+                        <div>
+                          <span className="font-semibold">Location:</span>{' '}
+                          {booking.location || 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium text-orange-500">
+                      {formatCurrency(booking.total_price)}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {formatDateTime(booking.created_at)}
+                    </p>
+                    <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                      booking.status === 'completed' 
+                        ? 'bg-green-100 text-green-800'
+                        : booking.status === 'cancelled'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                   </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${booking.payment_status === 'completed' ? 'bg-green-100 text-green-800' :
-                      booking.payment_status === 'failed' ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'}`}>
-                    {booking.payment_status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                  <motion.div
-                    animate={{
-                      flexDirection: open ? 'row' : 'column',
-                      gap: open ? '0.5rem' : '0.25rem'
-                    }}
-                    className="flex items-center"
-                  >
-                    <Link
-                      href={`/admin/bookings/view?bookingId=${booking.id}`}
-                      className="text-blue-500 hover:underline"
-                    >
-                      View
-                    </Link>
-                    <Link
-                      href={`/admin/bookings/history?userId=${booking.customer.id}`}
-                      className="text-gray-600 hover:text-gray-900 bg-gray-50 px-3 py-1 rounded-md transition-colors"
-                    >
+                    <div className="mt-2 space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewBooking(booking)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewHistory(booking)}
+                      >
+                        <History className="h-4 w-4 mr-1" />
                       History
-                    </Link>
-                  </motion.div>
-                </td>
-              </tr>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
             ))}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
 
-      {isHistoryModalOpen && customerHistory.length > 0 && (
-        <BookingHistoryModal
-          isOpen={isHistoryModalOpen}
-          onClose={() => setIsHistoryModalOpen(false)}
-          bookings={customerHistory}
-          customerName={bookings.find(b => b.customer.id === selectedCustomerId)?.customer.name || ''}
-        />
-      )}
+      {/* View Booking Modal */}
+      <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Booking Details</DialogTitle>
+          </DialogHeader>
+          {selectedBooking && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-semibold">Vehicle</h3>
+                  <p>{selectedBooking.vehicle.name}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Customer</h3>
+                  <p>{selectedBooking.user.name}</p>
+                  <p className="text-sm text-gray-600">{selectedBooking.user.email}</p>
+                  <p className="text-sm text-gray-600">Phone: {selectedBooking.user.phone || 'N/A'}</p>
+                </div>
+              </div>
+              <div>
+                <h3 className="font-semibold">Location</h3>
+                <p className="text-gray-600">{selectedBooking.location || 'N/A'}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-semibold">Pickup Time</h3>
+                  <p className="text-gray-600">{formatDateTime(selectedBooking.pickup_datetime)}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Dropoff Time</h3>
+                  <p className="text-gray-600">{formatDateTime(selectedBooking.dropoff_datetime)}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-semibold">Duration</h3>
+                  <p>{selectedBooking.total_hours} hours</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Amount</h3>
+                  <p className="text-orange-500 font-medium">
+                    {formatCurrency(selectedBooking.total_price)}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <h3 className="font-semibold">Status</h3>
+                <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                  selectedBooking.status === 'completed' 
+                    ? 'bg-green-100 text-green-800'
+                    : selectedBooking.status === 'cancelled'
+                    ? 'bg-red-100 text-red-800'
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)}
+                </span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
-      {isDetailsModalOpen && selectedBooking && (
-        <BookingDetailsModal
-          isOpen={isDetailsModalOpen}
-          onClose={() => setIsDetailsModalOpen(false)}
-          booking={selectedBooking}
-        />
-      )}
-    </div>
+      {/* History Modal */}
+      <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Booking History - {selectedBooking?.user.name}
+            </DialogTitle>
+          </DialogHeader>
+          {loadingHistory ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
+            </div>
+          ) : userHistory.length === 0 ? (
+            <p className="text-center text-gray-600 py-8">No booking history found.</p>
+          ) : (
+            <div className="space-y-4">
+              {userHistory.map((booking) => (
+                <Card key={booking.id} className="p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-semibold">{booking.vehicle.name}</h3>
+                      <div className="text-sm text-gray-600 space-y-1">
+                        <div className="flex items-center">
+                          <span className="w-16 font-medium">Pickup:</span>
+                          <span>{formatDateTime(booking.pickup_datetime)}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="w-16 font-medium">Dropoff:</span>
+                          <span>{formatDateTime(booking.dropoff_datetime)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-orange-500">
+                        {formatCurrency(booking.total_price)}
+                      </p>
+                      <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                        booking.status === 'completed' 
+                          ? 'bg-green-100 text-green-800'
+                          : booking.status === 'cancelled'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 } 

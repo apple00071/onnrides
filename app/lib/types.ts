@@ -26,14 +26,15 @@ export interface Booking {
   id: string;
   user_id: string;
   vehicle_id: string;
-  start_date: Date;
-  end_date: Date;
-  total_price: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
-  payment_status: 'pending' | 'paid' | 'refunded' | 'failed';
-  payment_details?: { [key: string]: any } | null;
-  created_at: Date;
-  updated_at: Date;
+  pickup_datetime: string;
+  dropoff_datetime: string;
+  total_hours: number;
+  total_price: number;
+  status: 'pending' | 'active' | 'completed' | 'cancelled';
+  payment_status: 'pending' | 'completed' | 'failed';
+  created_at: string;
+  updated_at: string;
+  pickup_location?: string | null;
 }
 
 export interface Document {
