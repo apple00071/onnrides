@@ -36,8 +36,9 @@ const nextConfig = {
             compress: {
               drop_console: true, // Remove console.* calls
               pure_funcs: ['console.log', 'console.info', 'console.debug'],
-              // Keep console.warn and console.error
-              pure_funcs_after: ['console.warn', 'console.error']
+              // Preserve console.warn and console.error
+              drop_console: false,
+              pure_funcs: ['console.log', 'console.info', 'console.debug']
             },
             format: {
               comments: false,

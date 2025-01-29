@@ -8,7 +8,6 @@ import { getServerSession, type AuthOptions, NextAuthOptions } from 'next-auth';
 import type { DefaultJWT, JWT } from 'next-auth/jwt';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
-import logger from './logger';
 import { compare } from "bcrypt";
 
 export type UserRole = 'user' | 'admin';

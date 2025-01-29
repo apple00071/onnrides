@@ -1,6 +1,6 @@
-import { logger } from '@/lib/logger';
 'use client';
 
+import { logger } from '@/lib/logger';
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { format, isValid, parseISO } from 'date-fns';

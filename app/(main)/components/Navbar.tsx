@@ -1,6 +1,6 @@
-import { logger } from '@/lib/logger';
 'use client';
 
+import { logger } from '@/lib/logger';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import {

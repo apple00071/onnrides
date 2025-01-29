@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { FaCheck, FaTimes } from 'react-icons/fa';
+import { logger } from '@/lib/logger';
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import logger from '../../../lib/logger';
 import { format } from 'date-fns';
 
 interface User {

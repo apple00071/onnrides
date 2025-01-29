@@ -44,7 +44,7 @@ const productionLog = (level: LogLevel, ...args: any[]): void => {
   }
 };
 
-export const logger = {
+const logger = {
   debug: (...args: any[]): void => {
     if (shouldLog('debug')) {
       console.log('[Debug]', ...args);
@@ -75,4 +75,5 @@ export const logger = {
   }
 };
 
+export { logger };
 export default logger; 

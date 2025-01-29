@@ -17,12 +17,14 @@ interface DateTimePickerProps {
   date: Date | null;
   setDate: (date: Date | null) => void;
   minDate?: Date;
+  className?: string;
 }
 
 export function DateTimePicker({
   date,
   setDate,
   minDate,
+  className,
 }: DateTimePickerProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     date ?? undefined
@@ -58,7 +60,8 @@ export function DateTimePicker({
           variant="outline"
           className={cn(
             'w-full justify-start text-left font-normal',
-            !date && 'text-muted-foreground'
+            !date && 'text-muted-foreground',
+            className
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />

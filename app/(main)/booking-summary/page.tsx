@@ -1,6 +1,6 @@
-import { logger } from '@/lib/logger';
-'use client'
+'use client';
 
+import { logger } from '@/lib/logger';
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
