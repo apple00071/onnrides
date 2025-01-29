@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -26,7 +27,7 @@ export default async function RootLayout({
   try {
     session = await getServerSession(authOptions);
   } catch (error) {
-    console.error('Session error:', error);
+    logger.error('Session error:', error);
     session = null;
   }
 

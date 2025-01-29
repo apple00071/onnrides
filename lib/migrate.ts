@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync, readdirSync } from 'fs';
@@ -45,7 +46,7 @@ async function runMigrations() {
     // Run pending migrations
     for (const file of migrationFiles) {
       if (!executedMigrationNames.includes(file)) {
-        console.log(`Running migration: ${file}`);
+        logger.debug(`Running migration: ${file}`);
         const migrationPath = join(migrationsDir, file);
         const migrationSql = readFileSync(migrationPath, 'utf-8');
 
@@ -57,18 +58,18 @@ async function runMigrations() {
             [file]
           );
           await client.query('COMMIT');
-          console.log(`Migration completed: ${file}`);
+          logger.debug(`Migration completed: ${file}`);
         } catch (error) {
           await client.query('ROLLBACK');
-          console.error(`Migration failed: ${file}`, error);
+          logger.error(`Migration failed: ${file}`, error);
           throw error;
         }
       }
     }
 
-    console.log('All migrations completed successfully');
+    logger.debug('All migrations completed successfully');
   } catch (error) {
-    console.error('Migration error:', error);
+    logger.error('Migration error:', error);
     throw error;
   } finally {
     client.release();
@@ -80,7 +81,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   runMigrations()
     .then(() => process.exit(0))
     .catch(error => {
-      console.error('Migration failed:', error);
+      logger.error('Migration failed:', error);
       process.exit(1);
     });
 }

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
 import { query } from '@/lib/db';
@@ -167,7 +168,7 @@ export async function getCurrentUser() {
     }
     return session.user
   } catch (error) {
-    console.error('Auth verification error:', error)
+    logger.error('Auth verification error:', error)
     return null
   }
 }

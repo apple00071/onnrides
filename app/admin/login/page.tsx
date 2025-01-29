@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import * as React from 'react';
@@ -32,7 +33,7 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      console.log('Attempting admin sign in for:', email);
+      logger.debug('Attempting admin sign in for:', email);
       
       // First, try to sign in with admin flag
       const result = await signIn('credentials', {
@@ -43,7 +44,7 @@ export default function AdminLoginPage() {
         callbackUrl: '/admin/dashboard'
       });
 
-      console.log('Sign in result:', result);
+      logger.debug('Sign in result:', result);
 
       if (!result) {
         toast.error('An error occurred. Please try again.');
@@ -63,7 +64,7 @@ export default function AdminLoginPage() {
 
       // If sign in was successful, check if user is admin
       try {
-        console.log('Checking admin status for:', email);
+        logger.debug('Checking admin status for:', email);
         
         const response = await fetch('/api/auth/check-admin', {
           method: 'POST',
@@ -74,10 +75,10 @@ export default function AdminLoginPage() {
         });
 
         const data = await response.json();
-        console.log('Admin check response:', data);
+        logger.debug('Admin check response:', data);
 
         if (!response.ok) {
-          console.error('Admin check failed:', data);
+          logger.error('Admin check failed:', data);
           throw new Error(data.error || 'Failed to verify admin access');
         }
 
@@ -86,7 +87,7 @@ export default function AdminLoginPage() {
           // Use replace to prevent going back to login page
           router.replace('/admin/dashboard');
         } else {
-          console.log('User is not an admin:', data);
+          logger.debug('User is not an admin:', data);
           toast.error('This account does not have admin access');
           // Sign out if not admin
           await signIn('credentials', {
@@ -96,7 +97,7 @@ export default function AdminLoginPage() {
           });
         }
       } catch (error) {
-        console.error('Admin check error:', error);
+        logger.error('Admin check error:', error);
         toast.error(error instanceof Error ? error.message : 'Failed to verify admin access');
         // Sign out on error
         await signIn('credentials', {
@@ -106,7 +107,7 @@ export default function AdminLoginPage() {
         });
       }
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error('Login error:', error);
       toast.error('An error occurred. Please try again.');
     } finally {
       setLoading(false);

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import Link from 'next/link';
@@ -56,7 +57,7 @@ export default function AdminDashboardLayout({
         throw new Error(data.error || 'Failed to logout');
       }
     } catch (error) {
-      console.error('Error signing out:', error);
+      logger.error('Error signing out:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to logout');
     }
   };

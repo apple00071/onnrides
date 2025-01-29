@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 const fs = require('fs');
 const path = require('path');
 const rimraf = require('rimraf');
@@ -13,11 +14,11 @@ dirsToRemove.forEach(dir => {
   if (fs.existsSync(dir)) {
     try {
       rimraf.sync(dir);
-      console.log(`Successfully removed ${dir}`);
+      logger.debug(`Successfully removed ${dir}`);
     } catch (error) {
-      console.error(`Error removing ${dir}:`, error);
+      logger.error(`Error removing ${dir}:`, error);
     }
   } else {
-    console.log(`Directory ${dir} does not exist`);
+    logger.debug(`Directory ${dir} does not exist`);
   }
 }); 

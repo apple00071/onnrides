@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getServerSession } from 'next-auth';
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching booking history:', error);
+    logger.error('Error fetching booking history:', error);
     return NextResponse.json(
       { 
         success: false,

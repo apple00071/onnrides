@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -36,32 +37,32 @@ export default function PaymentPage() {
 
   // Add Razorpay script loading handler
   const handleRazorpayLoad = () => {
-    console.log('Razorpay script loaded');
+    logger.debug('Razorpay script loaded');
     setRazorpayLoaded(true);
   };
 
   useEffect(() => {
     const fetchBooking = async () => {
       try {
-        console.log('Fetching booking details for:', bookingId);
+        logger.debug('Fetching booking details for:', bookingId);
         const response = await fetch(`/api/user/bookings/${bookingId}`);
         
         if (!response.ok) {
-          console.error('Failed to fetch booking:', response.status);
+          logger.error('Failed to fetch booking:', response.status);
           throw new Error('Failed to fetch booking details');
         }
         
         const data = await response.json();
-        console.log('Booking data received:', data);
+        logger.debug('Booking data received:', data);
         
         if (!data.booking?.total_price) {
-          console.error('Invalid booking data:', data);
+          logger.error('Invalid booking data:', data);
           throw new Error('Invalid booking data received');
         }
         
         setBooking(data.booking);
       } catch (error) {
-        console.error('Booking fetch error:', error);
+        logger.error('Booking fetch error:', error);
         toast.error('Failed to load booking details');
         router.push('/bookings');
       } finally {
@@ -72,7 +73,7 @@ export default function PaymentPage() {
     if (bookingId) {
       fetchBooking();
     } else {
-      console.error('No booking ID provided');
+      logger.error('No booking ID provided');
       toast.error('No booking ID provided');
       router.push('/bookings');
     }
@@ -85,17 +86,17 @@ export default function PaymentPage() {
       }
 
       setLoading(true);
-      console.log('Starting payment process...');
+      logger.debug('Starting payment process...');
 
       // Check if Razorpay is loaded
       if (typeof window.Razorpay === 'undefined') {
-        console.error('Razorpay not loaded');
+        logger.error('Razorpay not loaded');
         throw new Error('Payment system is not loaded yet. Please refresh the page.');
       }
-      console.log('Razorpay SDK loaded successfully');
+      logger.debug('Razorpay SDK loaded successfully');
 
       // Create Razorpay order directly (no need to create booking as it already exists)
-      console.log('Creating payment order for booking:', booking.id);
+      logger.debug('Creating payment order for booking:', booking.id);
       const orderResponse = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: {
@@ -108,14 +109,14 @@ export default function PaymentPage() {
       });
 
       const responseData = await orderResponse.json();
-      console.log('Order API response:', responseData);
+      logger.debug('Order API response:', responseData);
 
       if (!orderResponse.ok) {
         throw new Error(responseData.error || 'Failed to create payment order');
       }
 
       const { orderId, key, amount } = responseData;
-      console.log('Payment configuration:', { orderId, key: '***', amount });
+      logger.debug('Payment configuration:', { orderId, key: '***', amount });
 
       if (!key || !orderId || !amount) {
         throw new Error('Invalid payment configuration received from server');
@@ -138,7 +139,7 @@ export default function PaymentPage() {
         },
         handler: async (response: any) => {
           try {
-            console.log('Payment successful, received response:', {
+            logger.debug('Payment successful, received response:', {
               ...response,
               razorpay_payment_id: '***',
               razorpay_signature: '***'
@@ -149,7 +150,7 @@ export default function PaymentPage() {
             }
 
             // Verify payment
-            console.log('Verifying payment...');
+            logger.debug('Verifying payment...');
             const verifyResponse = await fetch('/api/payment/verify', {
               method: 'POST',
               headers: {
@@ -164,7 +165,7 @@ export default function PaymentPage() {
             });
 
             const verifyData = await verifyResponse.json();
-            console.log('Verification response:', verifyData);
+            logger.debug('Verification response:', verifyData);
 
             if (!verifyResponse.ok) {
               throw new Error(verifyData.error || 'Payment verification failed');
@@ -173,13 +174,13 @@ export default function PaymentPage() {
             toast.success('Payment successful! Redirecting to bookings...');
             router.push('/bookings');
           } catch (error) {
-            console.error('Payment verification error:', error);
+            logger.error('Payment verification error:', error);
             toast.error(error instanceof Error ? error.message : 'Payment verification failed. Please contact support.');
           }
         },
         modal: {
           ondismiss: function() {
-            console.log('Payment modal dismissed');
+            logger.debug('Payment modal dismissed');
             setLoading(false);
           },
           confirm_close: true,
@@ -195,7 +196,7 @@ export default function PaymentPage() {
         },
       };
 
-      console.log('Initializing Razorpay with options:', {
+      logger.debug('Initializing Razorpay with options:', {
         ...options,
         key: '***',
         handler: '[Function]'
@@ -204,7 +205,7 @@ export default function PaymentPage() {
       const razorpay = new window.Razorpay(options);
       razorpay.open();
     } catch (error) {
-      console.error('Payment error:', error);
+      logger.error('Payment error:', error);
       toast.error(error instanceof Error ? error.message : 'Payment failed. Please try again.');
     } finally {
       setLoading(false);
@@ -226,10 +227,10 @@ export default function PaymentPage() {
         strategy="afterInteractive"
         onLoad={handleRazorpayLoad}
         onError={(e) => {
-          console.error('Failed to load Razorpay script:', e);
+          logger.error('Failed to load Razorpay script:', e);
           toast.error('Failed to load payment system. Please refresh the page.');
         }}
-        onReady={() => console.log('Razorpay script ready')}
+        onReady={() => logger.debug('Razorpay script ready')}
       />
       
       <div className="container max-w-2xl py-8">

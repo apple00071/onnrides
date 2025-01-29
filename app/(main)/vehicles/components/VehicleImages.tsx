@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import Image from 'next/image';
@@ -20,7 +21,7 @@ export default function VehicleImages({ images, vehicleName }: VehicleImagesProp
             priority
             className="object-cover"
             onError={(e) => {
-              console.error('Error loading image:', images[0]);
+              logger.error('Error loading image:', images[0]);
               const target = e.target as HTMLImageElement;
               target.style.display = 'none';
             }}
@@ -41,7 +42,7 @@ export default function VehicleImages({ images, vehicleName }: VehicleImagesProp
               sizes="(max-width: 768px) 25vw, 12.5vw"
               className="object-cover"
               onError={(e) => {
-                console.error('Error loading image:', image);
+                logger.error('Error loading image:', image);
                 const target = e.target as HTMLImageElement;
                 target.style.display = 'none';
               }}

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import Link from 'next/link';
@@ -45,7 +46,7 @@ export default function Navbar() {
       // Force reload to clear any remaining state
       window.location.href = '/auth/signin';
     } catch (error) {
-      console.error('Sign out error:', error);
+      logger.error('Sign out error:', error);
       // Force reload even on error to ensure user is signed out
       window.location.href = '/auth/signin';
     }

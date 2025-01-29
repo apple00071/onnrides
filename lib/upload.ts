@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { BlobServiceClient } from '@azure/storage-blob';
 
 const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
@@ -30,7 +31,7 @@ export async function uploadToBlob(file: File, filename: string): Promise<string
     // Return the blob URL
     return blockBlobClient.url;
   } catch (error) {
-    console.error('Error uploading to blob storage:', error);
+    logger.error('Error uploading to blob storage:', error);
     return '/cars/default.jpg';
   }
 } 

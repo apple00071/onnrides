@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import { query } from '@/lib/db';
@@ -120,7 +121,7 @@ export async function PUT(
 
     return NextResponse.json(updateResult.rows[0]);
   } catch (error) {
-    console.error('Error updating booking:', error);
+    logger.error('Error updating booking:', error);
     return NextResponse.json(
       { error: 'Failed to update booking' },
       { status: 500 }

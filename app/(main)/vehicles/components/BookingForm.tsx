@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -29,10 +30,10 @@ export default function BookingForm({ vehicleId, pricePerHour, minBookingHours =
         if (!isNaN(date.getTime())) {
           setStartDate(date);
         } else {
-          console.error('Invalid pickup date in URL:', pickupParam);
+          logger.error('Invalid pickup date in URL:', pickupParam);
         }
       } catch (error) {
-        console.error('Error parsing pickup date:', error);
+        logger.error('Error parsing pickup date:', error);
       }
     }
     
@@ -42,10 +43,10 @@ export default function BookingForm({ vehicleId, pricePerHour, minBookingHours =
         if (!isNaN(date.getTime())) {
           setEndDate(date);
         } else {
-          console.error('Invalid dropoff date in URL:', dropoffParam);
+          logger.error('Invalid dropoff date in URL:', dropoffParam);
         }
       } catch (error) {
-        console.error('Error parsing dropoff date:', error);
+        logger.error('Error parsing dropoff date:', error);
       }
     }
   }, [searchParams]);

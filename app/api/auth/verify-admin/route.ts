@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { headers } from 'next/headers';
@@ -10,8 +11,8 @@ export async function GET(request: Request) {
     const headersList = headers();
     const session = await getServerSession(authOptions);
     
-    console.log('Request headers:', Object.fromEntries(headersList.entries()));
-    console.log('Server session:', session); // Debug log
+    logger.debug('Request headers:', Object.fromEntries(headersList.entries()));
+    logger.debug('Server session:', session); // Debug log
 
     if (!session?.user) {
       return new NextResponse(JSON.stringify({ 
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
-    console.error('Verify admin error:', error);
+    logger.error('Verify admin error:', error);
     return new NextResponse(JSON.stringify({ 
       error: 'Internal Server Error',
       debug: error instanceof Error ? error.message : String(error)

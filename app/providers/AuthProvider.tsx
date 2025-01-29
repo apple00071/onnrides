@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -36,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(userData);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
+      logger.error('Auth check failed:', error);
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(userData);
       router.push('/dashboard');
     } catch (error) {
-      console.error('Login failed:', error);
+      logger.error('Login failed:', error);
       throw error;
     }
   };
@@ -70,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       router.push('/login');
     } catch (error) {
-      console.error('Logout failed:', error);
+      logger.error('Logout failed:', error);
       throw error;
     }
   };
@@ -92,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(userData);
       router.push('/dashboard');
     } catch (error) {
-      console.error('Signup failed:', error);
+      logger.error('Signup failed:', error);
       throw error;
     }
   };

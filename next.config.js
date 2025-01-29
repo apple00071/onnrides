@@ -27,6 +27,24 @@ const nextConfig = {
       if (!config.optimization.minimizer) {
         config.optimization.minimizer = [];
       }
+
+      // Add Terser plugin configuration for production
+      const TerserPlugin = require('terser-webpack-plugin');
+      config.optimization.minimizer.push(
+        new TerserPlugin({
+          terserOptions: {
+            compress: {
+              drop_console: true, // Remove console.* calls
+              pure_funcs: ['console.log', 'console.info', 'console.debug'],
+              // Keep console.warn and console.error
+              pure_funcs_after: ['console.warn', 'console.error']
+            },
+            format: {
+              comments: false,
+            },
+          },
+        })
+      );
     }
 
     config.resolve.fallback = {

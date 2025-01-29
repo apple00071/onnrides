@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { FileMigrationProvider, Kysely, Migrator, PostgresDialect } from 'kysely';
@@ -27,15 +28,15 @@ async function migrateToLatest() {
 
   results?.forEach((it) => {
     if (it.status === 'Success') {
-      console.log(`Migration "${it.migrationName}" was executed successfully`);
+      logger.debug(`Migration "${it.migrationName}" was executed successfully`);
     } else if (it.status === 'Error') {
-      console.error(`Failed to execute migration "${it.migrationName}"`);
+      logger.error(`Failed to execute migration "${it.migrationName}"`);
     }
   });
 
   if (error) {
-    console.error('Failed to migrate:');
-    console.error(error);
+    logger.error('Failed to migrate:');
+    logger.error(error);
     process.exit(1);
   }
 

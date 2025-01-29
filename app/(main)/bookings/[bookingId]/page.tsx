@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -45,7 +46,7 @@ export default function BookingDetailsPage({ params }: Props) {
         const data = await response.json();
         setBooking(data.booking);
       } catch (error) {
-        console.error('Error fetching booking:', error);
+        logger.error('Error fetching booking:', error);
       } finally {
         setLoading(false);
       }

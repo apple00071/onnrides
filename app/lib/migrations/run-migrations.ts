@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { sql } from '@vercel/postgres';
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
@@ -40,7 +41,7 @@ if (require.main === module) {
   runMigrations()
     .then(() => process.exit(0))
     .catch((error) => {
-      console.error('Migration failed:', error);
+      logger.error('Migration failed:', error);
       process.exit(1);
     });
 }

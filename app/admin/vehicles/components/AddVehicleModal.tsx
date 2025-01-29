@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -116,7 +117,7 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
         images: [],
       });
     } catch (error) {
-      console.error('Error creating vehicle:', error);
+      logger.error('Error creating vehicle:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create vehicle');
     } finally {
       setLoading(false);

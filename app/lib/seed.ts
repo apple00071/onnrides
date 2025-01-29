@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { users, roleEnum } from '@/lib/db/schema';
 import bcrypt from 'bcryptjs';
@@ -17,9 +18,9 @@ export async function seedAdmin() {
     };
 
     await db.insert(users).values(adminData);
-    console.log('Admin user created successfully');
+    logger.debug('Admin user created successfully');
   } catch (error) {
-    console.error('Error creating admin user:', error);
+    logger.error('Error creating admin user:', error);
   }
 }
 

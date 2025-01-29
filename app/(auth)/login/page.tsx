@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import { useState } from 'react';
@@ -28,7 +29,7 @@ export default function LoginPage() {
 
       // The router.push is handled inside signIn
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error('Login error:', error);
       toast.error(error instanceof Error ? error.message : 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);

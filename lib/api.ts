@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 // Types for bookings
 export interface Booking {
   id: string;
@@ -54,7 +55,7 @@ export function getBookings(userId?: string): Booking[] {
       ? bookings.filter(booking => booking.user_id === userId)
       : bookings;
   } catch (error) {
-    console.error('Error fetching bookings:', error);
+    logger.error('Error fetching bookings:', error);
     return [];
   }
 }
@@ -80,7 +81,7 @@ export function createBooking(bookingData: Omit<Booking, 'id' | 'created_at'>): 
 
     return newBooking;
   } catch (error) {
-    console.error('Error creating booking:', error);
+    logger.error('Error creating booking:', error);
     throw error;
   }
 }
@@ -98,7 +99,7 @@ export function updateBooking(bookingId: string, updates: Partial<Booking>): Boo
     const bookingIndex = bookings.findIndex(b => b.id === bookingId);
 
     if (bookingIndex === -1) {
-      console.error('Booking not found');
+      logger.error('Booking not found');
       return null;
     }
 
@@ -112,7 +113,7 @@ export function updateBooking(bookingId: string, updates: Partial<Booking>): Boo
 
     return bookings[bookingIndex];
   } catch (error) {
-    console.error('Error updating booking:', error);
+    logger.error('Error updating booking:', error);
     throw error;
   }
 }
@@ -131,14 +132,14 @@ export function deleteBooking(bookingId: string): boolean {
     const filteredBookings = bookings.filter(b => b.id !== bookingId);
 
     if (filteredBookings.length === initialLength) {
-      console.error('Booking not found');
+      logger.error('Booking not found');
       return false;
     }
 
     localStorage.setItem(BOOKINGS_STORAGE_KEY, JSON.stringify(filteredBookings));
     return true;
   } catch (error) {
-    console.error('Error deleting booking:', error);
+    logger.error('Error deleting booking:', error);
     return false;
   }
 }
@@ -162,7 +163,7 @@ export function getVehicles(filters?: Partial<Vehicle>): Vehicle[] {
 
     return vehicles;
   } catch (error) {
-    console.error('Error fetching vehicles:', error);
+    logger.error('Error fetching vehicles:', error);
     return [];
   }
 }
@@ -187,7 +188,7 @@ export function createVehicle(vehicleData: Omit<Vehicle, 'id'>): Vehicle {
 
     return newVehicle;
   } catch (error) {
-    console.error('Error creating vehicle:', error);
+    logger.error('Error creating vehicle:', error);
     throw error;
   }
 }
@@ -205,7 +206,7 @@ export function updateVehicle(vehicleId: string, updates: Partial<Vehicle>): Veh
     const vehicleIndex = vehicles.findIndex(v => v.id === vehicleId);
 
     if (vehicleIndex === -1) {
-      console.error('Vehicle not found');
+      logger.error('Vehicle not found');
       return null;
     }
 
@@ -219,7 +220,7 @@ export function updateVehicle(vehicleId: string, updates: Partial<Vehicle>): Veh
 
     return vehicles[vehicleIndex];
   } catch (error) {
-    console.error('Error updating vehicle:', error);
+    logger.error('Error updating vehicle:', error);
     throw error;
   }
 }
@@ -238,14 +239,14 @@ export function deleteVehicle(vehicleId: string): boolean {
     const filteredVehicles = vehicles.filter(v => v.id !== vehicleId);
 
     if (filteredVehicles.length === initialLength) {
-      console.error('Vehicle not found');
+      logger.error('Vehicle not found');
       return false;
     }
 
     localStorage.setItem(VEHICLES_STORAGE_KEY, JSON.stringify(filteredVehicles));
     return true;
   } catch (error) {
-    console.error('Error deleting vehicle:', error);
+    logger.error('Error deleting vehicle:', error);
     return false;
   }
 }

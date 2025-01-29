@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -48,7 +49,7 @@ export default function BookingSummaryPage() {
         try {
           return decodeURIComponent(imageUrl);
         } catch (e) {
-          console.error('Failed to decode image URL:', e);
+          logger.error('Failed to decode image URL:', e);
           return '/placeholder.png';
         }
       })(),
@@ -60,7 +61,7 @@ export default function BookingSummaryPage() {
       location: searchParams.get('location') || ''
     }
 
-    console.log('Booking details:', details) // Debug log
+    logger.debug('Booking details:', details) // Debug log
 
     if (!details.vehicleId || !details.pickupDate || !details.dropoffDate) {
       toast.error('Missing booking details')
@@ -135,7 +136,7 @@ export default function BookingSummaryPage() {
 
       if (!bookingResponse.ok) {
         const error = await bookingResponse.json();
-        console.error('Booking creation error:', error);
+        logger.error('Booking creation error:', error);
         if (error.message?.includes('user session')) {
           toast.error('Your session has expired. Please sign in again.');
           router.push('/auth/signin');
@@ -146,10 +147,10 @@ export default function BookingSummaryPage() {
       }
 
       const bookingData = await bookingResponse.json();
-      console.log('Booking created:', bookingData);
+      logger.debug('Booking created:', bookingData);
 
       if (!bookingData.success || !bookingData.data?.booking?.id) {
-        console.error('Invalid booking data received:', bookingData);
+        logger.error('Invalid booking data received:', bookingData);
         toast.error('Failed to create booking. Please try again.');
         return;
       }
@@ -173,7 +174,7 @@ export default function BookingSummaryPage() {
       }
 
       const orderData = await orderResponse.json();
-      console.log('Payment order created:', orderData);
+      logger.debug('Payment order created:', orderData);
 
       if (!orderData.success || !orderData.data) {
         throw new Error('Invalid payment order response');
@@ -195,7 +196,7 @@ export default function BookingSummaryPage() {
         order_id,
         handler: async function (response: any) {
           try {
-            console.log('Payment successful, verifying...', response);
+            logger.debug('Payment successful, verifying...', response);
             const verifyResponse = await fetch('/api/payments/verify', {
               method: 'POST',
               headers: {
@@ -216,7 +217,7 @@ export default function BookingSummaryPage() {
             toast.success('Payment successful!');
             router.push('/bookings');
           } catch (error) {
-            console.error('Payment verification error:', error);
+            logger.error('Payment verification error:', error);
             toast.error('Payment verification failed');
           }
         },
@@ -233,11 +234,11 @@ export default function BookingSummaryPage() {
         }
       };
 
-      console.log('Initializing Razorpay with options:', { ...options, key: '***' });
+      logger.debug('Initializing Razorpay with options:', { ...options, key: '***' });
       const razorpay = new window.Razorpay(options);
       razorpay.open();
     } catch (error) {
-      console.error('Payment initiation error:', error);
+      logger.error('Payment initiation error:', error);
       toast.error('Failed to initiate payment');
     } finally {
       setLoading(false)
@@ -311,7 +312,7 @@ export default function BookingSummaryPage() {
                   onError={(e) => {
                     const img = e.target as HTMLImageElement;
                     img.src = '/placeholder.png';
-                    console.error('Failed to load image:', bookingDetails.vehicleImage);
+                    logger.error('Failed to load image:', bookingDetails.vehicleImage);
                   }}
                 />
               </div>

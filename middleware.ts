@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
@@ -37,7 +38,7 @@ export async function middleware(request: NextRequest) {
 
     return NextResponse.next();
   } catch (error) {
-    console.error('Middleware error:', error);
+    logger.error('Middleware error:', error);
     // Redirect to admin login on error
     const url = new URL('/admin/login', request.url);
     url.searchParams.set('from', pathname);

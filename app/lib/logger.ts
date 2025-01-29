@@ -1,18 +1,19 @@
+import { logger } from '@/lib/logger';
 /* eslint-disable no-console */
 const logger = {
   debug: (...args: any[]) => {
     if (process.env.NODE_ENV === 'development') {
-      console.log('[DEBUG]', ...args);
+      logger.debug('[DEBUG]', ...args);
     }
   },
   info: (...args: any[]) => {
-    console.log('[INFO]', ...args);
+    logger.debug('[INFO]', ...args);
   },
   warn: (...args: any[]) => {
-    console.warn('[WARN]', ...args);
+    logger.warn('[WARN]', ...args);
   },
   error: (...args: any[]) => {
-    console.error('[ERROR]', ...args);
+    logger.error('[ERROR]', ...args);
   }
 };
 

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import { useState } from 'react';
@@ -52,7 +53,7 @@ export default function AdminLoginPage() {
         router.push(callbackUrl);
       }
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error('Login error:', error);
       toast.error('An error occurred. Please try again.');
     } finally {
       setLoading(false);

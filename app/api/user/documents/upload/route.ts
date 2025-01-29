@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import pool from '@/lib/db';
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Error uploading document:', error);
+    logger.error('Error uploading document:', error);
     return NextResponse.json(
       { message: error instanceof Error ? error.message : 'Failed to upload document' },
       { status: 500 }

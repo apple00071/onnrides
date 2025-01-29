@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { pool } from './db';
 
 const migrations = [
@@ -55,15 +56,15 @@ const migrations = [
 
 export async function runMigrations() {
   try {
-    console.log('Running migrations...');
+    logger.debug('Running migrations...');
     
     for (const migration of migrations) {
       await pool.query(migration);
     }
     
-    console.log('Migrations completed successfully');
+    logger.debug('Migrations completed successfully');
   } catch (error) {
-    console.error('Error running migrations:', error);
+    logger.error('Error running migrations:', error);
     throw error;
   }
 }

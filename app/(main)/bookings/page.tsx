@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -80,7 +81,7 @@ export default function BookingsPage() {
 
     try {
       setIsProcessingPayment(true);
-      console.log('Initiating payment for booking:', booking.id);
+      logger.debug('Initiating payment for booking:', booking.id);
 
       // Check if Razorpay is loaded
       if (typeof window.Razorpay === 'undefined') {
@@ -102,7 +103,7 @@ export default function BookingsPage() {
       }
 
       const data = await response.json();
-      console.log('Payment order created:', data);
+      logger.debug('Payment order created:', data);
 
       // Initialize Razorpay
       const options = {
@@ -116,7 +117,7 @@ export default function BookingsPage() {
         theme: data.theme,
         handler: async function (response: any) {
           try {
-            console.log('Payment successful, verifying...', response);
+            logger.debug('Payment successful, verifying...', response);
             const verifyResponse = await fetch('/api/payments/verify', {
               method: 'POST',
               headers: {
@@ -137,7 +138,7 @@ export default function BookingsPage() {
             toast.success('Payment successful!');
             window.location.href = `/bookings?success=true&booking_number=${booking.id}`;
           } catch (error) {
-            console.error('Payment verification error:', error);
+            logger.error('Payment verification error:', error);
             toast.error('Payment verification failed');
           }
         },
@@ -148,11 +149,11 @@ export default function BookingsPage() {
         }
       };
 
-      console.log('Initializing Razorpay with options:', { ...options, key: '***' });
+      logger.debug('Initializing Razorpay with options:', { ...options, key: '***' });
       const razorpay = new window.Razorpay(options);
       razorpay.open();
     } catch (error) {
-      console.error('Payment initiation error:', error);
+      logger.error('Payment initiation error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to initiate payment');
       setIsProcessingPayment(false);
     }
@@ -171,8 +172,8 @@ export default function BookingsPage() {
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
         strategy="beforeInteractive"
-        onLoad={() => console.log('Razorpay script loaded')}
-        onError={(e) => console.error('Razorpay script failed to load:', e)}
+        onLoad={() => logger.debug('Razorpay script loaded')}
+        onError={(e) => logger.error('Razorpay script failed to load:', e)}
       />
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

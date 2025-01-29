@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -41,7 +42,7 @@ const formatDateTime = (dateStr: string | null) => {
     const date = parseISO(dateStr);
     return format(date, 'MMM d, yyyy hh:mm a');
   } catch (error) {
-    console.error('Error formatting date:', error);
+    logger.error('Error formatting date:', error);
     return 'Invalid Date';
   }
 };
@@ -77,7 +78,7 @@ export default function BookingsPage() {
 
         setBookings(data.bookings || []);
       } catch (err) {
-        console.error('Error fetching bookings:', err);
+        logger.error('Error fetching bookings:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch bookings');
         toast.error('Failed to load bookings');
       } finally {
@@ -106,7 +107,7 @@ export default function BookingsPage() {
 
       setUserHistory(data.bookings || []);
     } catch (err) {
-      console.error('Error fetching user history:', err);
+      logger.error('Error fetching user history:', err);
       toast.error('Failed to load user history');
     } finally {
       setLoadingHistory(false);

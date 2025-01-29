@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 'use client';
 
 import { useState } from 'react';
@@ -18,7 +19,7 @@ export default function HeroSection() {
   const handleSearch = async () => {
     try {
       // Log initial state
-      console.log('Current state:', {
+      logger.debug('Current state:', {
         pickupDate,
         pickupTime,
         dropoffDate,
@@ -27,7 +28,7 @@ export default function HeroSection() {
 
       // Validate inputs
       if (!pickupDate || !pickupTime || !dropoffDate || !dropoffTime) {
-        console.log('Missing required fields');
+        logger.debug('Missing required fields');
         toast.error('Please select all date and time fields');
         return;
       }
@@ -37,26 +38,26 @@ export default function HeroSection() {
       const dropoffDateTime = new Date(`${dropoffDate}T${dropoffTime}`);
       const now = new Date();
 
-      console.log('Parsed dates:', {
+      logger.debug('Parsed dates:', {
         pickupDateTime,
         dropoffDateTime,
         now
       });
 
       if (isNaN(pickupDateTime.getTime()) || isNaN(dropoffDateTime.getTime())) {
-        console.error('Invalid date format');
+        logger.error('Invalid date format');
         toast.error('Invalid date format');
         return;
       }
 
       if (pickupDateTime < now) {
-        console.log('Past date selected');
+        logger.debug('Past date selected');
         toast.error('Cannot select a past date and time for pickup');
         return;
       }
 
       if (dropoffDateTime <= pickupDateTime) {
-        console.log('Invalid time range');
+        logger.debug('Invalid time range');
         toast.error('Drop-off time must be after pickup time');
         return;
       }
@@ -72,12 +73,12 @@ export default function HeroSection() {
       searchParams.append('type', 'car');
 
       const searchUrl = `/vehicles?${searchParams.toString()}`;
-      console.log('Navigation URL:', searchUrl);
+      logger.debug('Navigation URL:', searchUrl);
 
       // Navigate to vehicles page with replace to allow going back
       router.replace(searchUrl);
     } catch (error) {
-      console.error('Search error:', error);
+      logger.error('Search error:', error);
       toast.error('An error occurred while searching. Please try again.');
     } finally {
       setIsLoading(false);
@@ -103,7 +104,7 @@ export default function HeroSection() {
                     min={new Date().toISOString().split('T')[0]}
                     value={pickupDate}
                     onChange={(e) => {
-                      console.log('Pickup date changed:', e.target.value);
+                      logger.debug('Pickup date changed:', e.target.value);
                       setPickupDate(e.target.value);
                     }}
                     className="w-full p-2 border rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
@@ -114,7 +115,7 @@ export default function HeroSection() {
                   <TimePicker
                     value={pickupTime}
                     onChange={(time) => {
-                      console.log('Pickup time changed:', time);
+                      logger.debug('Pickup time changed:', time);
                       setPickupTime(time);
                     }}
                     minTime={pickupDate === new Date().toISOString().split('T')[0] ? 
@@ -136,7 +137,7 @@ export default function HeroSection() {
                     min={pickupDate || new Date().toISOString().split('T')[0]}
                     value={dropoffDate}
                     onChange={(e) => {
-                      console.log('Dropoff date changed:', e.target.value);
+                      logger.debug('Dropoff date changed:', e.target.value);
                       setDropoffDate(e.target.value);
                     }}
                     className="w-full p-2 border rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
@@ -147,7 +148,7 @@ export default function HeroSection() {
                   <TimePicker
                     value={dropoffTime}
                     onChange={(time) => {
-                      console.log('Dropoff time changed:', time);
+                      logger.debug('Dropoff time changed:', time);
                       setDropoffTime(time);
                     }}
                     minTime={dropoffDate === pickupDate ? pickupTime : undefined}
