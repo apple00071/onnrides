@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "build:production": "node scripts/build-production.js",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate && touch postcss.config.js tailwind.config.js"

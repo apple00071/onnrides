@@ -2,14 +2,13 @@
 User-agent: *
 Allow: /
 
-# Sitemap location
-Sitemap: https://onnrides.com/sitemap.xml
-
-# Disallow admin and api routes
+# Disallow admin and API routes
 Disallow: /admin/
 Disallow: /api/
-Disallow: /_next/
-Disallow: /static/
+Disallow: /auth/
+
+# Sitemap location
+Sitemap: https://onnrides.vercel.app/sitemap.xml
 
 # Crawl delay
 Crawl-delay: 10 
