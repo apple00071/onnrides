@@ -24,28 +24,29 @@ const nextConfig = {
     // Remove console.* calls in production
     if (!dev) {
       config.optimization.minimize = true;
-      if (!config.optimization.minimizer) {
-        config.optimization.minimizer = [];
+      
+      try {
+        const TerserPlugin = require('terser-webpack-plugin');
+        if (!config.optimization.minimizer) {
+          config.optimization.minimizer = [];
+        }
+        
+        config.optimization.minimizer.push(
+          new TerserPlugin({
+            terserOptions: {
+              compress: {
+                drop_console: false, // Don't remove all console calls
+                pure_funcs: ['console.log', 'console.info', 'console.debug'] // Only remove specific console methods
+              },
+              format: {
+                comments: false,
+              },
+            },
+          })
+        );
+      } catch (error) {
+        console.warn('Warning: terser-webpack-plugin not found. Skipping console removal optimization.');
       }
-
-      // Add Terser plugin configuration for production
-      const TerserPlugin = require('terser-webpack-plugin');
-      config.optimization.minimizer.push(
-        new TerserPlugin({
-          terserOptions: {
-            compress: {
-              drop_console: true, // Remove console.* calls
-              pure_funcs: ['console.log', 'console.info', 'console.debug'],
-              // Preserve console.warn and console.error
-              drop_console: false,
-              pure_funcs: ['console.log', 'console.info', 'console.debug']
-            },
-            format: {
-              comments: false,
-            },
-          },
-        })
-      );
     }
 
     config.resolve.fallback = {
