@@ -49,22 +49,33 @@ const nextConfig = {
       }
     }
 
+    // Basic fallbacks that don't require polyfills
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
       net: false,
       tls: false,
-      crypto: require.resolve('crypto-browserify'),
-      stream: require.resolve('stream-browserify'),
-      http: require.resolve('stream-http'),
-      https: require.resolve('https-browserify'),
-      os: require.resolve('os-browserify/browser'),
-      buffer: require.resolve('buffer/'),
     };
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      process: "process/browser"
-    };
+
+    // Try to add polyfill fallbacks if available
+    try {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        crypto: require.resolve('crypto-browserify'),
+        stream: require.resolve('stream-browserify'),
+        http: require.resolve('stream-http'),
+        https: require.resolve('https-browserify'),
+        os: require.resolve('os-browserify/browser'),
+        buffer: require.resolve('buffer/'),
+      };
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        process: "process/browser"
+      };
+    } catch (error) {
+      console.warn('Warning: Some polyfills not found. This is normal in server environment.');
+    }
+
     return config;
   },
   async redirects() {
