@@ -207,20 +207,20 @@ export default function BookingsPage() {
                     </h2>
                     <div className="flex items-center gap-2">
                       <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                        booking.payment_status === 'completed'
+                        booking.status === 'cancelled'
+                          ? 'bg-red-100 text-red-800'
+                          : booking.payment_status === 'completed'
                           ? 'bg-green-100 text-green-800'
                           : booking.status === 'confirmed'
                           ? 'bg-blue-100 text-blue-800'
                           : booking.status === 'pending'
                           ? 'bg-yellow-100 text-yellow-800'
-                          : booking.status === 'cancelled'
-                          ? 'bg-red-100 text-red-800'
                           : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {booking.payment_status === 'completed'
-                          ? 'Confirmed'
-                          : booking.status === 'cancelled'
+                        {booking.status === 'cancelled'
                           ? 'Cancelled'
+                          : booking.payment_status === 'completed'
+                          ? 'Confirmed'
                           : booking.status === 'confirmed'
                           ? 'Pending Payment'
                           : booking.status === 'pending'

@@ -7,7 +7,6 @@ import { Providers } from './providers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import Script from 'next/script';
-import { Footer } from '@/components/ui/footer';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,18 +44,13 @@ export default async function RootLayout({
       <body className={inter.className}>
         <Providers session={session}>
           <Toaster position="top-center" />
-          <main className="min-h-screen flex flex-col">
-            <div className="flex-grow">
-              {children}
-            </div>
-            <Footer />
-          </main>
+          {children}
+          <Script 
+            src="https://checkout.razorpay.com/v1/checkout.js"
+            strategy="lazyOnload"
+            id="razorpay-script"
+          />
         </Providers>
-        <Script 
-          src="https://checkout.razorpay.com/v1/checkout.js"
-          strategy="lazyOnload"
-          id="razorpay-script"
-        />
       </body>
     </html>
   );

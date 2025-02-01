@@ -3,7 +3,7 @@
 import { logger } from '@/lib/logger';
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
-import { format, isValid, parseISO } from 'date-fns';
+import { format, isValid, parseISO, addMinutes } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -46,7 +46,8 @@ const formatDateTime = (dateStr: string | null) => {
   if (!dateStr) return 'N/A';
   try {
     const date = parseISO(dateStr);
-    return format(date, 'MMM d, yyyy hh:mm a');
+    const dateWithOffset = addMinutes(date, 330); // Add 5 hours and 30 minutes for Indian timezone
+    return format(dateWithOffset, 'MMM d, yyyy hh:mm a');
   } catch (error) {
     logger.error('Error formatting date:', error);
     return 'Invalid Date';
