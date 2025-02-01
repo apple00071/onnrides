@@ -41,4 +41,20 @@ export interface Document {
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   created_at: Date;
   updated_at: Date;
-} 
+}
+
+export const VEHICLE_TYPES = ['car', 'bike', 'scooter'] as const;
+export type VehicleType = typeof VEHICLE_TYPES[number];
+
+export const LOCATIONS = [
+  'Madhapur',
+  'Gachibowli',
+  'Kondapur',
+  'Kukatpally',
+  'Ameerpet',
+  'Hitech City',
+  'Jubilee Hills',
+  'Banjara Hills',
+  'Eragadda'
+] as const;
+export type Location = typeof LOCATIONS[number]; 

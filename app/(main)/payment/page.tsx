@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/utils';
 import { Loader } from '@/components/ui/loader';
-import Script from 'next/script';
 
 declare global {
   interface Window {
@@ -111,15 +110,29 @@ export default function PaymentPage() {
       const responseData = await orderResponse.json();
       logger.debug('Order API response:', responseData);
 
-      if (!orderResponse.ok) {
-        throw new Error(responseData.error || 'Failed to create payment order');
+      if (!orderResponse.ok || !responseData.success) {
+        const errorMessage = responseData.error || 'Failed to create payment order';
+        logger.error('Payment order creation failed:', {
+          status: orderResponse.status,
+          statusText: orderResponse.statusText,
+          error: errorMessage,
+          response: responseData
+        });
+        throw new Error(errorMessage);
       }
 
-      const { orderId, key, amount } = responseData;
-      logger.debug('Payment configuration:', { orderId, key: '***', amount });
+      const { orderId, key, amount } = responseData.data;
+      logger.debug('Payment configuration:', { 
+        orderId, 
+        keyPrefix: key?.substring(0, 8), 
+        amount,
+        responseData 
+      });
 
       if (!key || !orderId || !amount) {
-        throw new Error('Invalid payment configuration received from server');
+        const error = 'Invalid payment configuration received from server';
+        logger.error(error, responseData.data);
+        throw new Error(error);
       }
 
       // Initialize Razorpay
@@ -222,17 +235,6 @@ export default function PaymentPage() {
 
   return (
     <>
-      <Script
-        src="https://checkout.razorpay.com/v1/checkout.js"
-        strategy="afterInteractive"
-        onLoad={handleRazorpayLoad}
-        onError={(e) => {
-          logger.error('Failed to load Razorpay script:', e);
-          toast.error('Failed to load payment system. Please refresh the page.');
-        }}
-        onReady={() => logger.debug('Razorpay script ready')}
-      />
-      
       <div className="container max-w-2xl py-8">
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h1 className="text-2xl font-bold mb-6">Payment</h1>

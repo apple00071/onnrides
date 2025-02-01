@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
@@ -18,34 +18,94 @@ type BookingBody = {
 };
 
 // GET /api/bookings - List user's bookings
-export async function GET(request: NextRequest): Promise<Response> {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return Response.json({ 
+      return NextResponse.json({ 
         success: false,
         error: 'Unauthorized' 
       }, { status: 401 });
     }
 
-    const result = await query(
-      'SELECT * FROM bookings WHERE user_id = $1 ORDER BY created_at DESC',
-      [session.user.id]
-    );
+    const result = await query(`
+      SELECT 
+        b.*,
+        v.name as vehicle_name,
+        v.location as vehicle_location,
+        v.type as vehicle_type,
+        v.images as vehicle_images,
+        v.price_per_hour as vehicle_price_per_hour,
+        b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as start_date,
+        b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as end_date,
+        COALESCE(b.booking_id, 'OR' || SUBSTRING(MD5(RANDOM()::text) FROM 1 FOR 3)) as booking_id
+      FROM bookings b
+      LEFT JOIN vehicles v ON b.vehicle_id = v.id
+      WHERE b.user_id = $1 
+      ORDER BY b.created_at DESC
+    `, [session.user.id]);
     
-    return Response.json({ 
+    // Log raw data for debugging
+    if (result.rows.length > 0) {
+      logger.info('First booking raw data:', {
+        firstBooking: JSON.stringify(result.rows[0], null, 2)
+      });
+    }
+    
+    const bookings = result.rows.map(booking => {
+      // Parse dates properly
+      const startDate = new Date(booking.start_date);
+      const endDate = new Date(booking.end_date);
+      
+      return {
+        id: booking.id,
+        booking_id: booking.booking_id,
+        status: booking.status,
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        total_price: parseFloat(booking.total_price),
+        payment_status: booking.payment_status,
+        created_at: new Date(booking.created_at).toISOString(),
+        updated_at: new Date(booking.updated_at).toISOString(),
+        vehicle: {
+          id: booking.vehicle_id,
+          name: booking.vehicle_name,
+          type: booking.vehicle_type,
+          location: booking.vehicle_location,
+          images: booking.vehicle_images,
+          price_per_hour: parseFloat(booking.vehicle_price_per_hour || 0)
+        }
+      };
+    });
+    
+    // Log transformed data for debugging
+    if (bookings.length > 0) {
+      logger.info('First booking transformed data:', {
+        firstBooking: JSON.stringify(bookings[0], null, 2)
+      });
+    }
+    
+    return NextResponse.json({ 
       success: true,
-      data: result.rows 
+      data: bookings
     });
   } catch (error) {
-    if (isDevelopment) {
-      logger.error('Error fetching bookings:', error);
-    }
-    return Response.json({ 
+    logger.error('Error fetching bookings:', error);
+    return NextResponse.json({ 
       success: false,
       error: 'Failed to fetch bookings' 
     }, { status: 500 });
   }
+}
+
+// Helper function to generate unique booking ID
+function generateBookingId(): string {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = 'OR';
+  for (let i = 0; i < 3; i++) {
+    result += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return result;
 }
 
 // POST /api/bookings - Create booking
@@ -53,118 +113,96 @@ export async function POST(request: NextRequest): Promise<Response> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return Response.json({ 
-        success: false,
-        error: 'Unauthorized' 
-      }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    const body = await request.json() as BookingBody;
-
-    // Validate required fields
-    if (!body.vehicle_id || !body.pickup_datetime || !body.dropoff_datetime || !body.total_hours || !body.total_price) {
-      return Response.json({ 
-        success: false,
-        error: 'Missing required fields' 
-      }, { status: 400 });
+    const data = await request.json();
+    
+    // Clean up location data
+    let location = data.location;
+    if (location) {
+      try {
+        // If it's already an array, leave it as is
+        if (Array.isArray(location)) {
+          location = location;
+        }
+        // If it's a string that looks like JSON, parse it
+        else if (typeof location === 'string' && (location.startsWith('[') || location.startsWith('{'))) {
+          const parsed = JSON.parse(location);
+          if (Array.isArray(parsed)) {
+            location = parsed;
+          } else if (typeof parsed === 'object' && parsed.name) {
+            location = Array.isArray(parsed.name) ? parsed.name : [parsed.name];
+          } else {
+            location = [String(parsed)];
+          }
+        }
+        // If it's a simple string, convert to array
+        else if (typeof location === 'string') {
+          location = [location.trim()];
+        }
+        
+        // Clean up the locations
+        location = location
+          .map((loc: string) => loc.trim())
+          .filter(Boolean)
+          .map((loc: string) => loc.replace(/^["']|["']$/g, '')); // Remove quotes
+      } catch (e) {
+        logger.error('Error parsing location:', e);
+        location = [String(data.location).trim()];
+      }
     }
 
-    // Parse and validate dates
-    const pickupDate = new Date(body.pickup_datetime);
-    const dropoffDate = new Date(body.dropoff_datetime);
+    // Generate unique booking ID
+    const bookingId = generateBookingId();
 
-    if (isNaN(pickupDate.getTime()) || isNaN(dropoffDate.getTime())) {
-      return Response.json({ 
-        success: false,
-        error: 'Invalid date format' 
-      }, { status: 400 });
-    }
-
-    // Check if vehicle is available for the requested time period
-    const conflictingBookings = await query(
-      `SELECT COUNT(*) as count 
-       FROM bookings 
-       WHERE vehicle_id = $1 
-       AND status = 'active'
-       AND ($2::timestamptz, $3::timestamptz) OVERLAPS (start_date, end_date)`,
-      [body.vehicle_id, pickupDate.toISOString(), dropoffDate.toISOString()]
-    );
-
-    if (conflictingBookings.rows[0].count > 0) {
-      return Response.json({
-        success: false,
-        error: 'Vehicle is not available for the selected time period'
-      }, { status: 400 });
-    }
-
-    // Create booking with correct column names and number of parameters
-    const bookingId = nanoid();
-    const insertQuery = `
+    const result = await query(`
       INSERT INTO bookings (
-        id, user_id, vehicle_id, start_date, end_date,
-        total_hours, total_price, status, payment_status,
-        created_at, updated_at, pickup_location
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $10)
+        booking_id,
+        user_id,
+        vehicle_id,
+        pickup_datetime,
+        dropoff_datetime,
+        total_hours,
+        total_price,
+        location,
+        status,
+        payment_status,
+        created_at,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
       RETURNING *
-    `;
-    const insertParams = [
+    `, [
       bookingId,
       session.user.id,
-      body.vehicle_id,
-      pickupDate.toISOString(),
-      dropoffDate.toISOString(),
-      body.total_hours,
-      body.total_price,
-      'pending',
-      'pending',
-      body.location || null
-    ];
+      data.vehicle_id,
+      data.pickup_datetime,
+      data.dropoff_datetime,
+      data.total_hours,
+      data.total_price,
+      JSON.stringify(location || []),
+      'confirmed',
+      'pending'
+    ]);
 
-    const result = await query(insertQuery, insertParams);
+    const booking = result.rows[0];
 
-    if (!result.rows[0]) {
-      throw new Error('Failed to create booking - no data returned');
-    }
-
-    // Transform the response to match the expected format
-    const booking = {
-      id: result.rows[0].id,
-      user_id: result.rows[0].user_id,
-      vehicle_id: result.rows[0].vehicle_id,
-      pickup_datetime: result.rows[0].start_date,
-      dropoff_datetime: result.rows[0].end_date,
-      total_hours: result.rows[0].total_hours,
-      total_price: result.rows[0].total_price,
-      status: result.rows[0].status,
-      created_at: result.rows[0].created_at,
-      location: result.rows[0].pickup_location || '',
-      user: {
-        name: session.user.name || 'Unknown',
-        email: session.user.email || '',
-        phone: session.user.phone || ''
-      },
-      vehicle: {
-        name: '' // This will be populated by the frontend
-      }
-    };
-
-    return Response.json({ 
+    return NextResponse.json({
       success: true,
-      data: { booking } 
+      booking: {
+        ...booking,
+        booking_id: bookingId,
+        location: location || []
+      }
     });
   } catch (error) {
-    // Only log errors in development
-    if (isDevelopment) {
-      logger.error('Error creating booking:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
-    }
-
-    return Response.json({ 
-      success: false,
-      error: 'Failed to create booking',
-      ...(isDevelopment && { details: String(error) })
-    }, { status: 500 });
+    logger.error('Error creating booking:', error);
+    return NextResponse.json(
+      { error: 'Failed to create booking' },
+      { status: 500 }
+    );
   }
 } 

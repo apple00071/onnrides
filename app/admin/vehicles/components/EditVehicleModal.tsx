@@ -7,16 +7,29 @@ import logger from '../../../../lib/logger';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog';
-import { VEHICLE_TYPES, VEHICLE_STATUS } from '@/lib/schema';
+import { VEHICLE_TYPES, VehicleType } from '../../../../lib/schema';
 import { Vehicle } from '@/lib/types';
+
+// Define locations directly in the component for now
+const LOCATIONS = [
+  'Madhapur',
+  'Gachibowli',
+  'Kondapur',
+  'Kukatpally',
+  'Ameerpet',
+  'Hitech City',
+  'Jubilee Hills',
+  'Banjara Hills',
+  'Eragadda'
+];
 
 interface EditVehicleModalProps {
   isOpen: boolean;
@@ -27,67 +40,104 @@ interface EditVehicleModalProps {
 
 interface FormData {
   name: string;
-  type: typeof VEHICLE_TYPES[number];
-  location: string[];
+  type: VehicleType;
   price_per_hour: number;
+  location: string[];
+  images: (string | File)[];
   is_available: boolean;
-  status: typeof VEHICLE_STATUS[number];
-  images: File[];
-  existingImages: string[];
+}
+
+// Helper function to convert form data to Vehicle type
+function convertToVehicle(formData: FormData, existingVehicle: Vehicle, imageUrls: string[]): Vehicle {
+  return {
+    ...existingVehicle,
+    name: formData.name,
+    type: formData.type,
+    price_per_hour: formData.price_per_hour,
+    location: formData.location,
+    images: imageUrls,
+    is_available: formData.is_available,
+    updated_at: new Date().toISOString()
+  };
 }
 
 export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }: EditVehicleModalProps) {
   const [formData, setFormData] = useState<FormData>({
     name: vehicle.name,
-    type: vehicle.type as typeof VEHICLE_TYPES[number],
-    location: Array.isArray(vehicle.location) ? vehicle.location : vehicle.location.split(',').map(l => l.trim()),
-    price_per_hour: parseFloat(vehicle.price_per_hour),
-    is_available: vehicle.is_available,
-    status: vehicle.status,
-    images: [],
-    existingImages: Array.isArray(vehicle.images) ? vehicle.images : vehicle.images.split(',').map(i => i.trim()),
+    type: vehicle.type as VehicleType,
+    price_per_hour: vehicle.price_per_hour,
+    location: Array.isArray(vehicle.location) 
+      ? vehicle.location
+      : [vehicle.location],
+    images: Array.isArray(vehicle.images) ? vehicle.images : [],
+    is_available: vehicle.is_available
   });
   const [loading, setLoading] = useState(false);
+  const [newImages, setNewImages] = useState<File[]>([]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      setFormData(prev => ({
-        ...prev,
-        images: [...Array.from(files)]
-      }));
+      const filesArray = Array.from(files);
+      setNewImages(prev => [...prev, ...filesArray]);
     }
   };
 
   const removeExistingImage = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      existingImages: prev.existingImages.filter((_, i) => i !== index)
+      images: prev.images.filter((_, i) => i !== index)
     }));
   };
 
   const removeNewImage = (index: number) => {
+    setNewImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleLocationChange = (location: string) => {
     setFormData(prev => ({
       ...prev,
-      images: prev.images.filter((_, i) => i !== index)
+      location: prev.location.includes(location)
+        ? prev.location.filter(l => l !== location)
+        : [...prev.location, location]
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
 
     try {
-      setLoading(true);
-      
-      // Prepare the data as a regular object
+      // First, upload any new images
+      const uploadedImageUrls = await Promise.all(
+        newImages.map(async (file) => {
+          const formData = new FormData();
+          formData.append('file', file);
+          
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to upload image');
+          }
+          
+          const data = await response.json();
+          return data.url;
+        })
+      );
+
+      // Combine existing images with new uploaded ones
+      const allImages = [...formData.images.filter(img => typeof img === 'string'), ...uploadedImageUrls];
+
       const updateData = {
         name: formData.name,
         type: formData.type,
+        price_per_hour: Number(formData.price_per_hour),
         location: formData.location,
-        price_per_hour: formData.price_per_hour,
-        is_available: formData.is_available,
-        status: formData.status,
-        images: formData.existingImages
+        images: allImages,
+        is_available: formData.is_available
       };
 
       const response = await fetch(`/api/admin/vehicles/${vehicle.id}`, {
@@ -103,7 +153,7 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
         throw new Error(error.message || 'Failed to update vehicle');
       }
 
-      const { vehicle: updatedVehicle } = await response.json();
+      const updatedVehicle = convertToVehicle(formData, vehicle, allImages);
       toast.success('Vehicle updated successfully');
       onSuccess(updatedVehicle);
       onClose();
@@ -138,7 +188,7 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
             <Label htmlFor="type">Vehicle Type</Label>
             <Select
               value={formData.type}
-              onValueChange={(value: typeof VEHICLE_TYPES[number]) => setFormData({ ...formData, type: value })}
+              onValueChange={(value: string) => setFormData({ ...formData, type: value as VehicleType })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select type" />
@@ -154,16 +204,24 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
           </div>
 
           <div>
-            <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              name="location"
-              value={formData.location.join(', ')}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                setFormData({ ...formData, location: e.target.value.split(',').map((l: string) => l.trim()) })}
-              placeholder="Enter locations separated by commas"
-              required
-            />
+            <Label>Locations</Label>
+            <div className="grid grid-cols-2 gap-4 mt-2">
+              {LOCATIONS.map((location) => (
+                <div key={location} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`location-${location}`}
+                    checked={formData.location.includes(location)}
+                    onCheckedChange={() => handleLocationChange(location)}
+                  />
+                  <label
+                    htmlFor={`location-${location}`}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    {location}
+                  </label>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -182,25 +240,6 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
           </div>
 
           <div>
-            <Label htmlFor="status">Status</Label>
-            <Select
-              value={formData.status}
-              onValueChange={(value: typeof VEHICLE_STATUS[number]) => setFormData({ ...formData, status: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                {VEHICLE_STATUS.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
             <Label htmlFor="images">Vehicle Images</Label>
             <Input
               id="images"
@@ -213,40 +252,42 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
             />
             
             {/* Existing Images */}
-            {formData.existingImages.length > 0 && (
+            {formData.images.length > 0 && (
               <div className="mt-4">
                 <Label>Existing Images</Label>
                 <div className="mt-2 grid grid-cols-4 gap-4">
-                  {formData.existingImages.map((url, index) => (
-                    <div key={index} className="relative">
-                      <img
-                        src={url}
-                        alt={`Existing ${index + 1}`}
-                        className="w-full h-24 object-cover rounded-md"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeExistingImage(index)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                      >
-                        <FaTimes className="w-3 h-3" />
-                      </button>
-                    </div>
+                  {formData.images.map((url, index) => (
+                    typeof url === 'string' && (
+                      <div key={index} className="relative">
+                        <img
+                          src={url}
+                          alt={`Existing ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-md"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeExistingImage(index)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        >
+                          <FaTimes className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )
                   ))}
                 </div>
               </div>
             )}
 
             {/* New Images Preview */}
-            {formData.images.length > 0 && (
+            {newImages.length > 0 && (
               <div className="mt-4">
                 <Label>New Images</Label>
                 <div className="mt-2 grid grid-cols-4 gap-4">
-                  {formData.images.map((file, index) => (
+                  {newImages.map((file, index) => (
                     <div key={index} className="relative">
                       <img
                         src={URL.createObjectURL(file)}
-                        alt={`Preview ${index + 1}`}
+                        alt={`New ${index + 1}`}
                         className="w-full h-24 object-cover rounded-md"
                       />
                       <button

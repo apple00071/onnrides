@@ -103,7 +103,9 @@ export default function VehiclesPage() {
       if (dropoffDate) queryParams.append('dropoffDate', dropoffDate);
       if (dropoffTime) queryParams.append('dropoffTime', dropoffTime);
       if (selectedLocations.length > 0) {
-        queryParams.append('locations', selectedLocations.join(','));
+        selectedLocations.forEach(location => {
+          queryParams.append('location', location);
+        });
       }
       queryParams.append('type', vehicleType);
 

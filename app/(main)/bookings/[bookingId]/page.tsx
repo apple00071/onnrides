@@ -95,7 +95,7 @@ export default function BookingDetailsPage({ params }: Props) {
         <div className="bg-white rounded-lg shadow-sm mb-6">
           <div className="relative h-48 rounded-t-lg overflow-hidden">
             <Image
-              src={booking.vehicle.images[0] || '/placeholder.png'}
+              src={booking.vehicle.images[0] || '/placeholder-car.jpg'}
               alt={booking.vehicle.name}
               fill
               className="object-cover"

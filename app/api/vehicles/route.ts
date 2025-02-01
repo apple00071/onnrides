@@ -110,7 +110,11 @@ export async function GET(
       AND ($3::numeric IS NULL OR v.price_per_hour <= $3)
       AND v.status = 'active'
       AND v.is_available = true
-    `, [type, minPrice, maxPrice]);
+      AND (
+        $4::text[] IS NULL 
+        OR v.location::jsonb ?| $4
+      )
+    `, [type, minPrice, maxPrice, locations.length > 0 ? locations : null]);
 
     // Process the vehicles data
     const vehicles = result.rows.map(vehicle => {

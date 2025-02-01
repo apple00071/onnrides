@@ -20,46 +20,63 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
-    let query_string = `
+    const sqlQuery = `
       SELECT 
-        b.*,
-        v.name as vehicle_name,
+        b.id,
+        COALESCE(b.booking_id, 'OR' || SUBSTRING(MD5(RANDOM()::text) FROM 1 FOR 3)) as booking_id,
+        b.user_id,
+        b.vehicle_id,
+        b.start_date AT TIME ZONE 'UTC' as start_date,
+        b.end_date AT TIME ZONE 'UTC' as end_date,
+        EXTRACT(EPOCH FROM (b.end_date - b.start_date))/3600 as total_hours,
+        b.total_price,
+        b.status,
+        b.payment_status,
+        b.created_at AT TIME ZONE 'UTC' as created_at,
+        v.location as pickup_location,
         u.name as user_name,
-        u.email as user_email
+        u.email as user_email,
+        u.phone as user_phone,
+        v.name as vehicle_name
       FROM bookings b
-      LEFT JOIN vehicles v ON b.vehicle_id = v.id
-      LEFT JOIN users u ON b.user_id = u.id
+      LEFT JOIN users u ON u.id = b.user_id
+      LEFT JOIN vehicles v ON v.id = b.vehicle_id
+      WHERE b.user_id = $1
+      ORDER BY b.created_at DESC
     `;
 
-    let params: any[] = [];
+    const result = await query(sqlQuery, [userId]);
 
-    if (userId) {
-      query_string += ' WHERE b.user_id = $1';
-      params.push(userId);
+    // Log the first row for debugging
+    if (result.rows.length > 0) {
+      logger.info('First row data:', { 
+        firstRow: JSON.stringify(result.rows[0], null, 2)
+      });
     }
 
-    query_string += ' ORDER BY b.created_at DESC';
-
-    const result = await query(query_string, params);
-
-    const bookings = result.rows.map(booking => ({
-      id: booking.id,
-      user_id: booking.user_id,
-      vehicle_id: booking.vehicle_id,
-      pickup_datetime: booking.pickup_datetime,
-      dropoff_datetime: booking.dropoff_datetime,
-      total_hours: booking.total_hours,
-      total_price: booking.total_price,
-      status: booking.status,
-      created_at: booking.created_at,
-      user: {
-        name: booking.user_name,
-        email: booking.user_email
-      },
-      vehicle: {
-        name: booking.vehicle_name
-      }
-    }));
+    const bookings = result.rows.map(booking => {
+      return {
+        id: booking.id,
+        booking_id: booking.booking_id,
+        user_id: booking.user_id,
+        vehicle_id: booking.vehicle_id,
+        pickup_datetime: booking.start_date,
+        dropoff_datetime: booking.end_date,
+        total_hours: booking.total_hours,
+        total_price: booking.total_price,
+        status: booking.status,
+        created_at: booking.created_at,
+        location: booking.pickup_location,
+        user: {
+          name: booking.user_name,
+          email: booking.user_email,
+          phone: booking.user_phone
+        },
+        vehicle: {
+          name: booking.vehicle_name
+        }
+      };
+    });
 
     return NextResponse.json({
       success: true,

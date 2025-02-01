@@ -52,9 +52,10 @@ export default async function RootLayout({
             <Footer />
           </main>
         </Providers>
-        <Script
+        <Script 
           src="https://checkout.razorpay.com/v1/checkout.js"
           strategy="lazyOnload"
+          id="razorpay-script"
         />
       </body>
     </html>

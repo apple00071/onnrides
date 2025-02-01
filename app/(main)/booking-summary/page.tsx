@@ -7,8 +7,9 @@ import Image from 'next/image'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'react-hot-toast'
 import { format } from 'date-fns'
-import Script from 'next/script'
 import { formatCurrency, calculateBookingPrice } from '@/lib/utils'
+import { useSession } from 'next-auth/react';
+import type { Session } from 'next-auth';
 
 interface BookingDetails {
   id: string;
@@ -37,6 +38,8 @@ export default function BookingSummaryPage() {
   const [couponCode, setCouponCode] = useState('')
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null)
 
+  const { data: session } = useSession() as { data: Session | null };
+
   useEffect(() => {
     // Get booking details from URL params
     const details: BookingDetails = {
@@ -45,12 +48,12 @@ export default function BookingSummaryPage() {
       vehicleName: searchParams.get('vehicleName') || '',
       vehicleImage: (() => {
         const imageUrl = searchParams.get('vehicleImage');
-        if (!imageUrl) return '/placeholder.png';
+        if (!imageUrl) return '/placeholder-car.jpg';
         try {
           return decodeURIComponent(imageUrl);
         } catch (e) {
           logger.error('Failed to decode image URL:', e);
-          return '/placeholder.png';
+          return '/placeholder-car.jpg';
         }
       })(),
       pricePerHour: Number(searchParams.get('pricePerHour')) || 0,
@@ -58,7 +61,23 @@ export default function BookingSummaryPage() {
       dropoffDate: searchParams.get('dropoffDate') || '',
       pickupTime: searchParams.get('pickupTime') || '',
       dropoffTime: searchParams.get('dropoffTime') || '',
-      location: searchParams.get('location') || ''
+      location: (() => {
+        const loc = searchParams.get('location');
+        if (!loc) return '';
+        try {
+          // If it's already a JSON string, parse it
+          const parsed = JSON.parse(loc);
+          // If it's an array, take the first location
+          if (Array.isArray(parsed)) {
+            return parsed[0];
+          }
+          // If it's a string, return as is
+          return parsed;
+        } catch (e) {
+          // If parsing fails, return the raw string
+          return loc;
+        }
+      })()
     }
 
     logger.debug('Booking details:', details) // Debug log
@@ -71,6 +90,24 @@ export default function BookingSummaryPage() {
 
     setBookingDetails(details)
   }, [searchParams, router])
+
+  useEffect(() => {
+    // Load Razorpay script
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => {
+      logger.debug('Razorpay script loaded successfully');
+    };
+    script.onerror = (error) => {
+      logger.error('Failed to load Razorpay script:', error);
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   const handleConfirmBooking = async () => {
     if (!user) {
@@ -91,12 +128,15 @@ export default function BookingSummaryPage() {
 
       // Check if Razorpay is loaded
       if (typeof window.Razorpay === 'undefined') {
-        throw new Error('Payment system is not loaded. Please refresh the page.');
+        throw new Error('Payment system is not loaded. Please refresh the page and try again.');
       }
       
       // Format dates properly
       const pickupDateTime = new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`)
       const dropoffDateTime = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`)
+      
+      // Calculate duration in hours
+      const durationInHours = Math.ceil((dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60))
       
       // Calculate base price using the same logic as vehicle card
       const basePrice = calculateBookingPrice(
@@ -119,85 +159,91 @@ export default function BookingSummaryPage() {
       const totalAmount = basePrice + gst + serviceFee
 
       // Create booking first
-      const bookingResponse = await fetch('/api/bookings', {
+      const bookingData = {
+        vehicle_id: bookingDetails.vehicleId,
+        start_date: pickupDateTime.toISOString(),
+        end_date: dropoffDateTime.toISOString(),
+        duration: durationInHours,
+        total_price: totalAmount
+      };
+
+      // Validate data before sending
+      logger.debug('Booking data validation:', {
+        pickupDateTime: pickupDateTime.toISOString(),
+        dropoffDateTime: dropoffDateTime.toISOString(),
+        durationInHours,
+        basePrice,
+        gst,
+        serviceFee,
+        totalAmount,
+        bookingDetails,
+        bookingData: JSON.stringify(bookingData)
+      });
+
+      const bookingResponse = await fetch('/api/user/bookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          vehicle_id: bookingDetails.vehicleId,
-          pickup_datetime: pickupDateTime.toISOString(),
-          dropoff_datetime: dropoffDateTime.toISOString(),
-          total_hours: Math.ceil((dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60)),
-          total_price: totalAmount,
-          location: bookingDetails.location
-        }),
+        body: JSON.stringify(bookingData),
       });
 
-      if (!bookingResponse.ok) {
-        const error = await bookingResponse.json();
-        logger.error('Booking creation error:', error);
-        if (error.message?.includes('user session')) {
-          toast.error('Your session has expired. Please sign in again.');
-          router.push('/auth/signin');
-        } else {
-          toast.error(error.message || 'Failed to create booking. Please try again.');
-        }
-        return;
+      const bookingResult = await bookingResponse.json();
+      logger.debug('Booking created:', bookingResult);
+
+      if (!bookingResult.success || !bookingResult.data?.booking?.id) {
+        throw new Error('Failed to create booking');
       }
 
-      const bookingData = await bookingResponse.json();
-      logger.debug('Booking created:', bookingData);
-
-      if (!bookingData.success || !bookingData.data?.booking?.id) {
-        logger.error('Invalid booking data received:', bookingData);
-        toast.error('Failed to create booking. Please try again.');
-        return;
-      }
-
-      const booking = bookingData.data.booking;
+      const booking = bookingResult.data.booking;
 
       // Create payment order
-      const orderResponse = await fetch('/api/payments/create-order', {
+      const orderResponse = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           bookingId: booking.id,
-          amount: totalAmount, // Server will handle conversion to paise
+          amount: totalAmount
         }),
       });
-
-      if (!orderResponse.ok) {
-        throw new Error('Failed to create payment order');
-      }
 
       const orderData = await orderResponse.json();
       logger.debug('Payment order created:', orderData);
 
       if (!orderData.success || !orderData.data) {
-        throw new Error('Invalid payment order response');
-      }
-
-      const { key, id: order_id, currency, amount } = orderData.data;
-      
-      if (!key || !order_id) {
-        throw new Error('Missing payment configuration');
+        throw new Error(orderData.error || 'Failed to create payment order');
       }
 
       // Initialize Razorpay
       const options = {
-        key,
-        amount: amount, // Use the amount from the server
-        currency: currency || 'INR',
+        key: orderData.data.key,
+        amount: orderData.data.amount,
+        currency: orderData.data.currency,
         name: 'OnnRides',
         description: `Booking for ${bookingDetails.vehicleName}`,
-        order_id,
-        handler: async function (response: any) {
+        order_id: orderData.data.orderId,
+        prefill: {
+          name: session?.user?.name || '',
+          email: session?.user?.email || '',
+        },
+        notes: {
+          booking_id: booking.id,
+          vehicle_name: bookingDetails.vehicleName
+        },
+        theme: {
+          color: '#f26e24'
+        },
+        handler: async function(response: any) {
           try {
-            logger.debug('Payment successful, verifying...', response);
-            const verifyResponse = await fetch('/api/payments/verify', {
+            logger.debug('Payment successful:', {
+              ...response,
+              razorpay_payment_id: '***',
+              razorpay_signature: '***'
+            });
+
+            const verifyResponse = await fetch('/api/payment/verify', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -206,7 +252,7 @@ export default function BookingSummaryPage() {
                 bookingId: booking.id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_order_id: response.razorpay_order_id,
-                razorpay_signature: response.razorpay_signature,
+                razorpay_signature: response.razorpay_signature
               }),
             });
 
@@ -218,32 +264,25 @@ export default function BookingSummaryPage() {
             router.push('/bookings');
           } catch (error) {
             logger.error('Payment verification error:', error);
-            toast.error('Payment verification failed');
-          }
-        },
-        prefill: {
-          email: user.email || '',
-        },
-        theme: {
-          color: '#f26e24',
-        },
-        modal: {
-          ondismiss: function() {
-            setLoading(false);
+            toast.error('Payment verification failed. Please contact support.');
           }
         }
       };
 
-      logger.debug('Initializing Razorpay with options:', { ...options, key: '***' });
       const razorpay = new window.Razorpay(options);
+      razorpay.on('payment.failed', function(response: any) {
+        logger.error('Payment failed:', response.error);
+        toast.error('Payment failed. Please try again.');
+      });
+
       razorpay.open();
     } catch (error) {
-      logger.error('Payment initiation error:', error);
-      toast.error('Failed to initiate payment');
+      logger.error('Payment process error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to process payment');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   if (authLoading || !bookingDetails) return null
 
@@ -279,22 +318,39 @@ export default function BookingSummaryPage() {
   const serviceFee = basePrice * 0.05;
   const totalDue = basePrice + gst + serviceFee;
 
-  // Parse location
-  const displayLocation = (() => {
+  const formatLocation = (location: string) => {
     try {
-      const parsed = JSON.parse(bookingDetails.location);
-      return Array.isArray(parsed) ? parsed[0] : bookingDetails.location;
+      // First, try to decode any URI encoded components
+      const decodedLocation = decodeURIComponent(location);
+      
+      // Try to parse if it's a JSON string (might be nested)
+      const cleanAndParse = (str: string): string[] => {
+        try {
+          // Remove extra backslashes and clean up the string
+          const cleaned = str.replace(/\\\\/g, '\\')
+                            .replace(/\\"/g, '"')
+                            .replace(/[{}"]/g, '');
+          
+          // Split by comma and clean up each location
+          return cleaned.split(',')
+                       .map(loc => loc.trim())
+                       .filter(Boolean)
+                       .map(loc => loc.replace(/^["']|["']$/g, '')); // Remove quotes
+        } catch {
+          return [str];
+        }
+      };
+
+      const locations = cleanAndParse(decodedLocation);
+      return locations.join(', ');
     } catch (e) {
-      return bookingDetails.location.replace(/[\[\]'"]/g, '').trim();
+      // If all parsing fails, clean up the string manually
+      return location.replace(/[{}"\\]/g, '').split(',')[0].trim();
     }
-  })();
+  };
 
   return (
     <>
-      <Script
-        src="https://checkout.razorpay.com/v1/checkout.js"
-        strategy="afterInteractive"
-      />
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-8">SUMMARY</h1>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -311,7 +367,7 @@ export default function BookingSummaryPage() {
                   priority
                   onError={(e) => {
                     const img = e.target as HTMLImageElement;
-                    img.src = '/placeholder.png';
+                    img.src = '/placeholder-car.jpg';
                     logger.error('Failed to load image:', bookingDetails.vehicleImage);
                   }}
                 />
@@ -333,10 +389,12 @@ export default function BookingSummaryPage() {
                 </div>
               </div>
               <div className="pt-4 border-t">
-                <p className="text-gray-600">
-                  <span className="font-medium text-gray-900">Location: </span>
-                  {displayLocation}
-                </p>
+                <div className="text-gray-600">
+                  <span className="font-medium">Location:</span>{' '}
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    {formatLocation(bookingDetails?.location || '')}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

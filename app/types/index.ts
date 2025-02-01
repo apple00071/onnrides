@@ -14,6 +14,8 @@ export interface Vehicle {
   images: string[];
   is_available: boolean;
   status: VehicleStatus;
+  features?: string[];
+  description?: string;
   created_at: Date;
   updated_at: Date;
 }

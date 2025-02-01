@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { FaPlus } from 'react-icons/fa';
-import logger from '../../../lib/logger';
+import logger from '@/lib/logger';
 import AddVehicleModal from './components/AddVehicleModal';
 import EditVehicleModal from './components/EditVehicleModal';
-import { Button } from '../../../components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -13,12 +13,67 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../../components/ui/table';
-import { formatCurrency } from '../../../lib/utils';
+} from '@/components/ui/table';
+import { formatCurrency } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Vehicle } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { toast } from 'react-hot-toast';
+
+// Helper function to format locations
+function formatLocations(location: string | string[] | undefined): string[] {
+  if (!location) return [];
+  
+  if (typeof location === 'string') {
+    try {
+      // Try to parse if it's a JSON string
+      const parsed = JSON.parse(location);
+      if (Array.isArray(parsed)) {
+        return parsed.map(loc => loc.replace(/[\[\]"{}]/g, '').trim()).filter(Boolean);
+      }
+      return [location.replace(/[\[\]"{}]/g, '').trim()];
+    } catch (e) {
+      // If parsing fails, split by comma
+      return location.split(',').map(loc => loc.replace(/[\[\]"{}]/g, '').trim()).filter(Boolean);
+    }
+  }
+  
+  if (Array.isArray(location)) {
+    return location.map(loc => {
+      if (typeof loc === 'string') {
+        return loc.replace(/[\[\]"{}]/g, '').trim();
+      }
+      return String(loc).trim();
+    }).filter(Boolean);
+  }
+  
+  return [];
+}
+
+// Helper function to convert API vehicle data to our Vehicle type
+function convertToVehicle(data: any): Vehicle {
+  return {
+    id: data.id,
+    name: data.name,
+    type: data.type,
+    model: data.model || '',
+    year: data.year || new Date().getFullYear(),
+    daily_rate: data.daily_rate || 0,
+    price_per_hour: data.price_per_hour,
+    availability: data.is_available,
+    location: data.location,
+    images: data.images,
+    description: data.description,
+    quantity: data.quantity || 1,
+    price_per_day: data.price_per_day || 0,
+    min_booking_days: data.min_booking_days || 1,
+    is_available: data.is_available,
+    status: data.status || 'active',
+    created_at: data.created_at || new Date().toISOString(),
+    updated_at: data.updated_at || new Date().toISOString()
+  };
+}
 
 export default function VehiclesPage() {
   const { data: session, status } = useSession({
@@ -59,7 +114,7 @@ export default function VehiclesPage() {
         throw new Error('Failed to fetch vehicles');
       }
       const data = await response.json();
-      setVehicles(data.vehicles);
+      setVehicles(data.vehicles.map(convertToVehicle));
     } catch (_error) {
       setError(_error instanceof Error ? _error.message : 'Failed to fetch vehicles');
     } finally {
@@ -75,13 +130,17 @@ export default function VehiclesPage() {
         method: 'DELETE',
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to delete vehicle');
+        throw new Error(data.error || 'Failed to delete vehicle');
       }
 
+      toast.success('Vehicle deleted successfully');
       setVehicles(vehicles.filter(v => v.id !== id));
-    } catch (_error) {
-      logger.error('Error deleting vehicle:', _error);
+    } catch (error) {
+      logger.error('Error deleting vehicle:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete vehicle');
     }
   };
 
@@ -106,44 +165,16 @@ export default function VehiclesPage() {
   };
 
   let content;
-  if (status === 'loading' || loading) {
+  if (loading) {
     content = (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-        </div>
+      <div className="flex justify-center items-center h-96">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
       </div>
     );
-  } else if (!session || session.user.role !== 'admin') {
-    content = null;
   } else if (error) {
     content = (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col justify-center items-center h-64">
-          <p className="text-red-500 mb-4">{error}</p>
-          <Button onClick={fetchVehicles}>Retry</Button>
-        </div>
-      </div>
-    );
-  } else if (vehicles.length === 0) {
-    content = (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Vehicles Management</h1>
-          <Button
-            type="button"
-            onClick={handleAddClick}
-            className="inline-flex items-center"
-          >
-            <FaPlus className="w-4 h-4 mr-2" />
-            Add Vehicle
-          </Button>
-        </div>
-        
-        <div className="flex flex-col items-center justify-center min-h-[400px] bg-white rounded-lg shadow p-8">
-          <p className="text-gray-500 mb-4">No vehicles found</p>
-          <p className="text-sm text-gray-400">Click the "Add Vehicle" button above to add your first vehicle</p>
-        </div>
+      <div className="flex justify-center items-center h-96">
+        <div className="text-red-500">{error}</div>
       </div>
     );
   } else {
@@ -199,40 +230,30 @@ export default function VehiclesPage() {
                     )}
                   </TableCell>
                   <TableCell>{vehicle.name}</TableCell>
-                  <TableCell className="capitalize">{vehicle.type}</TableCell>
+                  <TableCell>{vehicle.type}</TableCell>
                   <TableCell>{formatCurrency(vehicle.price_per_hour)}</TableCell>
                   <TableCell>
-                    {typeof vehicle.location === 'string' 
-                      ? vehicle.location.split(', ').map((loc) => (
+                    <div className="flex flex-wrap gap-1">
+                      {formatLocations(vehicle.location).map((loc, index) => (
                         <span
-                          key={loc}
-                          className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2"
+                          key={index}
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
                         >
                           {loc}
                         </span>
-                      ))
-                      : Array.isArray(vehicle.location) && vehicle.location.map((loc) => (
-                        <span
-                          key={loc}
-                          className="inline-block bg-gray-100 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2"
-                        >
-                          {loc}
-                        </span>
-                      ))
-                    }
+                      ))}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <span
                       className={cn(
-                        "px-2 py-1 rounded-full text-xs font-semibold",
-                        {
-                          "bg-green-100 text-green-800": vehicle.status === "active",
-                          "bg-yellow-100 text-yellow-800": vehicle.status === "maintenance",
-                          "bg-red-100 text-red-800": vehicle.status === "retired"
-                        }
+                        'px-2 py-1 rounded-full text-xs font-medium',
+                        vehicle.is_available
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
                       )}
                     >
-                      {vehicle.status}
+                      {vehicle.is_available ? 'Available' : 'Unavailable'}
                     </span>
                   </TableCell>
                   <TableCell>

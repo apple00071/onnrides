@@ -11,29 +11,35 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { Eye, History } from 'lucide-react';
 
 interface Booking {
   id: string;
+  booking_id: string;
   user_id: string;
   vehicle_id: string;
   pickup_datetime: string;
   dropoff_datetime: string;
+  start_date?: string;  // For backward compatibility
+  end_date?: string;    // For backward compatibility
   total_hours: number;
   total_price: number;
   status: string;
   created_at: string;
   location: string;
   user: {
-  name: string;
-  email: string;
-  phone: string;
+    name: string;
+    email: string;
+    phone: string;
   };
   vehicle: {
-  name: string;
+    name: string;
   };
+  payment_status: string;
 }
 
 const formatDateTime = (dateStr: string | null) => {
@@ -47,6 +53,18 @@ const formatDateTime = (dateStr: string | null) => {
   }
 };
 
+const formatLocation = (location: string | string[]) => {
+  try {
+    if (typeof location === 'string') {
+      const parsed = JSON.parse(location);
+      return Array.isArray(parsed) ? parsed[0] : parsed;
+    }
+    return Array.isArray(location) ? location[0] : location;
+  } catch (e) {
+    return location || 'N/A';
+  }
+};
+
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +74,7 @@ export default function BookingsPage() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [userHistory, setUserHistory] = useState<Booking[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   // Fetch all bookings
   useEffect(() => {
@@ -125,6 +144,47 @@ export default function BookingsPage() {
     setShowHistoryModal(true);
   };
 
+  const handleCancelClick = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setShowCancelDialog(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!selectedBooking) return;
+
+    try {
+      const response = await fetch(`/api/admin/bookings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingId: selectedBooking.id,
+          action: 'cancel'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to cancel booking');
+      }
+
+      // Update the local state
+      setBookings(bookings.map(booking => 
+        booking.id === selectedBooking.id 
+          ? { ...booking, status: 'cancelled' }
+          : booking
+      ));
+
+      toast.success('Booking cancelled successfully');
+    } catch (error) {
+      logger.error('Error cancelling booking:', error);
+      toast.error('Failed to cancel booking');
+    } finally {
+      setShowCancelDialog(false);
+      setSelectedBooking(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
@@ -162,7 +222,12 @@ export default function BookingsPage() {
               <Card key={booking.id} className="p-6 hover:shadow-md transition-shadow">
                 <div className="flex flex-col md:flex-row justify-between gap-4">
                   <div>
-                    <h3 className="font-semibold mb-2">{booking.vehicle.name}</h3>
+                    <h3 className="font-semibold mb-2">
+                      {booking.vehicle.name}
+                      <span className="ml-2 text-sm text-gray-500">
+                        #{booking.booking_id}
+                      </span>
+                    </h3>
                     <p className="text-sm text-gray-600 mb-1">
                       Customer: {booking.user.name}
                     </p>
@@ -184,7 +249,7 @@ export default function BookingsPage() {
                         </div>
                         <div>
                           <span className="font-semibold">Location:</span>{' '}
-                          {booking.location || 'N/A'}
+                          {formatLocation(booking.location)}
                         </div>
                       </div>
                     </div>
@@ -197,14 +262,18 @@ export default function BookingsPage() {
                       {formatDateTime(booking.created_at)}
                     </p>
                     <span className={`inline-block px-2 py-1 rounded-full text-xs ${
-                      booking.status === 'completed' 
+                      booking.status === 'confirmed' && booking.payment_status === 'completed'
                         ? 'bg-green-100 text-green-800'
                         : booking.status === 'cancelled'
                         ? 'bg-red-100 text-red-800'
                         : 'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                  </span>
+                      {booking.status === 'confirmed' && booking.payment_status === 'completed'
+                        ? 'Confirmed'
+                        : booking.status === 'confirmed'
+                        ? 'Pending Payment'
+                        : booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                    </span>
                     <div className="mt-2 space-x-2">
                       <Button
                         variant="outline"
@@ -222,6 +291,15 @@ export default function BookingsPage() {
                         <History className="h-4 w-4 mr-1" />
                       History
                       </Button>
+                      {booking.status !== 'cancelled' && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleCancelClick(booking)}
+                        >
+                          Cancel
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -243,6 +321,7 @@ export default function BookingsPage() {
                 <div>
                   <h3 className="font-semibold">Vehicle</h3>
                   <p>{selectedBooking.vehicle.name}</p>
+                  <p className="text-sm text-gray-500">Booking ID: {selectedBooking.booking_id}</p>
                 </div>
                 <div>
                   <h3 className="font-semibold">Customer</h3>
@@ -253,7 +332,7 @@ export default function BookingsPage() {
               </div>
               <div>
                 <h3 className="font-semibold">Location</h3>
-                <p className="text-gray-600">{selectedBooking.location || 'N/A'}</p>
+                <p>{formatLocation(selectedBooking.location)}</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -296,39 +375,44 @@ export default function BookingsPage() {
 
       {/* History Modal */}
       <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              Booking History - {selectedBooking?.user.name}
-            </DialogTitle>
+            <DialogTitle>Booking History</DialogTitle>
           </DialogHeader>
           {loadingHistory ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
             </div>
           ) : userHistory.length === 0 ? (
-            <p className="text-center text-gray-600 py-8">No booking history found.</p>
+            <p className="text-center py-8 text-gray-500">No booking history found</p>
           ) : (
             <div className="space-y-4">
               {userHistory.map((booking) => (
                 <Card key={booking.id} className="p-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-semibold">{booking.vehicle.name}</h3>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <div className="flex items-center">
-                          <span className="w-16 font-medium">Pickup:</span>
-                          <span>{formatDateTime(booking.pickup_datetime)}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <span className="w-16 font-medium">Dropoff:</span>
-                          <span>{formatDateTime(booking.dropoff_datetime)}</span>
-                        </div>
+                      <h4 className="font-medium">{booking.vehicle.name}</h4>
+                      <div className="mt-2 space-y-1 text-sm text-gray-600">
+                        <p>
+                          <span className="font-medium">Pickup:</span>{' '}
+                          {formatDateTime(booking.start_date || booking.pickup_datetime)}
+                        </p>
+                        <p>
+                          <span className="font-medium">Dropoff:</span>{' '}
+                          {formatDateTime(booking.end_date || booking.dropoff_datetime)}
+                        </p>
+                        <p>
+                          <span className="font-medium">Location:</span>{' '}
+                          {formatLocation(booking.location)}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-medium text-orange-500">
                         {formatCurrency(booking.total_price)}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {formatDateTime(booking.created_at)}
                       </p>
                       <span className={`inline-block px-2 py-1 rounded-full text-xs ${
                         booking.status === 'completed' 
@@ -345,6 +429,31 @@ export default function BookingsPage() {
               ))}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Booking</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel this booking? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelDialog(false)}
+            >
+              No, keep it
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelConfirm}
+            >
+              Yes, cancel booking
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

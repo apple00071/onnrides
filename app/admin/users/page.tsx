@@ -46,7 +46,12 @@ export default function UsersPage() {
       }
       
       const data = await response.json();
-      setUsers(Array.isArray(data) ? data : []);
+      if (data.success && Array.isArray(data.data)) {
+        setUsers(data.data);
+      } else {
+        setUsers([]);
+        toast.error('Invalid response format from server');
+      }
     } catch (error) {
       logger.error('Error fetching users:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to fetch users');
