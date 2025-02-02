@@ -121,40 +121,73 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     const data = await request.json();
     
-    // Clean up location data
-    let location = data.location;
-    if (location) {
-      try {
-        // If it's already an array, leave it as is
-        if (Array.isArray(location)) {
-          location = location;
-        }
-        // If it's a string that looks like JSON, parse it
-        else if (typeof location === 'string' && (location.startsWith('[') || location.startsWith('{'))) {
-          const parsed = JSON.parse(location);
-          if (Array.isArray(parsed)) {
-            location = parsed;
-          } else if (typeof parsed === 'object' && parsed.name) {
-            location = Array.isArray(parsed.name) ? parsed.name : [parsed.name];
-          } else {
-            location = [String(parsed)];
-          }
-        }
-        // If it's a simple string, convert to array
-        else if (typeof location === 'string') {
-          location = [location.trim()];
-        }
-        
-        // Clean up the locations
-        location = location
-          .map((loc: string) => loc.trim())
-          .filter(Boolean)
-          .map((loc: string) => loc.replace(/^["']|["']$/g, '')); // Remove quotes
-      } catch (e) {
-        logger.error('Error parsing location:', e);
-        location = [String(data.location).trim()];
-      }
+    // First, get vehicle details including quantity and locations
+    const vehicleResult = await query(`
+      SELECT quantity, name, location FROM vehicles WHERE id = $1
+    `, [data.vehicle_id]);
+
+    if (vehicleResult.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Vehicle not found' },
+        { status: 404 }
+      );
     }
+
+    const vehicle = vehicleResult.rows[0];
+    const vehicleQuantity = vehicle.quantity || 1;
+    
+    // Parse vehicle locations
+    let vehicleLocations;
+    try {
+      vehicleLocations = typeof vehicle.location === 'string' 
+        ? JSON.parse(vehicle.location) 
+        : vehicle.location;
+    } catch (e) {
+      vehicleLocations = [vehicle.location];
+    }
+
+    // Validate requested location is available for this vehicle
+    if (!data.location || !vehicleLocations.includes(data.location)) {
+      return NextResponse.json(
+        { error: `${vehicle.name} is not available at the selected location` },
+        { status: 400 }
+      );
+    }
+
+    // Check for overlapping bookings at the same location
+    const overlapResult = await query(`
+      SELECT COUNT(*) as booking_count
+      FROM bookings
+      WHERE vehicle_id = $1
+      AND status NOT IN ('cancelled')
+      AND location::jsonb ? $4
+      AND (
+        (pickup_datetime, dropoff_datetime) OVERLAPS ($2::timestamp, $3::timestamp)
+        OR
+        (start_date, end_date) OVERLAPS ($2::timestamp, $3::timestamp)
+      )
+    `, [data.vehicle_id, data.pickup_datetime, data.dropoff_datetime, data.location]);
+
+    const existingBookings = parseInt(overlapResult.rows[0].booking_count);
+
+    // Calculate per-location quantity (evenly distributed)
+    const locationsCount = vehicleLocations.length;
+    const quantityPerLocation = Math.ceil(vehicleQuantity / locationsCount);
+
+    if (existingBookings >= quantityPerLocation) {
+      return NextResponse.json(
+        { 
+          error: `${vehicle.name} is already fully booked at ${data.location} for the selected time period`,
+          availableQuantity: quantityPerLocation,
+          existingBookings: existingBookings,
+          location: data.location
+        },
+        { status: 409 }
+      );
+    }
+
+    // Clean up location data for storage
+    const locationForStorage = JSON.stringify([data.location]);
 
     // Generate unique booking ID
     const bookingId = generateBookingId();
@@ -183,7 +216,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       data.dropoff_datetime,
       data.total_hours,
       data.total_price,
-      JSON.stringify(location || []),
+      locationForStorage,
       'confirmed',
       'pending'
     ]);
@@ -195,7 +228,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       booking: {
         ...booking,
         booking_id: bookingId,
-        location: location || []
+        location: [data.location]
       }
     });
   } catch (error) {

@@ -342,74 +342,41 @@ export default function VehiclesPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {vehicles.map(vehicle => {
-                // Calculate total price based on selected dates
-                const pickupDate = searchParams.get('pickupDate');
+                // Calculate duration from pickup and dropoff times
                 const pickupTime = searchParams.get('pickupTime');
-                const dropoffDate = searchParams.get('dropoffDate');
                 const dropoffTime = searchParams.get('dropoffTime');
+                let duration = '6 hours'; // default
 
-                let totalPrice = vehicle.price_per_hour;
-                let totalHours = 0;
-                let chargeableHours = 0;
-
-                if (pickupDate && pickupTime && dropoffDate && dropoffTime) {
-                  const pickupDateTime = new Date(`${pickupDate}T${pickupTime}`);
-                  const dropoffDateTime = new Date(`${dropoffDate}T${dropoffTime}`);
-
-                  // Calculate total hours
-                  totalHours = Math.ceil((dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60));
-                  
-                  // Calculate chargeable hours (minimum booking hours apply)
-                  chargeableHours = Math.max(totalHours, vehicle.min_booking_hours || 0);
-
-                  // Calculate base price using the same logic as booking summary
-                  const basePrice = calculateBookingPrice(
-                    {
-                      price_per_day: vehicle.price_per_hour,
-                      price_12hrs: vehicle.price_per_hour * 12,
-                      price_24hrs: vehicle.price_per_hour * 24,
-                      price_7days: vehicle.price_per_hour * 24 * 7,
-                      price_15days: vehicle.price_per_hour * 24 * 15,
-                      price_30days: vehicle.price_per_hour * 24 * 30,
-                      min_booking_hours: vehicle.min_booking_hours
-                    },
-                    pickupDateTime,
-                    dropoffDateTime
-                  );
-
-                  // Calculate taxes and fees
-                  const gst = basePrice * 0.18;
-                  const serviceFee = basePrice * 0.05;
-                  totalPrice = basePrice + gst + serviceFee;
+                if (pickupTime && dropoffTime) {
+                  const [pickupHour, pickupMinute] = pickupTime.split(':').map(Number);
+                  const [dropoffHour, dropoffMinute] = dropoffTime.split(':').map(Number);
+                  const durationHours = dropoffHour - pickupHour;
+                  const durationMinutes = dropoffMinute - pickupMinute;
+                  const totalMinutes = (durationHours * 60) + durationMinutes;
+                  duration = `${Math.ceil(totalMinutes / 60)} hours`;
                 }
 
                 return (
                   <VehicleCard
                     key={vehicle.id}
-                    id={vehicle.id}
-                    name={vehicle.name}
-                    type={vehicle.type}
-                    location={Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location]}
-                    price_per_hour={vehicle.price_per_hour}
-                    images={Array.isArray(vehicle.images) ? vehicle.images : [vehicle.images]}
-                    startTime={searchParams.get('pickupTime') || ''}
-                    endTime={searchParams.get('dropoffTime') || ''}
-                    startDate={searchParams.get('pickupDate') || ''}
-                    endDate={searchParams.get('dropoffDate') || ''}
-                    onLocationChange={handleLocationChange}
-                    onBook={() => {
-                      const location = Array.isArray(vehicle.location) ? vehicle.location[0] : vehicle.location;
-                      if (!location) {
-                        toast.error('Please select a location');
-                        return;
-                      }
-                      router.push(`/booking-summary?${searchParams.toString()}&vehicleId=${vehicle.id}&vehicleName=${encodeURIComponent(vehicle.name)}&vehicleImage=${encodeURIComponent(vehicle.images[0] || '')}&pricePerHour=${vehicle.price_per_hour}&location=${encodeURIComponent(JSON.stringify([location]))}`);
+                    vehicle={{
+                      id: vehicle.id,
+                      name: vehicle.name,
+                      type: vehicle.type,
+                      price_per_hour: vehicle.price_per_hour,
+                      location: Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location],
+                      images: Array.isArray(vehicle.images) ? vehicle.images : [vehicle.images],
+                      available: vehicle.is_available
                     }}
-                    pricing={totalPrice && totalHours > 0 ? {
-                      totalHours,
-                      chargeableHours,
-                      totalPrice
-                    } : null}
+                    selectedLocation={searchParams.get('location') || undefined}
+                    onLocationSelect={(location) => {
+                      const newSearchParams = new URLSearchParams(searchParams.toString());
+                      newSearchParams.set('location', location);
+                      router.push(`/vehicles?${newSearchParams.toString()}`);
+                    }}
+                    pickupDateTime={searchParams.get('pickupTime') || undefined}
+                    dropoffDateTime={searchParams.get('dropoffTime') || undefined}
+                    duration={duration}
                   />
                 );
               })}

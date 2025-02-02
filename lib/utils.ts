@@ -158,4 +158,16 @@ export const fetcher = async (url: string) => {
   }
 
   return res.json();
-}; 
+};
+
+export function formatDateTime(date: string | Date): string {
+  const d = new Date(date);
+  return d.toLocaleString('en-IN', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+} 
