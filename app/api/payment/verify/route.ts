@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import crypto from 'crypto';
@@ -11,6 +9,8 @@ const getAllowedOrigins = () => {
     'http://localhost:3000',
     'https://onnrides.vercel.app',
     process.env.NEXT_PUBLIC_APP_URL,
+    'https://api.razorpay.com',
+    'https://checkout.razorpay.com'
   ].filter(Boolean) as string[];
   return origins;
 };
@@ -20,37 +20,24 @@ const getCorsHeaders = (origin: string): Record<string, string> => {
   const allowedOrigins = getAllowedOrigins();
   return {
     'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Origin': allowedOrigins.includes(origin) ? origin : allowedOrigins[0] || '*',
+    'Access-Control-Allow-Origin': allowedOrigins.includes(origin) ? origin : '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 };
 
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
-    headers: {
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Allow-Origin': '*',
-    },
+    headers: getCorsHeaders('*'),
   });
 }
 
 export async function POST(request: NextRequest) {
   try {
     // Handle CORS
-    const origin = request.headers.get('origin') || '';
+    const origin = request.headers.get('origin') || '*';
     const responseHeaders = getCorsHeaders(origin);
-
-    // Get user session
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      logger.error('Authentication failed: No session found');
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401, headers: responseHeaders }
-      );
-    }
 
     // Log request details for debugging
     logger.info('Payment verification request received:', {
@@ -104,21 +91,19 @@ export async function POST(request: NextRequest) {
       let findBookingResult = await query(
         `SELECT id, payment_details 
          FROM bookings 
-         WHERE payment_details->>'razorpay_order_id' = $1
-         OR (status = 'pending' 
-             AND created_at > NOW() - INTERVAL '1 hour')
+         WHERE status = 'pending' 
+         AND created_at > NOW() - INTERVAL '1 hour'
          ORDER BY created_at DESC 
-         LIMIT 1`,
-        [razorpay_order_id]
+         LIMIT 1`
       );
 
       if (!findBookingResult.rows.length) {
-        logger.error('No matching booking found', {
+        logger.error('No recent pending booking found', {
           razorpay_order_id,
           razorpay_payment_id
         });
         return NextResponse.json(
-          { error: 'No matching booking found' },
+          { error: 'No recent pending booking found' },
           { status: 404, headers: responseHeaders }
         );
       }
@@ -133,7 +118,7 @@ export async function POST(request: NextRequest) {
              payment_status = 'completed',
              payment_details = COALESCE(payment_details, '{}'::jsonb) || $1::jsonb,
              updated_at = NOW()
-         WHERE id = $2
+         WHERE id = $2 AND status = 'pending'
          RETURNING id, status, payment_status`,
         [
           JSON.stringify({
@@ -142,7 +127,8 @@ export async function POST(request: NextRequest) {
             razorpay_signature,
             payment_status: 'completed',
             payment_completed_at: new Date().toISOString(),
-            verification_environment: process.env.NODE_ENV
+            verification_environment: process.env.NODE_ENV,
+            verification_url: request.url
           }),
           bookingId
         ]
@@ -183,10 +169,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    const fallbackHeaders = {
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Origin': '*',
-    };
+    const fallbackHeaders = getCorsHeaders('*');
 
     logger.error('Payment verification error:', {
       error: error instanceof Error ? error.message : 'Unknown error',

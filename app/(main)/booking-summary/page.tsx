@@ -123,12 +123,48 @@ export default function BookingSummaryPage() {
       // Initialize Razorpay
       const options = {
         key: data.data.key,
-        amount: data.data.amount, // This will be in paise from the server
+        amount: data.data.amount,
         currency: data.data.currency,
         name: 'OnnRides',
         description: `Booking for ${bookingDetails.vehicleName}`,
         order_id: data.data.orderId,
-        handler: async (response: any) => {
+        prefill: {
+          name: 'User Name',
+          email: 'user@example.com',
+          contact: '9999999999',
+        },
+        config: {
+          display: {
+            blocks: {
+              utib: {
+                name: 'Pay using Bank Account or UPI',
+                instruments: [
+                  {
+                    method: 'upi'
+                  },
+                  {
+                    method: 'netbanking'
+                  },
+                  {
+                    method: 'card'
+                  }
+                ]
+              }
+            },
+            sequence: ['block.utib'],
+            preferences: {
+              show_default_blocks: false
+            }
+          }
+        },
+        modal: {
+          confirm_close: true,
+          ondismiss: function() {
+            setIsLoading(false);
+            toast.error('Payment cancelled. Please try again.');
+          }
+        },
+        handler: async function(response: any) {
           try {
             console.log('Payment successful, verifying...', response);
             
@@ -137,80 +173,71 @@ export default function BookingSummaryPage() {
             let retryCount = 0;
             let verifySuccess = false;
 
+            const verifyPayment = async () => {
+              const verifyResponse = await fetch(`${baseURL}/api/payment/verify`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              });
+
+              if (!verifyResponse.ok) {
+                throw new Error('Verification failed');
+              }
+
+              return await verifyResponse.json();
+            };
+
             while (retryCount < maxRetries && !verifySuccess) {
               try {
-                // Verify payment using absolute URL
-                const verifyResponse = await fetch(`${baseURL}/api/payment/verify`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    razorpay_order_id: response.razorpay_order_id,
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_signature: response.razorpay_signature,
-                  }),
+                toast.loading('Verifying payment...');
+                const verifyResult = await verifyPayment();
+                
+                if (verifyResult.success) {
+                  verifySuccess = true;
+                  toast.success('Booking confirmed! Redirecting to bookings page...');
+                  
+                  // Add a small delay to ensure the toast is visible
+                  setTimeout(() => {
+                    window.location.href = '/bookings';
+                  }, 2000);
+                  break;
+                }
+              } catch (error) {
+                console.error('Verification attempt failed:', {
+                  attempt: retryCount + 1,
+                  error
                 });
-
-                const errorData = await verifyResponse.json().catch(() => null);
-
-                if (!verifyResponse.ok) {
-                  console.error('Payment verification attempt failed:', {
-                    attempt: retryCount + 1,
-                    status: verifyResponse.status,
-                    error: errorData,
-                    url: `${baseURL}/api/payment/verify`
-                  });
-                  
-                  // If it's a 404, show a specific message
-                  if (verifyResponse.status === 404) {
-                    toast.error('Booking record not found. Please contact support with your payment ID: ' + response.razorpay_payment_id);
-                    return;
-                  }
-                  
-                  // If it's a 400, show the specific error
-                  if (verifyResponse.status === 400) {
-                    toast.error(errorData?.error || 'Invalid payment verification');
-                    return;
-                  }
-                  
-                  // For 500 errors, retry after a delay
-                  if (retryCount < maxRetries - 1) {
-                    toast.loading('Verifying payment attempt ' + (retryCount + 2) + '...');
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    retryCount++;
-                    continue;
-                  }
-                  
-                  throw new Error(errorData?.error || 'Payment verification failed');
-                }
-
-                verifySuccess = true;
-                toast.success('Booking confirmed! Redirecting to bookings page...');
                 
-                // Add a small delay to ensure the toast is visible
-                setTimeout(() => {
-                  router.push('/bookings');
-                }, 2000);
-                
-                break; // Exit the retry loop on success
-              } catch (retryError) {
-                console.error('Verification retry failed:', retryError);
                 if (retryCount === maxRetries - 1) {
-                  throw retryError;
+                  // On final retry, show error and save payment info
+                  toast.error(
+                    'Payment successful but verification failed. ' +
+                    'Please save your payment ID and contact support: ' + 
+                    response.razorpay_payment_id
+                  );
+                  break;
                 }
+                
                 retryCount++;
                 await new Promise(resolve => setTimeout(resolve, 2000));
               }
             }
 
             if (!verifySuccess) {
-              toast.error(
-                'Payment was successful but verification failed. ' +
-                'Please save this payment ID and contact support: ' + 
-                response.razorpay_payment_id
-              );
               console.error('Payment verification failed after all retries');
+              // Store payment info in localStorage for recovery
+              localStorage.setItem('pendingPayment', JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                timestamp: new Date().toISOString()
+              }));
             }
           } catch (error) {
             console.error('Error in payment verification:', error);
@@ -218,12 +245,9 @@ export default function BookingSummaryPage() {
               'Payment verification failed. Please save your payment ID and contact support. ' +
               'Payment ID: ' + response.razorpay_payment_id
             );
+          } finally {
+            setIsLoading(false);
           }
-        },
-        prefill: {
-          name: 'User Name',
-          email: 'user@example.com',
-          contact: '9999999999',
         },
         theme: {
           color: '#f26e24',
@@ -235,8 +259,6 @@ export default function BookingSummaryPage() {
     } catch (error) {
       console.error('Error in handleConfirmBooking:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create booking');
-    } finally {
-      setIsLoading(false);
     }
   };
 
