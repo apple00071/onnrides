@@ -181,12 +181,17 @@ export async function POST(request: NextRequest) {
         verification_timestamp: new Date().toISOString()
       };
 
-      // First, try to update with existing payment_details
+      logger.info('Attempting to update booking with payment details:', {
+        bookingId,
+        paymentDetails
+      });
+
+      // Update the booking with payment details
       const updateResult = await query(
         `UPDATE bookings 
          SET status = 'confirmed',
              payment_status = 'completed',
-             payment_details = COALESCE(payment_details, '{}'::jsonb) || $1::jsonb,
+             payment_details = $1::jsonb,
              updated_at = NOW()
          WHERE id = $2 
          AND (status = 'pending' OR payment_status = 'pending')
@@ -200,11 +205,12 @@ export async function POST(request: NextRequest) {
       if (updateResult.rowCount === 0) {
         logger.error('Failed to update booking - no rows affected', {
           bookingId,
-          currentStatus: findBookingResult.rows[0].status
+          currentStatus: findBookingResult.rows[0].status,
+          currentPaymentStatus: findBookingResult.rows[0].payment_status
         });
         return NextResponse.json(
-          { error: 'Failed to update booking' },
-          { status: 500, headers: responseHeaders }
+          { error: 'Failed to update booking - booking may already be confirmed' },
+          { status: 400, headers: responseHeaders }
         );
       }
 
