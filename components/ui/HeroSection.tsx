@@ -26,10 +26,21 @@ export default function HeroSection() {
         dropoffTime
       });
 
-      // Validate inputs
-      if (!pickupDate || !pickupTime || !dropoffDate || !dropoffTime) {
-        logger.debug('Missing required fields');
-        toast.error('Please select all date and time fields');
+      // Validate inputs with better error messages
+      if (!pickupDate) {
+        toast.error('Please select a pickup date');
+        return;
+      }
+      if (!pickupTime) {
+        toast.error('Please select a pickup time');
+        return;
+      }
+      if (!dropoffDate) {
+        toast.error('Please select a drop-off date');
+        return;
+      }
+      if (!dropoffTime) {
+        toast.error('Please select a drop-off time');
         return;
       }
 
@@ -39,25 +50,31 @@ export default function HeroSection() {
       const now = new Date();
 
       logger.debug('Parsed dates:', {
-        pickupDateTime,
-        dropoffDateTime,
-        now
+        pickupDateTime: pickupDateTime.toISOString(),
+        dropoffDateTime: dropoffDateTime.toISOString(),
+        now: now.toISOString()
       });
 
-      if (isNaN(pickupDateTime.getTime()) || isNaN(dropoffDateTime.getTime())) {
-        logger.error('Invalid date format');
-        toast.error('Invalid date format');
+      if (isNaN(pickupDateTime.getTime())) {
+        toast.error('Invalid pickup date/time format');
         return;
       }
 
+      if (isNaN(dropoffDateTime.getTime())) {
+        toast.error('Invalid drop-off date/time format');
+        return;
+      }
+
+      // Set time of now to the start of the current minute for more accurate comparison
+      now.setSeconds(0);
+      now.setMilliseconds(0);
+
       if (pickupDateTime < now) {
-        logger.debug('Past date selected');
-        toast.error('Cannot select a past date and time for pickup');
+        toast.error('Pickup time must be in the future');
         return;
       }
 
       if (dropoffDateTime <= pickupDateTime) {
-        logger.debug('Invalid time range');
         toast.error('Drop-off time must be after pickup time');
         return;
       }
@@ -75,8 +92,8 @@ export default function HeroSection() {
       const searchUrl = `/vehicles?${searchParams.toString()}`;
       logger.debug('Navigation URL:', searchUrl);
 
-      // Navigate to vehicles page with replace to allow going back
-      router.replace(searchUrl);
+      // Use push instead of replace to maintain history
+      router.push(searchUrl);
     } catch (error) {
       logger.error('Search error:', error);
       toast.error('An error occurred while searching. Please try again.');

@@ -84,12 +84,25 @@ export function VehicleCard({
     // Update location in params
     currentParams.set('location', selectedLocation);
     
-    // Add pickup and dropoff times if available
-    if (pickupDateTime) currentParams.set('pickupDateTime', pickupDateTime);
-    if (dropoffDateTime) currentParams.set('dropoffDateTime', dropoffDateTime);
+    // Add pickup and dropoff dates and times if available
+    const params = new URLSearchParams(window.location.search);
+    const pickupDate = params.get('pickupDate');
+    const pickupTime = params.get('pickupTime');
+    const dropoffDate = params.get('dropoffDate');
+    const dropoffTime = params.get('dropoffTime');
+
+    // Add all necessary parameters for booking summary
+    if (pickupDate) currentParams.set('pickupDate', pickupDate);
+    if (pickupTime) currentParams.set('pickupTime', pickupTime);
+    if (dropoffDate) currentParams.set('dropoffDate', dropoffDate);
+    if (dropoffTime) currentParams.set('dropoffTime', dropoffTime);
+    currentParams.set('vehicleId', vehicle.id);
+    currentParams.set('vehicleName', vehicle.name);
+    currentParams.set('pricePerHour', vehicle.price_per_hour.toString());
+    currentParams.set('vehicleImage', vehicle.images[0] || '/placeholder-vehicle.jpg');
     
-    // Redirect to booking page with all params
-    router.push(`/book/${vehicle.id}?${currentParams.toString()}`);
+    // Redirect directly to booking summary page
+    router.push(`/booking-summary?${currentParams.toString()}`);
   };
 
   // Format date and time in IST
@@ -122,40 +135,59 @@ export function VehicleCard({
   // Calculate price based on duration and day of week
   const calculatePrice = () => {
     try {
-      // Extract hours from duration string (e.g., "6 hours" -> 6)
-      const durationHours = parseInt(duration?.split(' ')[0] || '6', 10);
-      
-      // Check if booking is for weekend (Saturday = 6, Sunday = 0)
       const params = new URLSearchParams(window.location.search);
       const pickupDate = params.get('pickupDate');
       const pickupTime = params.get('pickupTime');
+      const dropoffDate = params.get('dropoffDate');
+      const dropoffTime = params.get('dropoffTime');
       
-      if (!pickupDate || !pickupTime) return 0;
+      if (!pickupDate || !pickupTime || !dropoffDate || !dropoffTime) {
+        return {
+          baseAmount: 0,
+          totalHours: 0
+        };
+      }
 
-      const dateTimeStr = `${pickupDate}T${pickupTime}:00`;
-      const bookingDate = parseISO(dateTimeStr);
-      const istDate = utcToZonedTime(bookingDate, timeZone);
-      const dayOfWeek = istDate.getDay();
+      // Create Date objects for pickup and dropoff
+      const pickupDateTime = new Date(`${pickupDate}T${pickupTime}:00`);
+      const dropoffDateTime = new Date(`${dropoffDate}T${dropoffTime}:00`);
+      
+      // Calculate duration in hours
+      const durationInMs = dropoffDateTime.getTime() - pickupDateTime.getTime();
+      const durationHours = Math.ceil(durationInMs / (1000 * 60 * 60));
+      
+      // Check if booking is for weekend
+      const dayOfWeek = pickupDateTime.getDay();
       const isWeekend = dayOfWeek === 6 || dayOfWeek === 0;
       
-      // Base price per hour
-      const basePrice = 89; // Fixed base price per hour
+      // Use vehicle's specific price per hour
+      const basePrice = vehicle.price_per_hour;
       
-      // Apply minimum duration rules and calculate total price
-      if (isWeekend) {
-        // Weekend pricing (minimum 24 hours)
-        return basePrice * Math.max(24, durationHours);
-      } else {
-        // Weekday pricing (minimum 12 hours)
-        return basePrice * Math.max(12, durationHours);
-      }
+      // Calculate base amount based on duration and minimum hours
+      const totalHours = isWeekend 
+        ? Math.max(24, durationHours)  // Weekend pricing (minimum 24 hours)
+        : Math.max(12, durationHours); // Weekday pricing (minimum 12 hours)
+
+      const baseAmount = basePrice * totalHours;
+
+      return {
+        baseAmount,
+        totalHours,
+        durationHours
+      };
     } catch (error) {
       console.error('Error calculating price:', error);
-      return 0;
+      return {
+        baseAmount: 0,
+        totalHours: 0,
+        durationHours: 0
+      };
     }
   };
 
-  const totalPrice = calculatePrice();
+  const priceDetails = calculatePrice();
+  const price = priceDetails.baseAmount;
+  const actualDuration = priceDetails.durationHours;
 
   // Parse dates from URL format
   const getDateTimeFromParams = () => {
@@ -199,6 +231,27 @@ export function VehicleCard({
       </div>
 
       <div className="p-4">
+        {dateTime && (
+          <div className="mb-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <div>
+                <p className="text-gray-600">Pickup</p>
+                <p>{dateTime.pickup.time}</p>
+                <p>{dateTime.pickup.date}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-gray-600">Drop-off</p>
+                <p>{dateTime.dropoff.time}</p>
+                <p>{dateTime.dropoff.date}</p>
+              </div>
+            </div>
+            <div className="text-sm">
+              <p className="text-gray-600">Duration</p>
+              <p>{actualDuration ? `${Math.floor(actualDuration / 24)} Days, ${actualDuration % 24} Hours` : ''}</p>
+            </div>
+          </div>
+        )}
+
         {/* Available at Section */}
         <div className="mb-4">
           <p className="text-sm text-gray-600 mb-1">Available at</p>
@@ -232,26 +285,11 @@ export function VehicleCard({
           )}
         </div>
 
-        {/* Time Section */}
-        {dateTime && (
-          <div className="flex items-center justify-between mb-4 text-sm">
-            <div>
-              <div className="font-medium">{dateTime.pickup.time}</div>
-              <div className="text-gray-500">{dateTime.pickup.date}</div>
-            </div>
-            <div className="text-gray-400">to</div>
-            <div>
-              <div className="font-medium">{dateTime.dropoff.time}</div>
-              <div className="text-gray-500">{dateTime.dropoff.date}</div>
-            </div>
-          </div>
-        )}
-
         {/* Price and Book Section */}
         <div className="flex items-center justify-between mt-4">
           <div>
             <div className="flex items-baseline gap-1">
-              <span className="text-lg font-bold">{formatCurrency(totalPrice)}</span>
+              <span className="text-lg font-bold">₹{price.toFixed(2)}</span>
             </div>
             <p className="text-sm text-gray-500">for {duration}</p>
           </div>

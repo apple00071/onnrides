@@ -170,4 +170,14 @@ export function formatDateTime(date: string | Date): string {
     minute: '2-digit',
     hour12: true
   });
+}
+
+export function formatDuration(hours: number): string {
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  
+  if (days > 0) {
+    return `${days} ${days === 1 ? 'Day' : 'Days'}${remainingHours > 0 ? `, ${remainingHours} ${remainingHours === 1 ? 'Hour' : 'Hours'}` : ''}`;
+  }
+  return `${hours} ${hours === 1 ? 'Hour' : 'Hours'}`;
 } 

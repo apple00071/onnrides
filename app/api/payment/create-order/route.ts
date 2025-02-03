@@ -3,222 +3,236 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import Razorpay from 'razorpay';
-import logger from '@/lib/logger';
+import { logger } from '@/lib/logger';
 
-// Validate environment variables
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
-const NEXT_PUBLIC_RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-
-// Check each environment variable individually for better error reporting
-const missingVars: string[] = [];
-if (!RAZORPAY_KEY_ID) missingVars.push('RAZORPAY_KEY_ID');
-if (!RAZORPAY_KEY_SECRET) missingVars.push('RAZORPAY_KEY_SECRET');
-if (!NEXT_PUBLIC_RAZORPAY_KEY_ID) missingVars.push('NEXT_PUBLIC_RAZORPAY_KEY_ID');
-
-if (missingVars.length > 0) {
-  const errorMessage = `Missing required Razorpay environment variables: ${missingVars.join(', ')}`;
-  logger.error(errorMessage, {
-    hasKeyId: !!RAZORPAY_KEY_ID,
-    hasKeySecret: !!RAZORPAY_KEY_SECRET,
-    hasPublicKeyId: !!NEXT_PUBLIC_RAZORPAY_KEY_ID
-  });
-  throw new Error(errorMessage);
+// Validate Razorpay credentials
+if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+  logger.error('Missing Razorpay credentials');
+  throw new Error('Missing Razorpay credentials');
 }
 
-// At this point, we know these variables are defined
-const razorpayKeyId = RAZORPAY_KEY_ID as string;
-const razorpayKeySecret = RAZORPAY_KEY_SECRET as string;
-
-let razorpay: Razorpay;
-try {
-  razorpay = new Razorpay({
-    key_id: razorpayKeyId,
-    key_secret: razorpayKeySecret,
-  });
-  logger.info('Razorpay initialized successfully');
-} catch (error) {
-  const errorMessage = error instanceof Error ? error.message : 'Unknown error initializing Razorpay';
-  logger.error('Failed to initialize Razorpay:', {
-    error: errorMessage,
-    stack: error instanceof Error ? error.stack : undefined
-  });
-  throw new Error(`Failed to initialize Razorpay: ${errorMessage}`);
-}
+// Initialize Razorpay
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
 
 export async function POST(request: NextRequest) {
   try {
-    logger.info('Received create order request');
-    logger.debug('Environment variables check:', {
-      hasRazorpayKeyId: !!process.env.RAZORPAY_KEY_ID,
-      hasRazorpayKeySecret: !!process.env.RAZORPAY_KEY_SECRET,
-      hasPublicKeyId: !!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-      keyIdPrefix: process.env.RAZORPAY_KEY_ID?.substring(0, 8),
-      publicKeyIdPrefix: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.substring(0, 8)
-    });
-    
+    // Get user session
     const session = await getServerSession(authOptions);
+    logger.info('Session data:', { session });
+
     if (!session?.user) {
-      logger.warn('Authentication missing');
+      logger.error('Authentication failed: No session found');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
-    logger.info('User authenticated:', { userId: session.user.id });
 
+    // Get user ID from session
+    const userId = (session.user as any).id || session.user.email;
+    if (!userId) {
+      logger.error('No user ID found in session:', session.user);
+      return NextResponse.json(
+        { error: 'Invalid user session' },
+        { status: 401 }
+      );
+    }
+
+    // Parse request body
     const body = await request.json();
-    const { bookingId, amount } = body;
-    logger.info('Request data:', { 
-      bookingId, 
+    const { amount, bookingDetails } = body;
+
+    // Log request data
+    logger.info('Received booking request:', {
+      userId,
       amount,
-      body,
-      userId: session.user.id,
-      requestHeaders: Object.fromEntries(request.headers)
+      bookingDetails
     });
 
-    if (!bookingId || amount === undefined) {
-      logger.warn('Missing required fields:', { bookingId, amount, body });
+    // Validate required fields
+    if (!bookingDetails || !amount) {
+      logger.error('Missing required fields:', { amount, bookingDetails });
       return NextResponse.json(
-        { error: 'Booking ID and amount are required' },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    if (amount <= 0) {
-      logger.warn('Invalid amount:', { amount, body });
+    // Validate booking details
+    if (!bookingDetails.vehicleId || !bookingDetails.pickupDateTime || !bookingDetails.dropoffDateTime) {
+      logger.error('Invalid booking details:', bookingDetails);
       return NextResponse.json(
-        { error: 'Amount must be greater than 0' },
+        { error: 'Invalid booking details' },
         { status: 400 }
       );
     }
 
-    // Verify booking belongs to user
-    const bookingResult = await query(`
-      SELECT b.*, v.name as vehicle_name 
-      FROM bookings b
-      JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.id = $1 AND b.user_id = $2 
-      LIMIT 1
-    `, [bookingId, session.user.id]);
-
-    const booking = bookingResult.rows[0];
-    if (!booking) {
-      logger.warn('Booking not found or unauthorized:', { 
-        bookingId, 
-        userId: session.user.id,
-        bookingResult 
-      });
+    // Validate and fix amount (ensure it's in rupees, not paise)
+    const amountInRupees = Number(amount);
+    if (isNaN(amountInRupees) || amountInRupees < 1) {
+      logger.error('Invalid amount:', { amount, amountInRupees });
       return NextResponse.json(
-        { error: 'Booking not found' },
-        { status: 404 }
-      );
-    }
-    logger.info('Found booking:', { bookingId, booking });
-
-    // Create Razorpay order
-    const amountInPaise = Math.round(amount * 100); // Convert to paise and ensure it's an integer
-    logger.info('Creating Razorpay order:', { 
-      originalAmount: amount,
-      amountInPaise,
-      amountCalculation: `${amount} * 100 = ${amount * 100} -> rounded to ${amountInPaise}`,
-      currency: 'INR',
-      receipt: bookingId,
-      razorpayConfig: {
-        keyId: RAZORPAY_KEY_ID?.substring(0, 8),
-        publicKeyId: NEXT_PUBLIC_RAZORPAY_KEY_ID?.substring(0, 8)
-      }
-    });
-
-    if (amountInPaise <= 0) {
-      logger.warn('Invalid amount after conversion:', { originalAmount: amount, amountInPaise });
-      return NextResponse.json(
-        { error: 'Invalid amount after conversion to paise' },
+        { error: 'Invalid amount. Amount must be at least ₹1' },
         { status: 400 }
       );
     }
 
     try {
-      const order = await razorpay.orders.create({
-        amount: amountInPaise,
-        currency: 'INR',
-        receipt: bookingId,
-        notes: {
-          booking_id: bookingId,
-          user_id: session.user.id,
-          vehicle_name: booking.vehicle_name
-        }
-      });
-      logger.info('Razorpay order created:', { 
-        order: {
-          ...order,
-          id: order.id,
-          amount: order.amount,
-          currency: order.currency,
-          receipt: order.receipt,
-          status: order.status
-        },
-        originalAmount: amount,
-        amountInPaise
+      logger.info('Creating booking record...', {
+        userId,
+        vehicleId: bookingDetails.vehicleId,
+        pickupDateTime: bookingDetails.pickupDateTime,
+        dropoffDateTime: bookingDetails.dropoffDateTime,
+        duration: bookingDetails.duration,
+        totalPrice: amountInRupees,
+        location: bookingDetails.location
       });
 
-      // Update booking with order ID
-      await query(
-        `UPDATE bookings 
-         SET payment_details = jsonb_set(
-           COALESCE(payment_details::jsonb, '{}'::jsonb),
-           '{razorpay_order_id}',
-           $1::jsonb
-         ),
-         updated_at = $2 
-         WHERE id = $3`,
-        [JSON.stringify(order.id), new Date(), bookingId]
-      );
-      logger.info('Booking updated with order ID:', { 
-        bookingId, 
-        orderId: order.id 
+      // Calculate total hours
+      const pickupDate = new Date(bookingDetails.pickupDateTime);
+      const dropoffDate = new Date(bookingDetails.dropoffDateTime);
+      const totalHours = (dropoffDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60);
+
+      // First, create Razorpay order
+      const amountInPaise = Math.round(amountInRupees * 100);
+      logger.info('Creating Razorpay order...', {
+        amountInRupees,
+        amountInPaise,
+        currency: 'INR'
       });
 
-      const response = { 
+      // Add try-catch specifically for Razorpay order creation
+      let order;
+      try {
+        order = await razorpay.orders.create({
+          amount: amountInPaise,
+          currency: 'INR',
+          receipt: `booking_${Date.now()}`,
+          notes: {
+            user_id: userId,
+            vehicle_id: bookingDetails.vehicleId
+          }
+        });
+        logger.info('Razorpay order created:', { orderId: order.id });
+      } catch (razorpayError) {
+        logger.error('Razorpay order creation failed:', {
+          error: razorpayError instanceof Error ? razorpayError.message : 'Unknown error',
+          stack: razorpayError instanceof Error ? razorpayError.stack : undefined,
+          details: razorpayError
+        });
+        return NextResponse.json(
+          { error: 'Failed to create payment order. Please check your payment details.' },
+          { status: 500 }
+        );
+      }
+
+      // Then, create booking record
+      let bookingResult;
+      try {
+        bookingResult = await query(
+          `INSERT INTO bookings (
+            id,
+            user_id,
+            vehicle_id,
+            start_date,
+            end_date,
+            total_hours,
+            total_price,
+            status,
+            payment_status,
+            payment_details,
+            pickup_location,
+            created_at,
+            updated_at
+          ) VALUES (
+            gen_random_uuid(),
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+          )
+          RETURNING id`,
+          [
+            userId,
+            bookingDetails.vehicleId,
+            bookingDetails.pickupDateTime,
+            bookingDetails.dropoffDateTime,
+            totalHours,
+            amountInRupees,
+            'pending',
+            'pending',
+            JSON.stringify({
+              basePrice: Number(bookingDetails.basePrice),
+              gst: Number(bookingDetails.gst),
+              serviceFee: Number(bookingDetails.serviceFee),
+              totalPrice: amountInRupees,
+              razorpay_order_id: order.id
+            }),
+            bookingDetails.location
+          ]
+        );
+      } catch (dbError) {
+        logger.error('Database insertion failed:', {
+          error: dbError instanceof Error ? dbError.message : 'Unknown error',
+          stack: dbError instanceof Error ? dbError.stack : undefined,
+          details: dbError,
+          query: 'INSERT INTO bookings...',
+          params: [
+            userId,
+            bookingDetails.vehicleId,
+            bookingDetails.pickupDateTime,
+            bookingDetails.dropoffDateTime,
+            totalHours,
+            amountInRupees,
+            'pending',
+            'pending',
+            'payment details json',
+            bookingDetails.location
+          ]
+        });
+        return NextResponse.json(
+          { error: 'Failed to create booking record. Please try again.' },
+          { status: 500 }
+        );
+      }
+
+      const bookingId = bookingResult.rows[0].id;
+      logger.info('Booking record created:', { bookingId });
+
+      // Return success response
+      return NextResponse.json({
         success: true,
         data: {
           orderId: order.id,
-          key: NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          amount: order.amount,
-          currency: order.currency,
-          receipt: order.receipt,
-          status: order.status,
-          created_at: order.created_at
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+          amount: amountInPaise,
+          currency: 'INR'
         }
-      };
-      logger.info('Sending response:', { 
-        ...response, 
-        data: { 
-          ...response.data, 
-          key: '***' 
-        } 
       });
-
-      return NextResponse.json(response);
     } catch (error) {
-      logger.error('Error creating Razorpay order:', {
-        error,
+      logger.error('Database or Razorpay error:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
-        message: error instanceof Error ? error.message : String(error)
+        details: error
       });
+      
+      // Log the full error object for debugging
+      console.error('Full error object:', error);
+      
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Failed to create Razorpay order' },
+        { error: 'Failed to process booking. Please try again.' },
         { status: 500 }
       );
     }
   } catch (error) {
-    logger.error('Error creating payment order:', {
-      error,
+    logger.error('Server error:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      message: error instanceof Error ? error.message : String(error)
+      details: error
     });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create payment order' },
+      { error: 'Internal server error. Please try again.' },
       { status: 500 }
     );
   }
