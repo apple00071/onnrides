@@ -40,6 +40,8 @@ export async function OPTIONS() {
 // Helper function to find booking
 async function findBooking(orderId: string, bookingId?: string) {
   try {
+    logger.info('Finding booking with:', { orderId, bookingId });
+    
     let result;
     if (bookingId) {
       // Try to find by booking ID first
@@ -49,10 +51,14 @@ async function findBooking(orderId: string, bookingId?: string) {
          WHERE id = $1`,
         [bookingId]
       );
+      logger.info('Search by booking ID result:', { 
+        found: result?.rows?.length > 0,
+        bookingId 
+      });
     }
     
     if (!result?.rows?.length) {
-      // If no booking found by ID, try to find by order ID
+      // If no booking found by ID, try to find by order ID in payment_details
       result = await query(
         `SELECT id, status, payment_status, payment_details 
          FROM bookings 
@@ -62,10 +68,14 @@ async function findBooking(orderId: string, bookingId?: string) {
          LIMIT 1`,
         [orderId]
       );
+      logger.info('Search by order ID result:', { 
+        found: result?.rows?.length > 0,
+        orderId 
+      });
     }
 
     if (!result?.rows?.length) {
-      // If still no booking found, try to find recent pending booking
+      // If still no booking found, try to find most recent pending booking
       result = await query(
         `SELECT id, status, payment_status, payment_details 
          FROM bookings 
@@ -74,9 +84,18 @@ async function findBooking(orderId: string, bookingId?: string) {
          ORDER BY created_at DESC 
          LIMIT 1`
       );
+      logger.info('Search for recent pending booking result:', { 
+        found: result?.rows?.length > 0 
+      });
     }
 
-    return result?.rows?.[0];
+    if (!result?.rows?.length) {
+      logger.error('No booking found with any method');
+      return null;
+    }
+
+    logger.info('Found booking:', result.rows[0]);
+    return result.rows[0];
   } catch (error) {
     logger.error('Error finding booking:', error);
     throw error;
@@ -84,15 +103,16 @@ async function findBooking(orderId: string, bookingId?: string) {
 }
 
 // Helper function to update booking
-async function updateBooking(bookingId: string, paymentDetails: any) {
+async function updateBooking(bookingId: string | undefined, paymentDetails: any) {
   try {
     // First find the booking
     const booking = await findBooking(paymentDetails.razorpay_order_id, bookingId);
     
     if (!booking) {
       logger.error('No booking found to update:', {
-        bookingId,
-        orderId: paymentDetails.razorpay_order_id
+        providedBookingId: bookingId,
+        orderId: paymentDetails.razorpay_order_id,
+        paymentId: paymentDetails.razorpay_payment_id
       });
       throw new Error('No booking found');
     }
@@ -101,7 +121,8 @@ async function updateBooking(bookingId: string, paymentDetails: any) {
     logger.info('Found booking to update:', {
       bookingId: booking.id,
       currentStatus: booking.status,
-      currentPaymentStatus: booking.payment_status
+      currentPaymentStatus: booking.payment_status,
+      paymentDetails: booking.payment_details
     });
 
     // Only update if not already confirmed
@@ -109,6 +130,15 @@ async function updateBooking(bookingId: string, paymentDetails: any) {
       logger.info('Booking already confirmed:', booking);
       return booking;
     }
+
+    // Merge existing payment details with new ones
+    const existingDetails = booking.payment_details || {};
+    const updatedDetails = {
+      ...existingDetails,
+      ...paymentDetails,
+      verified_at: new Date().toISOString(),
+      environment: process.env.NODE_ENV
+    };
 
     const result = await query(
       `UPDATE bookings 
@@ -118,18 +148,24 @@ async function updateBooking(bookingId: string, paymentDetails: any) {
            updated_at = NOW()
        WHERE id = $2 
        RETURNING id, status, payment_status, payment_details`,
-      [JSON.stringify({
-        ...paymentDetails,
-        verified_at: new Date().toISOString(),
-        environment: process.env.NODE_ENV
-      }), booking.id]
+      [JSON.stringify(updatedDetails), booking.id]
     );
 
     if (result.rowCount === 0) {
+      logger.error('Failed to update booking:', {
+        bookingId: booking.id,
+        paymentDetails: updatedDetails
+      });
       throw new Error('Failed to update booking');
     }
 
-    logger.info('Booking updated successfully:', result.rows[0]);
+    logger.info('Booking updated successfully:', {
+      bookingId: booking.id,
+      newStatus: result.rows[0].status,
+      newPaymentStatus: result.rows[0].payment_status,
+      updatedDetails
+    });
+    
     return result.rows[0];
   } catch (error) {
     logger.error('Failed to update booking:', error);
@@ -143,7 +179,10 @@ export async function POST(request: NextRequest) {
 
     // Get request body
     const body = await request.json();
-    logger.info('Payment verification request received:', body);
+    logger.info('Payment verification request received:', {
+      ...body,
+      headers: Object.fromEntries(request.headers.entries())
+    });
 
     const {
       razorpay_order_id,
@@ -162,6 +201,7 @@ export async function POST(request: NextRequest) {
         if (order.status === 'paid') {
           // Get payment details for the order
           const payments = await razorpay.orders.fetchPayments(razorpay_order_id);
+          logger.info('Razorpay payments for order:', payments);
           
           if (payments.items && payments.items.length > 0) {
             const payment = payments.items[0];
@@ -177,7 +217,8 @@ export async function POST(request: NextRequest) {
               razorpay_payment_id: payment.id,
               razorpay_signature: signature,
               payment_method: 'qr',
-              order_status: order.status
+              order_status: order.status,
+              payment_time: new Date().toISOString()
             });
 
             return NextResponse.json({ 
@@ -211,7 +252,11 @@ export async function POST(request: NextRequest) {
 
     // Verify signature
     if (!verifySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
-      logger.error('Invalid payment signature');
+      logger.error('Invalid payment signature:', {
+        orderId: razorpay_order_id,
+        paymentId: razorpay_payment_id,
+        signature: razorpay_signature
+      });
       return NextResponse.json(
         { error: 'Invalid payment signature' },
         { status: 400, headers: responseHeaders }
@@ -223,7 +268,8 @@ export async function POST(request: NextRequest) {
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
-      payment_method: 'vpa'
+      payment_method: 'vpa',
+      payment_time: new Date().toISOString()
     });
 
     return NextResponse.json({
@@ -232,7 +278,10 @@ export async function POST(request: NextRequest) {
     }, { headers: responseHeaders });
 
   } catch (error) {
-    logger.error('Payment verification failed:', error);
+    logger.error('Payment verification failed:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
       { error: 'Payment verification failed' },
       { status: 500, headers: getCorsHeaders(null) }
