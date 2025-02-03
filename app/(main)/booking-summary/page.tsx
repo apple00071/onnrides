@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { calculateDuration, formatCurrency } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
+import { useSession } from 'next-auth/react';
 
 interface BookingSummary {
   vehicleId: string;
@@ -77,6 +78,7 @@ function PendingPaymentAlert({ payment, onClose }: {
 export default function BookingSummaryPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { data: session } = useSession();
   const [bookingDetails, setBookingDetails] = useState<BookingSummary | null>(null);
   const [couponCode, setCouponCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -207,9 +209,9 @@ export default function BookingSummaryPage() {
         description: `Booking for ${bookingDetails.vehicleName}`,
         order_id: data.data.orderId,
         prefill: {
-          name: 'User Name',
-          email: 'user@example.com',
-          contact: '9999999999',
+          name: session?.user?.name || '',
+          email: session?.user?.email || '',
+          contact: (session?.user as any)?.phoneNumber || '',
         },
         notes: {
           booking_id: data.data.bookingId,
