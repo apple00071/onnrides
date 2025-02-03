@@ -126,38 +126,92 @@ export default function BookingSummaryPage() {
         handler: async (response: any) => {
           try {
             console.log('Payment successful, verifying...', response);
-            // Verify payment
-            const verifyResponse = await fetch('/api/payment/verify', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            });
+            
+            // Add retry logic for payment verification
+            const maxRetries = 3;
+            let retryCount = 0;
+            let verifySuccess = false;
 
-            if (!verifyResponse.ok) {
-              const errorData = await verifyResponse.json().catch(() => null);
-              console.error('Payment verification failed:', errorData);
-              toast.error('Payment verification failed. Please contact support.');
-              return;
+            while (retryCount < maxRetries && !verifySuccess) {
+              try {
+                // Verify payment
+                const verifyResponse = await fetch('/api/payment/verify', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                  }),
+                });
+
+                const errorData = await verifyResponse.json().catch(() => null);
+
+                if (!verifyResponse.ok) {
+                  console.error('Payment verification attempt failed:', {
+                    attempt: retryCount + 1,
+                    status: verifyResponse.status,
+                    error: errorData
+                  });
+                  
+                  // If it's a 404, show a specific message
+                  if (verifyResponse.status === 404) {
+                    toast.error('Booking record not found. Please contact support with your payment ID: ' + response.razorpay_payment_id);
+                    return;
+                  }
+                  
+                  // If it's a 400, show the specific error
+                  if (verifyResponse.status === 400) {
+                    toast.error(errorData?.error || 'Invalid payment verification');
+                    return;
+                  }
+                  
+                  // For 500 errors, retry after a delay
+                  if (retryCount < maxRetries - 1) {
+                    toast.loading('Verifying payment attempt ' + (retryCount + 2) + '...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    retryCount++;
+                    continue;
+                  }
+                  
+                  throw new Error(errorData?.error || 'Payment verification failed');
+                }
+
+                verifySuccess = true;
+                toast.success('Booking confirmed! Redirecting to bookings page...');
+                
+                // Add a small delay to ensure the toast is visible
+                setTimeout(() => {
+                  router.push('/bookings');
+                }, 2000);
+                
+                break; // Exit the retry loop on success
+              } catch (retryError) {
+                console.error('Verification retry failed:', retryError);
+                if (retryCount === maxRetries - 1) {
+                  throw retryError;
+                }
+                retryCount++;
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              }
             }
 
-            const verifyData = await verifyResponse.json();
-            console.log('Payment verified:', verifyData);
-
-            toast.success('Booking confirmed!');
-            
-            // Add a small delay to ensure the toast is visible
-            setTimeout(() => {
-              router.push('/bookings');
-            }, 1500);
+            if (!verifySuccess) {
+              toast.error(
+                'Payment was successful but verification failed. ' +
+                'Please save this payment ID and contact support: ' + 
+                response.razorpay_payment_id
+              );
+              console.error('Payment verification failed after all retries');
+            }
           } catch (error) {
             console.error('Error in payment verification:', error);
-            toast.error('Payment verification failed. Please contact support.');
+            toast.error(
+              'Payment verification failed. Please save your payment ID and contact support. ' +
+              'Payment ID: ' + response.razorpay_payment_id
+            );
           }
         },
         prefill: {
