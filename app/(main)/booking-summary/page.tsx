@@ -142,14 +142,22 @@ export default function BookingSummaryPage() {
             if (!verifyResponse.ok) {
               const errorData = await verifyResponse.json().catch(() => null);
               console.error('Payment verification failed:', errorData);
-              throw new Error('Payment verification failed');
+              toast.error('Payment verification failed. Please contact support.');
+              return;
             }
 
+            const verifyData = await verifyResponse.json();
+            console.log('Payment verified:', verifyData);
+
             toast.success('Booking confirmed!');
-            router.push('/bookings');
+            
+            // Add a small delay to ensure the toast is visible
+            setTimeout(() => {
+              router.push('/bookings');
+            }, 1500);
           } catch (error) {
             console.error('Error in payment verification:', error);
-            toast.error('Payment verification failed');
+            toast.error('Payment verification failed. Please contact support.');
           }
         },
         prefill: {
