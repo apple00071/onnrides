@@ -53,7 +53,8 @@ async function findBooking(orderId: string, bookingId?: string) {
       );
       logger.info('Search by booking ID result:', { 
         found: result?.rows?.length > 0,
-        bookingId 
+        bookingId,
+        result: result?.rows?.[0] 
       });
     }
     
@@ -62,30 +63,23 @@ async function findBooking(orderId: string, bookingId?: string) {
       result = await query(
         `SELECT id, status, payment_status, payment_details 
          FROM bookings 
-         WHERE payment_details->>'razorpay_order_id' = $1
-         OR payment_details->>'order_id' = $1
+         WHERE (payment_details)::jsonb->>'razorpay_order_id' = $1
+         OR (payment_details)::jsonb->>'order_id' = $1
+         OR id IN (
+           SELECT id FROM bookings 
+           WHERE status = 'pending' 
+           AND created_at > NOW() - INTERVAL '1 hour'
+           ORDER BY created_at DESC 
+           LIMIT 1
+         )
          ORDER BY created_at DESC 
          LIMIT 1`,
         [orderId]
       );
-      logger.info('Search by order ID result:', { 
+      logger.info('Search by order ID or recent pending result:', { 
         found: result?.rows?.length > 0,
-        orderId 
-      });
-    }
-
-    if (!result?.rows?.length) {
-      // If still no booking found, try to find most recent pending booking
-      result = await query(
-        `SELECT id, status, payment_status, payment_details 
-         FROM bookings 
-         WHERE status = 'pending' 
-         AND created_at > NOW() - INTERVAL '1 hour'
-         ORDER BY created_at DESC 
-         LIMIT 1`
-      );
-      logger.info('Search for recent pending booking result:', { 
-        found: result?.rows?.length > 0 
+        orderId,
+        result: result?.rows?.[0]
       });
     }
 
@@ -97,7 +91,12 @@ async function findBooking(orderId: string, bookingId?: string) {
     logger.info('Found booking:', result.rows[0]);
     return result.rows[0];
   } catch (error) {
-    logger.error('Error finding booking:', error);
+    logger.error('Error finding booking:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      orderId,
+      bookingId
+    });
     throw error;
   }
 }
@@ -132,7 +131,10 @@ async function updateBooking(bookingId: string | undefined, paymentDetails: any)
     }
 
     // Merge existing payment details with new ones
-    const existingDetails = booking.payment_details || {};
+    const existingDetails = typeof booking.payment_details === 'string' 
+      ? JSON.parse(booking.payment_details) 
+      : (booking.payment_details || {});
+      
     const updatedDetails = {
       ...existingDetails,
       ...paymentDetails,
@@ -191,67 +193,32 @@ export async function POST(request: NextRequest) {
       booking_id
     } = body;
 
-    // If we only have order_id (QR code payment)
-    if (razorpay_order_id && !razorpay_payment_id) {
-      try {
-        // Fetch order details from Razorpay
-        const order = await razorpay.orders.fetch(razorpay_order_id);
-        logger.info('Razorpay order details:', order);
-
-        if (order.status === 'paid') {
-          // Get payment details for the order
-          const payments = await razorpay.orders.fetchPayments(razorpay_order_id);
-          logger.info('Razorpay payments for order:', payments);
-          
-          if (payments.items && payments.items.length > 0) {
-            const payment = payments.items[0];
-            // Generate signature for the payment
-            const signature = crypto
-              .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
-              .update(`${razorpay_order_id}|${payment.id}`)
-              .digest('hex');
-
-            // Update booking with payment details
-            await updateBooking(booking_id, {
-              razorpay_order_id,
-              razorpay_payment_id: payment.id,
-              razorpay_signature: signature,
-              payment_method: 'qr',
-              order_status: order.status,
-              payment_time: new Date().toISOString()
-            });
-
-            return NextResponse.json({ 
-              success: true,
-              message: 'Payment verified successfully'
-            }, { headers: responseHeaders });
-          }
-        }
-        
-        // If order is not paid yet
-        return NextResponse.json(
-          { error: 'Payment pending', status: order.status },
-          { status: 202, headers: responseHeaders }
-        );
-      } catch (error) {
-        logger.error('Error fetching Razorpay order:', error);
-        return NextResponse.json(
-          { error: 'Failed to verify payment with Razorpay' },
-          { status: 500, headers: responseHeaders }
-        );
-      }
-    }
+    // Log all input parameters
+    logger.info('Processing payment verification:', {
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+      bookingId: booking_id
+    });
 
     // For direct VPA payments
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      logger.error('Missing payment details:', { body });
       return NextResponse.json(
         { error: 'Missing payment details' },
         { status: 400, headers: responseHeaders }
       );
     }
 
-    // Verify signature
-    if (!verifySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
+    // Verify signature first
+    const isValidSignature = verifySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
+    logger.info('Signature verification result:', { 
+      isValid: isValidSignature,
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id
+    });
+
+    if (!isValidSignature) {
       logger.error('Invalid payment signature:', {
         orderId: razorpay_order_id,
         paymentId: razorpay_payment_id,
@@ -263,28 +230,68 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update booking
-    await updateBooking(booking_id, {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      payment_method: 'vpa',
-      payment_time: new Date().toISOString()
+    try {
+      // Update booking
+      const updatedBooking = await updateBooking(booking_id, {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+        payment_method: 'vpa',
+        payment_time: new Date().toISOString()
+      });
+
+      logger.info('Payment verification completed successfully:', {
+        bookingId: updatedBooking.id,
+        status: updatedBooking.status,
+        paymentStatus: updatedBooking.payment_status
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Payment verified successfully',
+        data: {
+          bookingId: updatedBooking.id,
+          status: updatedBooking.status
+        }
+      }, { headers: responseHeaders });
+
+    } catch (updateError) {
+      logger.error('Error updating booking:', {
+        error: updateError instanceof Error ? updateError.message : 'Unknown error',
+        stack: updateError instanceof Error ? updateError.stack : undefined,
+        bookingId: booking_id,
+        orderId: razorpay_order_id
+      });
+
+      return NextResponse.json({
+        error: updateError instanceof Error ? updateError.message : 'Failed to update booking',
+        details: {
+          bookingId: booking_id,
+          orderId: razorpay_order_id
+        }
+      }, { status: 500, headers: responseHeaders });
+    }
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    logger.error('Payment verification failed:', {
+      error: errorMessage,
+      stack: errorStack,
+      request: {
+        url: request.url,
+        method: request.method,
+        headers: Object.fromEntries(request.headers.entries())
+      }
     });
 
     return NextResponse.json({
-      success: true,
-      message: 'Payment verified successfully'
-    }, { headers: responseHeaders });
-
-  } catch (error) {
-    logger.error('Payment verification failed:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      error: errorMessage,
+      message: 'Payment verification failed. Please try again or contact support.'
+    }, { 
+      status: 500, 
+      headers: getCorsHeaders(null)
     });
-    return NextResponse.json(
-      { error: 'Payment verification failed' },
-      { status: 500, headers: getCorsHeaders(null) }
-    );
   }
 } 
