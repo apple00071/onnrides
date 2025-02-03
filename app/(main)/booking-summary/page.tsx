@@ -212,25 +212,23 @@ export default function BookingSummaryPage() {
           name: session?.user?.name || '',
           email: session?.user?.email || '',
           contact: (session?.user as any)?.phoneNumber || '',
+          method: 'upi'
         },
         notes: {
           booking_id: data.data.bookingId,
           vehicle_name: bookingDetails.vehicleName,
+          user_id: (session?.user as any)?.id || '',
+          user_email: session?.user?.email || ''
         },
         config: {
           display: {
             blocks: {
               utib: {
-                name: 'Pay using Bank Account or UPI',
+                name: 'Pay using UPI',
                 instruments: [
                   {
-                    method: 'upi'
-                  },
-                  {
-                    method: 'netbanking'
-                  },
-                  {
-                    method: 'card'
+                    method: 'upi',
+                    flows: ['collect', 'qr']
                   }
                 ]
               }
