@@ -191,11 +191,13 @@ export async function POST(request: NextRequest) {
         `UPDATE bookings 
          SET status = 'confirmed',
              payment_status = 'completed',
-             payment_details = CASE 
-               WHEN payment_details IS NULL THEN $1::jsonb
-               WHEN payment_details::text = '{}' THEN $1::jsonb
-               ELSE payment_details || $1::jsonb
-             END,
+             payment_details = COALESCE(
+               CASE 
+                 WHEN payment_details IS NULL THEN '{}'::jsonb
+                 ELSE payment_details 
+               END || $1::jsonb,
+               $1::jsonb
+             ),
              updated_at = NOW()
          WHERE id = $2 
          AND (status = 'pending' OR payment_status = 'pending')
