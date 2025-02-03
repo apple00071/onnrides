@@ -256,8 +256,8 @@ export default function BookingSummaryPage() {
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
-            timestamp: new Date().toISOString(),
-            booking_id: data.data.bookingId
+            booking_id: data.data.bookingId,
+            timestamp: new Date().toISOString()
           };
           
           localStorage.setItem('pendingPayment', JSON.stringify(paymentInfo));

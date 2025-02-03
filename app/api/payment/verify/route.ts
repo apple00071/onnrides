@@ -37,26 +37,25 @@ export async function POST(request: NextRequest) {
   try {
     // Handle CORS
     const origin = request.headers.get('origin') || '*';
-    const responseHeaders = getCorsHeaders(origin);
-
-    // Log request details for debugging
-    logger.info('Payment verification request received:', {
-      headers: Object.fromEntries(request.headers.entries()),
-      url: request.url,
-      method: request.method,
-    });
+    const responseHeaders = {
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
 
     // Get the payment verification details from the request
     const {
       razorpay_order_id,
       razorpay_payment_id,
-      razorpay_signature
+      razorpay_signature,
+      booking_id
     } = await request.json();
 
-    logger.info('Payment verification payload:', {
+    logger.info('Payment verification request received:', {
       razorpay_order_id,
       razorpay_payment_id,
-      razorpay_signature: '***'
+      booking_id
     });
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -87,23 +86,35 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // First try to find booking by razorpay_order_id
-      let findBookingResult = await query(
-        `SELECT id, payment_details 
-         FROM bookings 
-         WHERE status = 'pending' 
-         AND created_at > NOW() - INTERVAL '1 hour'
-         ORDER BY created_at DESC 
-         LIMIT 1`
-      );
+      // First try to find the booking
+      let findBookingResult;
+      if (booking_id) {
+        // If booking_id is provided, use it
+        findBookingResult = await query(
+          `SELECT id, status, payment_details 
+           FROM bookings 
+           WHERE id = $1`,
+          [booking_id]
+        );
+      } else {
+        // Otherwise, find the most recent pending booking
+        findBookingResult = await query(
+          `SELECT id, status, payment_details 
+           FROM bookings 
+           WHERE status = 'pending' 
+           AND created_at > NOW() - INTERVAL '1 hour'
+           ORDER BY created_at DESC 
+           LIMIT 1`
+        );
+      }
 
       if (!findBookingResult.rows.length) {
-        logger.error('No recent pending booking found', {
-          razorpay_order_id,
-          razorpay_payment_id
+        logger.error('No booking found to update', {
+          booking_id,
+          razorpay_order_id
         });
         return NextResponse.json(
-          { error: 'No recent pending booking found' },
+          { error: 'No booking found' },
           { status: 404, headers: responseHeaders }
         );
       }
@@ -111,41 +122,50 @@ export async function POST(request: NextRequest) {
       const bookingId = findBookingResult.rows[0].id;
       logger.info('Found booking to update:', { bookingId });
 
-      // Update the booking status and payment details
+      // Prepare payment details
+      const paymentDetails = {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+        payment_status: 'completed',
+        payment_completed_at: new Date().toISOString(),
+        verification_environment: process.env.NODE_ENV,
+        verification_timestamp: new Date().toISOString()
+      };
+
+      // First, try to update with existing payment_details
       const updateResult = await query(
         `UPDATE bookings 
          SET status = 'confirmed',
              payment_status = 'completed',
              payment_details = COALESCE(payment_details, '{}'::jsonb) || $1::jsonb,
              updated_at = NOW()
-         WHERE id = $2 AND status = 'pending'
-         RETURNING id, status, payment_status`,
+         WHERE id = $2 
+         AND (status = 'pending' OR payment_status = 'pending')
+         RETURNING id, status, payment_status, payment_details`,
         [
-          JSON.stringify({
-            razorpay_order_id,
-            razorpay_payment_id,
-            razorpay_signature,
-            payment_status: 'completed',
-            payment_completed_at: new Date().toISOString(),
-            verification_environment: process.env.NODE_ENV,
-            verification_url: request.url
-          }),
+          JSON.stringify(paymentDetails),
           bookingId
         ]
       );
 
       if (updateResult.rowCount === 0) {
-        logger.error('Failed to update booking - no rows affected', { bookingId });
+        logger.error('Failed to update booking - no rows affected', {
+          bookingId,
+          currentStatus: findBookingResult.rows[0].status
+        });
         return NextResponse.json(
           { error: 'Failed to update booking' },
           { status: 500, headers: responseHeaders }
         );
       }
 
+      // Log the successful update with the new payment details
       logger.info('Successfully updated booking:', {
         bookingId,
         status: updateResult.rows[0].status,
-        payment_status: updateResult.rows[0].payment_status
+        payment_status: updateResult.rows[0].payment_status,
+        payment_details: updateResult.rows[0].payment_details
       });
 
       return NextResponse.json({
@@ -153,7 +173,8 @@ export async function POST(request: NextRequest) {
         message: 'Payment verified successfully',
         data: {
           bookingId,
-          status: updateResult.rows[0].status
+          status: updateResult.rows[0].status,
+          payment_details: updateResult.rows[0].payment_details
         }
       }, { headers: responseHeaders });
     } catch (dbError) {
@@ -169,8 +190,6 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    const fallbackHeaders = getCorsHeaders('*');
-
     logger.error('Payment verification error:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
@@ -178,7 +197,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       { error: 'Failed to verify payment' },
-      { status: 500, headers: fallbackHeaders }
+      { status: 500, headers: {
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Origin': '*',
+      }}
     );
   }
 } 
