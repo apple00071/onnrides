@@ -115,6 +115,11 @@ export default function BookingSummaryPage() {
       const data = await response.json();
       console.log('Booking created successfully:', data);
       
+      // Get the base URL based on environment
+      const baseURL = process.env.NEXT_PUBLIC_VERCEL_URL 
+        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+        : process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+      
       // Initialize Razorpay
       const options = {
         key: data.data.key,
@@ -134,8 +139,8 @@ export default function BookingSummaryPage() {
 
             while (retryCount < maxRetries && !verifySuccess) {
               try {
-                // Verify payment
-                const verifyResponse = await fetch('/api/payment/verify', {
+                // Verify payment using absolute URL
+                const verifyResponse = await fetch(`${baseURL}/api/payment/verify`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -153,7 +158,8 @@ export default function BookingSummaryPage() {
                   console.error('Payment verification attempt failed:', {
                     attempt: retryCount + 1,
                     status: verifyResponse.status,
-                    error: errorData
+                    error: errorData,
+                    url: `${baseURL}/api/payment/verify`
                   });
                   
                   // If it's a 404, show a specific message
