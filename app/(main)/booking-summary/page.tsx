@@ -19,12 +19,68 @@ interface BookingSummary {
   pricePerHour: number;
 }
 
+function PendingPaymentAlert({ payment, onClose }: { 
+  payment: { 
+    razorpay_order_id: string; 
+    razorpay_payment_id: string; 
+    timestamp: string;
+  }; 
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed bottom-4 right-4 max-w-md bg-yellow-50 border border-yellow-200 rounded-lg p-4 shadow-lg">
+      <div className="flex items-start">
+        <div className="flex-shrink-0">
+          <svg className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <div className="ml-3 w-0 flex-1">
+          <p className="text-sm font-medium text-yellow-800">
+            Unverified Payment Found
+          </p>
+          <p className="mt-1 text-sm text-yellow-700">
+            Payment ID: {payment.razorpay_payment_id}
+          </p>
+          <p className="mt-1 text-xs text-yellow-600">
+            Time: {new Date(payment.timestamp).toLocaleString()}
+          </p>
+          <div className="mt-2">
+            <button
+              onClick={() => {
+                // Copy payment ID to clipboard
+                navigator.clipboard.writeText(payment.razorpay_payment_id);
+                toast.success('Payment ID copied to clipboard');
+              }}
+              className="text-sm font-medium text-yellow-800 hover:text-yellow-700"
+            >
+              Copy Payment ID
+            </button>
+          </div>
+        </div>
+        <div className="ml-4 flex-shrink-0 flex">
+          <button
+            onClick={onClose}
+            className="bg-yellow-50 rounded-md inline-flex text-yellow-400 hover:text-yellow-500 focus:outline-none"
+          >
+            <span className="sr-only">Close</span>
+            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function BookingSummaryPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [bookingDetails, setBookingDetails] = useState<BookingSummary | null>(null);
   const [couponCode, setCouponCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingPayment, setPendingPayment] = useState<any>(null);
 
   useEffect(() => {
     const details: BookingSummary = {
@@ -47,6 +103,30 @@ export default function BookingSummaryPage() {
 
     setBookingDetails(details);
   }, [searchParams, router]);
+
+  useEffect(() => {
+    // Check for pending payment in localStorage
+    const storedPayment = localStorage.getItem('pendingPayment');
+    if (storedPayment) {
+      try {
+        const payment = JSON.parse(storedPayment);
+        // Only show payments from the last 24 hours
+        const paymentTime = new Date(payment.timestamp).getTime();
+        const now = new Date().getTime();
+        const hoursSincePayment = (now - paymentTime) / (1000 * 60 * 60);
+        
+        if (hoursSincePayment < 24) {
+          setPendingPayment(payment);
+        } else {
+          // Remove old pending payments
+          localStorage.removeItem('pendingPayment');
+        }
+      } catch (error) {
+        console.error('Error parsing pending payment:', error);
+        localStorage.removeItem('pendingPayment');
+      }
+    }
+  }, []);
 
   if (!bookingDetails) {
     return (
@@ -115,10 +195,8 @@ export default function BookingSummaryPage() {
       const data = await response.json();
       console.log('Booking created successfully:', data);
       
-      // Get the base URL based on environment
-      const baseURL = process.env.NEXT_PUBLIC_VERCEL_URL 
-        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-        : process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+      // Get the absolute URL for the live site
+      const baseURL = 'https://onnrides.vercel.app';
       
       // Initialize Razorpay
       const options = {
@@ -132,6 +210,10 @@ export default function BookingSummaryPage() {
           name: 'User Name',
           email: 'user@example.com',
           contact: '9999999999',
+        },
+        notes: {
+          booking_id: data.data.bookingId,
+          vehicle_name: bookingDetails.vehicleName,
         },
         config: {
           display: {
@@ -162,99 +244,84 @@ export default function BookingSummaryPage() {
           ondismiss: function() {
             setIsLoading(false);
             toast.error('Payment cancelled. Please try again.');
-          }
+          },
+          escape: false,
+          animation: true
         },
-        handler: async function(response: any) {
-          try {
-            console.log('Payment successful, verifying...', response);
-            
-            // Add retry logic for payment verification
-            const maxRetries = 3;
-            let retryCount = 0;
-            let verifySuccess = false;
-
-            const verifyPayment = async () => {
-              const verifyResponse = await fetch(`${baseURL}/api/payment/verify`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                }),
-              });
-
-              if (!verifyResponse.ok) {
-                throw new Error('Verification failed');
-              }
-
-              return await verifyResponse.json();
-            };
-
-            while (retryCount < maxRetries && !verifySuccess) {
-              try {
-                toast.loading('Verifying payment...');
-                const verifyResult = await verifyPayment();
-                
-                if (verifyResult.success) {
-                  verifySuccess = true;
-                  toast.success('Booking confirmed! Redirecting to bookings page...');
-                  
-                  // Add a small delay to ensure the toast is visible
-                  setTimeout(() => {
-                    window.location.href = '/bookings';
-                  }, 2000);
-                  break;
-                }
-              } catch (error) {
-                console.error('Verification attempt failed:', {
-                  attempt: retryCount + 1,
-                  error
-                });
-                
-                if (retryCount === maxRetries - 1) {
-                  // On final retry, show error and save payment info
-                  toast.error(
-                    'Payment successful but verification failed. ' +
-                    'Please save your payment ID and contact support: ' + 
-                    response.razorpay_payment_id
-                  );
-                  break;
-                }
-                
-                retryCount++;
-                await new Promise(resolve => setTimeout(resolve, 2000));
-              }
+        handler: function(response: any) {
+          console.log('Payment successful, verifying...', response);
+          
+          // Store payment info immediately
+          const paymentInfo = {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            timestamp: new Date().toISOString(),
+            booking_id: data.data.bookingId
+          };
+          
+          localStorage.setItem('pendingPayment', JSON.stringify(paymentInfo));
+          
+          // Show success message immediately
+          toast.success('Payment received! Verifying...');
+          
+          // Verify in background
+          verifyPayment(paymentInfo).then((success) => {
+            if (success) {
+              localStorage.removeItem('pendingPayment');
+              toast.success('Booking confirmed! Redirecting...');
+              setTimeout(() => {
+                window.location.href = '/bookings';
+              }, 2000);
+            } else {
+              toast.error(
+                'Payment received but verification pending. ' +
+                'Your payment ID: ' + response.razorpay_payment_id
+              );
+              setTimeout(() => {
+                window.location.href = '/payment-recovery';
+              }, 2000);
             }
-
-            if (!verifySuccess) {
-              console.error('Payment verification failed after all retries');
-              // Store payment info in localStorage for recovery
-              localStorage.setItem('pendingPayment', JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                timestamp: new Date().toISOString()
-              }));
-            }
-          } catch (error) {
-            console.error('Error in payment verification:', error);
-            toast.error(
-              'Payment verification failed. Please save your payment ID and contact support. ' +
-              'Payment ID: ' + response.razorpay_payment_id
-            );
-          } finally {
-            setIsLoading(false);
-          }
+          });
         },
         theme: {
           color: '#f26e24',
         },
       };
 
+      // Function to verify payment
+      const verifyPayment = async (paymentInfo: any) => {
+        try {
+          const verifyResponse = await fetch(`${baseURL}/api/payment/verify`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(paymentInfo),
+            credentials: 'include'
+          });
+
+          if (!verifyResponse.ok) {
+            console.error('Verification failed:', await verifyResponse.json());
+            return false;
+          }
+
+          const verifyResult = await verifyResponse.json();
+          return verifyResult.success;
+        } catch (error) {
+          console.error('Error verifying payment:', error);
+          return false;
+        }
+      };
+
+      // Create Razorpay instance
       const razorpay = new (window as any).Razorpay(options);
+      razorpay.on('payment.failed', function(resp: any) {
+        console.error('Payment failed:', resp);
+        toast.error('Payment failed. Please try again.');
+        setIsLoading(false);
+      });
+      
       razorpay.open();
     } catch (error) {
       console.error('Error in handleConfirmBooking:', error);
@@ -263,7 +330,17 @@ export default function BookingSummaryPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-8 relative">
+      {pendingPayment && (
+        <PendingPaymentAlert
+          payment={pendingPayment}
+          onClose={() => {
+            setPendingPayment(null);
+            localStorage.removeItem('pendingPayment');
+          }}
+        />
+      )}
+      
       <h1 className="text-2xl font-bold mb-8">SUMMARY</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Left Column - Vehicle Details */}
