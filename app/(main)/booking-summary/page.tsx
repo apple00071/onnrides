@@ -246,7 +246,58 @@ export default function BookingSummaryPage() {
             toast.error('Payment cancelled. Please try again.');
           },
           escape: false,
-          animation: true
+          animation: true,
+          handleExternalPayment: function(data: any) {
+            // This handles UPI QR code payments
+            console.log('External payment initiated:', data);
+            toast.success('Payment initiated! Please complete the payment in your UPI app.');
+            
+            // Store order info for verification
+            const orderInfo = {
+              order_id: data.order_id,
+              booking_id: options.notes.booking_id,
+              timestamp: new Date().toISOString()
+            };
+            localStorage.setItem('pendingOrder', JSON.stringify(orderInfo));
+            
+            // Start polling for payment status
+            const pollPaymentStatus = async () => {
+              try {
+                const verifyResponse = await fetch(`${baseURL}/api/payment/verify`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    razorpay_order_id: data.order_id,
+                    booking_id: options.notes.booking_id
+                  }),
+                  credentials: 'include'
+                });
+
+                if (verifyResponse.ok) {
+                  const result = await verifyResponse.json();
+                  if (result.success) {
+                    localStorage.removeItem('pendingOrder');
+                    toast.success('Payment successful! Redirecting...');
+                    setTimeout(() => {
+                      window.location.href = '/bookings';
+                    }, 2000);
+                    return;
+                  }
+                }
+                
+                // If not successful, poll again after 5 seconds
+                setTimeout(pollPaymentStatus, 5000);
+              } catch (error) {
+                console.error('Error polling payment status:', error);
+                setTimeout(pollPaymentStatus, 5000);
+              }
+            };
+
+            // Start polling
+            pollPaymentStatus();
+          }
         },
         handler: function(response: any) {
           console.log('Payment successful, verifying...', response);
@@ -265,7 +316,7 @@ export default function BookingSummaryPage() {
           // Show success message immediately
           toast.success('Payment received! Verifying...');
           
-          // Verify in background
+          // Verify payment
           verifyPayment(paymentInfo).then((success) => {
             if (success) {
               localStorage.removeItem('pendingPayment');
@@ -275,12 +326,10 @@ export default function BookingSummaryPage() {
               }, 2000);
             } else {
               toast.error(
-                'Payment received but verification pending. ' +
-                'Your payment ID: ' + response.razorpay_payment_id
+                'Payment verification failed. Please contact support with your payment ID: ' + 
+                response.razorpay_payment_id
               );
-              setTimeout(() => {
-                window.location.href = '/payment-recovery';
-              }, 2000);
+              setPendingPayment(paymentInfo);
             }
           });
         },

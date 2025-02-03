@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import crypto from 'crypto';
+import Razorpay from 'razorpay';
 
 // Helper function to get allowed origins
 const getAllowedOrigins = () => {
@@ -57,6 +58,53 @@ export async function POST(request: NextRequest) {
       razorpay_payment_id,
       booking_id
     });
+
+    // For QR code payments, we might only have the order_id initially
+    if (razorpay_order_id && !razorpay_payment_id) {
+      // Check payment status directly with Razorpay
+      try {
+        const instance = new Razorpay({
+          key_id: process.env.RAZORPAY_KEY_ID || '',
+          key_secret: process.env.RAZORPAY_KEY_SECRET || ''
+        });
+
+        const order = await instance.orders.fetch(razorpay_order_id);
+        
+        if (order.status === 'paid') {
+          // Get the payment details from the order
+          const payments = await instance.orders.fetchPayments(razorpay_order_id);
+          if (payments.items.length > 0) {
+            const payment = payments.items[0];
+            // Update the request with payment details
+            Object.assign(request, {
+              razorpay_payment_id: payment.id,
+              razorpay_signature: crypto
+                .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
+                .update(`${razorpay_order_id}|${payment.id}`)
+                .digest('hex')
+            });
+          } else {
+            logger.error('No payment found for paid order:', razorpay_order_id);
+            return NextResponse.json(
+              { error: 'Payment verification pending' },
+              { status: 202, headers: responseHeaders }
+            );
+          }
+        } else {
+          logger.info('Order not yet paid:', { order_id: razorpay_order_id, status: order.status });
+          return NextResponse.json(
+            { error: 'Payment verification pending' },
+            { status: 202, headers: responseHeaders }
+          );
+        }
+      } catch (error) {
+        logger.error('Error fetching order status:', error);
+        return NextResponse.json(
+          { error: 'Failed to verify payment status' },
+          { status: 500, headers: responseHeaders }
+        );
+      }
+    }
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       logger.error('Missing payment verification details');
