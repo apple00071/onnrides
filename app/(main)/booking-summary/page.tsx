@@ -211,13 +211,14 @@ export default function BookingSummaryPage() {
         prefill: {
           name: session?.user?.name || '',
           email: session?.user?.email || '',
-          contact: (session?.user as any)?.phoneNumber || ''
+          contact: session?.user?.phone || ''
         },
         notes: {
           booking_id: data.data.bookingId,
           vehicle_name: bookingDetails.vehicleName,
-          user_id: (session?.user as any)?.id || '',
-          user_email: session?.user?.email || ''
+          user_id: session?.user?.id || '',
+          user_email: session?.user?.email || '',
+          user_phone: session?.user?.phone || ''
         },
         config: {
           display: {
@@ -282,31 +283,21 @@ export default function BookingSummaryPage() {
             // Start polling for payment status
             const pollPaymentStatus = async () => {
               try {
-                const verifyResponse = await fetch(`${baseURL}/api/payment/verify`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    razorpay_order_id: data.order_id,
-                    booking_id: options.notes.booking_id
-                  }),
-                  credentials: 'include'
+                const success = await verifyPayment({
+                  razorpay_order_id: data.order_id,
+                  booking_id: options.notes.booking_id
                 });
 
-                if (verifyResponse.ok) {
-                  const result = await verifyResponse.json();
-                  if (result.success) {
-                    localStorage.removeItem('pendingOrder');
-                    toast.success('Payment successful! Redirecting...');
-                    setTimeout(() => {
-                      window.location.href = '/bookings';
-                    }, 2000);
-                    return;
-                  }
+                if (success) {
+                  localStorage.removeItem('pendingOrder');
+                  toast.success('Payment successful! Redirecting...');
+                  setTimeout(() => {
+                    window.location.href = '/bookings';
+                  }, 2000);
+                  return;
                 }
-                
-                // If not successful, poll again after 5 seconds
+
+                // If not successful and haven't exceeded max retries, poll again
                 setTimeout(pollPaymentStatus, 5000);
               } catch (error) {
                 console.error('Error polling payment status:', error);
@@ -358,28 +349,59 @@ export default function BookingSummaryPage() {
       };
 
       // Function to verify payment
-      const verifyPayment = async (paymentInfo: any) => {
-        try {
-          const verifyResponse = await fetch(`${baseURL}/api/payment/verify`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(paymentInfo),
-            credentials: 'include'
-          });
+      const verifyPayment = async (paymentInfo: any, maxRetries = 3) => {
+        let attempt = 0;
+        const baseURL = process.env.NEXT_PUBLIC_VERCEL_URL 
+          ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+          : process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
 
-          if (!verifyResponse.ok) {
-            console.error('Verification failed:', await verifyResponse.json());
-            return false;
+        while (attempt < maxRetries) {
+          try {
+            const verifyResponse = await fetch(`${baseURL}/api/payment/verify`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(paymentInfo),
+              credentials: 'include'
+            });
+
+            const data = await verifyResponse.json();
+
+            // If successful, return immediately
+            if (verifyResponse.ok && data.success) {
+              return true;
+            }
+
+            // Handle rate limit (429) with exponential backoff
+            if (verifyResponse.status === 429) {
+              const retryAfter = Number(verifyResponse.headers.get('Retry-After')) || Math.pow(2, attempt + 1);
+              toast.error(`Too many requests. Retrying in ${retryAfter} seconds...`);
+              await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+              attempt++;
+              continue;
+            }
+
+            // For 202 (Payment Pending), wait and retry
+            if (verifyResponse.status === 202) {
+              const retryAfter = Number(verifyResponse.headers.get('Retry-After')) || 5;
+              await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+              attempt++;
+              continue;
+            }
+
+            // For other errors, throw
+            throw new Error(data.error || 'Verification failed');
+          } catch (error) {
+            console.error('Error verifying payment:', error);
+            if (attempt === maxRetries - 1) {
+              throw error;
+            }
+            attempt++;
+            await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Exponential backoff
           }
-
-          const verifyResult = await verifyResponse.json();
-          return verifyResult.success;
-        } catch (error) {
-          console.error('Error verifying payment:', error);
-          return false;
         }
+        return false;
       };
 
       // Create Razorpay instance
