@@ -10,14 +10,22 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET || ''
 });
 
+// Import Razorpay utils for verification
+const { validatePaymentVerification } = require('razorpay/dist/utils/razorpay-utils');
+
 // Helper function to verify Razorpay signature
 const verifySignature = (orderId: string, paymentId: string, signature: string) => {
-  const text = `${orderId}|${paymentId}`;
-  const generated_signature = crypto
-    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
-    .update(text)
-    .digest('hex');
-  return generated_signature === signature;
+  try {
+    // Use Razorpay's official validation utility
+    return validatePaymentVerification(
+      { "order_id": orderId, "payment_id": paymentId },
+      signature,
+      process.env.RAZORPAY_KEY_SECRET || ''
+    );
+  } catch (error) {
+    logger.error('Signature verification failed:', error);
+    return false;
+  }
 };
 
 // Helper function to get CORS headers
@@ -175,6 +183,36 @@ async function updateBooking(bookingId: string | undefined, paymentDetails: any)
   }
 }
 
+// Helper function to handle Razorpay API calls with retry
+async function handleRazorpayRequest(requestFn: () => Promise<any>, maxRetries = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await requestFn();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Log the error
+      logger.error('Razorpay API error:', {
+        attempt,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        status: error.statusCode
+      });
+
+      // If it's a rate limit error (429), wait before retrying
+      if (error.statusCode === 429) {
+        const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 8000); // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+
+      // For other errors, throw immediately
+      throw error;
+    }
+  }
+  throw lastError;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const responseHeaders = getCorsHeaders(request.headers.get('origin'));
@@ -206,13 +244,17 @@ export async function POST(request: NextRequest) {
       try {
         logger.info('QR code payment detected, checking order status...');
         
-        // Fetch order details from Razorpay
-        const order = await razorpay.orders.fetch(razorpay_order_id);
+        // Fetch order details from Razorpay with retry mechanism
+        const order = await handleRazorpayRequest(
+          () => razorpay.orders.fetch(razorpay_order_id)
+        );
         logger.info('Razorpay order details:', order);
 
         if (order.status === 'paid') {
-          // Get payment details for the order
-          const payments = await razorpay.orders.fetchPayments(razorpay_order_id);
+          // Get payment details for the order with retry mechanism
+          const payments = await handleRazorpayRequest(
+            () => razorpay.orders.fetchPayments(razorpay_order_id)
+          );
           logger.info('Razorpay payments for order:', payments);
           
           if (payments.items && payments.items.length > 0) {
@@ -268,27 +310,53 @@ export async function POST(request: NextRequest) {
           }
         }
         
-        // If order is not paid yet or no payment found
-        logger.info('Order not yet paid or payment not found:', {
-          orderId: razorpay_order_id,
-          status: order.status
-        });
-        
+        // If order is not paid yet
         return NextResponse.json({
           error: 'Payment pending',
           status: order.status,
-          message: 'Please complete the payment in your UPI app'
-        }, { status: 202, headers: responseHeaders });
-      } catch (error) {
+          message: 'Please complete the payment in your UPI app',
+          retryAfter: 5 // Suggest client to retry after 5 seconds
+        }, { 
+          status: 202,
+          headers: {
+            ...responseHeaders,
+            'Retry-After': '5'
+          }
+        });
+      } catch (error: any) {
+        // Handle specific Razorpay errors
+        if (error.statusCode === 429) {
+          return NextResponse.json({
+            error: 'Too many requests',
+            message: 'Please wait a moment before trying again',
+            retryAfter: 30
+          }, { 
+            status: 429,
+            headers: {
+              ...responseHeaders,
+              'Retry-After': '30'
+            }
+          });
+        }
+
         logger.error('Error fetching Razorpay order:', {
           error: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined,
-          orderId: razorpay_order_id
+          orderId: razorpay_order_id,
+          statusCode: error.statusCode
         });
+
         return NextResponse.json({
           error: 'Failed to verify payment with Razorpay',
-          message: 'Error checking payment status'
-        }, { status: 500, headers: responseHeaders });
+          message: 'Error checking payment status',
+          retryAfter: 10
+        }, { 
+          status: error.statusCode || 500,
+          headers: {
+            ...responseHeaders,
+            'Retry-After': '10'
+          }
+        });
       }
     }
 
