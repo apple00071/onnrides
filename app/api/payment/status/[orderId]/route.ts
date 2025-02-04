@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Razorpay from 'razorpay';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import Razorpay from 'razorpay';
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -19,10 +21,14 @@ interface RazorpayOrder {
   receipt: string;
 }
 
+// New route segment config
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { orderId: string } }
-) {
+): Promise<Response> {
   try {
     const { orderId } = params;
     if (!orderId) {

@@ -3,7 +3,18 @@ import crypto from 'crypto';
 import { query } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
-export async function POST(request: NextRequest) {
+// New route segment config
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+// Remove old config if it exists
+// export const config = {
+//   api: {
+//     bodyParser: false,
+//   },
+// };
+
+export async function POST(request: NextRequest): Promise<Response> {
   try {
     const body = await request.text();
     const signature = request.headers.get('x-razorpay-signature');

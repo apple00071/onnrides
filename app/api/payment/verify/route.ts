@@ -5,6 +5,10 @@ import { query } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { validatePaymentVerification } from '@/lib/razorpay';
 
+// New route segment config
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest): Promise<Response> {
   try {
     logger.info('Payment verification request received');

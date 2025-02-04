@@ -5,13 +5,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { createOrder } from '@/lib/razorpay';
 
-export const config = {
-  api: {
-    bodyParser: true,
-  },
-};
+// New route segment config
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<Response> {
   let bookingId: string | null = null;
 
   try {
