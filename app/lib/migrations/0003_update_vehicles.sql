@@ -21,13 +21,15 @@ CREATE TABLE bookings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
-  start_date TIMESTAMP NOT NULL,
-  end_date TIMESTAMP NOT NULL,
-  total_price INTEGER NOT NULL,
+  start_time TIMESTAMP NOT NULL,
+  end_time TIMESTAMP NOT NULL,
+  total_hours INTEGER NOT NULL,
+  total_amount DECIMAL(10,2) NOT NULL,
   status TEXT DEFAULT 'pending',
   payment_status TEXT DEFAULT 'pending',
   payment_intent_id TEXT,
   notes TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT valid_booking_dates CHECK (end_time > start_time)
 ); 

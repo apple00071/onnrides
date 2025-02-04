@@ -22,8 +22,7 @@ interface BookingSummary {
 
 function PendingPaymentAlert({ payment, onClose }: { 
   payment: { 
-    razorpay_order_id: string; 
-    razorpay_payment_id: string; 
+    order_id: string;
     timestamp: string;
   }; 
   onClose: () => void;
@@ -41,7 +40,7 @@ function PendingPaymentAlert({ payment, onClose }: {
             Unverified Payment Found
           </p>
           <p className="mt-1 text-sm text-yellow-700">
-            Payment ID: {payment.razorpay_payment_id}
+            Order ID: {payment.order_id}
           </p>
           <p className="mt-1 text-xs text-yellow-600">
             Time: {new Date(payment.timestamp).toLocaleString()}
@@ -49,13 +48,12 @@ function PendingPaymentAlert({ payment, onClose }: {
           <div className="mt-2">
             <button
               onClick={() => {
-                // Copy payment ID to clipboard
-                navigator.clipboard.writeText(payment.razorpay_payment_id);
-                toast.success('Payment ID copied to clipboard');
+                navigator.clipboard.writeText(payment.order_id);
+                toast.success('Order ID copied to clipboard');
               }}
               className="text-sm font-medium text-yellow-800 hover:text-yellow-700"
             >
-              Copy Payment ID
+              Copy Order ID
             </button>
           </div>
         </div>
@@ -155,61 +153,135 @@ export default function BookingSummaryPage() {
 
   const handleConfirmBooking = async () => {
     try {
+      if (!session?.user) {
+        toast.error('Please sign in to continue');
+        return;
+      }
+
+      if (!bookingDetails) {
+        toast.error('Booking details not found');
+        return;
+      }
+
       setIsLoading(true);
-      
+
+      // Log the request payload
       const payload = {
-        amount: totalPrice,
-        bookingDetails: {
-          vehicleId: bookingDetails.vehicleId,
-          location: bookingDetails.location,
-          pickupDateTime: pickupDateTime.toISOString(),
-          dropoffDateTime: dropoffDateTime.toISOString(),
-          duration: effectiveDuration,
-          basePrice,
-          gst,
-          serviceFee,
-          totalPrice,
-          vehicleName: bookingDetails.vehicleName
+        vehicleId: bookingDetails.vehicleId,
+        pickupDate: `${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`,
+        dropoffDate: `${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`,
+        customerDetails: {
+          name: session.user.name || 'Guest',
+          email: session.user.email || '',
+          phone: (session.user as any)?.phone || ''
         },
+        totalPrice: totalPrice
       };
-      
       console.log('Creating booking with payload:', payload);
 
-      // Create order
-      const response = await fetch('/api/payment/create-order', {
+      // Create booking
+      const createBookingResponse = await fetch('/api/bookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload)
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        console.error('Failed to create booking:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData
-        });
-        throw new Error(errorData?.error || 'Failed to create booking');
+      // Log the raw response
+      console.log('Booking API response status:', createBookingResponse.status);
+      const responseText = await createBookingResponse.text();
+      console.log('Booking API raw response:', responseText);
+
+      if (!createBookingResponse.ok) {
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch (e) {
+          console.error('Failed to parse error response:', e);
+          throw new Error('Invalid error response from server');
+        }
+        const errorMessage = errorData.details || errorData.error || errorData.message || 'Failed to create booking';
+        console.error('Booking creation failed:', errorData);
+        toast.error(errorMessage);
+        throw new Error(errorMessage);
       }
 
-      const data = await response.json();
-      console.log('Booking created successfully:', data);
+      let response;
+      try {
+        response = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse success response:', e);
+        throw new Error('Invalid response from server');
+      }
 
-      // Store booking info for verification
-      const bookingInfo = {
-        order_id: data.data.orderId,
-        booking_id: data.data.bookingId,
+      if (!response.success || !response.data) {
+        console.error('Invalid response structure:', response);
+        throw new Error('Invalid response from server');
+      }
+
+      const { data } = response;
+      console.log('Booking created successfully:', data);
+      
+      // Store order info
+      const orderInfo = {
+        order_id: data.orderId,
+        booking_id: data.bookingId,
+        amount: data.amount,
         timestamp: new Date().toISOString()
       };
-      localStorage.setItem('pendingBooking', JSON.stringify(bookingInfo));
+      console.log('Storing order info:', orderInfo);
+      localStorage.setItem('pendingPayment', JSON.stringify(orderInfo));
 
-      // Redirect to Cashfree payment page
-      window.location.href = data.data.paymentUrl;
-      
+      // Check if Razorpay is loaded
+      if (!(window as any).Razorpay) {
+        console.error('Razorpay SDK not found');
+        throw new Error('Razorpay SDK not loaded');
+      }
+
+      // Initialize Razorpay
+      const options = {
+        key: data.key,
+        amount: data.amount,
+        currency: data.currency,
+        name: "OnnRides",
+        description: "Vehicle Rental Payment",
+        order_id: data.orderId,
+        handler: function (response: any) {
+          console.log('Payment successful:', response);
+          window.location.href = `/payment-status?reference=${response.razorpay_payment_id}`;
+        },
+        prefill: {
+          name: session.user.name || '',
+          email: session.user.email || '',
+          contact: (session.user as any)?.phone || ''
+        },
+        theme: {
+          color: "#f97316"
+        },
+        modal: {
+          ondismiss: function() {
+            console.log('Payment modal dismissed');
+            setIsLoading(false);
+          }
+        }
+      };
+      console.log('Initializing Razorpay with options:', options);
+
+      const razorpay = new (window as any).Razorpay(options);
+      razorpay.on('payment.failed', function (response: any) {
+        console.error('Payment failed:', response.error);
+        toast.error('Payment failed: ' + response.error.description);
+        setIsLoading(false);
+      });
+
+      razorpay.open();
     } catch (error) {
-      console.error('Error in handleConfirmBooking:', error);
+      console.error('Error in handleConfirmBooking:', {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       toast.error(error instanceof Error ? error.message : 'Failed to create booking');
       setIsLoading(false);
     }

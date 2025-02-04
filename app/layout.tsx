@@ -6,7 +6,8 @@ import { Toaster } from 'react-hot-toast';
 import { Providers } from './providers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import Script from 'next/script';
+import { AuthProvider } from '@/providers/AuthProvider';
+import { ScriptLoader } from '@/components/ScriptLoader';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,13 +23,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  let session;
-  try {
-    session = await getServerSession(authOptions);
-  } catch (error) {
-    logger.error('Session error:', error);
-    session = null;
-  }
+  const session = await getServerSession(authOptions);
 
   return (
     <html lang="en">
@@ -40,17 +35,16 @@ export default async function RootLayout({
           type="font/woff2" 
           crossOrigin="anonymous"
         />
+        <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
       </head>
       <body className={inter.className}>
-        <Providers session={session}>
-          <Toaster position="top-center" />
-          {children}
-          <Script 
-            src="https://checkout.razorpay.com/v1/checkout.js"
-            strategy="lazyOnload"
-            id="razorpay-script"
-          />
-        </Providers>
+        <AuthProvider>
+          <Providers session={session}>
+            <Toaster position="bottom-center" />
+            {children}
+            <ScriptLoader />
+          </Providers>
+        </AuthProvider>
       </body>
     </html>
   );
