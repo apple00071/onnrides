@@ -157,9 +157,8 @@ export default function BookingSummaryPage() {
     try {
       setIsLoading(true);
       
-      // Log the request payload
       const payload = {
-        amount: totalPrice, // This is already in rupees
+        amount: totalPrice,
         bookingDetails: {
           vehicleId: bookingDetails.vehicleId,
           location: bookingDetails.location,
@@ -170,6 +169,7 @@ export default function BookingSummaryPage() {
           gst,
           serviceFee,
           totalPrice,
+          vehicleName: bookingDetails.vehicleName
         },
       };
       
@@ -196,226 +196,22 @@ export default function BookingSummaryPage() {
 
       const data = await response.json();
       console.log('Booking created successfully:', data);
-      
-      // Get the absolute URL for the live site
-      const baseURL = 'https://onnrides.vercel.app';
-      
-      // Initialize Razorpay
-      const options = {
-        key: data.data.key,
-        amount: data.data.amount,
-        currency: data.data.currency,
-        name: 'OnnRides',
-        description: `Booking for ${bookingDetails.vehicleName}`,
+
+      // Store booking info for verification
+      const bookingInfo = {
         order_id: data.data.orderId,
-        prefill: {
-          name: session?.user?.name || '',
-          email: session?.user?.email || '',
-          contact: session?.user?.phone || ''
-        },
-        notes: {
-          booking_id: data.data.bookingId,
-          vehicle_name: bookingDetails.vehicleName,
-          user_id: session?.user?.id || '',
-          user_email: session?.user?.email || '',
-          user_phone: session?.user?.phone || ''
-        },
-        config: {
-          display: {
-            blocks: {
-              banks: {
-                name: 'Pay via Bank',
-                instruments: [
-                  {
-                    method: 'card',
-                    flows: ['popup']
-                  },
-                  {
-                    method: 'netbanking'
-                  }
-                ]
-              },
-              wallets: {
-                name: 'Pay via Wallet',
-                instruments: [
-                  {
-                    method: 'wallet'
-                  }
-                ]
-              },
-              upi: {
-                name: 'Pay using UPI',
-                instruments: [
-                  {
-                    method: 'upi',
-                    flows: ['collect', 'qr']
-                  }
-                ]
-              }
-            },
-            sequence: ['block.upi', 'block.wallets', 'block.banks'],
-            preferences: {
-              show_default_blocks: true
-            }
-          }
-        },
-        modal: {
-          confirm_close: true,
-          ondismiss: function() {
-            setIsLoading(false);
-            toast.error('Payment cancelled. Please try again.');
-          },
-          escape: false,
-          animation: true,
-          handleExternalPayment: function(data: any) {
-            // This handles UPI QR code payments
-            console.log('External payment initiated:', data);
-            toast.success('Payment initiated! Please complete the payment in your UPI app.');
-            
-            // Store order info for verification
-            const orderInfo = {
-              order_id: data.order_id,
-              booking_id: options.notes.booking_id,
-              timestamp: new Date().toISOString()
-            };
-            localStorage.setItem('pendingOrder', JSON.stringify(orderInfo));
-            
-            // Start polling for payment status
-            const pollPaymentStatus = async () => {
-              try {
-                const success = await verifyPayment({
-                  razorpay_order_id: data.order_id,
-                  booking_id: options.notes.booking_id
-                });
-
-                if (success) {
-                  localStorage.removeItem('pendingOrder');
-                  toast.success('Payment successful! Redirecting...');
-                  setTimeout(() => {
-                    window.location.href = '/bookings';
-                  }, 2000);
-                  return;
-                }
-
-                // If not successful and haven't exceeded max retries, poll again
-                setTimeout(pollPaymentStatus, 5000);
-              } catch (error) {
-                console.error('Error polling payment status:', error);
-                setTimeout(pollPaymentStatus, 5000);
-              }
-            };
-
-            // Start polling
-            pollPaymentStatus();
-          }
-        },
-        handler: function(response: any) {
-          console.log('Payment successful, verifying...', response);
-          
-          // Store payment info immediately
-          const paymentInfo = {
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-            booking_id: data.data.bookingId,
-            timestamp: new Date().toISOString()
-          };
-          
-          localStorage.setItem('pendingPayment', JSON.stringify(paymentInfo));
-          
-          // Show success message immediately
-          toast.success('Payment received! Verifying...');
-          
-          // Verify payment
-          verifyPayment(paymentInfo).then((success) => {
-            if (success) {
-              localStorage.removeItem('pendingPayment');
-              toast.success('Booking confirmed! Redirecting...');
-              setTimeout(() => {
-                window.location.href = '/bookings';
-              }, 2000);
-            } else {
-              toast.error(
-                'Payment verification failed. Please contact support with your payment ID: ' + 
-                response.razorpay_payment_id
-              );
-              setPendingPayment(paymentInfo);
-            }
-          });
-        },
-        theme: {
-          color: '#f26e24',
-        },
+        booking_id: data.data.bookingId,
+        timestamp: new Date().toISOString()
       };
+      localStorage.setItem('pendingBooking', JSON.stringify(bookingInfo));
 
-      // Function to verify payment
-      const verifyPayment = async (paymentInfo: any, maxRetries = 3) => {
-        let attempt = 0;
-        const baseURL = process.env.NEXT_PUBLIC_VERCEL_URL 
-          ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-          : process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-
-        while (attempt < maxRetries) {
-          try {
-            const verifyResponse = await fetch(`${baseURL}/api/payment/verify`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(paymentInfo),
-              credentials: 'include'
-            });
-
-            const data = await verifyResponse.json();
-
-            // If successful, return immediately
-            if (verifyResponse.ok && data.success) {
-              return true;
-            }
-
-            // Handle rate limit (429) with exponential backoff
-            if (verifyResponse.status === 429) {
-              const retryAfter = Number(verifyResponse.headers.get('Retry-After')) || Math.pow(2, attempt + 1);
-              toast.error(`Too many requests. Retrying in ${retryAfter} seconds...`);
-              await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
-              attempt++;
-              continue;
-            }
-
-            // For 202 (Payment Pending), wait and retry
-            if (verifyResponse.status === 202) {
-              const retryAfter = Number(verifyResponse.headers.get('Retry-After')) || 5;
-              await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
-              attempt++;
-              continue;
-            }
-
-            // For other errors, throw
-            throw new Error(data.error || 'Verification failed');
-          } catch (error) {
-            console.error('Error verifying payment:', error);
-            if (attempt === maxRetries - 1) {
-              throw error;
-            }
-            attempt++;
-            await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Exponential backoff
-          }
-        }
-        return false;
-      };
-
-      // Create Razorpay instance
-      const razorpay = new (window as any).Razorpay(options);
-      razorpay.on('payment.failed', function(resp: any) {
-        console.error('Payment failed:', resp);
-        toast.error('Payment failed. Please try again.');
-        setIsLoading(false);
-      });
+      // Redirect to Cashfree payment page
+      window.location.href = data.data.paymentUrl;
       
-      razorpay.open();
     } catch (error) {
       console.error('Error in handleConfirmBooking:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create booking');
+      setIsLoading(false);
     }
   };
 

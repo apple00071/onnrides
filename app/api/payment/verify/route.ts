@@ -109,73 +109,61 @@ async function findBooking(orderId: string, bookingId?: string) {
   }
 }
 
-// Helper function to update booking
-async function updateBooking(bookingId: string | undefined, paymentDetails: any) {
+// Helper function to verify Cashfree payment
+async function verifyCashfreePayment(orderId: string, orderToken: string) {
   try {
-    // First find the booking
-    const booking = await findBooking(paymentDetails.razorpay_order_id, bookingId);
-    
-    if (!booking) {
-      logger.error('No booking found to update:', {
-        providedBookingId: bookingId,
-        orderId: paymentDetails.razorpay_order_id,
-        paymentId: paymentDetails.razorpay_payment_id
-      });
-      throw new Error('No booking found');
-    }
-
-    // Log current booking state
-    logger.info('Found booking to update:', {
-      bookingId: booking.id,
-      currentStatus: booking.status,
-      currentPaymentStatus: booking.payment_status,
-      paymentDetails: booking.payment_details
+    const response = await fetch(`https://api.cashfree.com/pg/orders/${orderId}`, {
+      method: 'GET',
+      headers: {
+        'x-client-id': process.env.CASHFREE_APP_ID!,
+        'x-client-secret': process.env.CASHFREE_SECRET_KEY!,
+        'x-api-version': '2022-09-01'
+      }
     });
 
-    // Only update if not already confirmed
-    if (booking.status === 'confirmed' && booking.payment_status === 'completed') {
-      logger.info('Booking already confirmed:', booking);
-      return booking;
+    if (!response.ok) {
+      throw new Error('Failed to verify payment with Cashfree');
     }
 
-    // Merge existing payment details with new ones
-    const existingDetails = typeof booking.payment_details === 'string' 
-      ? JSON.parse(booking.payment_details) 
-      : (booking.payment_details || {});
-      
-    const updatedDetails = {
-      ...existingDetails,
-      ...paymentDetails,
-      verified_at: new Date().toISOString(),
-      environment: process.env.NODE_ENV
-    };
+    const data = await response.json();
+    logger.info('Cashfree payment status:', data);
 
+    return {
+      success: data.order_status === 'PAID',
+      data
+    };
+  } catch (error) {
+    logger.error('Cashfree verification error:', error);
+    throw error;
+  }
+}
+
+// Helper function to update booking
+async function updateBooking(bookingId: string, paymentDetails: any) {
+  try {
     const result = await query(
       `UPDATE bookings 
-       SET status = 'confirmed',
-           payment_status = 'completed',
-           payment_details = $1::jsonb,
+       SET status = $1,
+           payment_status = $2,
+           payment_details = payment_details || $3::jsonb,
            updated_at = NOW()
-       WHERE id = $2 
+       WHERE id = $4 
        RETURNING id, status, payment_status, payment_details`,
-      [JSON.stringify(updatedDetails), booking.id]
+      [
+        'confirmed',
+        'completed',
+        JSON.stringify({
+          payment_completed_at: new Date().toISOString(),
+          cashfree_payment_details: paymentDetails
+        }),
+        bookingId
+      ]
     );
 
     if (result.rowCount === 0) {
-      logger.error('Failed to update booking:', {
-        bookingId: booking.id,
-        paymentDetails: updatedDetails
-      });
-      throw new Error('Failed to update booking');
+      throw new Error('No booking found to update');
     }
 
-    logger.info('Booking updated successfully:', {
-      bookingId: booking.id,
-      newStatus: result.rows[0].status,
-      newPaymentStatus: result.rows[0].payment_status,
-      updatedDetails
-    });
-    
     return result.rows[0];
   } catch (error) {
     logger.error('Failed to update booking:', error);
@@ -219,185 +207,34 @@ export async function POST(request: NextRequest) {
 
     // Get request body
     const body = await request.json();
-    logger.info('Payment verification request received:', {
-      ...body,
-      headers: Object.fromEntries(request.headers.entries())
-    });
+    logger.info('Payment verification request received:', body);
 
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      booking_id
-    } = body;
+    const { order_id, order_token, booking_id } = body;
 
-    // Log all input parameters
-    logger.info('Processing payment verification:', {
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
-      signature: razorpay_signature,
-      bookingId: booking_id
-    });
-
-    // Handle QR code payments
-    if (razorpay_order_id && !razorpay_payment_id) {
-      try {
-        logger.info('QR code payment detected, checking order status...');
-        
-        // Fetch order details from Razorpay with retry mechanism
-        const order = await handleRazorpayRequest(
-          () => razorpay.orders.fetch(razorpay_order_id)
-        );
-        logger.info('Razorpay order details:', order);
-
-        if (order.status === 'paid') {
-          // Get payment details for the order with retry mechanism
-          const payments = await handleRazorpayRequest(
-            () => razorpay.orders.fetchPayments(razorpay_order_id)
-          );
-          logger.info('Razorpay payments for order:', payments);
-          
-          if (payments.items && payments.items.length > 0) {
-            const payment = payments.items[0];
-            // Generate signature for the payment
-            const signature = crypto
-              .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
-              .update(`${razorpay_order_id}|${payment.id}`)
-              .digest('hex');
-
-            try {
-              // Update booking with QR payment details
-              const updatedBooking = await updateBooking(booking_id, {
-                razorpay_order_id,
-                razorpay_payment_id: payment.id,
-                razorpay_signature: signature,
-                payment_method: 'qr',
-                order_status: order.status,
-                payment_time: new Date().toISOString()
-              });
-
-              logger.info('QR code payment verified successfully:', {
-                bookingId: updatedBooking.id,
-                status: updatedBooking.status,
-                paymentStatus: updatedBooking.payment_status
-              });
-
-              return NextResponse.json({
-                success: true,
-                message: 'QR code payment verified successfully',
-                data: {
-                  bookingId: updatedBooking.id,
-                  status: updatedBooking.status,
-                  paymentId: payment.id
-                }
-              }, { headers: responseHeaders });
-            } catch (updateError) {
-              logger.error('Error updating booking for QR payment:', {
-                error: updateError instanceof Error ? updateError.message : 'Unknown error',
-                stack: updateError instanceof Error ? updateError.stack : undefined,
-                orderId: razorpay_order_id,
-                paymentId: payment.id
-              });
-
-              return NextResponse.json({
-                error: 'Failed to update booking for QR payment',
-                details: {
-                  orderId: razorpay_order_id,
-                  paymentId: payment.id
-                }
-              }, { status: 500, headers: responseHeaders });
-            }
-          }
-        }
-        
-        // If order is not paid yet
-        return NextResponse.json({
-          error: 'Payment pending',
-          status: order.status,
-          message: 'Please complete the payment in your UPI app',
-          retryAfter: 5 // Suggest client to retry after 5 seconds
-        }, { 
-          status: 202,
-          headers: {
-            ...responseHeaders,
-            'Retry-After': '5'
-          }
-        });
-      } catch (error: any) {
-        // Handle specific Razorpay errors
-        if (error.statusCode === 429) {
-          return NextResponse.json({
-            error: 'Too many requests',
-            message: 'Please wait a moment before trying again',
-            retryAfter: 30
-          }, { 
-            status: 429,
-            headers: {
-              ...responseHeaders,
-              'Retry-After': '30'
-            }
-          });
-        }
-
-        logger.error('Error fetching Razorpay order:', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined,
-          orderId: razorpay_order_id,
-          statusCode: error.statusCode
-        });
-
-        return NextResponse.json({
-          error: 'Failed to verify payment with Razorpay',
-          message: 'Error checking payment status',
-          retryAfter: 10
-        }, { 
-          status: error.statusCode || 500,
-          headers: {
-            ...responseHeaders,
-            'Retry-After': '10'
-          }
-        });
-      }
-    }
-
-    // For direct VPA payments
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      logger.error('Missing payment details:', { body });
+    if (!order_id || !order_token) {
       return NextResponse.json(
         { error: 'Missing payment details' },
         { status: 400, headers: responseHeaders }
       );
     }
 
-    // Verify signature first
-    const isValidSignature = verifySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
-    logger.info('Signature verification result:', { 
-      isValid: isValidSignature,
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id
-    });
-
-    if (!isValidSignature) {
-      logger.error('Invalid payment signature:', {
-        orderId: razorpay_order_id,
-        paymentId: razorpay_payment_id,
-        signature: razorpay_signature
+    // Verify payment with Cashfree
+    const verificationResult = await verifyCashfreePayment(order_id, order_token);
+    
+    if (!verificationResult.success) {
+      return NextResponse.json({
+        error: 'Payment verification failed',
+        status: verificationResult.data.order_status,
+        message: 'Payment was not successful'
+      }, { 
+        status: 400,
+        headers: responseHeaders
       });
-      return NextResponse.json(
-        { error: 'Invalid payment signature' },
-        { status: 400, headers: responseHeaders }
-      );
     }
 
+    // Update booking status
     try {
-      // Update booking
-      const updatedBooking = await updateBooking(booking_id, {
-        razorpay_order_id,
-        razorpay_payment_id,
-        razorpay_signature,
-        payment_method: 'vpa',
-        payment_time: new Date().toISOString()
-      });
+      const updatedBooking = await updateBooking(booking_id, verificationResult.data);
 
       logger.info('Payment verification completed successfully:', {
         bookingId: updatedBooking.id,
@@ -419,18 +256,17 @@ export async function POST(request: NextRequest) {
         error: updateError instanceof Error ? updateError.message : 'Unknown error',
         stack: updateError instanceof Error ? updateError.stack : undefined,
         bookingId: booking_id,
-        orderId: razorpay_order_id
+        orderId: order_id
       });
 
       return NextResponse.json({
         error: updateError instanceof Error ? updateError.message : 'Failed to update booking',
         details: {
           bookingId: booking_id,
-          orderId: razorpay_order_id
+          orderId: order_id
         }
       }, { status: 500, headers: responseHeaders });
     }
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : undefined;

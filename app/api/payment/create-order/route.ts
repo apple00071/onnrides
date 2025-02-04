@@ -2,20 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
-import Razorpay from 'razorpay';
 import { logger } from '@/lib/logger';
 
-// Validate Razorpay credentials
-if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-  logger.error('Missing Razorpay credentials');
-  throw new Error('Missing Razorpay credentials');
+// Validate Cashfree credentials
+if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+  logger.error('Missing Cashfree credentials');
+  throw new Error('Missing Cashfree credentials');
 }
-
-// Initialize Razorpay
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,7 +63,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate and fix amount (ensure it's in rupees, not paise)
+    // Validate amount
     const amountInRupees = Number(amount);
     if (isNaN(amountInRupees) || amountInRupees < 1) {
       logger.error('Invalid amount:', { amount, amountInRupees });
@@ -81,121 +74,93 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      logger.info('Creating booking record...', {
-        userId,
-        vehicleId: bookingDetails.vehicleId,
-        pickupDateTime: bookingDetails.pickupDateTime,
-        dropoffDateTime: bookingDetails.dropoffDateTime,
-        duration: bookingDetails.duration,
-        totalPrice: amountInRupees,
-        location: bookingDetails.location
-      });
-
       // Calculate total hours
       const pickupDate = new Date(bookingDetails.pickupDateTime);
       const dropoffDate = new Date(bookingDetails.dropoffDateTime);
       const totalHours = (dropoffDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60);
 
-      // First, create Razorpay order
-      const amountInPaise = Math.round(amountInRupees * 100);
-      logger.info('Creating Razorpay order...', {
-        amountInRupees,
-        amountInPaise,
-        currency: 'INR'
+      // Create Cashfree order
+      const orderId = `order_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const orderData = {
+        order_id: orderId,
+        order_amount: amountInRupees,
+        order_currency: "INR",
+        customer_details: {
+          customer_id: userId,
+          customer_name: session.user.name || '',
+          customer_email: session.user.email || '',
+          customer_phone: session.user.phone || ''
+        },
+        order_meta: {
+          return_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment-status?order_id={order_id}&order_token={order_token}`,
+          notify_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/webhook`
+        },
+        order_note: `Booking for ${bookingDetails.vehicleName}`
+      };
+
+      // Create order with Cashfree
+      const cashfreeResponse = await fetch('https://api.cashfree.com/pg/orders', {
+        method: 'POST',
+        headers: {
+          'x-client-id': process.env.CASHFREE_APP_ID!,
+          'x-client-secret': process.env.CASHFREE_SECRET_KEY!,
+          'x-api-version': '2022-09-01',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderData)
       });
 
-      // Add try-catch specifically for Razorpay order creation
-      let order;
-      try {
-        order = await razorpay.orders.create({
-          amount: amountInPaise,
-          currency: 'INR',
-          receipt: `booking_${Date.now()}`,
-          notes: {
-            user_id: userId,
-            vehicle_id: bookingDetails.vehicleId
-          }
-        });
-        logger.info('Razorpay order created:', { orderId: order.id });
-      } catch (razorpayError) {
-        logger.error('Razorpay order creation failed:', {
-          error: razorpayError instanceof Error ? razorpayError.message : 'Unknown error',
-          stack: razorpayError instanceof Error ? razorpayError.stack : undefined,
-          details: razorpayError
-        });
-        return NextResponse.json(
-          { error: 'Failed to create payment order. Please check your payment details.' },
-          { status: 500 }
-        );
+      if (!cashfreeResponse.ok) {
+        const errorData = await cashfreeResponse.json();
+        logger.error('Cashfree order creation failed:', errorData);
+        throw new Error('Failed to create payment order');
       }
 
-      // Then, create booking record
-      let bookingResult;
-      try {
-        bookingResult = await query(
-          `INSERT INTO bookings (
-            id,
-            user_id,
-            vehicle_id,
-            start_date,
-            end_date,
-            total_hours,
-            total_price,
-            status,
-            payment_status,
-            payment_details,
-            pickup_location,
-            created_at,
-            updated_at
-          ) VALUES (
-            gen_random_uuid(),
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-          )
-          RETURNING id`,
-          [
-            userId,
-            bookingDetails.vehicleId,
-            bookingDetails.pickupDateTime,
-            bookingDetails.dropoffDateTime,
-            totalHours,
-            amountInRupees,
-            'pending',
-            'pending',
-            JSON.stringify({
-              basePrice: Number(bookingDetails.basePrice),
-              gst: Number(bookingDetails.gst),
-              serviceFee: Number(bookingDetails.serviceFee),
-              totalPrice: amountInRupees,
-              razorpay_order_id: order.id
-            }),
-            bookingDetails.location
-          ]
-        );
-      } catch (dbError) {
-        logger.error('Database insertion failed:', {
-          error: dbError instanceof Error ? dbError.message : 'Unknown error',
-          stack: dbError instanceof Error ? dbError.stack : undefined,
-          details: dbError,
-          query: 'INSERT INTO bookings...',
-          params: [
-            userId,
-            bookingDetails.vehicleId,
-            bookingDetails.pickupDateTime,
-            bookingDetails.dropoffDateTime,
-            totalHours,
-            amountInRupees,
-            'pending',
-            'pending',
-            'payment details json',
-            bookingDetails.location
-          ]
-        });
-        return NextResponse.json(
-          { error: 'Failed to create booking record. Please try again.' },
-          { status: 500 }
-        );
-      }
+      const cashfreeOrder = await cashfreeResponse.json();
+      logger.info('Cashfree order created:', cashfreeOrder);
+
+      // Create booking record
+      const bookingResult = await query(
+        `INSERT INTO bookings (
+          id,
+          user_id,
+          vehicle_id,
+          start_date,
+          end_date,
+          total_hours,
+          total_price,
+          status,
+          payment_status,
+          payment_details,
+          pickup_location,
+          created_at,
+          updated_at
+        ) VALUES (
+          gen_random_uuid(),
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        )
+        RETURNING id`,
+        [
+          userId,
+          bookingDetails.vehicleId,
+          bookingDetails.pickupDateTime,
+          bookingDetails.dropoffDateTime,
+          totalHours,
+          amountInRupees,
+          'pending',
+          'pending',
+          JSON.stringify({
+            basePrice: Number(bookingDetails.basePrice),
+            gst: Number(bookingDetails.gst),
+            serviceFee: Number(bookingDetails.serviceFee),
+            totalPrice: amountInRupees,
+            cashfree_order_id: cashfreeOrder.order_id,
+            payment_session_id: cashfreeOrder.payment_session_id
+          }),
+          bookingDetails.location
+        ]
+      );
 
       const bookingId = bookingResult.rows[0].id;
       logger.info('Booking record created:', { bookingId });
@@ -204,32 +169,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: {
-          orderId: order.id,
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          amount: amountInPaise,
-          currency: 'INR'
+          orderId: cashfreeOrder.order_id,
+          sessionId: cashfreeOrder.payment_session_id,
+          paymentUrl: cashfreeOrder.payment_link,
+          bookingId
         }
       });
+
     } catch (error) {
-      logger.error('Database or Razorpay error:', {
+      logger.error('Payment processing error:', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        details: error
+        stack: error instanceof Error ? error.stack : undefined
       });
-      
-      // Log the full error object for debugging
-      console.error('Full error object:', error);
-      
       return NextResponse.json(
-        { error: 'Failed to process booking. Please try again.' },
+        { error: 'Failed to process payment. Please try again.' },
         { status: 500 }
       );
     }
   } catch (error) {
     logger.error('Server error:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      details: error
+      stack: error instanceof Error ? error.stack : undefined
     });
     return NextResponse.json(
       { error: 'Internal server error. Please try again.' },
