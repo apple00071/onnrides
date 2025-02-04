@@ -146,11 +146,11 @@ export default function BookingSummaryPage() {
   const isWeekend = pickupDateTime.getDay() === 0 || pickupDateTime.getDay() === 6;
   const minimumHours = isWeekend ? 24 : 12;
   const effectiveDuration = Math.max(duration, minimumHours);
-  const basePrice = Math.round(effectiveDuration * bookingDetails.pricePerHour);
+  const basePrice = effectiveDuration * bookingDetails.pricePerHour;
   
   // Calculate additional charges
-  const gst = Math.round(basePrice * 0.18);
-  const serviceFee = Math.round(basePrice * 0.05);
+  const gst = basePrice * 0.18;
+  const serviceFee = basePrice * 0.05;
   const totalPrice = basePrice + gst + serviceFee;
 
   const handleConfirmBooking = async () => {
@@ -211,8 +211,7 @@ export default function BookingSummaryPage() {
         prefill: {
           name: session?.user?.name || '',
           email: session?.user?.email || '',
-          contact: (session?.user as any)?.phoneNumber || '',
-          method: 'upi'
+          contact: (session?.user as any)?.phoneNumber || ''
         },
         notes: {
           booking_id: data.data.bookingId,
@@ -223,7 +222,27 @@ export default function BookingSummaryPage() {
         config: {
           display: {
             blocks: {
-              utib: {
+              banks: {
+                name: 'Pay via Bank',
+                instruments: [
+                  {
+                    method: 'card',
+                    flows: ['popup']
+                  },
+                  {
+                    method: 'netbanking'
+                  }
+                ]
+              },
+              wallets: {
+                name: 'Pay via Wallet',
+                instruments: [
+                  {
+                    method: 'wallet'
+                  }
+                ]
+              },
+              upi: {
                 name: 'Pay using UPI',
                 instruments: [
                   {
@@ -233,9 +252,9 @@ export default function BookingSummaryPage() {
                 ]
               }
             },
-            sequence: ['block.utib'],
+            sequence: ['block.upi', 'block.wallets', 'block.banks'],
             preferences: {
-              show_default_blocks: false
+              show_default_blocks: true
             }
           }
         },
@@ -457,19 +476,19 @@ export default function BookingSummaryPage() {
           <div className="space-y-4 mb-6">
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Vehicle Rental Charges</span>
-              <span className="font-medium">{formatCurrency(basePrice)}</span>
+              <span className="font-medium">₹{basePrice.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">GST (18%)</span>
-              <span className="font-medium">{formatCurrency(gst)}</span>
+              <span className="font-medium">₹{gst.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Service Fee (5%)</span>
-              <span className="font-medium">{formatCurrency(serviceFee)}</span>
+              <span className="font-medium">₹{serviceFee.toFixed(2)}</span>
             </div>
             <div className="border-t pt-4 flex justify-between items-center">
               <span className="font-semibold">Total Due</span>
-              <span className="font-bold text-lg">{formatCurrency(totalPrice)}</span>
+              <span className="font-bold text-lg">₹{totalPrice.toFixed(2)}</span>
             </div>
           </div>
 

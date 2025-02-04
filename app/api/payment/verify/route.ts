@@ -201,6 +201,97 @@ export async function POST(request: NextRequest) {
       bookingId: booking_id
     });
 
+    // Handle QR code payments
+    if (razorpay_order_id && !razorpay_payment_id) {
+      try {
+        logger.info('QR code payment detected, checking order status...');
+        
+        // Fetch order details from Razorpay
+        const order = await razorpay.orders.fetch(razorpay_order_id);
+        logger.info('Razorpay order details:', order);
+
+        if (order.status === 'paid') {
+          // Get payment details for the order
+          const payments = await razorpay.orders.fetchPayments(razorpay_order_id);
+          logger.info('Razorpay payments for order:', payments);
+          
+          if (payments.items && payments.items.length > 0) {
+            const payment = payments.items[0];
+            // Generate signature for the payment
+            const signature = crypto
+              .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
+              .update(`${razorpay_order_id}|${payment.id}`)
+              .digest('hex');
+
+            try {
+              // Update booking with QR payment details
+              const updatedBooking = await updateBooking(booking_id, {
+                razorpay_order_id,
+                razorpay_payment_id: payment.id,
+                razorpay_signature: signature,
+                payment_method: 'qr',
+                order_status: order.status,
+                payment_time: new Date().toISOString()
+              });
+
+              logger.info('QR code payment verified successfully:', {
+                bookingId: updatedBooking.id,
+                status: updatedBooking.status,
+                paymentStatus: updatedBooking.payment_status
+              });
+
+              return NextResponse.json({
+                success: true,
+                message: 'QR code payment verified successfully',
+                data: {
+                  bookingId: updatedBooking.id,
+                  status: updatedBooking.status,
+                  paymentId: payment.id
+                }
+              }, { headers: responseHeaders });
+            } catch (updateError) {
+              logger.error('Error updating booking for QR payment:', {
+                error: updateError instanceof Error ? updateError.message : 'Unknown error',
+                stack: updateError instanceof Error ? updateError.stack : undefined,
+                orderId: razorpay_order_id,
+                paymentId: payment.id
+              });
+
+              return NextResponse.json({
+                error: 'Failed to update booking for QR payment',
+                details: {
+                  orderId: razorpay_order_id,
+                  paymentId: payment.id
+                }
+              }, { status: 500, headers: responseHeaders });
+            }
+          }
+        }
+        
+        // If order is not paid yet or no payment found
+        logger.info('Order not yet paid or payment not found:', {
+          orderId: razorpay_order_id,
+          status: order.status
+        });
+        
+        return NextResponse.json({
+          error: 'Payment pending',
+          status: order.status,
+          message: 'Please complete the payment in your UPI app'
+        }, { status: 202, headers: responseHeaders });
+      } catch (error) {
+        logger.error('Error fetching Razorpay order:', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          orderId: razorpay_order_id
+        });
+        return NextResponse.json({
+          error: 'Failed to verify payment with Razorpay',
+          message: 'Error checking payment status'
+        }, { status: 500, headers: responseHeaders });
+      }
+    }
+
     // For direct VPA payments
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       logger.error('Missing payment details:', { body });

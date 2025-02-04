@@ -28,7 +28,6 @@ interface VehicleCardProps {
   pickupDateTime?: string;
   dropoffDateTime?: string;
   className?: string;
-  duration?: string;
 }
 
 export function VehicleCard({
@@ -38,7 +37,6 @@ export function VehicleCard({
   pickupDateTime,
   dropoffDateTime,
   className,
-  duration = "6 hours"
 }: VehicleCardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -245,10 +243,6 @@ export function VehicleCard({
                 <p>{dateTime.dropoff.date}</p>
               </div>
             </div>
-            <div className="text-sm">
-              <p className="text-gray-600">Duration</p>
-              <p>{actualDuration ? `${Math.floor(actualDuration / 24)} Days, ${actualDuration % 24} Hours` : ''}</p>
-            </div>
           </div>
         )}
 
@@ -291,7 +285,6 @@ export function VehicleCard({
             <div className="flex items-baseline gap-1">
               <span className="text-lg font-bold">₹{price.toFixed(2)}</span>
             </div>
-            <p className="text-sm text-gray-500">for {duration}</p>
           </div>
           <Button
             onClick={handleBookNow}
