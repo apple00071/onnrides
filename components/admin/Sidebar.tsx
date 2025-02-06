@@ -1,86 +1,104 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import Link, { LinkProps } from "next/link";
-import React, { useState, createContext, useContext } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import React, { createContext, useContext, useState } from 'react';
+import Link from 'next/link';
+import { FaChevronLeft } from 'react-icons/fa';
 import { signOut } from 'next-auth/react';
 import { FaSignOutAlt } from 'react-icons/fa';
+import { AnimatePresence, motion } from "framer-motion";
+import { Menu, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-interface Links {
-  label: string;
-  href: string;
-  icon: React.JSX.Element | React.ReactNode;
-}
-
-interface SidebarContextProps {
+type SidebarContextType = {
   open: boolean;
-  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setOpen: (open: boolean) => void;
   animate: boolean;
-}
-
-const SidebarContext = createContext<SidebarContextProps | undefined>(
-  undefined
-);
-
-export const useSidebar = () => {
-  const context = useContext(SidebarContext);
-  if (!context) {
-    throw new Error("useSidebar must be used within a SidebarProvider");
-  }
-  return context;
 };
 
-export const SidebarProvider = ({
-  children,
-  open: openProp,
-  setOpen: setOpenProp,
-  animate = true,
-}: {
-  children: React.ReactNode;
-  open?: boolean;
-  setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
-  animate?: boolean;
-}) => {
-  const [openState, setOpenState] = useState(false);
+const SidebarContext = createContext<SidebarContextType>({
+  open: true,
+  setOpen: () => {},
+  animate: false,
+});
 
-  const open = openProp !== undefined ? openProp : openState;
-  const setOpen = setOpenProp !== undefined ? setOpenProp : setOpenState;
+export function useSidebar() {
+  return useContext(SidebarContext);
+}
+
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(true);
+  const [animate, setAnimate] = useState(false);
+
+  React.useEffect(() => {
+    setAnimate(true);
+  }, []);
 
   return (
     <SidebarContext.Provider value={{ open, setOpen, animate }}>
       {children}
     </SidebarContext.Provider>
   );
-};
+}
 
-export const Sidebar = ({
-  children,
-  open,
-  setOpen,
-  animate,
-}: {
-  children: React.ReactNode;
-  open?: boolean;
-  setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
-  animate?: boolean;
-}) => {
+export function Sidebar({ children }: { children: React.ReactNode }) {
+  const { open, setOpen } = useSidebar();
+
   return (
-    <SidebarProvider open={open} setOpen={setOpen} animate={animate}>
+    <div
+      className={`h-screen bg-white border-r border-gray-200 transition-all duration-300 ${
+        open ? 'w-[300px]' : 'w-[60px]'
+      }`}
+    >
+      <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
+        <Link href="/admin/dashboard" className="flex items-center">
+          <span className={`font-bold text-xl text-[#f26e24] ${!open && 'hidden'}`}>
+            ONNRIDES
+          </span>
+        </Link>
+        <button
+          onClick={() => setOpen(!open)}
+          className="p-2 rounded-lg hover:bg-gray-100 focus:outline-none"
+        >
+          <FaChevronLeft
+            className={`h-5 w-5 text-gray-500 transition-transform ${
+              !open && 'transform rotate-180'
+            }`}
+          />
+        </button>
+      </div>
       {children}
-    </SidebarProvider>
+    </div>
   );
-};
+}
 
-export const SidebarBody = ({ children, ...props }: { children: React.ReactNode } & Omit<React.ComponentProps<typeof motion.div>, 'children'>) => {
+export function SidebarBody({ children }: { children: React.ReactNode }) {
+  return <div className="py-4">{children}</div>;
+}
+
+interface SidebarLinkProps {
+  link: {
+    href: string;
+    label: string;
+    icon: React.ReactNode;
+  };
+  className?: string;
+  props?: any;
+}
+
+export function SidebarLink({ link, className = '', props = {} }: SidebarLinkProps) {
+  const { open } = useSidebar();
+
   return (
-    <>
-      <DesktopSidebar {...props}>{children}</DesktopSidebar>
-      <MobileSidebar {...props}>{children}</MobileSidebar>
-    </>
+    <Link
+      href={link.href}
+      className={`flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 ${className}`}
+      {...props}
+    >
+      <span className="inline-flex">{link.icon}</span>
+      {open && <span className="ml-3">{link.label}</span>}
+    </Link>
   );
-};
+}
 
 export const DesktopSidebar = ({
   className,
@@ -202,38 +220,5 @@ export const MobileSidebar = ({
         </AnimatePresence>
       </div>
     </>
-  );
-};
-
-export const SidebarLink = ({
-  link,
-  className,
-  ...props
-}: {
-  link: Links;
-  className?: string;
-  props?: LinkProps;
-}) => {
-  const { open, animate } = useSidebar();
-  return (
-    <Link
-      href={link.href}
-      className={cn(
-        "flex items-center justify-start gap-2 group/sidebar py-2 hover:text-[#f26e24] transition-colors",
-        className
-      )}
-      {...props}
-    >
-      {link.icon}
-      <motion.span
-        animate={{
-          display: animate ? (open ? "inline-block" : "none") : "inline-block",
-          opacity: animate ? (open ? 1 : 0) : 1,
-        }}
-        className="text-sm group-hover/sidebar:translate-x-1 transition duration-150 whitespace-pre inline-block !p-0 !m-0"
-      >
-        {link.label}
-      </motion.span>
-    </Link>
   );
 }; 

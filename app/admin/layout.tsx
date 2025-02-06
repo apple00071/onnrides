@@ -1,19 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { FaHome, FaCar, FaUsers, FaBookmark, FaBars, FaTimes } from 'react-icons/fa';
+import { useRouter, usePathname } from 'next/navigation';
+import { FaHome, FaCar, FaUsers, FaBookmark, FaBars, FaTimes, FaTrash, FaEnvelope } from 'react-icons/fa';
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarProvider } from '@/components/admin/Sidebar';
 import { motion, AnimatePresence } from 'framer-motion';
-
-export const dynamic = 'force-dynamic';
 
 const menuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="h-5 w-5" /> },
   { href: '/admin/vehicles', label: 'Vehicles', icon: <FaCar className="h-5 w-5" /> },
   { href: '/admin/users', label: 'Users', icon: <FaUsers className="h-5 w-5" /> },
   { href: '/admin/bookings', label: 'Bookings', icon: <FaBookmark className="h-5 w-5" /> },
+  { href: '/admin/email-logs', label: 'Email Logs', icon: <FaEnvelope className="h-5 w-5" /> },
+  { href: '/admin/cleanup', label: 'Clean Up Data', icon: <FaTrash className="h-5 w-5" /> },
 ];
 
 function MainContent({ children }: { children: React.ReactNode }) {
@@ -102,40 +102,39 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const { data: session, status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
-  const { data: session, status } = useSession();
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
     // Skip auth check for login page
     if (pathname === '/admin/login') {
+      setIsChecking(false);
       return;
     }
 
-    // Wait for session to be checked
-    if (status === 'loading') {
-      return;
-    }
+    const checkAuth = async () => {
+      if (status === 'loading') return;
 
-    // Redirect if not authenticated or not admin
-    if (status === 'unauthenticated') {
-      router.replace('/admin/login');
-      return;
-    }
+      if (status === 'unauthenticated') {
+        router.replace('/admin/login');
+        return;
+      }
 
-    if (session?.user && session.user.role !== 'admin') {
-      router.replace('/admin/login?error=unauthorized');
-      return;
-    }
+      if (status === 'authenticated' && session?.user?.role !== 'admin') {
+        router.replace('/');
+        return;
+      }
+
+      setIsChecking(false);
+    };
+
+    checkAuth();
   }, [status, session, router, pathname]);
 
-  // If we're on the login page, just render the children
-  if (pathname === '/admin/login') {
-    return <>{children}</>;
-  }
-
   // Show loading state while checking session
-  if (status === 'loading') {
+  if (isChecking) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#f26e24] border-t-transparent"></div>
@@ -143,8 +142,13 @@ export default function AdminLayout({
     );
   }
 
-  // Don't render admin UI if not authenticated or not admin
-  if (status === 'unauthenticated' || !session?.user || session.user.role !== 'admin') {
+  // Skip layout for login page
+  if (pathname === '/admin/login') {
+    return children;
+  }
+
+  // Don't render anything while redirecting
+  if (status === 'unauthenticated' || (status === 'authenticated' && session?.user?.role !== 'admin')) {
     return null;
   }
 

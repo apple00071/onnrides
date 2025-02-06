@@ -1,18 +1,24 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { logger } from '@/lib/logger';
 
 // Define protected routes that require authentication
 const protectedRoutes = [
   '/bookings',
   '/profile',
-  '/admin',
-  '/api/bookings'
+  '/api/bookings',
+  '/api/payment',
+  '/payment-status'
 ];
 
 export async function middleware(request: NextRequest) {
-  // Get the pathname from the URL
   const pathname = new URL(request.url).pathname;
+  
+  logger.info('Middleware processing request:', {
+    pathname,
+    method: request.method
+  });
 
   // Get the token if it exists
   const token = await getToken({ 
@@ -20,11 +26,21 @@ export async function middleware(request: NextRequest) {
     secret: process.env.NEXTAUTH_SECRET 
   });
 
+  logger.info('Token status:', {
+    hasToken: !!token,
+    pathname
+  });
+
   // Check if the route is protected
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
 
   // For protected routes, require authentication
   if (isProtectedRoute && !token) {
+    logger.warn('Unauthorized access attempt:', {
+      pathname,
+      hasToken: !!token
+    });
+
     // For API routes, return JSON error
     if (pathname.startsWith('/api/')) {
       return new NextResponse(
@@ -47,12 +63,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Special handling for admin routes
-  if (pathname.startsWith('/admin') && (!token || token.role !== 'admin')) {
-    return NextResponse.redirect(new URL('/auth/signin', request.url));
-  }
-
-  // Allow the request to proceed
   return null;
 }
 
@@ -61,8 +71,9 @@ export const config = {
   matcher: [
     '/bookings/:path*',
     '/profile/:path*',
-    '/admin/:path*',
-    '/api/bookings/:path*'
+    '/api/bookings/:path*',
+    '/api/payment/:path*',
+    '/payment-status/:path*'
   ]
 };
 
@@ -74,7 +85,8 @@ export function corsMiddleware(request: NextRequest) {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
+        'Access-Control-Allow-Credentials': 'true'
       },
     });
   }
@@ -87,7 +99,8 @@ export function corsMiddleware(request: NextRequest) {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
+        'Access-Control-Allow-Credentials': 'true'
       },
     }
   );

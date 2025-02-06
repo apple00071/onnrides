@@ -1,102 +1,119 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { validatePaymentVerification } from '@/lib/razorpay';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { sendBookingConfirmationEmail } from '@/lib/email';
 
 // New route segment config
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function POST(request: NextRequest): Promise<Response> {
+export async function POST(request: NextRequest) {
   try {
-    logger.info('Payment verification request received');
-
-    // Get the session
+    // Get session
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      logger.error('Unauthorized payment verification attempt');
-      return NextResponse.json({
-        success: false,
-        error: 'Authentication required'
-      }, { status: 401 });
+    
+    if (!session?.user?.id) {
+      logger.error('No user session found during payment verification');
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    // Parse request body
+    const userId = session.user.id;
     const body = await request.json();
-    logger.info('Payment verification body:', body);
+    const { payment_reference, order_id } = body;
 
-    const { reference } = body;
-    if (!reference) {
-      logger.error('Missing payment reference');
-      return NextResponse.json({
-        success: false,
-        error: 'Payment reference is required'
-      }, { status: 400 });
+    if (!payment_reference || !order_id) {
+      logger.error('Missing payment verification data', { payment_reference, order_id });
+      return NextResponse.json(
+        { success: false, error: 'Payment reference and order ID are required' },
+        { status: 400 }
+      );
     }
 
-    // Find the booking with this payment reference
-    const bookingResult = await query(`
-      SELECT * FROM bookings 
-      WHERE payment_intent_id = $1 
-      AND status = 'pending'
-      AND user_id = $2
-      LIMIT 1
-    `, [reference, session.user.id]);
+    logger.info('Starting payment verification', {
+      userId,
+      payment_reference,
+      order_id
+    });
 
-    if (bookingResult.rows.length === 0) {
-      logger.error('No pending booking found for payment reference:', reference);
-      return NextResponse.json({
-        success: false,
-        error: 'No pending booking found'
-      }, { status: 404 });
-    }
+    // Begin transaction
+    await query('BEGIN');
 
-    const booking = bookingResult.rows[0];
-
-    // Validate the payment
     try {
-      // Update booking status
-      await query(`
-        UPDATE bookings 
-        SET 
-          status = 'confirmed',
-          payment_status = 'paid',
-          updated_at = NOW()
-        WHERE id = $1
-        RETURNING *
-      `, [booking.id]);
+      // Update payment status
+      logger.info('Updating payment status', { order_id });
+      const updatePayment = await query(
+        'UPDATE payments SET status = $1, payment_reference = $2, updated_at = NOW() WHERE order_id = $3 RETURNING *',
+        ['success', payment_reference, order_id]
+      );
 
-      logger.info('Booking updated successfully:', {
-        bookingId: booking.id,
-        status: 'confirmed',
-        paymentStatus: 'paid'
+      if (updatePayment.rowCount === 0) {
+        logger.error('Payment record not found', { order_id });
+        throw new Error('Payment not found');
+      }
+
+      // Get booking details for email
+      logger.info('Fetching booking details', { booking_id: updatePayment.rows[0].booking_id });
+      const bookingResult = await query(
+        `SELECT b.*, v.name as vehicle_name 
+         FROM bookings b 
+         LEFT JOIN vehicles v ON b.vehicle_id = v.id 
+         WHERE b.id = $1`,
+        [updatePayment.rows[0].booking_id]
+      );
+
+      if (bookingResult.rowCount === 0) {
+        logger.error('Booking not found', { booking_id: updatePayment.rows[0].booking_id });
+        throw new Error('Booking not found');
+      }
+
+      const booking = {
+        ...bookingResult.rows[0],
+        vehicle: {
+          name: bookingResult.rows[0].vehicle_name
+        }
+      };
+
+      // Send confirmation email
+      logger.info('Sending booking confirmation email', { 
+        email: session.user.email,
+        booking_id: booking.id 
       });
+      
+      await sendBookingConfirmationEmail(booking, session.user.email);
+
+      // Commit transaction
+      await query('COMMIT');
+      logger.info('Payment verification completed successfully', { order_id });
 
       return NextResponse.json({
         success: true,
-        message: 'Payment verified successfully',
-        booking: {
-          id: booking.id,
-          status: 'confirmed',
-          paymentStatus: 'paid'
-        }
+        message: 'Payment verified successfully'
       });
     } catch (error) {
-      logger.error('Payment verification failed:', error);
-      return NextResponse.json({
-        success: false,
-        error: 'Payment verification failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }, { status: 500 });
+      await query('ROLLBACK');
+      logger.error('Payment verification transaction error:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        order_id
+      });
+      throw error;
     }
   } catch (error) {
-    logger.error('Error in payment verification:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Payment verification failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    logger.error('Payment verification error:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to verify payment' 
+      },
+      { status: 500 }
+    );
   }
 } 

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import logger from '@/lib/logger';
-import crypto from 'crypto';
 import { query } from '@/lib/db';
+import { sendPasswordResetEmail } from '@/lib/email';
+import { logger } from '@/lib/logger';
+import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,35 +16,40 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user by email
-    const findUserQuery = 'SELECT * FROM users WHERE email = ? LIMIT 1';
-    const user = await query(findUserQuery, [email]);
+    const result = await query(
+      'SELECT * FROM users WHERE email = $1 LIMIT 1',
+      [email]
+    );
 
-    if (!user.rows[0]) {
-      return NextResponse.json(
-        { error: 'No account found with this email' },
-        { status: 404 }
-      );
+    const user = result.rows[0];
+
+    if (!user) {
+      // For security reasons, don't reveal that the email doesn't exist
+      return NextResponse.json({
+        message: 'If an account exists with this email, you will receive a password reset link'
+      });
     }
 
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
-    
-    // Update user with reset token
-    const updateUserQuery = `
-      UPDATE users 
-      SET reset_token = ?,
-          reset_token_expiry = TIMESTAMPADD(HOUR, 1, CURRENT_TIMESTAMP),
-          updated_at = CURRENT_TIMESTAMP
-      WHERE email = ?
-    `;
-    await query(updateUserQuery, [resetToken, email]);
+    const tokenExpiry = new Date();
+    tokenExpiry.setHours(tokenExpiry.getHours() + 1); // Token valid for 1 hour
 
-    // TODO: Send password reset email
-    logger.info('Password reset token generated for:', email);
+    // Save reset token and expiry in database
+    await query(
+      'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE id = $3',
+      [resetToken, tokenExpiry, user.id]
+    );
 
-    return NextResponse.json({ 
-      message: 'Password reset instructions sent to your email' 
+    // Send password reset email
+    await sendPasswordResetEmail(email, resetToken);
+
+    logger.info('Password reset email sent:', { email });
+
+    return NextResponse.json({
+      message: 'If an account exists with this email, you will receive a password reset link'
     });
+
   } catch (error) {
     logger.error('Forgot password error:', error);
     return NextResponse.json(
