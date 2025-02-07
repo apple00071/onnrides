@@ -3,11 +3,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import type { Booking, Vehicle } from '@/lib/types';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 interface UpdateBookingBody {
   status?: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   paymentStatus?: 'pending' | 'paid' | 'refunded';
 }
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 // GET /api/bookings/[bookingId] - Get booking details
 export async function GET(
@@ -15,42 +20,141 @@ export async function GET(
   { params }: { params: { bookingId: string } }
 ) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    // Get session
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      logger.error('No user session found during booking fetch');
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { success: false, error: 'Authentication required' },
         { status: 401 }
       );
     }
 
     const { bookingId } = params;
+    if (!bookingId) {
+      return NextResponse.json(
+        { success: false, error: 'Booking ID is required' },
+        { status: 400 }
+      );
+    }
 
-    const result = await query(
-      'SELECT * FROM bookings WHERE id = $1 LIMIT 1',
+    logger.info('Fetching booking details', { bookingId });
+
+    // Get booking details with vehicle information
+    const bookingResult = await query(
+      `SELECT 
+        b.*,
+        v.name as vehicle_name,
+        v.type as vehicle_type,
+        v.price_per_hour,
+        v.location as pickup_location,
+        b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as start_date,
+        b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as end_date,
+        b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
+        b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at
+       FROM bookings b
+       INNER JOIN vehicles v ON b.vehicle_id = v.id
+       WHERE b.booking_id = $1::text 
+          OR b.id = CASE 
+            WHEN $1 ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            THEN $1::uuid 
+            ELSE NULL 
+          END
+          OR (
+            b.payment_details IS NOT NULL 
+            AND jsonb_typeof(COALESCE(b.payment_details::jsonb, '{}'::jsonb)) = 'object'
+            AND (
+              b.payment_details::jsonb ->> 'order_id' = $1::text
+              OR b.payment_details::jsonb ->> 'razorpay_order_id' = $1::text
+            )
+          )`,
       [bookingId]
     );
-    const booking = result.rows[0];
 
-    if (!booking) {
+    if (bookingResult.rowCount === 0) {
+      logger.error('Booking not found', { 
+        bookingId,
+        searchType: typeof bookingId,
+        searchLength: bookingId.length
+      });
       return NextResponse.json(
-        { error: 'Booking not found' },
+        { success: false, error: 'Booking not found' },
         { status: 404 }
       );
     }
 
-    // Only allow users to view their own bookings or admins to view any booking
-    if (user.role !== 'admin' && booking.user_id !== user.id) {
+    const booking = bookingResult.rows[0];
+
+    // Ensure user has access to this booking
+    if (booking.user_id !== session.user.id) {
+      logger.error('Unauthorized booking access attempt', {
+        bookingId: booking.id,
+        userId: session.user.id,
+        bookingUserId: booking.user_id
+      });
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { success: false, error: 'Unauthorized' },
         { status: 403 }
       );
     }
 
-    return NextResponse.json(booking);
+    // Format the response
+    const formattedBooking = {
+      id: booking.id,
+      bookingId: booking.booking_id,
+      displayId: booking.booking_id || `#${booking.id.slice(0, 4)}`,
+      userId: booking.user_id,
+      vehicle: {
+        id: booking.vehicle_id,
+        name: booking.vehicle_name,
+        type: booking.vehicle_type,
+        location: booking.pickup_location
+      },
+      startDate: booking.start_date,
+      endDate: booking.end_date,
+      totalPrice: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`,
+      status: booking.status,
+      paymentStatus: booking.payment_status,
+      paymentDetails: typeof booking.payment_details === 'string' ? 
+        JSON.parse(booking.payment_details) : 
+        booking.payment_details,
+      paymentReference: booking.payment_reference,
+      paidAmount: booking.total_price ? `₹${parseFloat(booking.total_price).toFixed(2)}` : '₹0.00',
+      pickupLocation: booking.pickup_location,
+      dropoffLocation: booking.dropoff_location || booking.pickup_location,
+      createdAt: booking.created_at,
+      updatedAt: booking.updated_at
+    };
+
+    logger.info('Booking details fetched successfully', {
+      bookingId: booking.id,
+      formattedBookingId: formattedBooking.bookingId,
+      status: booking.status,
+      paymentStatus: booking.payment_status,
+      formattedData: {
+        location: formattedBooking.vehicle.location,
+        totalPrice: formattedBooking.totalPrice,
+        paidAmount: formattedBooking.paidAmount,
+        bookingId: formattedBooking.bookingId
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: formattedBooking
+    });
+
   } catch (error) {
-    logger.error('Failed to fetch booking:', error);
+    logger.error('Error fetching booking details:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      bookingId: params.bookingId
+    });
     return NextResponse.json(
-      { error: 'Failed to fetch booking', details: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to fetch booking details' 
+      },
       { status: 500 }
     );
   }

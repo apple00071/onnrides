@@ -1,159 +1,159 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { toast } from 'react-hot-toast';
-import { logger } from '@/lib/logger';
-import { Spinner } from '@/components/ui/spinner';
-import { CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
-export default function PaymentStatusPage() {
+type VerificationStatus = 'idle' | 'verifying' | 'success' | 'error';
+
+export default function PaymentStatus() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const reference = searchParams.get('reference');
-  
-  const { data: session, status: sessionStatus } = useSession({
-    required: true,
-    onUnauthenticated() {
-      router.push('/auth/signin');
-    }
-  });
+  const { data: session, status: sessionStatus } = useSession();
+  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>('idle');
+  const hasAttemptedVerification = useRef(false);
 
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [error, setError] = useState<string | null>(null);
-  const [isVerifying, setIsVerifying] = useState(true);
-  const [hasNotified, setHasNotified] = useState(false);
+  // Create a memoized verification function
+  const verifyPayment = useCallback(async () => {
+    // Prevent multiple verification attempts
+    if (hasAttemptedVerification.current) {
+      console.log('Verification already attempted, skipping...');
+      return;
+    }
+    hasAttemptedVerification.current = true;
+
+    try {
+      // Get payment reference from URL
+      const reference = searchParams.get('reference');
+      console.log('Payment reference from URL:', reference);
+      
+      // Try to get order ID from localStorage
+      const pendingPayment = localStorage.getItem('pendingPayment');
+      console.log('Raw pendingPayment from localStorage:', pendingPayment);
+      
+      let orderId: string | undefined;
+      let bookingId: string | undefined;
+
+      if (pendingPayment) {
+        try {
+          const paymentData = JSON.parse(pendingPayment);
+          console.log('Parsed payment data:', paymentData);
+          orderId = paymentData.order_id;
+          bookingId = paymentData.booking_id;
+          console.log('Extracted order_id:', orderId);
+          console.log('Extracted booking_id:', bookingId);
+        } catch (e) {
+          console.error('Failed to parse pendingPayment:', e);
+        }
+      }
+      
+      if (!reference || !orderId) {
+        console.error('Missing payment data:', { reference, orderId, bookingId });
+        setVerificationStatus('error');
+        toast.error('Missing payment information');
+        return;
+      }
+
+      console.log('Sending verification request with:', {
+        payment_reference: reference,
+        order_id: orderId,
+        booking_id: bookingId
+      });
+
+      setVerificationStatus('verifying');
+      
+      const response = await fetch('/api/payment/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          payment_reference: reference,
+          order_id: orderId,
+          booking_id: bookingId
+        }),
+      });
+
+      console.log('Verification response status:', response.status);
+      const data = await response.json();
+      console.log('Verification response data:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Payment verification failed');
+      }
+
+      setVerificationStatus('success');
+      toast.success('Payment verified successfully');
+      
+      // Clear stored payment data
+      console.log('Clearing pendingPayment from localStorage');
+      localStorage.removeItem('pendingPayment');
+      
+      // Redirect to booking details after a short delay
+      console.log('Scheduling redirect to:', `/bookings/${orderId}`);
+      setTimeout(() => {
+        router.push(`/bookings/${orderId}`);
+      }, 2000);
+
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      setVerificationStatus('error');
+      toast.error(error instanceof Error ? error.message : 'Payment verification failed');
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
-    const verifyPayment = async () => {
-      try {
-        // Get payment reference from URL or localStorage
-        let payment_reference = reference;
-        let order_id;
-        
-        // Get order ID from localStorage
-        const pendingPayment = localStorage.getItem('pendingPayment');
-        if (pendingPayment) {
-          try {
-            const paymentData = JSON.parse(pendingPayment);
-            order_id = paymentData.order_id;
-            
-            // If no reference in URL, try from localStorage
-            if (!payment_reference) {
-              payment_reference = paymentData.razorpay_payment_id || paymentData.payment_reference;
-            }
-          } catch (error) {
-            logger.error('Failed to parse pending payment:', error);
-          }
-        }
-
-        if (!payment_reference || !order_id) {
-          throw new Error('Invalid payment data');
-        }
-
-        logger.info('Starting payment verification', {
-          payment_reference,
-          order_id,
-          userId: session?.user?.id
-        });
-
-        // Send verification request
-        const response = await fetch('/api/payment/verify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include',
-          body: JSON.stringify({ 
-            payment_reference,
-            order_id
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to verify payment');
-        }
-
-        const data = await response.json();
-        if (data.success && !hasNotified) {
-          setStatus('success');
-          localStorage.removeItem('pendingPayment');
-          toast.success('Payment verified successfully');
-          setHasNotified(true);
-          setTimeout(() => router.push('/bookings'), 2000);
-        } else {
-          throw new Error(data.error || 'Failed to verify payment');
-        }
-
-      } catch (error) {
-        logger.error('Payment verification error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to verify payment';
-        setError(errorMessage);
-        setStatus('error');
-        toast.error(errorMessage);
-        if (errorMessage.includes('Invalid payment data')) {
-          setTimeout(() => router.push('/'), 2000);
-        }
-      } finally {
-        setIsVerifying(false);
-      }
-    };
-
-    if (sessionStatus === 'loading') {
-      return;
+    console.log('Payment status effect running. Session status:', sessionStatus);
+    console.log('Current verification status:', verificationStatus);
+    
+    if (sessionStatus === 'authenticated' && verificationStatus === 'idle') {
+      console.log('Starting payment verification...');
+      verifyPayment();
+    } else if (sessionStatus === 'unauthenticated') {
+      console.log('User not authenticated, redirecting to signin...');
+      toast.error('Please sign in to continue');
+      router.push('/auth/signin');
     }
+  }, [sessionStatus, verificationStatus, verifyPayment, router]);
 
-    if (!session) {
-      const error = 'Authentication required';
-      logger.error(error);
-      setError(error);
-      setStatus('error');
-      toast.error(error);
-      setTimeout(() => router.push('/auth/signin'), 2000);
-      return;
-    }
-
-    verifyPayment();
-  }, [session, sessionStatus, router, reference, hasNotified]);
-
-  if (status === 'loading') {
+  if (sessionStatus === 'loading' || verificationStatus === 'verifying') {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
-        <Spinner size="lg" />
-        <p className="mt-4 text-lg text-gray-600">Verifying payment...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="mt-4 text-lg">Verifying payment...</p>
+        <p className="mt-2 text-sm text-gray-600">Reference: {searchParams.get('reference')}</p>
       </div>
     );
   }
 
-  if (status === 'error') {
+  if (verificationStatus === 'error') {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
-        <div className="text-red-500 text-xl mb-4">❌</div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment Verification Failed</h1>
-        <p className="text-gray-600">{error || 'Please contact support'}</p>
+        <h1 className="text-2xl font-bold text-red-600">Payment Verification Failed</h1>
+        <p className="mt-4">Please contact support if you believe this is an error.</p>
+        <p className="mt-2 text-sm text-gray-600">Reference ID: {searchParams.get('reference')}</p>
+        <button 
+          onClick={() => {
+            console.log('Current localStorage pendingPayment:', localStorage.getItem('pendingPayment'));
+          }}
+          className="mt-4 text-sm text-blue-600 hover:underline"
+        >
+          Check Payment Data
+        </button>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="text-center space-y-4">
-        {isVerifying ? (
-          <>
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#f26e24] border-t-transparent mx-auto"></div>
-            <h1 className="text-2xl font-semibold">Verifying Payment...</h1>
-            <p className="text-gray-600">Please wait while we verify your payment</p>
-          </>
-        ) : (
-          <>
-            <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
-            <h1 className="text-2xl font-semibold">Payment Verified</h1>
-            <p className="text-gray-600">Redirecting to your bookings...</p>
-          </>
-        )}
+  if (verificationStatus === 'success') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-2xl font-bold text-green-600">Payment Successful!</h1>
+        <p className="mt-4">Redirecting to your booking details...</p>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return null;
 } 

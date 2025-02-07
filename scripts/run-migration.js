@@ -1,44 +1,30 @@
 const { Pool } = require('pg');
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 
-const pool = new Pool({
-  user: 'postgres',
-  password: 'Sulochana8%',
-  host: 'localhost',
-  port: 5432,
-  database: 'onnrides'
-});
+// Database configuration from .env
+const config = {
+  connectionString: "postgres://neondb_owner:fpBXEsTct9g1@ep-long-dream-a6avbuml-pooler.us-west-2.aws.neon.tech/neondb?sslmode=require"
+};
 
 async function runMigration() {
-  const client = await pool.connect();
+  const pool = new Pool(config);
+  
   try {
-    await client.query('BEGIN');
-
-    // Read and execute the migration file
-    const migrationPath = path.join(__dirname, '..', 'migrations', '019_add_profile_fields.sql');
-    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+    // Read the migration file
+    const migrationPath = path.join(__dirname, '..', 'migrations', 'add_payment_id_to_bookings.sql');
+    const migrationSQL = await fs.readFile(migrationPath, 'utf8');
     
-    await client.query(migrationSQL);
-    console.log('Migration executed successfully');
-
-    await client.query('COMMIT');
+    // Run the migration
+    console.log('Running migration...');
+    await pool.query(migrationSQL);
+    console.log('Migration completed successfully!');
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error('Migration failed:', error);
-    throw error;
+    process.exit(1);
   } finally {
-    client.release();
-    pool.end();
+    await pool.end();
   }
 }
 
-runMigration()
-  .then(() => {
-    console.log('Migration completed successfully');
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error('Migration failed:', error);
-    process.exit(1);
-  }); 
+runMigration(); 

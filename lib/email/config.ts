@@ -3,13 +3,11 @@ import { logger } from '../logger';
 
 // Email transporter configuration
 export const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: false,
+  service: 'gmail',  // Use Gmail service
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
+    pass: process.env.SMTP_PASS
+  }
 });
 
 // Verify email configuration on startup

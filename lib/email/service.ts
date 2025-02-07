@@ -2,6 +2,7 @@ import { transporter, defaultMailOptions } from './config';
 import { createBookingConfirmationEmail, createPasswordResetEmail, createWelcomeEmail } from './templates';
 import { logger } from '../logger';
 import { query } from '../db';
+import { format } from 'date-fns-tz';
 
 // Types
 interface EmailLog {
@@ -64,33 +65,61 @@ async function sendEmail(options: any, retryCount = 0): Promise<any> {
 // Send booking confirmation email
 export async function sendBookingConfirmationEmail(booking: any, userEmail: string) {
   try {
-    const emailContent = createBookingConfirmationEmail(booking);
-    const info = await sendEmail({
+    logger.info('Attempting to send booking confirmation email', {
+      bookingId: booking.id,
+      userEmail
+    });
+
+    // Format dates in IST
+    const formatDateIST = (date: string) => {
+      return format(new Date(date), 'PPP p', { timeZone: 'Asia/Kolkata' });
+    };
+
+    const mailOptions = {
+      ...defaultMailOptions,
       to: userEmail,
-      ...emailContent
-    });
+      subject: `Booking Confirmation - ${booking.displayId}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1>Booking Confirmation</h1>
+          <p>Your booking has been confirmed. Here are the details:</p>
+          
+          <h2>Booking Information</h2>
+          <p><strong>Booking ID:</strong> ${booking.displayId}</p>
+          <p><strong>Vehicle:</strong> ${booking.vehicle.name}</p>
+          <p><strong>Start Date:</strong> ${formatDateIST(booking.startDate)}</p>
+          <p><strong>End Date:</strong> ${formatDateIST(booking.endDate)}</p>
+          <p><strong>Pickup Location:</strong> ${booking.pickupLocation}</p>
+          <p><strong>Total Amount:</strong> ${booking.totalPrice}</p>
+          
+          <h2>Payment Information</h2>
+          <p><strong>Payment Status:</strong> ${booking.paymentStatus}</p>
+          <p><strong>Payment Reference:</strong> ${booking.paymentReference || 'N/A'}</p>
+          
+          <p>If you have any questions, please contact our support team.</p>
+          
+          <p>Thank you for choosing our service!</p>
+        </div>
+      `
+    };
 
-    await logEmailSent({
-      recipient: userEmail,
-      subject: emailContent.subject,
-      booking_id: booking.id,
-      status: 'success',
-      message_id: info.messageId
-    });
-
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    logger.error('Failed to send booking confirmation email:', error);
+    const result = await transporter.sendMail(mailOptions);
     
-    await logEmailSent({
-      recipient: userEmail,
-      subject: `Booking Confirmation - #${booking.id}`,
-      booking_id: booking.id,
-      status: 'failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
+    logger.info('Booking confirmation email sent successfully', {
+      bookingId: booking.id,
+      userEmail,
+      messageId: result.messageId
     });
 
-    throw new Error('Failed to send booking confirmation email');
+    return result;
+  } catch (error) {
+    logger.error('Failed to send booking confirmation email:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      bookingId: booking.id,
+      userEmail,
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    throw error;
   }
 }
 
@@ -161,44 +190,35 @@ export async function sendWelcomeEmail(email: string, name: string) {
 // Add this new function with the existing ones
 export async function sendTestEmail(email: string) {
   try {
-    const info = await sendEmail({
+    logger.info('Sending test email to:', email);
+
+    const mailOptions = {
+      ...defaultMailOptions,
       to: email,
-      subject: 'ONNRIDES Email Test',
+      subject: 'Test Email',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #f26e24; text-align: center;">Email Configuration Test</h1>
-          
-          <div style="background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h2 style="color: #333;">Success! 🎉</h2>
-            <p>If you're reading this, it means your email configuration is working correctly.</p>
-            <p>You can now proceed with using the booking system.</p>
-          </div>
-
-          <div style="text-align: center; margin-top: 30px;">
-            <p>Test completed at: ${new Date().toLocaleString()}</p>
-          </div>
+          <h1>Test Email</h1>
+          <p>This is a test email to verify the email configuration.</p>
+          <p>Sent at: ${new Date().toISOString()}</p>
         </div>
       `
-    });
+    };
 
-    await logEmailSent({
-      recipient: email,
-      subject: 'ONNRIDES Email Test',
-      status: 'success',
-      message_id: info.messageId
-    });
-
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    logger.error('Failed to send test email:', error);
+    const result = await transporter.sendMail(mailOptions);
     
-    await logEmailSent({
-      recipient: email,
-      subject: 'ONNRIDES Email Test',
-      status: 'failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
+    logger.info('Test email sent successfully', {
+      email,
+      messageId: result.messageId
     });
 
-    throw new Error('Failed to send test email');
+    return result;
+  } catch (error) {
+    logger.error('Failed to send test email:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      email,
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    throw error;
   }
 } 

@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { sendPasswordResetEmail } from '@/lib/email';
+import { sendPasswordResetEmail } from '@/lib/email/service';  // Import directly from service
 import { logger } from '@/lib/logger';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json();
+
+    logger.info('Processing password reset request for:', { email });
 
     if (!email) {
       return NextResponse.json(
@@ -16,6 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user by email
+    logger.info('Looking up user by email');
     const result = await query(
       'SELECT * FROM users WHERE email = $1 LIMIT 1',
       [email]
@@ -24,6 +27,7 @@ export async function POST(request: NextRequest) {
     const user = result.rows[0];
 
     if (!user) {
+      logger.info('No user found with email:', { email });
       // For security reasons, don't reveal that the email doesn't exist
       return NextResponse.json({
         message: 'If an account exists with this email, you will receive a password reset link'
@@ -35,23 +39,52 @@ export async function POST(request: NextRequest) {
     const tokenExpiry = new Date();
     tokenExpiry.setHours(tokenExpiry.getHours() + 1); // Token valid for 1 hour
 
+    logger.info('Generated reset token and expiry:', { 
+      userId: user.id,
+      tokenExpiry 
+    });
+
     // Save reset token and expiry in database
-    await query(
-      'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE id = $3',
-      [resetToken, tokenExpiry, user.id]
-    );
+    try {
+      await query(
+        'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE id = $3',
+        [resetToken, tokenExpiry, user.id]
+      );
+      logger.info('Reset token saved to database');
+    } catch (dbError) {
+      logger.error('Failed to save reset token:', dbError);
+      throw new Error('Failed to save reset token');
+    }
 
     // Send password reset email
-    await sendPasswordResetEmail(email, resetToken);
-
-    logger.info('Password reset email sent:', { email });
+    try {
+      logger.info('Attempting to send password reset email');
+      await sendPasswordResetEmail(email, resetToken);
+      logger.info('Password reset email sent successfully');
+    } catch (emailError) {
+      logger.error('Failed to send password reset email:', {
+        error: emailError,
+        email,
+        smtp: {
+          host: process.env.SMTP_HOST,
+          port: process.env.SMTP_PORT,
+          user: process.env.SMTP_USER,
+          from: process.env.SMTP_FROM,
+          // Don't log the password!
+        }
+      });
+      throw new Error('Failed to send password reset email');
+    }
 
     return NextResponse.json({
       message: 'If an account exists with this email, you will receive a password reset link'
     });
 
   } catch (error) {
-    logger.error('Forgot password error:', error);
+    logger.error('Forgot password error:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
       { error: 'Failed to process password reset request' },
       { status: 500 }

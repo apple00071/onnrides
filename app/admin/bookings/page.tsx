@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { Eye, History } from 'lucide-react';
+import { format as formatTZ } from 'date-fns-tz';
 
 interface Booking {
   id: string;
@@ -30,6 +31,7 @@ interface Booking {
   total_price: number;
   status: string;
   created_at: string;
+  updated_at: string;
   location: string;
   user: {
     name: string;
@@ -40,21 +42,35 @@ interface Booking {
     name: string;
   };
   payment_status: string;
+  payment_reference?: string;  // Add payment reference
+  payment_details?: any;       // Add payment details
 }
 
-const formatDateTime = (dateStr: string | null) => {
-  if (!dateStr) return 'N/A';
+// Helper function to format date in IST
+const formatDateTime = (date: string | Date) => {
   try {
-    const date = parseISO(dateStr);
-    const dateWithOffset = addMinutes(date, 330); // Add 5 hours and 30 minutes for Indian timezone
-    return format(dateWithOffset, 'MMM d, yyyy hh:mm a');
+    if (!date) return 'Date not available';
+    
+    // If it's already a Date object, use it directly
+    const dateObj = date instanceof Date ? date : new Date(date);
+    
+    // Check if date is valid
+    if (isNaN(dateObj.getTime())) {
+      console.error('Invalid date value:', date);
+      return 'Invalid date';
+    }
+    
+    return formatTZ(dateObj, 'MMM dd, yyyy hh:mm a', { timeZone: 'Asia/Kolkata' });
   } catch (error) {
-    logger.error('Error formatting date:', error);
-    return 'Invalid Date';
+    console.error('Error formatting date:', { date, error });
+    return 'Invalid date';
   }
 };
 
+// Helper function to parse location
 const formatLocation = (location: string | string[]) => {
+  if (!location) return 'Location not available';
+  
   try {
     if (typeof location === 'string') {
       const parsed = JSON.parse(location);
@@ -62,7 +78,7 @@ const formatLocation = (location: string | string[]) => {
     }
     return Array.isArray(location) ? location[0] : location;
   } catch (e) {
-    return location || 'N/A';
+    return typeof location === 'string' ? location : 'Location not available';
   }
 };
 
@@ -263,17 +279,21 @@ export default function BookingsPage() {
                       {formatDateTime(booking.created_at)}
                     </p>
                     <span className={`inline-block px-2 py-1 rounded-full text-xs ${
-                      booking.status === 'confirmed' && booking.payment_status === 'completed'
-                        ? 'bg-green-100 text-green-800'
-                        : booking.status === 'cancelled'
+                      booking.status === 'cancelled'
                         ? 'bg-red-100 text-red-800'
-                        : 'bg-yellow-100 text-yellow-800'
+                        : booking.payment_status === 'completed'
+                        ? 'bg-green-100 text-green-800'
+                        : booking.payment_status === 'pending'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {booking.status === 'confirmed' && booking.payment_status === 'completed'
+                      {booking.status === 'cancelled'
+                        ? 'Cancelled'
+                        : booking.payment_status === 'completed'
                         ? 'Confirmed'
-                        : booking.status === 'confirmed'
-                        ? 'Pending Payment'
-                        : booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                        : booking.payment_status === 'pending'
+                        ? 'Payment Pending'
+                        : booking.status}
                     </span>
                     <div className="mt-2 space-x-2">
                       <Button
@@ -359,15 +379,60 @@ export default function BookingsPage() {
               </div>
               <div>
                 <h3 className="font-semibold">Status</h3>
-                <span className={`inline-block px-2 py-1 rounded-full text-xs ${
-                  selectedBooking.status === 'completed' 
-                    ? 'bg-green-100 text-green-800'
-                    : selectedBooking.status === 'cancelled'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)}
-                </span>
+                <div className="flex flex-col gap-2">
+                  <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                    selectedBooking.status === 'cancelled'
+                      ? 'bg-red-100 text-red-800'
+                      : selectedBooking.payment_status === 'completed'
+                      ? 'bg-green-100 text-green-800'
+                      : selectedBooking.payment_status === 'pending'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {selectedBooking.status === 'cancelled'
+                      ? 'Cancelled'
+                      : selectedBooking.payment_status === 'completed'
+                      ? 'Confirmed'
+                      : selectedBooking.payment_status === 'pending'
+                      ? 'Payment Pending'
+                      : selectedBooking.status}
+                  </span>
+                </div>
+              </div>
+              {selectedBooking.payment_status === 'completed' && (
+                <div>
+                  <h3 className="font-semibold">Payment Information</h3>
+                  <div className="space-y-2 mt-2">
+                    {selectedBooking.payment_details && (
+                      <>
+                        <p className="text-sm text-gray-600">
+                          <span className="font-medium">Payment ID:</span>{' '}
+                          {selectedBooking.payment_details.razorpay_payment_id || 'N/A'}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          <span className="font-medium">Order ID:</span>{' '}
+                          {selectedBooking.payment_details.razorpay_order_id || 'N/A'}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          <span className="font-medium">Payment Reference:</span>{' '}
+                          {selectedBooking.payment_reference || 'N/A'}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div>
+                <h3 className="font-semibold">Created</h3>
+                <p className="text-sm text-gray-500">
+                  {formatDateTime(selectedBooking.created_at)}
+                </p>
+              </div>
+              <div>
+                <h3 className="font-semibold">Last Updated</h3>
+                <p className="text-sm text-gray-500">
+                  {formatDateTime(selectedBooking.updated_at)}
+                </p>
               </div>
             </div>
           )}

@@ -27,22 +27,22 @@ export const runtime = 'nodejs';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: { bookingId: string } }
 ): Promise<Response> {
   try {
-    const { orderId } = params;
-    if (!orderId) {
+    const { bookingId } = params;
+    if (!bookingId) {
       return NextResponse.json({
         success: false,
-        error: 'Order ID is required'
+        error: 'Booking ID is required'
       }, { status: 400 });
     }
 
     // Get order status from Razorpay
-    const order = await razorpay.orders.fetch(orderId) as RazorpayOrder;
+    const order = await razorpay.orders.fetch(bookingId) as RazorpayOrder;
     
     if (!order) {
-      logger.error('Order not found:', orderId);
+      logger.error('Order not found:', bookingId);
       return NextResponse.json({
         success: false,
         error: 'Order not found'
@@ -50,7 +50,7 @@ export async function GET(
     }
 
     logger.info('Razorpay order status:', {
-      orderId,
+      bookingId,
       status: order.status,
       amount: order.amount,
       amountPaid: order.amount_paid
@@ -61,7 +61,7 @@ export async function GET(
       `SELECT id, status, payment_status, payment_details 
        FROM bookings 
        WHERE payment_details->>'razorpay_order_id' = $1`,
-      [orderId]
+      [bookingId]
     );
 
     if (bookingResult.rows.length === 0) {

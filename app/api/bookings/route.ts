@@ -119,6 +119,8 @@ export async function GET(request: NextRequest) {
         v.price_per_hour as vehicle_price_per_hour,
         b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as start_date,
         b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as end_date,
+        b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
+        b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at,
         COALESCE(b.booking_id, 'OR' || SUBSTRING(MD5(RANDOM()::text) FROM 1 FOR 3)) as booking_id
       FROM bookings b
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
@@ -138,20 +140,16 @@ export async function GET(request: NextRequest) {
     }
     
     const bookings = result.rows.map(booking => {
-      // Parse dates properly
-      const startDate = new Date(booking.start_date);
-      const endDate = new Date(booking.end_date);
-      
       return {
         id: booking.id,
         booking_id: booking.booking_id,
         status: booking.status,
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString(),
+        start_date: booking.start_date,
+        end_date: booking.end_date,
         total_price: parseFloat(booking.total_price),
         payment_status: booking.payment_status,
-        created_at: new Date(booking.created_at).toISOString(),
-        updated_at: new Date(booking.updated_at).toISOString(),
+        created_at: booking.created_at,
+        updated_at: booking.updated_at,
         vehicle: {
           id: booking.vehicle_id,
           name: booking.vehicle_name,

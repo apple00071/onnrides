@@ -8,7 +8,7 @@ async function runMigration() {
   });
 
   try {
-    const sql = await fs.readFile(path.join(__dirname, '..', 'migrations', 'add_amount_to_payments.sql'), 'utf-8');
+    const sql = await fs.readFile(path.join(__dirname, 'add_order_id_to_payments.sql'), 'utf-8');
     await pool.query(sql);
     console.log('Migration completed successfully');
   } catch (error) {
