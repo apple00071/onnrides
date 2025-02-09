@@ -1,6 +1,6 @@
 import Razorpay from 'razorpay';
 import { randomUUID } from 'crypto';
-import logger from './logger';
+import logger from '@/lib/logger';
 import crypto from 'crypto';
 
 if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {

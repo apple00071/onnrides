@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { query } from '@/lib/db';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import { sendBookingConfirmationEmail } from '@/lib/email/service';
 import { verifyEmailConfig } from '@/lib/email/config';
 

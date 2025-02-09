@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';

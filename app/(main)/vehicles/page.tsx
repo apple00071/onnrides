@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { calculateBookingPrice, formatCurrency } from '@/lib/utils';

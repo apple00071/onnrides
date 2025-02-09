@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'react-hot-toast';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import { useRouter } from 'next/navigation';
 
 interface Profile {

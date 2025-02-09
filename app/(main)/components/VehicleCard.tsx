@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { LocationDropdown } from "@/components/location-dropdown";
 import { toast } from 'react-hot-toast';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 
 interface VehicleCardProps {
   vehicle: {

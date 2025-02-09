@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { FileMigrationProvider, Kysely, Migrator, PostgresDialect } from 'kysely';

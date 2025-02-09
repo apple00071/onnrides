@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import { db } from '@/lib/db';
 import { users, roleEnum } from '@/lib/db/schema';
 import bcrypt from 'bcryptjs';

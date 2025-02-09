@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { headers } from 'next/headers';

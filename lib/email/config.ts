@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
-import { logger } from '../logger';
+import logger from '../logger';
 
 // Validate required environment variables
 const requiredEnvVars = ['SMTP_USER', 'SMTP_PASS'];

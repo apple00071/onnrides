@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { transporter } from '@/lib/email/config';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {

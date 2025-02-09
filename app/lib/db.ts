@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 import type { User, Vehicle, Booking, Document } from './types';
-import logger from './logger';
+import logger from '@/lib/logger';
 import { env } from './env';
 
 // Export common database operations

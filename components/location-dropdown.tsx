@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 
 interface LocationDropdownProps {
   locations: string[];

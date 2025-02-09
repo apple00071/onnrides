@@ -1,6 +1,6 @@
 'use client';
 
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { format, isValid, parseISO, addMinutes } from 'date-fns';

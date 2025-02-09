@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession, type DefaultSession, type NextAuthOptions, type DefaultUser } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcrypt';
-import logger from './logger';
+import logger from '@/lib/logger';
 import type { JWT } from 'next-auth/jwt';
 
 interface IUser extends DefaultUser {

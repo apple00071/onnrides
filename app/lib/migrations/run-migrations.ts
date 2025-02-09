@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import { sql } from '@vercel/postgres';
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';

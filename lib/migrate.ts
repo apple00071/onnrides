@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync, readdirSync } from 'fs';

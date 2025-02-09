@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
 import { query } from '@/lib/db';

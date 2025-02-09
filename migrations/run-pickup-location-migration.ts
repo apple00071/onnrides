@@ -1,5 +1,5 @@
 import { query } from '@/lib/db';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { FaCheck, FaTimes, FaEye, FaBan } from 'react-icons/fa';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import {
   Dialog,
   DialogContent,

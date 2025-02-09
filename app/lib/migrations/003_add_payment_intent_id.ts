@@ -1,5 +1,5 @@
 import { sql } from '@vercel/postgres';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 
 export async function migrate() {
   try {

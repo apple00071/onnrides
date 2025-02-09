@@ -1,6 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import { query } from '@/lib/db';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import { put } from '@vercel/blob';
 import type { Session } from 'next-auth';
 import { randomUUID } from 'crypto';

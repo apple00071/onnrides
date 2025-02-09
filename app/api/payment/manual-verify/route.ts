@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {

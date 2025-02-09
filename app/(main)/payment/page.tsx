@@ -1,6 +1,6 @@
 'use client';
 
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';

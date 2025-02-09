@@ -1,6 +1,6 @@
 import { transporter, defaultMailOptions } from './config';
 import { createBookingConfirmationEmail, createPasswordResetEmail, createWelcomeEmail } from './templates';
-import { logger } from '../logger';
+import logger from '../logger';
 import { query } from '../db';
 import { format } from 'date-fns-tz';
 

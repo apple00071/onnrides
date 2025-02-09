@@ -1,6 +1,6 @@
 'use client';
 
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import * as React from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';

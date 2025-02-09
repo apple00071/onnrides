@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';

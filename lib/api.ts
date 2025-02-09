@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 // Types for bookings
 export interface Booking {
   id: string;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { sendPasswordResetEmail } from '@/lib/email/service';  // Import directly from service
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {

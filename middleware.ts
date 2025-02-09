@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
-import { logger } from '@/lib/logger';
+import logger from '@/lib/logger';
 
 // Define protected routes that require authentication
 const protectedRoutes = [

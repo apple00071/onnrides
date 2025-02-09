@@ -48,7 +48,7 @@ async function fixConsoleLogsInFile(filePath: string) {
 
   // Add logger import if needed
   if (modified && !content.includes('import { logger }')) {
-    content = `import { logger } from '@/lib/logger';\n${content}`;
+    content = `import logger from '@/lib/logger';\n${content}`;
   }
 
   if (modified) {
