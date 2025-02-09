@@ -30,80 +30,28 @@ export function LocationDropdown({
   vehicleType = 'car'
 }: LocationDropdownProps) {
   const [availableLocations, setAvailableLocations] = useState<string[]>(locations);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [shouldAutoSelect, setShouldAutoSelect] = useState(false);
+  const isInitialMountRef = useRef(true);
+  const isFetchingRef = useRef(false);
   const processingRef = useRef(false);
-  const lastSelectionTimeRef = useRef<number>(0);
-  const lastSelectedLocationRef = useRef<string | null>(null);
+  const lastSelectedLocationRef = useRef<string | null>(selectedLocation);
+  const lastChangeTimeRef = useRef<number>(0);
+  const componentIdRef = useRef<string>(`${vehicleId}-${Math.random()}`);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleLocationChange = useCallback((location: string) => {
-    if (processingRef.current) {
-      logger.info('Skipping location change - already processing', {
-        location,
-        currentLocation: selectedLocation
-      });
-      return;
-    }
-
-    const now = Date.now();
-    if (
-      location === lastSelectedLocationRef.current ||
-      now - lastSelectionTimeRef.current < 200 // 200ms debounce
-    ) {
-      return;
-    }
-
-    lastSelectedLocationRef.current = location;
-    lastSelectionTimeRef.current = now;
-    processingRef.current = true;
-
-    logger.info('Processing location change:', {
-      location,
-      previousLocation: selectedLocation,
-      vehicleId,
-      vehicleType
-    });
-
-    onLocationChange(location);
-    
-    setTimeout(() => {
-      processingRef.current = false;
-    }, 200);
-  }, [onLocationChange, selectedLocation, vehicleId, vehicleType]);
-
-  // Reset selection when vehicle changes
+  // Update lastSelectedLocationRef when selectedLocation prop changes
   useEffect(() => {
-    if (!isInitialLoad) {
-      return;
+    if (!processingRef.current) {
+      lastSelectedLocationRef.current = selectedLocation;
     }
-
-    logger.info('Initial load, checking locations:', {
-      locations,
-      currentSelection: selectedLocation
-    });
-
-    // Never auto-select on initial load
-    setShouldAutoSelect(false);
-    setAvailableLocations(locations);
-    setIsInitialLoad(false);
-  }, [locations, selectedLocation, isInitialLoad]);
+  }, [selectedLocation]);
 
   const fetchAvailableLocations = useCallback(async () => {
-    if (!startDate || !endDate) {
-      logger.info('No dates provided, using default locations:', {
-        vehicleId,
-        vehicleType,
-        locations,
-        shouldAutoSelect,
-        initialLocationCount: locations.length,
-        currentSelection: selectedLocation
-      });
-      setAvailableLocations(locations);
-      setIsInitialLoad(false);
+    if (!startDate || !endDate || isFetchingRef.current) {
       return;
     }
 
     try {
+      isFetchingRef.current = true;
       const params = new URLSearchParams({
         pickupDate: startDate.toISOString().split('T')[0],
         pickupTime: startDate.toISOString().split('T')[1].split('.')[0],
@@ -116,7 +64,7 @@ export function LocationDropdown({
       if (!response.ok) {
         throw new Error('Failed to fetch available locations');
       }
-
+      
       const data = await response.json();
       const vehicle = data.vehicles.find((v: any) => v.id === vehicleId);
       
@@ -124,47 +72,96 @@ export function LocationDropdown({
         setAvailableLocations(vehicle.available_locations);
       } else {
         setAvailableLocations([]);
-        if (selectedLocation) {
-          handleLocationChange('');
-        }
       }
-      setIsInitialLoad(false);
     } catch (error) {
       logger.error('Error fetching available locations:', error);
       setAvailableLocations([]);
-      if (selectedLocation) {
-        handleLocationChange('');
-      }
-      setIsInitialLoad(false);
+    } finally {
+      isFetchingRef.current = false;
     }
-  }, [vehicleId, startDate, endDate, locations, selectedLocation, vehicleType, shouldAutoSelect, handleLocationChange]);
+  }, [vehicleId, startDate, endDate, vehicleType]);
 
+  const handleLocationChange = useCallback((location: string) => {
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    const now = Date.now();
+    const timeSinceLastChange = now - lastChangeTimeRef.current;
+
+    // Skip if already processing or if change is too soon
+    if (processingRef.current || timeSinceLastChange < 1000) {
+      logger.info('Skipping location change:', {
+        reason: processingRef.current ? 'processing' : 'too soon',
+        timeSinceLastChange,
+        location,
+        lastSelected: lastSelectedLocationRef.current,
+        componentId: componentIdRef.current,
+        timestamp: now
+      });
+      return;
+    }
+
+    // Skip if selecting the same location
+    if (location === lastSelectedLocationRef.current) {
+      logger.info('Skipping location change - same location:', {
+        location,
+        lastSelected: lastSelectedLocationRef.current,
+        componentId: componentIdRef.current,
+        timestamp: now
+      });
+      return;
+    }
+
+    processingRef.current = true;
+    lastChangeTimeRef.current = now;
+
+    logger.info('Processing location change:', {
+      location,
+      previousLocation: selectedLocation,
+      componentId: componentIdRef.current,
+      timestamp: now
+    });
+
+    // Set a timeout to update the location
+    timeoutRef.current = setTimeout(() => {
+      try {
+        lastSelectedLocationRef.current = location;
+        onLocationChange(location);
+      } finally {
+        processingRef.current = false;
+        timeoutRef.current = null;
+      }
+    }, 100);
+
+  }, [onLocationChange, selectedLocation]);
+
+  // Cleanup timeouts on unmount
   useEffect(() => {
-    fetchAvailableLocations();
-  }, [fetchAvailableLocations]);
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
-  if (shouldAutoSelect && availableLocations.length === 1) {
-    return (
-      <div className={className}>
-        <Select value={selectedLocation || availableLocations[0]} onValueChange={handleLocationChange}>
-          <SelectTrigger>
-            <SelectValue>{selectedLocation || availableLocations[0]}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={availableLocations[0]}>
-              {availableLocations[0]}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  }
+  // Only fetch available locations when necessary
+  useEffect(() => {
+    if (!isInitialMountRef.current) {
+      fetchAvailableLocations();
+    } else {
+      isInitialMountRef.current = false;
+    }
+  }, [fetchAvailableLocations]);
 
   return (
     <div className={className}>
       <Select
         value={selectedLocation || ''}
         onValueChange={handleLocationChange}
+        disabled={processingRef.current}
       >
         <SelectTrigger>
           <SelectValue placeholder="Select location" />

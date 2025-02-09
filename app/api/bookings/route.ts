@@ -385,34 +385,42 @@ export async function POST(request: NextRequest): Promise<Response> {
     });
 
     const overlapCheckResult = await query(`
-      SELECT id, start_date, end_date 
-      FROM bookings 
-      WHERE vehicle_id = $1 
-        AND status != 'cancelled'
-        AND (
-          ($2 BETWEEN start_date AND end_date)
-          OR ($3 BETWEEN start_date AND end_date)
-          OR (start_date BETWEEN $2 AND $3)
-          OR (end_date BETWEEN $2 AND $3)
-        )
-    `, [data.vehicleId, pickupDate.toISOString(), dropoffDate.toISOString()]);
+      WITH booking_counts AS (
+        SELECT 
+          COUNT(*) as concurrent_bookings,
+          v.quantity
+        FROM bookings b
+        JOIN vehicles v ON b.vehicle_id = v.id
+        WHERE b.vehicle_id = $1 
+          AND b.pickup_location = $2
+          AND b.status NOT IN ('cancelled', 'failed')
+          AND b.payment_status != 'failed'
+          AND (
+            ($3::timestamp BETWEEN b.start_date AND b.end_date)
+            OR ($4::timestamp BETWEEN b.start_date AND b.end_date)
+            OR (b.start_date BETWEEN $3::timestamp AND $4::timestamp)
+            OR (b.end_date BETWEEN $3::timestamp AND $4::timestamp)
+          )
+        GROUP BY v.quantity
+      )
+      SELECT * FROM booking_counts
+      WHERE concurrent_bookings >= quantity
+    `, [data.vehicleId, data.location, pickupDate.toISOString(), dropoffDate.toISOString()]);
 
     if (overlapCheckResult.rowCount > 0) {
       logger.error('Overlapping booking found:', {
         vehicleId: data.vehicleId,
+        location: data.location,
         requestedPickup: pickupDate,
         requestedDropoff: dropoffDate,
-        existingBookings: overlapCheckResult.rows.map(row => ({
-          id: row.id,
-          start_date: row.start_date,
-          end_date: row.end_date
-        }))
+        concurrent_bookings: overlapCheckResult.rows[0].concurrent_bookings,
+        vehicle_quantity: overlapCheckResult.rows[0].quantity
       });
       return NextResponse.json(
         {
           success: false,
           error: 'Vehicle unavailable',
-          details: 'This vehicle is already booked for the selected time period'
+          details: 'This vehicle is already fully booked at this location for the selected time period'
         },
         { status: 409 }
       );

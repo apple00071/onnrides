@@ -50,21 +50,6 @@ export function VehicleCard({
   const [previousVehicleType, setPreviousVehicleType] = useState(vehicle.type);
   const router = useRouter();
 
-  // Reset location when vehicle type changes
-  useEffect(() => {
-    if (vehicle.type !== previousVehicleType) {
-      logger.info('Vehicle type changed, resetting location:', {
-        previousType: previousVehicleType,
-        newType: vehicle.type
-      });
-      // Only clear selection if we're changing vehicle types
-      if (previousVehicleType) {
-        onLocationSelect('');
-      }
-      setPreviousVehicleType(vehicle.type);
-    }
-  }, [vehicle.type, previousVehicleType, onLocationSelect]);
-
   const isAvailable = vehicle.is_available ?? vehicle.available ?? true;
 
   const handleBookNow = async () => {
@@ -131,10 +116,23 @@ export function VehicleCard({
       vehicleId: vehicle.id,
       vehicleType: vehicle.type,
       location,
-      previousLocation: selectedLocation
+      previousLocation: selectedLocation,
+      isUserInitiated: true
     });
     onLocationSelect(location);
   };
+
+  // Reset location when vehicle type changes
+  useEffect(() => {
+    if (vehicle.type !== previousVehicleType && previousVehicleType) {
+      logger.info('Vehicle type changed, resetting location:', {
+        previousType: previousVehicleType,
+        newType: vehicle.type
+      });
+      onLocationSelect('');
+      setPreviousVehicleType(vehicle.type);
+    }
+  }, [vehicle.type, previousVehicleType, onLocationSelect]);
 
   const handleBookForAvailableTime = () => {
     if (vehicle.nextAvailable) {
@@ -174,7 +172,7 @@ export function VehicleCard({
           <LocationDropdown
             locations={vehicle.location}
             selectedLocation={selectedLocation || null}
-            onLocationChange={onLocationSelect}
+            onLocationChange={handleLocationSelect}
             vehicleId={vehicle.id}
             startDate={pickupDateTime ? new Date(pickupDateTime) : undefined}
             endDate={dropoffDateTime ? new Date(dropoffDateTime) : undefined}

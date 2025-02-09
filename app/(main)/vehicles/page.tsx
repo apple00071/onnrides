@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
-import logger from '@/lib/logger';
+import { logger } from '@/lib/logger';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { calculateBookingPrice, formatCurrency } from '@/lib/utils';
@@ -50,28 +50,6 @@ export default function VehiclesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const calculateDuration = useCallback((pickupStr: string, dropoffStr: string) => {
-    try {
-      const pickup = new Date(pickupStr);
-      const dropoff = new Date(dropoffStr);
-      const diff = dropoff.getTime() - pickup.getTime();
-      
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-      let duration = '';
-      if (days > 0) duration += `${days} ${days === 1 ? 'Day' : 'Days'}`;
-      if (hours > 0) duration += `${duration ? ', ' : ''}${hours} ${hours === 1 ? 'Hour' : 'Hours'}`;
-      if (minutes > 0) duration += `${duration ? ' and ' : ''}${minutes} ${minutes === 1 ? 'Minute' : 'Minutes'}`;
-
-      return duration || '0 Minutes';
-    } catch (error) {
-      logger.error('Error calculating duration:', error);
-      return '0 Minutes';
-    }
-  }, []);
-
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('relevance');
@@ -81,64 +59,179 @@ export default function VehiclesPage() {
   const [searchDuration, setSearchDuration] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<string | undefined>(undefined);
+  const isInitialMount = useRef(true);
+  const processingLocationChange = useRef(false);
+  const lastLocationUpdateRef = useRef<string | undefined>(undefined);
+  const lastLocationUpdateTimeRef = useRef<number>(0);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  type UrlParamsType = {
-    pickupDate: string | null;
-    pickupTime: string | null;
-    dropoffDate: string | null;
-    dropoffTime: string | null;
-    type: 'car' | 'bike' | null;
+  const [urlParams, setUrlParams] = useState<{
+    pickupDate: string;
+    pickupTime: string;
+    dropoffDate: string;
+    dropoffTime: string;
+    type: 'car' | 'bike';
     location: string | null;
-  };
-
-  const initialUrlParams: UrlParamsType = {
-    pickupDate: searchParams.get('pickupDate'),
-    pickupTime: searchParams.get('pickupTime'),
-    dropoffDate: searchParams.get('dropoffDate'),
-    dropoffTime: searchParams.get('dropoffTime'),
-    type: (searchParams.get('type') as 'car' | 'bike' | null) ?? 'car',
-    location: searchParams.get('location')
-  };
-
-  const [urlParams, setUrlParams] = useState<UrlParamsType>(initialUrlParams);
+  }>({
+    pickupDate: '',
+    pickupTime: '',
+    dropoffDate: '',
+    dropoffTime: '',
+    type: 'car',
+    location: null
+  });
 
   const handleLocationSelect = useCallback((location: string) => {
-    logger.info('Location selected:', { location, vehicleType });
-    
-    // Skip if the location hasn't actually changed
-    if (location === currentLocation) {
-      logger.info('Skipping location update - no change', { location, currentLocation });
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastLocationUpdateTimeRef.current;
+
+    // Skip if already processing or if update is too soon
+    if (processingLocationChange.current || timeSinceLastUpdate < 1000) {
+      logger.info('Skipping location update:', {
+        reason: processingLocationChange.current ? 'processing' : 'too soon',
+        timeSinceLastUpdate,
+        location,
+        currentLocation,
+        lastUpdate: lastLocationUpdateRef.current,
+        timestamp: now
+      });
       return;
     }
 
-    // Only update the URL if this was a user-initiated selection
-    setCurrentLocation(location);
-    
-    // Update URL only if location is explicitly selected
-    if (location) {
-      const newSearchParams = new URLSearchParams(searchParams.toString());
-      newSearchParams.set('location', location);
-      router.replace(`/vehicles?${newSearchParams.toString()}`, { scroll: false });
+    // Skip if the location hasn't actually changed
+    if (location === lastLocationUpdateRef.current) {
+      logger.info('Skipping location update - no change:', {
+        location,
+        currentLocation,
+        lastUpdate: lastLocationUpdateRef.current,
+        timestamp: now
+      });
+      return;
     }
-  }, [currentLocation, vehicleType, router, searchParams]);
+
+    logger.info('Processing location update:', {
+      location,
+      vehicleType,
+      currentLocation,
+      lastUpdate: lastLocationUpdateRef.current,
+      timestamp: now
+    });
+
+    processingLocationChange.current = true;
+    lastLocationUpdateTimeRef.current = now;
+
+    // Set a timeout to update the location
+    timeoutRef.current = setTimeout(() => {
+      try {
+        lastLocationUpdateRef.current = location;
+        setCurrentLocation(location);
+
+        // Update URL with the new location
+        const currentParams = new URLSearchParams(window.location.search);
+        const oldLocation = currentParams.get('location');
+
+        // Only update URL if location actually changed
+        if (location !== oldLocation) {
+          // Remove old location if exists
+          currentParams.delete('location');
+
+          // Only add new location if it's not empty
+          if (location) {
+            currentParams.set('location', location);
+          }
+
+          // Use replace to prevent history stack buildup
+          router.replace(`/vehicles?${currentParams.toString()}`, {
+            scroll: false
+          });
+        }
+      } finally {
+        processingLocationChange.current = false;
+        timeoutRef.current = null;
+      }
+    }, 100);
+  }, [currentLocation, vehicleType, router]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   // Update URL params once on mount and when URL changes
   useEffect(() => {
+    const locationFromUrl = searchParams.get('location');
     const pickupDate = searchParams.get('pickupDate') || '';
     const pickupTime = searchParams.get('pickupTime') || '';
     const dropoffDate = searchParams.get('dropoffDate') || '';
     const dropoffTime = searchParams.get('dropoffTime') || '';
     const type = (searchParams.get('type') as 'car' | 'bike') || 'car';
 
-    // Don't automatically set location from URL params
-    setUrlParams({
-      pickupDate,
-      pickupTime,
-      dropoffDate,
-      dropoffTime,
-      type,
-      location: null // Reset location to prevent auto-selection
-    });
+    // Only update on initial mount
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      setVehicleType(type);
+      if (locationFromUrl) {
+        setCurrentLocation(locationFromUrl);
+        lastLocationUpdateRef.current = locationFromUrl;
+        lastLocationUpdateTimeRef.current = Date.now();
+      }
+      setUrlParams({
+        pickupDate,
+        pickupTime,
+        dropoffDate,
+        dropoffTime,
+        type,
+        location: locationFromUrl
+      });
+      return;
+    }
+
+    // For subsequent updates, only update if we're not processing a change
+    // and enough time has passed since the last update
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastLocationUpdateTimeRef.current;
+
+    if (!processingLocationChange.current && timeSinceLastUpdate >= 1000) {
+      const newParams = {
+        pickupDate,
+        pickupTime,
+        dropoffDate,
+        dropoffTime,
+        type,
+        location: locationFromUrl
+      };
+
+      const paramsChanged = JSON.stringify(newParams) !== JSON.stringify(urlParams);
+
+      if (paramsChanged) {
+        logger.info('URL params changed:', {
+          old: urlParams,
+          new: newParams,
+          lastUpdate: lastLocationUpdateRef.current,
+          timeSinceLastUpdate,
+          timestamp: now
+        });
+
+        setUrlParams(newParams);
+
+        // Only update location if it's changed and not from a user interaction
+        if (locationFromUrl !== lastLocationUpdateRef.current) {
+          setCurrentLocation(locationFromUrl || undefined);
+          lastLocationUpdateRef.current = locationFromUrl || undefined;
+          lastLocationUpdateTimeRef.current = now;
+        }
+      }
+    }
   }, [searchParams]);
 
   const fetchVehicles = useCallback(async () => {
@@ -156,10 +249,6 @@ export default function VehiclesPage() {
         type: vehicleType
       };
 
-      if (urlParams.location) {
-        params.location = urlParams.location;
-      }
-
       const query = new URLSearchParams(Object.entries(params).filter(([_, value]) => value != null) as [string, string][]);
       const response = await fetch(`/api/vehicles?${query.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch vehicles');
@@ -176,28 +265,43 @@ export default function VehiclesPage() {
 
   // Only fetch when URL params or vehicle type changes
   useEffect(() => {
-    if (urlParams.pickupDate && urlParams.pickupTime && urlParams.dropoffDate && urlParams.dropoffTime) {
-      fetchVehicles();
+    const shouldFetch = 
+      urlParams.pickupDate && 
+      urlParams.pickupTime && 
+      urlParams.dropoffDate && 
+      urlParams.dropoffTime;
+
+    if (shouldFetch) {
+      const timer = setTimeout(() => {
+        fetchVehicles();
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [urlParams, fetchVehicles]);
 
   // Handle vehicle type change
   useEffect(() => {
-    if (vehicleType !== previousType) {
+    if (!isInitialMount.current && vehicleType !== previousType) {
       logger.info('Vehicle type changed at page level:', {
         from: previousType,
         to: vehicleType
       });
       
-      // Reset location in URL when type changes
-      const currentParams = new URLSearchParams(searchParams.toString());
+      // Reset location when vehicle type changes
+      setCurrentLocation(undefined);
+      setPreviousType(vehicleType);
+      
+      // Update URL with new type and remove location
+      const currentParams = new URLSearchParams(window.location.search);
       currentParams.delete('location');
       currentParams.set('type', vehicleType);
-      router.push(`/vehicles?${currentParams.toString()}`);
       
-      setPreviousType(vehicleType);
+      // Use replace to prevent history stack buildup
+      router.replace(`/vehicles?${currentParams.toString()}`, { 
+        scroll: false 
+      });
     }
-  }, [vehicleType, previousType, router, searchParams]);
+  }, [vehicleType, previousType, router]);
 
   const handleLocationChange = (location: string) => {
     setSelectedLocations(prev => {
