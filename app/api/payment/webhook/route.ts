@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { query } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sendBookingConfirmationEmail } from '@/lib/email/service';
+import { verifyEmailConfig } from '@/lib/email/config';
 
 // New route segment config
 export const dynamic = 'force-dynamic';
@@ -57,8 +59,10 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     // Get booking details
     const bookingResult = await query(
-      `SELECT id, status 
-       FROM bookings 
+      `SELECT b.*, v.name as vehicle_name, u.email as user_email
+       FROM bookings b
+       LEFT JOIN vehicles v ON b.vehicle_id = v.id
+       LEFT JOIN users u ON b.user_id = u.id
        WHERE payment_details->>'razorpay_order_id' = $1`,
       [orderEntity.id]
     );
@@ -110,6 +114,69 @@ export async function POST(request: NextRequest): Promise<Response> {
       status: bookingStatus,
       paymentStatus
     });
+
+    // Send confirmation email if payment was successful
+    if (paymentEntity.status === 'captured') {
+      // Verify email configuration
+      const isEmailConfigValid = await verifyEmailConfig();
+      
+      if (!isEmailConfigValid) {
+        logger.error('Email configuration is invalid', {
+          smtp_user: process.env.SMTP_USER,
+          smtp_from: process.env.SMTP_FROM
+        });
+      }
+
+      // Send confirmation email regardless of config verification
+      const emailBooking = {
+        ...booking,
+        id: booking.id,
+        booking_id: booking.booking_id,
+        displayId: booking.booking_id,
+        vehicle: {
+          name: booking.vehicle_name
+        },
+        payment_reference: paymentEntity.id,
+        paymentStatus: paymentEntity.status,
+        status: 'confirmed',
+        startDate: booking.start_date,
+        endDate: booking.end_date,
+        pickupLocation: booking.pickup_location,
+        totalPrice: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`
+      };
+
+      logger.info('Preparing email with payment details:', {
+        booking_id: booking.booking_id,
+        payment_id: paymentEntity.id,
+        payment_status: paymentEntity.status,
+        payment_method: paymentEntity.method
+      });
+
+      try {
+        await sendBookingConfirmationEmail(emailBooking, booking.user_email);
+        logger.info('Booking confirmation email sent successfully', {
+          bookingId: booking.id,
+          booking_id: booking.booking_id,
+          payment_id: paymentEntity.id,
+          payment_status: paymentEntity.status,
+          email: booking.user_email
+        });
+      } catch (emailError) {
+        logger.error('Failed to send booking confirmation email:', {
+          error: emailError instanceof Error ? emailError.message : 'Unknown error',
+          booking_id: booking.id,
+          payment_id: paymentEntity.id,
+          payment_status: paymentEntity.status,
+          email: booking.user_email,
+          emailConfig: {
+            smtp_user: process.env.SMTP_USER,
+            smtp_from: process.env.SMTP_FROM,
+            has_smtp_pass: !!process.env.SMTP_PASS
+          }
+        });
+        // Don't throw here - we don't want to rollback the webhook processing just because email failed
+      }
+    }
 
     return NextResponse.json({ success: true });
 

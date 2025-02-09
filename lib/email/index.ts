@@ -1,6 +1,5 @@
 export { 
   sendBookingConfirmationEmail,
   sendPasswordResetEmail,
-  sendWelcomeEmail,
-  sendTestEmail 
+  sendWelcomeEmail
 } from './service'; 
