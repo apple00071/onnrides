@@ -114,18 +114,49 @@ function formatPaymentStatus(status: string): string {
   }
 }
 
+// Validate email configuration
+function validateEmailConfig() {
+  const requiredEnvVars = {
+    SMTP_USER: process.env.SMTP_USER,
+    SMTP_PASS: process.env.SMTP_PASS,
+    SMTP_FROM: process.env.SMTP_FROM
+  };
+
+  const missingVars = Object.entries(requiredEnvVars)
+    .filter(([_, value]) => !value)
+    .map(([key]) => key);
+
+  if (missingVars.length > 0) {
+    throw new Error(`Missing required email configuration: ${missingVars.join(', ')}`);
+  }
+}
+
+// Function to get booking display ID
+function getBookingDisplayId(booking: any): string {
+  const displayId = booking.booking_id || booking.payment_intent_id || booking.id || booking.displayId;
+  if (!displayId) {
+    throw new Error('Missing booking identifier');
+  }
+  return displayId;
+}
+
 // Send booking confirmation email
 export async function sendBookingConfirmationEmail(booking: any, userEmail: string) {
   try {
+    // Validate email configuration first
+    validateEmailConfig();
+
+    const displayId = getBookingDisplayId(booking);
+
     logger.info('Preparing to send booking confirmation email', {
       bookingId: booking.id,
-      booking_id: booking.booking_id,
+      displayId,
       payment_reference: booking.payment_reference,
       payment_status: booking.paymentStatus,
       userEmail,
       booking_details: {
         id: booking.id,
-        booking_id: booking.booking_id,
+        display_id: displayId,
         vehicle: booking.vehicle?.name,
         start_date: booking.startDate,
         end_date: booking.endDate,
@@ -134,17 +165,6 @@ export async function sendBookingConfirmationEmail(booking: any, userEmail: stri
         payment_status: booking.paymentStatus
       }
     });
-
-    // Use the original booking_id from the booking object
-    const displayId = booking.booking_id;
-
-    if (!displayId) {
-      logger.error('Missing booking_id:', {
-        bookingId: booking.id,
-        booking: booking
-      });
-      throw new Error('Missing booking_id');
-    }
 
     const formattedPaymentStatus = formatPaymentStatus(booking.paymentStatus);
     const statusColor = formattedPaymentStatus === 'Payment Successful' ? '#22c55e' : '#ef4444';
@@ -200,23 +220,25 @@ export async function sendBookingConfirmationEmail(booking: any, userEmail: stri
 
     logger.info('Booking confirmation email sent successfully', {
       bookingId: booking.id,
-      booking_id: booking.booking_id,
+      displayId,
       payment_reference: booking.payment_reference,
       payment_status: formattedPaymentStatus,
-      displayId,
       userEmail,
       messageId: result.messageId
     });
 
     return result;
   } catch (error) {
+    // Get display ID even in error case, with safe fallback
+    const displayId = booking ? getBookingDisplayId(booking) : 'UNKNOWN';
+    
     logger.error('Failed to send booking confirmation email:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      bookingId: booking.id,
-      booking_id: booking.booking_id,
-      payment_reference: booking.payment_reference,
-      payment_status: booking.paymentStatus,
+      bookingId: booking?.id,
+      displayId,
+      payment_reference: booking?.payment_reference,
+      payment_status: booking?.paymentStatus,
       userEmail,
       emailConfig: {
         smtp_user: process.env.SMTP_USER,
@@ -225,11 +247,11 @@ export async function sendBookingConfirmationEmail(booking: any, userEmail: stri
       }
     });
 
-    // Log failed email
+    // Log failed email with display ID
     await logEmailSent({
       recipient: userEmail,
-      subject: `Booking Confirmation - ${booking.booking_id}`,
-      booking_id: booking.id,
+      subject: `Booking Confirmation - ${displayId}`,
+      booking_id: booking?.id,
       status: 'failed',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
