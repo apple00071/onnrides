@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
-import logger from '@/lib/logger';
+import { logger } from '@/lib/logger';
 import { randomUUID } from 'crypto';
 
 interface RegisterBody {

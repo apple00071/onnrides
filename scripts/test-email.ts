@@ -1,84 +1,50 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import nodemailer from 'nodemailer';
+import { logger } from '../lib/logger';
 
-// Load environment variables
-config({ path: resolve(__dirname, '../.env') });
+// Load environment variables from .env file
+const envPath = resolve(__dirname, '../.env');
+const result = config({ path: envPath });
 
-async function testEmail() {
+if (result.error) {
+  logger.error('Failed to load environment variables:', result.error);
+  process.exit(1);
+}
+
+logger.info(`Loading environment variables from: ${envPath}`);
+
+// Log environment variables for debugging (excluding sensitive data)
+logger.info('Environment variables loaded:', {
+  SMTP_HOST: process.env.SMTP_HOST,
+  SMTP_PORT: process.env.SMTP_PORT,
+  SMTP_USER: process.env.SMTP_USER,
+  SMTP_FROM: process.env.SMTP_FROM,
+  has_SMTP_PASS: !!process.env.SMTP_PASS,
+  NODE_ENV: process.env.NODE_ENV,
+  pwd: process.cwd(),
+  envPath
+});
+
+// Import email config after environment variables are loaded
+import { verifyEmailConfig } from '../lib/email/config';
+
+async function testEmailConfig() {
+  logger.info('Starting email configuration test...');
+  
   try {
-    // Create transporter directly to ensure environment variables are loaded
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    });
-
-    console.log('Email Configuration:', {
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      user: process.env.SMTP_USER,
-      from: process.env.SMTP_FROM,
-      pass_length: process.env.SMTP_PASS?.length || 0
-    });
-
-    // First verify the configuration
-    const verifyResult = await transporter.verify();
-    console.log('SMTP Configuration verified:', verifyResult);
-
-    // Try sending a test email
-    const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: process.env.SMTP_USER, // Send to the same email for testing
-      subject: "ONNRIDES Test Email",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1>Test Email</h1>
-          <p>This is a test email to verify the email configuration.</p>
-          <p>Configuration used:</p>
-          <ul>
-            <li>SMTP Host: smtp.gmail.com</li>
-            <li>SMTP Port: 465 (SSL)</li>
-            <li>SMTP User: ${process.env.SMTP_USER}</li>
-            <li>From: ${process.env.SMTP_FROM || process.env.SMTP_USER}</li>
-          </ul>
-          <p>Sent at: ${new Date().toISOString()}</p>
-        </div>
-      `
-    });
-
-    console.log('Email sent successfully:', {
-      messageId: info.messageId,
-      response: info.response,
-      accepted: info.accepted,
-      rejected: info.rejected
-    });
+    const result = await verifyEmailConfig();
+    
+    if (result) {
+      logger.info('✅ Email configuration test passed successfully!');
+      process.exit(0);
+    } else {
+      logger.error('❌ Email configuration test failed.');
+      process.exit(1);
+    }
   } catch (error) {
-    console.error('Email test failed:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      config: {
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        user: process.env.SMTP_USER,
-        from: process.env.SMTP_FROM,
-        has_pass: !!process.env.SMTP_PASS
-      }
-    });
+    logger.error('❌ Email configuration test failed with error:', error);
+    process.exit(1);
   }
 }
 
-// Print environment variables for debugging
-console.log('Environment variables:', {
-  SMTP_USER: process.env.SMTP_USER,
-  SMTP_FROM: process.env.SMTP_FROM,
-  has_SMTP_PASS: !!process.env.SMTP_PASS
-});
-
-testEmail().catch(console.error); 
+testEmailConfig(); 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'react-hot-toast';
-import logger from '@/lib/logger';
+import { logger } from '@/lib/logger';
 import { useRouter } from 'next/navigation';
 
 interface Profile {
@@ -132,11 +132,6 @@ export default function ProfileClient() {
     }
   };
 
-  const formatRole = (role: string | null) => {
-    if (!role) return 'User';
-    return role.charAt(0).toUpperCase() + role.slice(1);
-  };
-
   const formatDocumentType = (type: string) => {
     const typeMap = {
       'license': 'Driving License',
@@ -185,10 +180,6 @@ export default function ProfileClient() {
                     </span>
                   </p>
                   <p>
-                    <span className="font-medium">Account Type:</span>{' '}
-                    {formatRole(profile.role)}
-                  </p>
-                  <p>
                     <span className="font-medium">Member Since:</span>{' '}
                     {profile.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Unknown'}
                   </p>
@@ -201,7 +192,7 @@ export default function ProfileClient() {
             <h2 className="text-lg font-semibold mb-4">Documents</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {DOCUMENT_TYPES.map((type) => {
-                const existingDoc = documents.find(doc => doc.type === type);
+                const existingDoc = Array.isArray(documents) ? documents.find(doc => doc.type === type) : undefined;
                 return (
                   <div key={type} className="border rounded-lg p-4">
                     <h3 className="font-medium mb-2">{formatDocumentType(type)}</h3>

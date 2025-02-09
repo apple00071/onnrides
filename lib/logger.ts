@@ -1,79 +1,99 @@
-/* eslint-disable no-console */
-const isDevelopment = process.env.NODE_ENV === 'development';
-const isProduction = process.env.NODE_ENV === 'production';
+import winston from 'winston';
+import 'winston-daily-rotate-file';
+import type { transport } from 'winston';
+import type DailyRotateFile from 'winston-daily-rotate-file';
 
-type LogLevel = 'log' | 'error' | 'warn' | 'info' | 'debug';
+// Define log levels
+const levels = {
+  error: 0,
+  warn: 1,
+  info: 2,
+  debug: 3,
+};
 
-interface ErrorWithStack extends Error {
-  stack?: string;
+// Define log colors
+const colors = {
+  error: 'red',
+  warn: 'yellow',
+  info: 'green',
+  debug: 'blue',
+};
+
+// Add colors to Winston
+winston.addColors(colors);
+
+// Create formatters
+const consoleFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.colorize({ all: true }),
+  winston.format.printf(
+    (info) => {
+      const { timestamp, level, message, metadata } = info;
+      const metaStr = metadata && typeof metadata === 'object' && Object.keys(metadata).length
+        ? '\n' + JSON.stringify(metadata, null, 2)
+        : '';
+      return `${timestamp} ${level}: ${message}${metaStr}`;
+    }
+  )
+);
+
+const fileFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.json()
+);
+
+// Create transports array based on environment
+const transports: transport[] = [
+  // Console transport
+  new winston.transports.Console({
+    format: consoleFormat,
+    level: 'debug',
+  })
+];
+
+// Add file transports only in Node.js environment
+if (typeof window === 'undefined') {
+  try {
+    const DailyRotateFile = require('winston-daily-rotate-file').default;
+    
+    // Rotating file transport for all logs
+    transports.push(
+      new DailyRotateFile({
+        filename: 'logs/combined-%DATE%.log',
+        datePattern: 'YYYY-MM-DD',
+        maxSize: '20m',
+        maxFiles: '14d',
+        level: 'debug',
+      }) as unknown as transport,
+      // Separate file for error logs
+      new DailyRotateFile({
+        filename: 'logs/error-%DATE%.log',
+        datePattern: 'YYYY-MM-DD',
+        maxSize: '20m',
+        maxFiles: '14d',
+        level: 'error',
+      }) as unknown as transport
+    );
+  } catch (error) {
+    console.error('Failed to initialize file transports:', error);
+  }
 }
 
-const formatError = (error: ErrorWithStack): string => {
-  return `${error.message}\n${error.stack || ''}`;
-};
-
-const shouldLog = (level: LogLevel): boolean => {
-  // In production, only show errors and warnings
-  if (isProduction) {
-    return level === 'error' || level === 'warn';
-  }
-  // In development, show all logs
-  return isDevelopment;
-};
-
-const productionLog = (level: LogLevel, ...args: any[]): void => {
-  if (isProduction) {
-    // Here you could integrate with a production logging service
-    // For now, we'll only log errors and warnings in production
-    if (level === 'error' || level === 'warn') {
-      const timestamp = new Date().toISOString();
-      const logData = {
-        timestamp,
-        level,
-        data: args
-      };
-      
-      // You could send this to a logging service
-      // For now, we'll just do minimal console output in production
-      if (level === 'error') {
-        console.error('[Error]', timestamp, ...args);
-      } else if (level === 'warn') {
-        console.warn('[Warning]', timestamp, ...args);
-      }
-    }
-  }
-};
-
-const logger = {
-  debug: (...args: any[]): void => {
-    if (shouldLog('debug')) {
-      console.log('[Debug]', ...args);
-    }
+// Create the logger
+export const logger = winston.createLogger({
+  levels,
+  format: fileFormat,
+  transports,
+  // Add metadata to all logs
+  defaultMeta: {
+    service: 'onnrides-api',
+    environment: process.env.NODE_ENV || 'development',
   },
-  log: (...args: any[]): void => {
-    if (shouldLog('log')) {
-      console.log(...args);
-      productionLog('log', ...args);
-    }
-  },
-  error: (error: Error | string, ...args: any[]): void => {
-    if (shouldLog('error')) {
-      const errorMessage = error instanceof Error ? formatError(error) : error;
-      productionLog('error', errorMessage, ...args);
-    }
-  },
-  warn: (...args: any[]): void => {
-    if (shouldLog('warn')) {
-      productionLog('warn', ...args);
-    }
-  },
-  info: (...args: any[]): void => {
-    if (shouldLog('info')) {
-      console.info('[Info]', ...args);
-      productionLog('info', ...args);
-    }
-  }
-};
+});
 
-export { logger };
-export default logger; 
+// Create a stream object for Morgan
+export const stream = {
+  write: (message: string) => {
+    logger.info(message.trim());
+  },
+}; 

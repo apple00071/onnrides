@@ -1,6 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import { query } from '@/lib/db';
-import logger from '@/lib/logger';
+import { logger } from '@/lib/logger';
 import { put } from '@vercel/blob';
 import type { Session } from 'next-auth';
 import { randomUUID } from 'crypto';
@@ -39,8 +39,8 @@ export async function GET() {
       [auth.id]
     );
 
-    logger.info('Found documents:', userDocuments.length);
-    return new Response(JSON.stringify(userDocuments), {
+    logger.info('Found documents:', userDocuments.rows.length);
+    return new Response(JSON.stringify(userDocuments.rows), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -103,19 +103,15 @@ export async function POST(request: NextRequest) {
     });
 
     // Create new document record
-    const [document] = await db
-      .insert(documents)
-      .values({
-        id: randomUUID(),
-        user_id: auth.id,
-        type: type as DocumentType,
-        file_url: blob.url,
-        status: 'pending',
-        created_at: new Date(),
-        updated_at: new Date()
-      })
-      .returning();
+    const documentId = randomUUID();
+    const result = await query(
+      `INSERT INTO documents (id, user_id, type, file_url, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+       RETURNING *`,
+      [documentId, auth.id, type, blob.url, 'pending']
+    );
 
+    const document = result.rows[0];
     logger.info('Document uploaded successfully:', document.id);
     return new Response(JSON.stringify(document), {
       status: 200,

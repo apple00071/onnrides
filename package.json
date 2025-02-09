@@ -38,6 +38,7 @@
     "@tailwindcss/forms": "^0.5.10",
     "@types/bcrypt": "^5.0.2",
     "@types/jsonwebtoken": "^9.0.8",
+    "@types/winston": "^2.4.4",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@vercel/blob": "^0.15.1",
     "@vercel/postgres": "^0.10.0",
@@ -81,6 +82,8 @@
     "tsx": "^4.7.1",
     "twilio": "^5.4.2",
     "uuid": "^9.0.1",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
