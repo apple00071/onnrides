@@ -78,10 +78,13 @@ async function sendEmail(options: any, retryCount = 0): Promise<any> {
     
     return info;
   } catch (error) {
-    logger.error('Email send attempt failed:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    // Use enhanced email error logging
+    logger.emailError('Email send attempt failed', error, {
       retry_count: retryCount,
-      max_retries: MAX_RETRIES
+      max_retries: MAX_RETRIES,
+      to: options.to,
+      subject: options.subject,
+      smtp_response: error instanceof Error ? error.message : undefined
     });
 
     if (retryCount < MAX_RETRIES) {
@@ -232,10 +235,8 @@ export async function sendBookingConfirmationEmail(booking: any, userEmail: stri
     // Get display ID even in error case, with safe fallback
     const displayId = booking ? getBookingDisplayId(booking) : 'UNKNOWN';
     
-    logger.error('Failed to send booking confirmation email:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      bookingId: booking?.id,
+    // Use enhanced booking email error logging
+    logger.bookingEmailError('Failed to send booking confirmation email', error, booking?.id, {
       displayId,
       payment_reference: booking?.payment_reference,
       payment_status: booking?.paymentStatus,
@@ -247,7 +248,7 @@ export async function sendBookingConfirmationEmail(booking: any, userEmail: stri
       }
     });
 
-    // Log failed email with display ID
+    // Log failed email
     await logEmailSent({
       recipient: userEmail,
       subject: `Booking Confirmation - ${displayId}`,
