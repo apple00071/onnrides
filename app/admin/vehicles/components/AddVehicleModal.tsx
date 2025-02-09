@@ -1,7 +1,7 @@
 'use client';
 
 import { logger } from '@/lib/logger';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { FaTimes } from 'react-icons/fa';
 import { Button } from '@/components/ui/button';
@@ -35,26 +35,32 @@ interface FormData {
 
 const LOCATIONS = [
   'Madhapur',
-  'Gachibowli',
-  'Kondapur',
-  'Kukatpally',
-  'Ameerpet',
-  'Hitech City',
-  'Jubilee Hills',
-  'Banjara Hills',
   'Eragadda'
 ];
 
 export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalProps) {
-  const [formData, setFormData] = useState<FormData>({
+  const defaultFormData = {
     name: '',
-    type: 'car',
-    location: [],
+    type: 'car' as const,
+    location: [] as string[],
     quantity: 1,
     price_per_hour: 0,
-    images: [],
-  });
+    images: [] as File[],
+  } satisfies FormData;
+
+  const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [loading, setLoading] = useState(false);
+
+  const resetForm = () => {
+    setFormData(defaultFormData);
+  };
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      resetForm();
+    }
+  }, [isOpen]);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -158,6 +164,7 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
 
       toast.success('Vehicle created successfully');
       onSuccess(result.data.vehicle);
+      resetForm(); // Reset form after successful submission
       onClose();
     } catch (error) {
       logger.error('Error in vehicle creation process:', error);
@@ -207,7 +214,7 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
 
           <div>
             <Label>Locations</Label>
-            <div className="grid grid-cols-2 gap-4 mt-2">
+            <div className="grid grid-cols-2 gap-4 mt-2 max-h-[200px] overflow-y-auto pr-4">
               {LOCATIONS.map((location) => (
                 <div key={location} className="flex items-center space-x-2">
                   <Checkbox

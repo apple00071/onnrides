@@ -49,13 +49,6 @@ interface Vehicle {
 export default function VehiclesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState('relevance');
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  const [vehicleType, setVehicleType] = useState<'car' | 'bike'>('car');
-  const [searchDuration, setSearchDuration] = useState<string>('');
-  const [showFilters, setShowFilters] = useState(false);
 
   const calculateDuration = useCallback((pickupStr: string, dropoffStr: string) => {
     try {
@@ -79,85 +72,132 @@ export default function VehiclesPage() {
     }
   }, []);
 
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState('relevance');
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [vehicleType, setVehicleType] = useState<'car' | 'bike'>('car');
+  const [previousType, setPreviousType] = useState<'car' | 'bike'>('car');
+  const [searchDuration, setSearchDuration] = useState<string>('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<string | undefined>(undefined);
+
+  type UrlParamsType = {
+    pickupDate: string | null;
+    pickupTime: string | null;
+    dropoffDate: string | null;
+    dropoffTime: string | null;
+    type: 'car' | 'bike' | null;
+    location: string | null;
+  };
+
+  const initialUrlParams: UrlParamsType = {
+    pickupDate: searchParams.get('pickupDate'),
+    pickupTime: searchParams.get('pickupTime'),
+    dropoffDate: searchParams.get('dropoffDate'),
+    dropoffTime: searchParams.get('dropoffTime'),
+    type: (searchParams.get('type') as 'car' | 'bike' | null) ?? 'car',
+    location: searchParams.get('location')
+  };
+
+  const [urlParams, setUrlParams] = useState<UrlParamsType>(initialUrlParams);
+
+  const handleLocationSelect = useCallback((location: string) => {
+    logger.info('Location selected:', { location, vehicleType });
+    
+    // Skip if the location hasn't actually changed
+    if (location === currentLocation) {
+      logger.info('Skipping location update - no change', { location, currentLocation });
+      return;
+    }
+
+    // Only update the URL if this was a user-initiated selection
+    setCurrentLocation(location);
+    
+    // Update URL only if location is explicitly selected
+    if (location) {
+      const newSearchParams = new URLSearchParams(searchParams.toString());
+      newSearchParams.set('location', location);
+      router.replace(`/vehicles?${newSearchParams.toString()}`, { scroll: false });
+    }
+  }, [currentLocation, vehicleType, router, searchParams]);
+
+  // Update URL params once on mount and when URL changes
+  useEffect(() => {
+    const pickupDate = searchParams.get('pickupDate') || '';
+    const pickupTime = searchParams.get('pickupTime') || '';
+    const dropoffDate = searchParams.get('dropoffDate') || '';
+    const dropoffTime = searchParams.get('dropoffTime') || '';
+    const type = (searchParams.get('type') as 'car' | 'bike') || 'car';
+
+    // Don't automatically set location from URL params
+    setUrlParams({
+      pickupDate,
+      pickupTime,
+      dropoffDate,
+      dropoffTime,
+      type,
+      location: null // Reset location to prevent auto-selection
+    });
+  }, [searchParams]);
+
   const fetchVehicles = useCallback(async () => {
+    if (!urlParams.pickupDate || !urlParams.pickupTime || !urlParams.dropoffDate || !urlParams.dropoffTime) {
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
-      // Get search params
-      const pickupDate = searchParams.get('pickupDate');
-      const pickupTime = searchParams.get('pickupTime');
-      const dropoffDate = searchParams.get('dropoffDate');
-      const dropoffTime = searchParams.get('dropoffTime');
+      const params: Record<string, string> = {
+        pickupDate: urlParams.pickupDate,
+        pickupTime: urlParams.pickupTime,
+        dropoffDate: urlParams.dropoffDate,
+        dropoffTime: urlParams.dropoffTime,
+        type: vehicleType
+      };
 
-      // Calculate duration if dates are available
-      if (pickupDate && pickupTime && dropoffDate && dropoffTime) {
-        const pickupDateTime = `${pickupDate}T${pickupTime}`;
-        const dropoffDateTime = `${dropoffDate}T${dropoffTime}`;
-        const duration = calculateDuration(pickupDateTime, dropoffDateTime);
-        setSearchDuration(duration);
+      if (urlParams.location) {
+        params.location = urlParams.location;
       }
 
-      // Build query string
-      const queryParams = new URLSearchParams();
-      if (pickupDate) queryParams.append('pickupDate', pickupDate);
-      if (pickupTime) queryParams.append('pickupTime', pickupTime);
-      if (dropoffDate) queryParams.append('dropoffDate', dropoffDate);
-      if (dropoffTime) queryParams.append('dropoffTime', dropoffTime);
-      if (selectedLocations.length > 0) {
-        selectedLocations.forEach(location => {
-          queryParams.append('location', location);
-        });
-      }
-      queryParams.append('type', vehicleType);
-
-      logger.info('Fetching vehicles with params:', queryParams.toString());
-      logger.info('Current vehicle type:', vehicleType);
-
-      // Fetch vehicles with query params
-      const response = await fetch(`/api/vehicles?${queryParams.toString()}`);
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to fetch vehicles');
-      }
-
+      const query = new URLSearchParams(Object.entries(params).filter(([_, value]) => value != null) as [string, string][]);
+      const response = await fetch(`/api/vehicles?${query.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch vehicles');
+      
       const data = await response.json();
-      if (!data.vehicles || !Array.isArray(data.vehicles)) {
-        throw new Error('Invalid response format');
-      }
-
-      // Process vehicles data
-      const processedVehicles = data.vehicles.map((vehicle: Vehicle) => ({
-        ...vehicle,
-        location: Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location],
-        images: Array.isArray(vehicle.images) ? vehicle.images : []
-      }));
-
-      // Sort vehicles based on selected option
-      const sortedVehicles = [...processedVehicles];
-      if (sortBy === 'price-low-high') {
-        sortedVehicles.sort((a, b) => a.price_per_hour - b.price_per_hour);
-      } else if (sortBy === 'price-high-low') {
-        sortedVehicles.sort((a, b) => b.price_per_hour - a.price_per_hour);
-      }
-
-      // Filter vehicles based on selected locations
-      const filteredVehicles = selectedLocations.length > 0
-        ? sortedVehicles.filter(vehicle => 
-            vehicle.location.some(loc => selectedLocations.includes(loc)))
-        : sortedVehicles;
-
-      setVehicles(filteredVehicles);
+      setVehicles(data.vehicles || []);
     } catch (error) {
       logger.error('Error fetching vehicles:', error);
-      toast.error('Failed to load vehicles. Please try again.');
       setVehicles([]);
     } finally {
       setLoading(false);
     }
-  }, [searchParams, sortBy, selectedLocations, vehicleType, calculateDuration]);
+  }, [vehicleType, urlParams]);
 
+  // Only fetch when URL params or vehicle type changes
   useEffect(() => {
-    fetchVehicles();
-  }, [fetchVehicles]);
+    if (urlParams.pickupDate && urlParams.pickupTime && urlParams.dropoffDate && urlParams.dropoffTime) {
+      fetchVehicles();
+    }
+  }, [urlParams, fetchVehicles]);
+
+  // Handle vehicle type change
+  useEffect(() => {
+    if (vehicleType !== previousType) {
+      logger.info('Vehicle type changed at page level:', {
+        from: previousType,
+        to: vehicleType
+      });
+      
+      // Reset location in URL when type changes
+      const currentParams = new URLSearchParams(searchParams.toString());
+      currentParams.delete('location');
+      currentParams.set('type', vehicleType);
+      router.push(`/vehicles?${currentParams.toString()}`);
+      
+      setPreviousType(vehicleType);
+    }
+  }, [vehicleType, previousType, router, searchParams]);
 
   const handleLocationChange = (location: string) => {
     setSelectedLocations(prev => {
@@ -177,17 +217,21 @@ export default function VehiclesPage() {
   }
 
   // Format the datetime for display
-  const formatDateTime = (date: string, time: string) => {
+  const formatDateTime = (date: string | null, time: string | null) => {
     if (!date || !time) return '';
-    const datetime = new Date(`${date}T${time}`);
-    return datetime.toLocaleString('en-US', {
-      month: 'short',
-      day: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
+    try {
+      const datetime = new Date(`${date}T${time}`);
+      return datetime.toLocaleString('en-US', {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      return '';
+    }
   };
 
   return (
@@ -232,8 +276,8 @@ export default function VehiclesPage() {
                   <label className="block text-xs text-gray-600 mb-1">Pickup</label>
                   <div className="text-sm font-medium">
                     {formatDateTime(
-                      searchParams.get('pickupDate') || '',
-                      searchParams.get('pickupTime') || ''
+                      urlParams.pickupDate,
+                      urlParams.pickupTime
                     )}
                   </div>
                 </div>
@@ -241,8 +285,8 @@ export default function VehiclesPage() {
                   <label className="block text-xs text-gray-600 mb-1">Dropoff</label>
                   <div className="text-sm font-medium">
                     {formatDateTime(
-                      searchParams.get('dropoffDate') || '',
-                      searchParams.get('dropoffTime') || ''
+                      urlParams.dropoffDate,
+                      urlParams.dropoffTime
                     )}
                   </div>
                 </div>
@@ -342,41 +386,17 @@ export default function VehiclesPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {vehicles.map(vehicle => {
-                // Calculate duration from pickup and dropoff times
-                const pickupTime = searchParams.get('pickupTime');
-                const dropoffTime = searchParams.get('dropoffTime');
-                let duration = '6 hours'; // default
-
-                if (pickupTime && dropoffTime) {
-                  const [pickupHour, pickupMinute] = pickupTime.split(':').map(Number);
-                  const [dropoffHour, dropoffMinute] = dropoffTime.split(':').map(Number);
-                  const durationHours = dropoffHour - pickupHour;
-                  const durationMinutes = dropoffMinute - pickupMinute;
-                  const totalMinutes = (durationHours * 60) + durationMinutes;
-                  duration = `${Math.ceil(totalMinutes / 60)} hours`;
-                }
-
                 return (
                   <VehicleCard
                     key={vehicle.id}
                     vehicle={{
-                      id: vehicle.id,
-                      name: vehicle.name,
-                      type: vehicle.type,
-                      price_per_hour: vehicle.price_per_hour,
-                      location: Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location],
-                      images: Array.isArray(vehicle.images) ? vehicle.images : [vehicle.images],
-                      available: vehicle.is_available
+                      ...vehicle,
+                      available: vehicle.is_available ?? true
                     }}
-                    selectedLocation={searchParams.get('location') || undefined}
-                    onLocationSelect={(location) => {
-                      const newSearchParams = new URLSearchParams(searchParams.toString());
-                      newSearchParams.set('location', location);
-                      router.push(`/vehicles?${newSearchParams.toString()}`);
-                    }}
-                    pickupDateTime={searchParams.get('pickupTime') || undefined}
-                    dropoffDateTime={searchParams.get('dropoffTime') || undefined}
-                    duration={duration}
+                    selectedLocation={currentLocation}
+                    onLocationSelect={handleLocationSelect}
+                    pickupDateTime={urlParams.pickupTime ?? undefined}
+                    dropoffDateTime={urlParams.dropoffTime ?? undefined}
                   />
                 );
               })}
@@ -439,8 +459,8 @@ export default function VehiclesPage() {
                   <label className="block text-xs text-gray-600 mb-1">Pickup</label>
                   <div className="text-sm font-medium">
                     {formatDateTime(
-                      searchParams.get('pickupDate') || '',
-                      searchParams.get('pickupTime') || ''
+                      urlParams.pickupDate,
+                      urlParams.pickupTime
                     )}
                   </div>
                 </div>
@@ -448,8 +468,8 @@ export default function VehiclesPage() {
                   <label className="block text-xs text-gray-600 mb-1">Dropoff</label>
                   <div className="text-sm font-medium">
                     {formatDateTime(
-                      searchParams.get('dropoffDate') || '',
-                      searchParams.get('dropoffTime') || ''
+                      urlParams.dropoffDate,
+                      urlParams.dropoffTime
                     )}
                   </div>
                 </div>

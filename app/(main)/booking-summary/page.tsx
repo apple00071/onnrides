@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { calculateDuration, formatCurrency } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 import { useSession } from 'next-auth/react';
+import { Loader2 } from 'lucide-react';
 
 interface BookingSummary {
   vehicleId: string;
@@ -73,6 +74,18 @@ function PendingPaymentAlert({ payment, onClose }: {
   );
 }
 
+// Create a single notification manager
+function showNotification(message: string, type: 'success' | 'error' = 'error') {
+  // Clear any existing notifications first
+  toast.dismiss();
+  // Show new notification
+  if (type === 'success') {
+    toast.success(message);
+  } else {
+    toast.error(message);
+  }
+}
+
 export default function BookingSummaryPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -81,6 +94,17 @@ export default function BookingSummaryPage() {
   const [couponCode, setCouponCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [pendingPayment, setPendingPayment] = useState<any>(null);
+
+  useEffect(() => {
+    const vehicleId = searchParams.get('vehicleId');
+    const pickupDate = searchParams.get('pickupDate');
+    const dropoffDate = searchParams.get('dropoffDate');
+
+    if (!vehicleId || !pickupDate || !dropoffDate) {
+      router.push('/vehicles');
+      return;
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     const details: BookingSummary = {
@@ -94,12 +118,6 @@ export default function BookingSummaryPage() {
       dropoffTime: searchParams.get('dropoffTime') || '',
       pricePerHour: Number(searchParams.get('pricePerHour')) || 0,
     };
-
-    if (!details.vehicleId || !details.pickupDate || !details.dropoffDate) {
-      toast.error('Missing booking details');
-      router.push('/vehicles');
-      return;
-    }
 
     setBookingDetails(details);
   }, [searchParams, router]);
@@ -128,6 +146,10 @@ export default function BookingSummaryPage() {
     }
   }, []);
 
+  const handleBooking = async () => {
+    // Proceed with booking logic
+  };
+
   if (!bookingDetails) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -154,30 +176,16 @@ export default function BookingSummaryPage() {
   const handleConfirmBooking = async () => {
     try {
       if (!session?.user) {
-        toast.error('Please sign in to continue');
+        showNotification('Please sign in to continue');
         return;
       }
 
       if (!bookingDetails) {
-        toast.error('Booking details not found');
+        router.push('/vehicles');
         return;
       }
 
       setIsLoading(true);
-
-      // Log the request payload
-      const payload = {
-        vehicleId: bookingDetails.vehicleId,
-        pickupDate: `${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`,
-        dropoffDate: `${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`,
-        customerDetails: {
-          name: session.user.name || 'Guest',
-          email: session.user.email || '',
-          phone: (session.user as any)?.phone || ''
-        },
-        totalPrice: totalPrice
-      };
-      console.log('Creating booking with payload:', payload);
 
       // Create booking
       const createBookingResponse = await fetch('/api/bookings', {
@@ -185,43 +193,39 @@ export default function BookingSummaryPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          vehicleId: bookingDetails.vehicleId,
+          pickupDate: `${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`,
+          dropoffDate: `${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`,
+          location: bookingDetails.location,
+          customerDetails: {
+            name: session.user.name || 'Guest',
+            email: session.user.email || '',
+            phone: (session.user as any)?.phone || ''
+          },
+          totalPrice
+        })
       });
 
-      // Log the raw response
-      console.log('Booking API response status:', createBookingResponse.status);
       const responseText = await createBookingResponse.text();
-      console.log('Booking API raw response:', responseText);
 
       if (!createBookingResponse.ok) {
         let errorData;
         try {
           errorData = JSON.parse(responseText);
         } catch (e) {
-          console.error('Failed to parse error response:', e);
-          throw new Error('Invalid error response from server');
+          throw new Error('Invalid response from server');
         }
-        const errorMessage = errorData.details || errorData.error || errorData.message || 'Failed to create booking';
-        console.error('Booking creation failed:', errorData);
-        toast.error(errorMessage);
-        throw new Error(errorMessage);
+        throw new Error(errorData.details || errorData.error || 'Failed to create booking');
       }
 
-      let response;
-      try {
-        response = JSON.parse(responseText);
-      } catch (e) {
-        console.error('Failed to parse success response:', e);
-        throw new Error('Invalid response from server');
-      }
+      const response = JSON.parse(responseText);
 
       if (!response.success || !response.data) {
-        console.error('Invalid response structure:', response);
         throw new Error('Invalid response from server');
       }
 
       const { data } = response;
-      console.log('Booking created successfully:', data);
       
       // Store order info
       const orderInfo = {
@@ -230,17 +234,14 @@ export default function BookingSummaryPage() {
         amount: data.amount,
         timestamp: new Date().toISOString()
       };
-      console.log('Storing order info:', orderInfo);
       localStorage.setItem('pendingPayment', JSON.stringify(orderInfo));
 
-      // Check if Razorpay is loaded
+      // Initialize Razorpay payment
       if (!(window as any).Razorpay) {
-        console.error('Razorpay SDK not found');
-        throw new Error('Razorpay SDK not loaded');
+        throw new Error('Payment system is not available');
       }
 
-      // Initialize Razorpay
-      const options = {
+      const razorpay = new (window as any).Razorpay({
         key: data.key,
         amount: data.amount,
         currency: data.currency,
@@ -248,7 +249,7 @@ export default function BookingSummaryPage() {
         description: "Vehicle Rental Payment",
         order_id: data.orderId,
         handler: function (response: any) {
-          console.log('Payment successful:', response);
+          showNotification('Payment successful!', 'success');
           window.location.href = `/payment-status?reference=${response.razorpay_payment_id}`;
         },
         prefill: {
@@ -261,35 +262,27 @@ export default function BookingSummaryPage() {
         },
         modal: {
           ondismiss: function() {
-            console.log('Payment modal dismissed');
             setIsLoading(false);
           }
         }
-      };
-      console.log('Initializing Razorpay with options:', options);
+      });
 
-      const razorpay = new (window as any).Razorpay(options);
       razorpay.on('payment.failed', function (response: any) {
-        console.error('Payment failed:', response.error);
-        toast.error('Payment failed: ' + response.error.description);
+        showNotification(response.error.description || 'Payment failed');
         setIsLoading(false);
       });
 
       razorpay.open();
     } catch (error) {
-      console.error('Error in handleConfirmBooking:', {
-        error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      toast.error(error instanceof Error ? error.message : 'Failed to create booking');
+      console.error('Error in handleConfirmBooking:', error);
+      showNotification(error instanceof Error ? error.message : 'Unable to process booking');
       setIsLoading(false);
     }
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 relative">
-      {pendingPayment && (
+      {pendingPayment && !isLoading && (
         <PendingPaymentAlert
           payment={pendingPayment}
           onClose={() => {

@@ -63,7 +63,7 @@ export default async function VehicleDetails({ params }: VehicleDetailsProps) {
           </div>
 
           <Link
-            href={`/vehicles/${vehicle.id}/booking`}
+            href={`/booking-summary?vehicleId=${vehicle.id}`}
             className="inline-block bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition-colors"
           >
             Book Now

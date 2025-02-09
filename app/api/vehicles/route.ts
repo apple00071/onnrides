@@ -98,172 +98,255 @@ async function getNextAvailableSlot(vehicleId: string, location: string) {
   };
 }
 
+// Helper function to get available locations for a vehicle
+async function getAvailableLocations(
+  vehicleId: string,
+  locations: string[],
+  pickupDateTime: Date | null,
+  dropoffDateTime: Date | null
+) {
+  if (!pickupDateTime || !dropoffDateTime) {
+    return locations;
+  }
+
+  try {
+    logger.info('Starting location availability check:', {
+      vehicleId,
+      locations,
+      pickupDateTime: pickupDateTime.toISOString(),
+      dropoffDateTime: dropoffDateTime.toISOString()
+    });
+
+    // Check bookings for each location
+    const bookingsResult = await query(`
+      WITH booking_counts AS (
+        SELECT 
+          b.id,
+          b.start_date,
+          b.end_date,
+          b.status,
+          COALESCE(b.pickup_location, 
+            CASE 
+              WHEN jsonb_typeof(b.location::jsonb) = 'array' THEN b.location::jsonb->0
+              WHEN jsonb_typeof(b.location::jsonb) = 'string' THEN b.location::jsonb
+              ELSE NULL
+            END
+          ) as effective_location,
+          v.name as vehicle_name,
+          v.quantity as vehicle_quantity,
+          COUNT(*) OVER (
+            PARTITION BY COALESCE(b.pickup_location, 
+              CASE 
+                WHEN jsonb_typeof(b.location::jsonb) = 'array' THEN b.location::jsonb->0
+                WHEN jsonb_typeof(b.location::jsonb) = 'string' THEN b.location::jsonb
+                ELSE NULL
+              END
+            )
+          ) as concurrent_bookings
+        FROM bookings b
+        JOIN vehicles v ON b.vehicle_id = v.id
+        WHERE b.vehicle_id = $1
+        AND b.status NOT IN ('cancelled', 'failed')
+        AND b.payment_status != 'failed'
+        AND (
+          (b.start_date - interval '30 minutes', b.end_date + interval '30 minutes') OVERLAPS ($2::timestamp, $3::timestamp)
+          OR (
+            b.start_date - interval '30 minutes' <= $3::timestamp 
+            AND b.end_date + interval '30 minutes' >= $2::timestamp
+          )
+        )
+      )
+      SELECT * FROM booking_counts
+      WHERE concurrent_bookings >= vehicle_quantity
+    `, [vehicleId, pickupDateTime.toISOString(), dropoffDateTime.toISOString()]);
+
+    logger.info('Raw booking query results:', {
+      vehicleId,
+      rowCount: bookingsResult.rowCount,
+      rows: bookingsResult.rows.map(row => ({
+        id: row.id,
+        start_date: row.start_date,
+        end_date: row.end_date,
+        effective_location: row.effective_location,
+        status: row.status,
+        vehicle_quantity: row.vehicle_quantity,
+        concurrent_bookings: row.concurrent_bookings
+      }))
+    });
+
+    // Create a set of unavailable locations
+    const unavailableLocations = new Set<string>();
+    
+    bookingsResult.rows.forEach(row => {
+      try {
+        const locationValue = row.effective_location;
+        if (locationValue) {
+          logger.info('Location unavailable due to concurrent bookings:', {
+            location: locationValue,
+            concurrent_bookings: row.concurrent_bookings,
+            vehicle_quantity: row.vehicle_quantity,
+            bookingId: row.id,
+            timeRange: `${row.start_date} to ${row.end_date}`
+          });
+          unavailableLocations.add(locationValue);
+        }
+      } catch (error) {
+        logger.error('Error processing location:', {
+          error,
+          bookingId: row.id,
+          effective_location: row.effective_location,
+          errorMessage: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    });
+
+    // Filter available locations
+    const availableLocations = locations.filter(loc => !unavailableLocations.has(loc));
+
+    logger.info('Final availability check results:', {
+      vehicleId,
+      allLocations: locations,
+      unavailableLocations: Array.from(unavailableLocations),
+      availableLocations,
+      requestedTimeRange: {
+        start: pickupDateTime,
+        end: dropoffDateTime
+      }
+    });
+
+    return availableLocations;
+  } catch (error) {
+    logger.error('Error in getAvailableLocations:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      vehicleId,
+      locations
+    });
+    // Return all locations as fallback in case of error
+    return locations;
+  }
+}
+
+interface VehicleRow {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  price_per_hour: number;
+  location: string;  // PostgreSQL returns this as a string
+  images: string;    // PostgreSQL returns this as a string
+  quantity: number;
+  min_booking_hours: number;
+  is_available: boolean;
+  created_at: string;
+  updated_at: string;
+  booked_locations: string[];
+}
+
 // GET /api/vehicles - List all vehicles
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
-    const requestedLocation = searchParams.get('location');
     const pickupDate = searchParams.get('pickupDate');
     const pickupTime = searchParams.get('pickupTime');
     const dropoffDate = searchParams.get('dropoffDate');
     const dropoffTime = searchParams.get('dropoffTime');
-    const minPrice = Number(searchParams.get('minPrice')) || 0;
-    const maxPrice = Number(searchParams.get('maxPrice')) || Number.MAX_SAFE_INTEGER;
 
-    logger.info('Search params:', { 
-      type, 
-      requestedLocation, 
-      pickupDate, 
-      pickupTime, 
-      dropoffDate, 
-      dropoffTime, 
-      minPrice, 
-      maxPrice 
-    });
-
-    // Validate date and time parameters if provided
-    let pickupDateTime: Date | null = null;
-    let dropoffDateTime: Date | null = null;
-
-    if (pickupDate && pickupTime) {
-      try {
-        const tempDate = new Date(`${pickupDate}T${pickupTime}`);
-        if (isNaN(tempDate.getTime())) {
-          throw new Error('Invalid pickup date/time');
-        }
-        pickupDateTime = tempDate;
-      } catch (error) {
-        return NextResponse.json(
-          { error: 'Invalid pickup date/time format' },
-          { status: 400 }
-        );
-      }
+    if (!pickupDate || !pickupTime || !dropoffDate || !dropoffTime) {
+      return NextResponse.json({ error: 'Missing date/time parameters' }, { status: 400 });
     }
 
-    if (dropoffDate && dropoffTime) {
-      try {
-        const tempDate = new Date(`${dropoffDate}T${dropoffTime}`);
-        if (isNaN(tempDate.getTime())) {
-          throw new Error('Invalid dropoff date/time');
-        }
-        dropoffDateTime = tempDate;
-      } catch (error) {
-        return NextResponse.json(
-          { error: 'Invalid dropoff date/time format' },
-          { status: 400 }
-        );
-      }
-    }
+    // Combine date and time into timestamps
+    const startTime = `${pickupDate} ${pickupTime}`;
+    const endTime = `${dropoffDate} ${dropoffTime}`;
 
-    // Get all vehicles first
+    // Get vehicles with their available locations
     const result = await query(`
+      WITH booked_locations AS (
+        SELECT DISTINCT
+          b.vehicle_id,
+          b.pickup_location
+        FROM bookings b
+        WHERE b.status NOT IN ('cancelled', 'failed')
+        AND b.payment_status != 'failed'
+        AND (
+          ($2::timestamp, $3::timestamp) OVERLAPS (b.start_date, b.end_date)
+          OR b.start_date BETWEEN $2::timestamp AND $3::timestamp
+          OR b.end_date BETWEEN $2::timestamp AND $3::timestamp
+          OR ($2::timestamp BETWEEN b.start_date AND b.end_date)
+          OR ($3::timestamp BETWEEN b.start_date AND b.end_date)
+        )
+      )
       SELECT 
         v.id,
         v.name,
         v.type,
         v.status,
-        CAST(v.price_per_hour AS DECIMAL) as price_per_hour,
-        v.location,
-        v.images,
-        v.quantity,
+        v.price_per_hour,
         v.min_booking_hours,
+        v.quantity,
+        v.images,
         v.is_available,
         v.created_at,
-        v.updated_at
+        v.updated_at,
+        (
+          SELECT jsonb_agg(loc)
+          FROM jsonb_array_elements_text(v.location::jsonb) loc
+          WHERE NOT EXISTS (
+            SELECT 1 
+            FROM booked_locations bl 
+            WHERE bl.vehicle_id = v.id 
+            AND bl.pickup_location = loc::text
+          )
+        ) as available_locations
       FROM vehicles v
       WHERE ($1::text IS NULL OR v.type = $1)
-      AND v.price_per_hour >= $2
-      AND v.price_per_hour <= $3
       AND v.status = 'active'
       AND v.is_available = true
-    `, [type, minPrice, maxPrice]);
+    `, [type, startTime, endTime]);
 
-    // Process each vehicle and check location availability
-    const processedVehicles = await Promise.all(result.rows.map(async (vehicle) => {
-      let locations: string[] = [];
-      try {
-        locations = typeof vehicle.location === 'string' 
-          ? JSON.parse(vehicle.location) 
-          : Array.isArray(vehicle.location) 
-            ? vehicle.location 
-            : [vehicle.location];
-      } catch (e) {
-        locations = vehicle.location ? [vehicle.location] : [];
-      }
-
-      // If a specific location is requested, check availability
-      if (requestedLocation) {
-        if (!locations.includes(requestedLocation)) {
-          return null; // Skip vehicles not available at requested location
+    // Process vehicles
+    const vehicles = result.rows
+      .map(vehicle => {
+        const availableLocations = vehicle.available_locations || [];
+        
+        // Log for debugging
+        logger.info('Processing vehicle locations:', {
+          vehicleId: vehicle.id,
+          vehicleName: vehicle.name,
+          allLocations: vehicle.location,
+          availableLocations,
+          hasAvailableLocations: availableLocations.length > 0
+        });
+        
+        // Skip vehicles with no available locations
+        if (availableLocations.length === 0) {
+          return null;
         }
 
-        try {
-          // Check current bookings at this location
-          const bookingsResult = await query(`
-            SELECT COUNT(*) as booking_count
-            FROM bookings
-            WHERE vehicle_id = $1
-            AND status NOT IN ('cancelled')
-            AND location::jsonb @> $2::jsonb
-            AND ($3::timestamp IS NULL OR $4::timestamp IS NULL OR
-              (pickup_datetime, dropoff_datetime) OVERLAPS ($3::timestamp, $4::timestamp)
-            )
-          `, [
-            vehicle.id, 
-            JSON.stringify([requestedLocation]),
-            pickupDateTime?.toISOString() || null,
-            dropoffDateTime?.toISOString() || null
-          ]);
+        return {
+          ...vehicle,
+          location: availableLocations,
+          available: true,
+          images: JSON.parse(vehicle.images || '[]')
+        };
+      })
+      .filter(Boolean); // Remove null vehicles
 
-          const existingBookings = parseInt(bookingsResult.rows[0].booking_count);
-          const quantityPerLocation = Math.ceil(vehicle.quantity / locations.length);
-
-          if (existingBookings >= quantityPerLocation) {
-            // Get next available time slot
-            const nextSlot = await getNextAvailableSlot(vehicle.id, requestedLocation);
-            return {
-              ...vehicle,
-              location: [requestedLocation],
-              available: false,
-              nextAvailable: nextSlot,
-              images: typeof vehicle.images === 'string' ? JSON.parse(vehicle.images) : vehicle.images
-            };
-          }
-        } catch (error) {
-          logger.error('Error checking bookings:', error);
-          throw new Error(`Failed to check bookings: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
+    logger.info('Filtered vehicles:', {
+      totalVehicles: result.rows.length,
+      availableVehicles: vehicles.length,
+      requestedTimeRange: {
+        start: startTime,
+        end: endTime
       }
-
-      // For non-location-specific requests or available vehicles
-      return {
-        ...vehicle,
-        location: locations,
-        available: true,
-        images: typeof vehicle.images === 'string' ? JSON.parse(vehicle.images) : vehicle.images
-      };
-    }));
-
-    // Filter out null values and sort: available vehicles first, then unavailable with next slots
-    const vehicles = processedVehicles
-      .filter(Boolean)
-      .sort((a, b) => {
-        if (a.available === b.available) return 0;
-        return a.available ? -1 : 1;
-      });
+    });
 
     return NextResponse.json({ vehicles });
   } catch (error) {
-    logger.error('Error fetching vehicles:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to fetch vehicles',
-        details: error instanceof Error ? error.message : 'Unknown error',
-        vehicles: []
-      },
-      { status: 500 }
-    );
+    console.error('Error fetching vehicles:', error);
+    return NextResponse.json({ error: 'Failed to fetch vehicles', vehicles: [] }, { status: 500 });
   }
 }
 

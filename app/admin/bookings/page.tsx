@@ -60,7 +60,7 @@ const formatDateTime = (date: string | Date) => {
       return 'Invalid date';
     }
     
-    return formatTZ(dateObj, 'MMM dd, yyyy hh:mm a', { timeZone: 'Asia/Kolkata' });
+    return format(dateObj, 'MMM dd, yyyy hh:mm a');
   } catch (error) {
     console.error('Error formatting date:', { date, error });
     return 'Invalid date';
@@ -340,99 +340,94 @@ export default function BookingsPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-semibold">Vehicle</h3>
+                  <h3 className="text-base font-semibold mb-1">Vehicle</h3>
                   <p>{selectedBooking.vehicle.name}</p>
-                  <p className="text-sm text-gray-500">Booking ID: {selectedBooking.booking_id}</p>
+                  <p className="text-gray-600">Booking ID: {selectedBooking.booking_id}</p>
                 </div>
                 <div>
-                  <h3 className="font-semibold">Customer</h3>
+                  <h3 className="text-base font-semibold mb-1">Customer</h3>
                   <p>{selectedBooking.user.name}</p>
-                  <p className="text-sm text-gray-600">{selectedBooking.user.email}</p>
-                  <p className="text-sm text-gray-600">Phone: {selectedBooking.user.phone || 'N/A'}</p>
+                  <p className="text-gray-600">{selectedBooking.user.email}</p>
+                  <p className="text-gray-600">Phone: {selectedBooking.user.phone || 'N/A'}</p>
                 </div>
               </div>
+
               <div>
-                <h3 className="font-semibold">Location</h3>
+                <h3 className="text-base font-semibold mb-1">Location</h3>
                 <p>{formatLocation(selectedBooking.location)}</p>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-semibold">Pickup Time</h3>
-                  <p className="text-gray-600">{formatDateTime(selectedBooking.pickup_datetime)}</p>
+                  <h3 className="text-base font-semibold mb-1">Pickup Time</h3>
+                  <p>{formatDateTime(selectedBooking.pickup_datetime)}</p>
                 </div>
                 <div>
-                  <h3 className="font-semibold">Dropoff Time</h3>
-                  <p className="text-gray-600">{formatDateTime(selectedBooking.dropoff_datetime)}</p>
+                  <h3 className="text-base font-semibold mb-1">Dropoff Time</h3>
+                  <p>{formatDateTime(selectedBooking.dropoff_datetime)}</p>
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-semibold">Duration</h3>
+                  <h3 className="text-base font-semibold mb-1">Duration</h3>
                   <p>{selectedBooking.total_hours} hours</p>
                 </div>
                 <div>
-                  <h3 className="font-semibold">Amount</h3>
-                  <p className="text-orange-500 font-medium">
-                    {formatCurrency(selectedBooking.total_price)}
-                  </p>
+                  <h3 className="text-base font-semibold mb-1">Amount</h3>
+                  <p>₹{selectedBooking.total_price}</p>
                 </div>
               </div>
+
               <div>
-                <h3 className="font-semibold">Status</h3>
-                <div className="flex flex-col gap-2">
-                  <span className={`inline-block px-2 py-1 rounded-full text-xs ${
-                    selectedBooking.status === 'cancelled'
-                      ? 'bg-red-100 text-red-800'
-                      : selectedBooking.payment_status === 'completed'
-                      ? 'bg-green-100 text-green-800'
-                      : selectedBooking.payment_status === 'pending'
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {selectedBooking.status === 'cancelled'
-                      ? 'Cancelled'
-                      : selectedBooking.payment_status === 'completed'
-                      ? 'Confirmed'
-                      : selectedBooking.payment_status === 'pending'
-                      ? 'Payment Pending'
-                      : selectedBooking.status}
-                  </span>
-                </div>
+                <h3 className="text-base font-semibold mb-1">Status</h3>
+                <span className={`inline-block px-3 py-1 rounded-full text-xs ${
+                  selectedBooking.status === 'cancelled'
+                    ? 'bg-red-100 text-red-800'
+                    : selectedBooking.payment_status === 'completed'
+                    ? 'bg-green-100 text-green-800'
+                    : selectedBooking.payment_status === 'pending'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {selectedBooking.status === 'cancelled'
+                    ? 'Cancelled'
+                    : selectedBooking.payment_status === 'completed'
+                    ? 'Confirmed'
+                    : selectedBooking.payment_status === 'pending'
+                    ? 'Payment Pending'
+                    : selectedBooking.status}
+                </span>
               </div>
-              {selectedBooking.payment_status === 'completed' && (
-                <div>
-                  <h3 className="font-semibold">Payment Information</h3>
-                  <div className="space-y-2 mt-2">
+
+              <div>
+                <h3 className="text-base font-semibold mb-1">Payment Information</h3>
+                {selectedBooking.payment_status === 'completed' ? (
+                  <div className="space-y-1">
+                    <p className="text-gray-600">
+                      <span className="font-medium">Payment ID:</span>{' '}
+                      {selectedBooking.payment_reference || 'N/A'}
+                    </p>
                     {selectedBooking.payment_details && (
-                      <>
-                        <p className="text-sm text-gray-600">
-                          <span className="font-medium">Payment ID:</span>{' '}
-                          {selectedBooking.payment_details.razorpay_payment_id || 'N/A'}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          <span className="font-medium">Order ID:</span>{' '}
-                          {selectedBooking.payment_details.razorpay_order_id || 'N/A'}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          <span className="font-medium">Payment Reference:</span>{' '}
-                          {selectedBooking.payment_reference || 'N/A'}
-                        </p>
-                      </>
+                      <p className="text-gray-600">
+                        <span className="font-medium">Order ID:</span>{' '}
+                        {selectedBooking.payment_details.razorpay_order_id || 'N/A'}
+                      </p>
                     )}
                   </div>
-                </div>
-              )}
-              <div>
-                <h3 className="font-semibold">Created</h3>
-                <p className="text-sm text-gray-500">
-                  {formatDateTime(selectedBooking.created_at)}
-                </p>
+                ) : (
+                  <p className="text-gray-600">No payment information available</p>
+                )}
               </div>
+
               <div>
-                <h3 className="font-semibold">Last Updated</h3>
-                <p className="text-sm text-gray-500">
-                  {formatDateTime(selectedBooking.updated_at)}
-                </p>
+                <h3 className="text-base font-semibold mb-1">Created</h3>
+                <p>{formatDateTime(selectedBooking.created_at)}</p>
+              </div>
+
+              <div>
+                <h3 className="text-base font-semibold mb-1">Last Updated</h3>
+                <p>{selectedBooking.updated_at ? formatDateTime(selectedBooking.updated_at) : 'Date not available'}</p>
               </div>
             </div>
           )}

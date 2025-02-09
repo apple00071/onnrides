@@ -31,6 +31,7 @@ interface CreateBookingBody {
     phone: string;
   };
   totalPrice: number;
+  location?: string;
 }
 
 // Initialize Razorpay
@@ -298,7 +299,8 @@ export async function POST(request: NextRequest): Promise<Response> {
       pickupDate: data.pickupDate,
       dropoffDate: data.dropoffDate,
       totalPrice: data.totalPrice,
-      customerDetails: data.customerDetails
+      customerDetails: data.customerDetails,
+      location: data.location
     });
     
     // Validate required fields
@@ -372,6 +374,47 @@ export async function POST(request: NextRequest): Promise<Response> {
           details: `Dropoff time (${dropoffDate.toLocaleString()}) must be after pickup time (${pickupDate.toLocaleString()})`
         },
         { status: 400 }
+      );
+    }
+
+    // Check for overlapping bookings
+    logger.info('Checking for overlapping bookings:', {
+      vehicleId: data.vehicleId,
+      requestedPickup: pickupDate.toISOString(),
+      requestedDropoff: dropoffDate.toISOString()
+    });
+
+    const overlapCheckResult = await query(`
+      SELECT id, start_date, end_date 
+      FROM bookings 
+      WHERE vehicle_id = $1 
+        AND status != 'cancelled'
+        AND (
+          ($2 BETWEEN start_date AND end_date)
+          OR ($3 BETWEEN start_date AND end_date)
+          OR (start_date BETWEEN $2 AND $3)
+          OR (end_date BETWEEN $2 AND $3)
+        )
+    `, [data.vehicleId, pickupDate.toISOString(), dropoffDate.toISOString()]);
+
+    if (overlapCheckResult.rowCount > 0) {
+      logger.error('Overlapping booking found:', {
+        vehicleId: data.vehicleId,
+        requestedPickup: pickupDate,
+        requestedDropoff: dropoffDate,
+        existingBookings: overlapCheckResult.rows.map(row => ({
+          id: row.id,
+          start_date: row.start_date,
+          end_date: row.end_date
+        }))
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Vehicle unavailable',
+          details: 'This vehicle is already booked for the selected time period'
+        },
+        { status: 409 }
       );
     }
 
@@ -512,9 +555,10 @@ export async function POST(request: NextRequest): Promise<Response> {
         status,
         payment_status,
             payment_intent_id,
+        pickup_location,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
       RETURNING *
     `, [
       bookingId,
@@ -526,7 +570,8 @@ export async function POST(request: NextRequest): Promise<Response> {
           amountInRupees,
           'pending',
           'pending',
-          order.id  // Store the Razorpay order ID
+          order.id,  // Store the Razorpay order ID
+          data.location, // Add pickup location
         ]);
       } catch (dbError) {
         logger.error('Database error creating booking:', {

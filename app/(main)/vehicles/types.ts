@@ -1,13 +1,18 @@
 export interface Vehicle {
   id: string;
   name: string;
-  description: string;
-  image_url: string;
-  price_per_day: number;
-  transmission: string;
-  fuel_type: string;
-  mileage: number;
-  seating_capacity: number;
+  type: string;
+  price_per_hour: number;
+  location: string[];
+  images: string[];
+  quantity: number;
+  min_booking_hours: number;
+  is_available: boolean;
+  available?: boolean;
+  nextAvailable?: {
+    nextAvailable: string;
+    until: string | null;
+  } | null;
 }
 
 export interface VehicleDetailsProps {

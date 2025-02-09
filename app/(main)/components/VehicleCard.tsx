@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { LocationDropdown } from "@/components/location-dropdown";
+import { toast } from 'react-hot-toast';
+import { logger } from '@/lib/logger';
 
 interface VehicleCardProps {
   vehicle: {
@@ -20,16 +23,20 @@ interface VehicleCardProps {
     price_per_hour: number;
     location: string[];
     images: string[];
-    available: boolean;
+    quantity: number;
+    min_booking_hours: number;
+    is_available?: boolean;
+    available?: boolean;
     nextAvailable?: {
       nextAvailable: string;
       until: string | null;
     } | null;
   };
   selectedLocation?: string;
-  onLocationSelect?: (location: string) => void;
+  onLocationSelect: (location: string) => void;
   pickupDateTime?: string;
   dropoffDateTime?: string;
+  duration?: string;
 }
 
 export function VehicleCard({ 
@@ -40,29 +47,93 @@ export function VehicleCard({
   dropoffDateTime 
 }: VehicleCardProps) {
   const [showAvailabilityDialog, setShowAvailabilityDialog] = useState(false);
+  const [previousVehicleType, setPreviousVehicleType] = useState(vehicle.type);
   const router = useRouter();
 
-  const handleBookNow = () => {
+  // Reset location when vehicle type changes
+  useEffect(() => {
+    if (vehicle.type !== previousVehicleType) {
+      logger.info('Vehicle type changed, resetting location:', {
+        previousType: previousVehicleType,
+        newType: vehicle.type
+      });
+      // Only clear selection if we're changing vehicle types
+      if (previousVehicleType) {
+        onLocationSelect('');
+      }
+      setPreviousVehicleType(vehicle.type);
+    }
+  }, [vehicle.type, previousVehicleType, onLocationSelect]);
+
+  const isAvailable = vehicle.is_available ?? vehicle.available ?? true;
+
+  const handleBookNow = async () => {
     if (!selectedLocation) {
       return;
     }
 
-    if (!vehicle.available) {
-      setShowAvailabilityDialog(true);
-    } else {
+    try {
+      // Check availability before proceeding
+      const response = await fetch(`/api/vehicles/check-availability`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          vehicleId: vehicle.id,
+          location: selectedLocation,
+          startDate: pickupDateTime,
+          endDate: dropoffDateTime
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        toast.error(error.message || 'Failed to check availability');
+        return;
+      }
+
+      const { available } = await response.json();
+      
+      if (!available) {
+        toast.error('This vehicle is not available at the selected location for the chosen time period');
+        return;
+      }
+
+      // If available, proceed to booking summary
       const queryParams = new URLSearchParams();
       queryParams.set('location', selectedLocation);
-      if (pickupDateTime) queryParams.set('pickupDateTime', pickupDateTime);
-      if (dropoffDateTime) queryParams.set('dropoffDateTime', dropoffDateTime);
       
-      router.push(`/book/${vehicle.id}?${queryParams.toString()}`);
+      if (pickupDateTime) {
+        const pickup = new Date(pickupDateTime);
+        queryParams.set('pickupDate', pickup.toISOString().split('T')[0]);
+        queryParams.set('pickupTime', pickup.toISOString().split('T')[1].split('.')[0]);
+      }
+      
+      if (dropoffDateTime) {
+        const dropoff = new Date(dropoffDateTime);
+        queryParams.set('dropoffDate', dropoff.toISOString().split('T')[0]);
+        queryParams.set('dropoffTime', dropoff.toISOString().split('T')[1].split('.')[0]);
+      }
+      
+      queryParams.set('vehicleId', vehicle.id);
+      queryParams.set('type', vehicle.type);
+      queryParams.set('pricePerHour', vehicle.price_per_hour.toString());
+      router.push(`/booking-summary?${queryParams.toString()}`);
+    } catch (error) {
+      console.error('Error checking availability:', error);
+      toast.error('Failed to check vehicle availability');
     }
   };
 
   const handleLocationSelect = (location: string) => {
-    if (onLocationSelect) {
-      onLocationSelect(location);
-    }
+    logger.info('Location manually selected:', {
+      vehicleId: vehicle.id,
+      vehicleType: vehicle.type,
+      location,
+      previousLocation: selectedLocation
+    });
+    onLocationSelect(location);
   };
 
   const handleBookForAvailableTime = () => {
@@ -74,59 +145,52 @@ export function VehicleCard({
   };
 
   return (
-    <>
-      <div className="relative bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="relative h-48 w-full">
-          <Image
-            src={vehicle.images[0] || '/placeholder-vehicle.jpg'}
-            alt={vehicle.name}
-            fill
-            className="object-cover"
-          />
-        </div>
-        <div className="p-4">
-          <h3 className="text-lg font-semibold">{vehicle.name}</h3>
-          <p className="text-gray-600">{vehicle.type}</p>
-          <p className="text-primary font-bold mt-2">₹{vehicle.price_per_hour}/hour</p>
-          
-          <div className="mt-2">
-            <p className="text-sm text-gray-600 mb-1">Available at</p>
-            <Select value={selectedLocation} onValueChange={handleLocationSelect}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select location" />
-              </SelectTrigger>
-              <SelectContent>
-                {vehicle.location.map((loc) => (
-                  <SelectItem key={loc} value={loc}>
-                    {loc}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {selectedLocation && (
-              <p className={`text-sm ${vehicle.available ? 'text-green-600' : 'text-orange-600'} mt-2`}>
-                {vehicle.available ? 'Available Now' : 'Currently Unavailable'}
-              </p>
-            )}
-          </div>
-
-          <Button
-            onClick={handleBookNow}
-            className="w-full mt-4"
-            variant={!selectedLocation ? 'outline' : vehicle.available ? 'default' : 'secondary'}
-            disabled={!selectedLocation}
-          >
-            {!selectedLocation 
-              ? 'Select Location' 
-              : vehicle.available 
-                ? 'Book Now' 
-                : 'Check Next Available'
-            }
-          </Button>
+    <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+      <div className="p-6">
+        <div className="flex flex-col space-y-1.5">
+          <h3 className="text-2xl font-semibold leading-none tracking-tight">
+            {vehicle.name}
+          </h3>
         </div>
       </div>
-
+      <div className="relative h-[200px] w-full">
+        <Image
+          src={vehicle.images[0] || '/placeholder-vehicle.jpg'}
+          alt={vehicle.name}
+          fill
+          className="object-cover"
+        />
+      </div>
+      <div className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-2xl font-semibold">
+              ₹{vehicle.price_per_hour}/hr
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Min. {vehicle.min_booking_hours} hours
+            </p>
+          </div>
+          <LocationDropdown
+            locations={vehicle.location}
+            selectedLocation={selectedLocation || null}
+            onLocationChange={onLocationSelect}
+            vehicleId={vehicle.id}
+            startDate={pickupDateTime ? new Date(pickupDateTime) : undefined}
+            endDate={dropoffDateTime ? new Date(dropoffDateTime) : undefined}
+            className="w-[180px]"
+            vehicleType={vehicle.type}
+          />
+        </div>
+        <Button
+          className="w-full mt-4"
+          onClick={handleBookNow}
+          disabled={!selectedLocation || !isAvailable}
+        >
+          {!selectedLocation ? 'Select Location' : !isAvailable ? 'Not Available' : 'Book Now'}
+        </Button>
+      </div>
+      
       {/* Availability Dialog */}
       <Dialog open={showAvailabilityDialog} onOpenChange={setShowAvailabilityDialog}>
         <DialogContent>
@@ -168,6 +232,6 @@ export function VehicleCard({
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 } 
