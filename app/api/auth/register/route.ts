@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
 import logger from '@/lib/logger';
-import { nanoid } from 'nanoid';
+import { randomUUID } from 'crypto';
 
 interface RegisterBody {
   email: string;
@@ -13,7 +13,7 @@ interface RegisterBody {
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, name } = await request.json();
+    const { email, password, name, phone } = await request.json();
 
     // Validate required fields
     if (!email || !password) {
@@ -39,14 +39,21 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await hashPassword(password);
 
-    // Create new user
-    const userId = nanoid();
-    const user = await query(
-      'INSERT INTO users (id, email, password) VALUES ($1, $2, $3) RETURNING *',
-      [userId, email, hashedPassword]
+    // Create new user with UUID
+    const userId = randomUUID();
+    const result = await query(
+      `INSERT INTO users (id, email, password_hash, name, phone, role) 
+       VALUES ($1, $2, $3, $4, $5, 'user') 
+       RETURNING id, email, name, role`,
+      [userId, email, hashedPassword, name || null, phone || null]
     );
 
-    logger.info('New user registered:', { userId: user.id, email: user.email });
+    const user = result.rows[0];
+    logger.info('New user registered:', { 
+      userId: user.id, 
+      email: user.email,
+      name: user.name
+    });
 
     return NextResponse.json({
       message: 'Registration successful',
@@ -58,7 +65,10 @@ export async function POST(request: NextRequest) {
       }
     });
   } catch (error) {
-    logger.error('Registration error:', error);
+    logger.error('Registration error:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
       { error: 'Failed to register user' },
       { status: 500 }
