@@ -27,18 +27,17 @@ const transporterConfig: SMTPTransport.Options = {
     ciphers: 'HIGH',
     servername: process.env.SMTP_HOST || 'smtp.gmail.com' // Add explicit servername
   },
-  pool: true, // Use pooled connections
-  maxConnections: 5,
-  maxMessages: 100,
-  rateDelta: 1000, // 1 second
-  rateLimit: 5, // 5 emails per second
+  name: 'ONNRIDES-SMTP', // Add a name for the connection
+  connectionTimeout: 5000, // 5 seconds
+  greetingTimeout: 5000,
+  socketTimeout: 5000,
   debug: process.env.NODE_ENV === 'development',
   logger: process.env.NODE_ENV === 'development'
 };
 
 // Create transporter with retry mechanism
 const createTransporter = () => {
-  console.log('Creating email transporter with config:', {
+  logger.info('Creating email transporter with config:', {
     host: transporterConfig.host,
     port: transporterConfig.port,
     secure: transporterConfig.secure,
@@ -54,7 +53,7 @@ const createTransporter = () => {
 
   // Add error event handler
   transporter.on('error', (error: Error & { code?: string; command?: string; responseCode?: number }) => {
-    console.error('SMTP Transport Error:', {
+    logger.error('SMTP Transport Error:', {
       message: error.message,
       code: error.code,
       command: error.command,
@@ -67,14 +66,14 @@ const createTransporter = () => {
   // Verify transporter configuration
   transporter.verify((error, success) => {
     if (error) {
-      console.error('Transporter verification failed:', {
+      logger.error('Transporter verification failed:', {
         message: error.message,
         code: (error as any).code,
         stack: error.stack,
         env: process.env.NODE_ENV
       });
     } else {
-      console.log('Transporter is ready to send emails:', success);
+      logger.info('Transporter is ready to send emails:', success);
     }
   });
 
@@ -97,23 +96,22 @@ export const defaultMailOptions = {
 // Verify email configuration
 export async function verifyEmailConfig() {
   try {
-    console.log('Verifying email configuration...');
-    console.log('Environment:', {
-      NODE_ENV: process.env.NODE_ENV,
-      SMTP_HOST: process.env.SMTP_HOST,
-      SMTP_PORT: process.env.SMTP_PORT || '465',
-      SMTP_USER: process.env.SMTP_USER,
-      SMTP_FROM: process.env.SMTP_FROM,
-      has_SMTP_PASS: !!process.env.SMTP_PASS
+    logger.info('Verifying email configuration...', {
+      env: process.env.NODE_ENV,
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT || '465',
+      user: process.env.SMTP_USER,
+      from: process.env.SMTP_FROM,
+      has_smtp_pass: !!process.env.SMTP_PASS
     });
 
     // Verify SMTP connection
     const verifyResult = await transporter.verify();
-    console.log('SMTP connection verified:', verifyResult);
+    logger.info('SMTP connection verified:', verifyResult);
     
     return true;
   } catch (error) {
-    console.error('Email configuration verification failed:', {
+    logger.error('Email configuration verification failed:', {
       error: error instanceof Error ? {
         message: error.message,
         code: (error as any).code,
