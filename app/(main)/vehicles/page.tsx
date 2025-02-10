@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
-import logger from '@/lib/logger';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { calculateBookingPrice, formatCurrency } from '@/lib/utils';
@@ -81,6 +80,39 @@ export default function VehiclesPage() {
     location: null
   });
 
+  // Add duration calculation function
+  const calculateDuration = () => {
+    if (!urlParams.pickupDate || !urlParams.pickupTime || !urlParams.dropoffDate || !urlParams.dropoffTime) {
+      return 'Select pickup and dropoff times';
+    }
+
+    const pickup = new Date(`${urlParams.pickupDate}T${urlParams.pickupTime}`);
+    const dropoff = new Date(`${urlParams.dropoffDate}T${urlParams.dropoffTime}`);
+
+    if (isNaN(pickup.getTime()) || isNaN(dropoff.getTime())) {
+      return 'Invalid date/time';
+    }
+
+    const diffInHours = Math.ceil((dropoff.getTime() - pickup.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 0) {
+      return 'Invalid duration';
+    }
+
+    if (diffInHours < 24) {
+      return `${diffInHours} hour${diffInHours === 1 ? '' : 's'}`;
+    }
+
+    const days = Math.floor(diffInHours / 24);
+    const remainingHours = diffInHours % 24;
+
+    if (remainingHours === 0) {
+      return `${days} day${days === 1 ? '' : 's'}`;
+    }
+
+    return `${days} day${days === 1 ? '' : 's'} ${remainingHours} hour${remainingHours === 1 ? '' : 's'}`;
+  };
+
   const handleLocationSelect = useCallback((location: string) => {
     // Clear any existing timeout
     if (timeoutRef.current) {
@@ -93,35 +125,13 @@ export default function VehiclesPage() {
 
     // Skip if already processing or if update is too soon
     if (processingLocationChange.current || timeSinceLastUpdate < 1000) {
-      logger.info('Skipping location update:', {
-        reason: processingLocationChange.current ? 'processing' : 'too soon',
-        timeSinceLastUpdate,
-        location,
-        currentLocation,
-        lastUpdate: lastLocationUpdateRef.current,
-        timestamp: now
-      });
       return;
     }
 
     // Skip if the location hasn't actually changed
     if (location === lastLocationUpdateRef.current) {
-      logger.info('Skipping location update - no change:', {
-        location,
-        currentLocation,
-        lastUpdate: lastLocationUpdateRef.current,
-        timestamp: now
-      });
       return;
     }
-
-    logger.info('Processing location update:', {
-      location,
-      vehicleType,
-      currentLocation,
-      lastUpdate: lastLocationUpdateRef.current,
-      timestamp: now
-    });
 
     processingLocationChange.current = true;
     lastLocationUpdateTimeRef.current = now;
@@ -214,14 +224,6 @@ export default function VehiclesPage() {
       const paramsChanged = JSON.stringify(newParams) !== JSON.stringify(urlParams);
 
       if (paramsChanged) {
-        logger.info('URL params changed:', {
-          old: urlParams,
-          new: newParams,
-          lastUpdate: lastLocationUpdateRef.current,
-          timeSinceLastUpdate,
-          timestamp: now
-        });
-
         setUrlParams(newParams);
 
         // Only update location if it's changed and not from a user interaction
@@ -256,8 +258,8 @@ export default function VehiclesPage() {
       const data = await response.json();
       setVehicles(data.vehicles || []);
     } catch (error) {
-      logger.error('Error fetching vehicles:', error);
       setVehicles([]);
+      toast.error('Failed to fetch vehicles');
     } finally {
       setLoading(false);
     }
@@ -282,11 +284,6 @@ export default function VehiclesPage() {
   // Handle vehicle type change
   useEffect(() => {
     if (!isInitialMount.current && vehicleType !== previousType) {
-      logger.info('Vehicle type changed at page level:', {
-        from: previousType,
-        to: vehicleType
-      });
-      
       // Reset location when vehicle type changes
       setCurrentLocation(undefined);
       setPreviousType(vehicleType);
@@ -400,7 +397,7 @@ export default function VehiclesPage() {
             {/* Search Duration */}
             <div className="mb-4">
               <h3 className="font-semibold mb-1 text-sm">Duration</h3>
-              <p className="text-orange-500 text-sm">{searchDuration}</p>
+              <p className="text-orange-500 text-sm">{calculateDuration()}</p>
             </div>
 
             {/* Locations */}
@@ -583,7 +580,7 @@ export default function VehiclesPage() {
             {/* Search Duration */}
             <div className="mb-4">
               <h3 className="font-semibold mb-1 text-sm">Duration</h3>
-              <p className="text-orange-500 text-sm">{searchDuration}</p>
+              <p className="text-orange-500 text-sm">{calculateDuration()}</p>
             </div>
 
             {/* Locations */}

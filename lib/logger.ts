@@ -85,8 +85,8 @@ interface Logger {
 const createBrowserLogger = (): Logger => ({
   error: (message: string, ...args: any[]) => console.error(message, ...args),
   warn: (message: string, ...args: any[]) => console.warn(message, ...args),
-  info: (message: string, ...args: any[]) => console.info(message, ...args),
-  debug: (message: string, ...args: any[]) => console.debug(message, ...args),
+  info: (message: string, ...args: any[]) => {},  // No-op in production
+  debug: (message: string, ...args: any[]) => {}, // No-op in production
   emailError: (message: string, error: any, metadata = {}) => {
     console.error(message, formatEmailError(error), metadata);
   },
@@ -100,89 +100,39 @@ const createBrowserLogger = (): Logger => ({
 
 // Create a server logger
 const createServerLogger = (): Logger => {
-  // Add colors to Winston
-  winston.addColors(colors);
-
-  // Create formatters
-  const consoleFormat = winston.format.combine(
-    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    winston.format.colorize({ all: true }),
-    winston.format.printf(
-      (info: winston.Logform.TransformableInfo) => {
-        const { timestamp, level, message, error, metadata = {} } = info as any;
-        
-        // Format error based on category
-        let errorStr = '';
-        if (error) {
-          if (metadata?.category === 'email') {
-            errorStr = `\nError: ${formatEmailError(error, metadata?.emailType)}`;
-          } else {
-            errorStr = `\nError: ${formatError(error)}`;
-          }
-        }
-        
-        // Format metadata
-        const metaStr = Object.keys(metadata).length > 0
-          ? `\nMetadata: ${JSON.stringify(metadata, null, 2)}`
-          : '';
-
-        return `${timestamp} ${level}: ${message}${errorStr}${metaStr}`;
-      }
-    )
-  );
-
-  // Create the winston logger
-  const winstonLogger = winston.createLogger({
-    levels,
-    format: consoleFormat,
-    transports: [
-      new winston.transports.Console({
-        format: consoleFormat,
-        level: 'debug',
-      })
-    ],
-    defaultMeta: {
-      service: 'onnrides-api',
-      environment: process.env.NODE_ENV || 'development',
-    },
-  });
-
-  // Add file transports in production
+  // Only log in development
   if (process.env.NODE_ENV !== 'development') {
-    import('winston-daily-rotate-file').then((DailyRotateFile) => {
-      const fileTransport = new DailyRotateFile.default({
-        filename: 'logs/combined-%DATE%.log',
-        datePattern: 'YYYY-MM-DD',
-        maxSize: '20m',
-        maxFiles: '14d',
-        level: 'debug',
-        format: consoleFormat,
-      });
-
-      const errorTransport = new DailyRotateFile.default({
-        filename: 'logs/error-%DATE%.log',
-        datePattern: 'YYYY-MM-DD',
-        maxSize: '20m',
-        maxFiles: '14d',
-        level: 'error',
-        format: consoleFormat,
-      });
-
-      winstonLogger.add(fileTransport);
-      winstonLogger.add(errorTransport);
-    }).catch((error) => {
-      console.error('Failed to initialize file transports:', error);
-    });
+    return {
+      error: (message: string, ...args: any[]) => {},
+      warn: (message: string, ...args: any[]) => {},
+      info: (message: string, ...args: any[]) => {},
+      debug: (message: string, ...args: any[]) => {},
+      emailError: (message: string, error: any, metadata = {}) => {},
+      bookingEmailError: (message: string, error: any, bookingId: string, metadata = {}) => {},
+      sslError: (message: string, error: any, metadata = {}) => {},
+    };
   }
 
-  // Create our logger interface implementation
+  const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.json()
+    ),
+    transports: [
+      new winston.transports.Console({
+        format: winston.format.simple(),
+      })
+    ],
+  });
+
   return {
-    error: (message: string, ...args: any[]) => winstonLogger.error(message, ...args),
-    warn: (message: string, ...args: any[]) => winstonLogger.warn(message, ...args),
-    info: (message: string, ...args: any[]) => winstonLogger.info(message, ...args),
-    debug: (message: string, ...args: any[]) => winstonLogger.debug(message, ...args),
+    error: (message: string, ...args: any[]) => logger.error(message, ...args),
+    warn: (message: string, ...args: any[]) => logger.warn(message, ...args),
+    info: (message: string, ...args: any[]) => logger.info(message, ...args),
+    debug: (message: string, ...args: any[]) => logger.debug(message, ...args),
     emailError: (message: string, error: any, metadata = {}) => {
-      winstonLogger.error(message, {
+      logger.error(message, {
         error,
         metadata: {
           ...metadata,
@@ -192,7 +142,7 @@ const createServerLogger = (): Logger => {
       });
     },
     bookingEmailError: (message: string, error: any, bookingId: string, metadata = {}) => {
-      winstonLogger.error(message, {
+      logger.error(message, {
         error,
         metadata: {
           ...metadata,
@@ -204,7 +154,7 @@ const createServerLogger = (): Logger => {
       });
     },
     sslError: (message: string, error: any, metadata = {}) => {
-      winstonLogger.error(message, {
+      logger.error(message, {
         error,
         metadata: {
           ...metadata,

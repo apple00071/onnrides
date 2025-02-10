@@ -6,13 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     const { vehicleId, location, startDate, endDate } = await request.json();
 
-    logger.info('Checking availability:', {
-      vehicleId,
-      location,
-      startDate,
-      endDate
-    });
-
+    // Validate required parameters
     if (!vehicleId || !location || !startDate || !endDate) {
       return NextResponse.json(
         { error: 'Missing required parameters' },
@@ -20,52 +14,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for existing bookings
-    const result = await query(`
-      SELECT COUNT(*) as booking_count, v.quantity
-      FROM bookings b
-      JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.vehicle_id = $1
-      AND b.pickup_location = $2
-      AND b.status NOT IN ('cancelled', 'failed')
-      AND b.payment_status != 'failed'
-      AND (
-        ($3::timestamp, $4::timestamp) OVERLAPS (b.start_date, b.end_date)
-        OR b.start_date BETWEEN $3::timestamp AND $4::timestamp
-        OR b.end_date BETWEEN $3::timestamp AND $4::timestamp
-        OR ($3::timestamp BETWEEN b.start_date AND b.end_date)
-        OR ($4::timestamp BETWEEN b.start_date AND b.end_date)
-      )
-      GROUP BY v.quantity
-    `, [vehicleId, location, startDate, endDate]);
+    // Get vehicle details
+    const vehicle = await query(`
+      SELECT quantity
+      FROM vehicles
+      WHERE id = $1
+    `, [vehicleId]);
 
-    logger.info('Availability check result:', {
-      location,
-      rowCount: result.rowCount,
-      rows: result.rows
-    });
-
-    // If no bookings found, vehicle is available
-    if (result.rows.length === 0) {
-      return NextResponse.json({ available: true });
+    if (vehicle.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Vehicle not found' },
+        { status: 404 }
+      );
     }
 
-    // Check if number of bookings is less than vehicle quantity
-    const { booking_count, quantity } = result.rows[0];
-    const available = booking_count < quantity;
+    // Count overlapping bookings
+    const overlappingBookings = await query(`
+      SELECT COUNT(*) as count
+      FROM bookings
+      WHERE vehicle_id = $1
+      AND location = $2
+      AND status NOT IN ('cancelled', 'failed')
+      AND (
+        (start_date, end_date) OVERLAPS ($3::timestamp, $4::timestamp)
+        OR $3::timestamp BETWEEN start_date AND end_date
+        OR $4::timestamp BETWEEN start_date AND end_date
+        OR start_date BETWEEN $3::timestamp AND $4::timestamp
+        OR end_date BETWEEN $3::timestamp AND $4::timestamp
+      )
+    `, [vehicleId, location, startDate, endDate]);
 
-    logger.info('Availability status:', {
-      location,
-      booking_count,
-      quantity,
-      available
-    });
+    const count = Number((overlappingBookings.rows[0] as any).count);
+    const isAvailable = count < Number(vehicle.rows[0].quantity);
 
-    return NextResponse.json({ available });
+    return NextResponse.json({ available: isAvailable });
   } catch (error) {
-    logger.error('Error checking availability:', error);
+    logger.error('Error checking vehicle availability:', error);
     return NextResponse.json(
-      { error: 'Failed to check availability' },
+      { error: 'Failed to check vehicle availability' },
       { status: 500 }
     );
   }
