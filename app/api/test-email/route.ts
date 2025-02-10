@@ -1,25 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { transporter, verifyEmailConfig } from '@/lib/email/config';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
-  console.log('Received test email request');
+  logger.info('Received test email request');
   
   try {
     // First verify the configuration
-    console.log('Verifying email configuration...');
+    logger.info('Verifying email configuration...');
     const isConfigValid = await verifyEmailConfig();
     
     if (!isConfigValid) {
-      console.error('Email configuration verification failed');
+      logger.error('Email configuration verification failed');
       return NextResponse.json(
-        { error: 'Email configuration verification failed' },
+        { 
+          error: 'Email configuration verification failed',
+          details: 'Failed to verify SMTP connection'
+        },
         { status: 500 }
       );
     }
 
     // Get the test email address
     const { email } = await request.json();
-    console.log('Sending test email to:', email);
+    logger.info('Sending test email to:', email);
 
     if (!email) {
       return NextResponse.json(
@@ -28,29 +32,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send a test email
+    // Send a test email with detailed HTML content
     const info = await transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: email,
       subject: 'ONNRIDES Email Test',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h1 style="color: #f26e24; text-align: center;">Email Test Successful!</h1>
           <p>This is a test email to verify your email configuration.</p>
           <p>If you're seeing this, it means your email setup is working correctly!</p>
-          <p>Configuration used:</p>
-          <ul>
-            <li>SMTP Host: ${process.env.SMTP_HOST}</li>
-            <li>SMTP Port: ${process.env.SMTP_PORT || '587'}</li>
-            <li>SMTP User: ${process.env.SMTP_USER}</li>
-            <li>From: ${process.env.SMTP_FROM}</li>
-          </ul>
-          <p>Sent at: ${new Date().toLocaleString()}</p>
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0;">Configuration Used:</h3>
+            <ul style="list-style-type: none; padding-left: 0;">
+              <li>Environment: ${process.env.NODE_ENV}</li>
+              <li>SMTP Host: ${process.env.SMTP_HOST}</li>
+              <li>SMTP Port: ${process.env.SMTP_PORT || '465'}</li>
+              <li>From: ${process.env.SMTP_FROM}</li>
+              <li>Secure: true</li>
+              <li>TLS: Enabled (v1.2+)</li>
+            </ul>
+          </div>
+          <p style="color: #666; font-size: 12px;">Sent at: ${new Date().toLocaleString()}</p>
         </div>
-      `
+      `,
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'high',
+        'Content-Type': 'text/html; charset=utf-8'
+      }
     });
 
-    console.log('Test email sent successfully:', {
+    logger.info('Test email sent successfully:', {
       messageId: info.messageId,
       response: info.response,
       accepted: info.accepted,
@@ -60,6 +74,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({
+      success: true,
       message: 'Test email sent successfully',
       details: {
         messageId: info.messageId,
@@ -70,7 +85,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Test email error:', {
+    logger.error('Test email error:', {
       error: error instanceof Error ? {
         message: error.message,
         code: (error as any).code,
@@ -79,9 +94,10 @@ export async function POST(request: NextRequest) {
       } : 'Unknown error',
       config: {
         host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
+        port: process.env.SMTP_PORT || '465',
         user: process.env.SMTP_USER,
-        from: process.env.SMTP_FROM
+        from: process.env.SMTP_FROM,
+        env: process.env.NODE_ENV
       }
     });
 

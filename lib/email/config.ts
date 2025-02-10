@@ -13,8 +13,9 @@ if (missingEnvVars.length > 0) {
 // Email transporter configuration
 const transporterConfig: SMTPTransport.Options = {
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: 587, // Changed to 587 for TLS
-  secure: false, // Changed to false for TLS
+  port: 465, // Use 465 for SSL in production
+  secure: true, // Use SSL in production
+  requireTLS: true,
   auth: {
     user: process.env.SMTP_USER!,
     pass: process.env.SMTP_PASS!.replace(/\s+/g, '') // Remove any whitespace from password
@@ -23,19 +24,29 @@ const transporterConfig: SMTPTransport.Options = {
     // Required for Gmail and other secure SMTP servers
     minVersion: 'TLSv1.2',
     rejectUnauthorized: true,
-    ciphers: 'HIGH'
+    ciphers: 'HIGH',
+    servername: process.env.SMTP_HOST || 'smtp.gmail.com' // Add explicit servername
   },
-  debug: true, // Always enable debug for troubleshooting
-  logger: true // Always enable logger for troubleshooting
+  pool: true, // Use pooled connections
+  maxConnections: 5,
+  maxMessages: 100,
+  rateDelta: 1000, // 1 second
+  rateLimit: 5, // 5 emails per second
+  debug: process.env.NODE_ENV === 'development',
+  logger: process.env.NODE_ENV === 'development'
 };
 
 // Create transporter with retry mechanism
 const createTransporter = () => {
   console.log('Creating email transporter with config:', {
-    ...transporterConfig,
-    auth: {
-      ...transporterConfig.auth,
-      pass: '****' // Hide password in logs
+    host: transporterConfig.host,
+    port: transporterConfig.port,
+    secure: transporterConfig.secure,
+    requireTLS: transporterConfig.requireTLS,
+    auth: { user: transporterConfig.auth?.user, pass: '****' },
+    tls: {
+      minVersion: transporterConfig.tls?.minVersion,
+      servername: transporterConfig.tls?.servername
     }
   });
 
@@ -48,7 +59,8 @@ const createTransporter = () => {
       code: error.code,
       command: error.command,
       responseCode: error.responseCode,
-      stack: error.stack
+      stack: error.stack,
+      env: process.env.NODE_ENV
     });
   });
 
@@ -58,7 +70,8 @@ const createTransporter = () => {
       console.error('Transporter verification failed:', {
         message: error.message,
         code: (error as any).code,
-        stack: error.stack
+        stack: error.stack,
+        env: process.env.NODE_ENV
       });
     } else {
       console.log('Transporter is ready to send emails:', success);
@@ -70,42 +83,33 @@ const createTransporter = () => {
 
 export const transporter = createTransporter();
 
-// Default email options
+// Default email options with proper headers
 export const defaultMailOptions = {
   from: process.env.SMTP_FROM || process.env.SMTP_USER,
+  headers: {
+    'X-Priority': '1',
+    'X-MSMail-Priority': 'High',
+    'Importance': 'high',
+    'Content-Type': 'text/html; charset=utf-8'
+  }
 };
 
 // Verify email configuration
 export async function verifyEmailConfig() {
   try {
     console.log('Verifying email configuration...');
-    console.log('Environment variables:', {
+    console.log('Environment:', {
+      NODE_ENV: process.env.NODE_ENV,
       SMTP_HOST: process.env.SMTP_HOST,
-      SMTP_PORT: process.env.SMTP_PORT,
+      SMTP_PORT: process.env.SMTP_PORT || '465',
       SMTP_USER: process.env.SMTP_USER,
       SMTP_FROM: process.env.SMTP_FROM,
-      NODE_ENV: process.env.NODE_ENV,
       has_SMTP_PASS: !!process.env.SMTP_PASS
     });
 
     // Verify SMTP connection
     const verifyResult = await transporter.verify();
     console.log('SMTP connection verified:', verifyResult);
-    
-    // Send a test email to verify full functionality
-    const testResult = await transporter.sendMail({
-      ...defaultMailOptions,
-      to: process.env.SMTP_USER,
-      subject: 'SMTP Test',
-      text: 'If you receive this email, SMTP is working correctly.'
-    });
-    
-    console.log('Test email sent:', {
-      messageId: testResult.messageId,
-      response: testResult.response,
-      accepted: testResult.accepted,
-      rejected: testResult.rejected
-    });
     
     return true;
   } catch (error) {
@@ -115,7 +119,8 @@ export async function verifyEmailConfig() {
         code: (error as any).code,
         command: (error as any).command,
         stack: error.stack
-      } : 'Unknown error'
+      } : 'Unknown error',
+      env: process.env.NODE_ENV
     });
     
     // Recreate transporter on verification failure
