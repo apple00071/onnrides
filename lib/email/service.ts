@@ -53,45 +53,52 @@ async function logEmailSent(data: EmailLog) {
   }
 }
 
-// Generic send email function with retry logic
-async function sendEmail(options: any, retryCount = 0): Promise<any> {
+// Helper function to send email with retry logic
+async function sendEmailWithRetry(mailOptions: any, retryCount = 0): Promise<any> {
   try {
-    const mailOptions = {
+    const result = await transporter.sendMail({
       ...defaultMailOptions,
-      ...options
-    };
+      ...mailOptions
+    });
 
-    logger.info('Attempting to send email:', {
-      to: mailOptions.to,
+    // Log success
+    await logEmailSent({
+      recipient: mailOptions.to,
       subject: mailOptions.subject,
-      retry_count: retryCount
+      booking_id: mailOptions.booking_id,
+      status: 'success',
+      message_id: result.messageId
     });
 
-    const info = await transporter.sendMail(mailOptions);
-    
-    logger.info('Email sent successfully:', {
-      messageId: info.messageId,
-      response: info.response,
-      to: mailOptions.to,
-      subject: mailOptions.subject
-    });
-    
-    return info;
+    return result;
   } catch (error) {
-    // Use enhanced email error logging
-    logger.emailError('Email send attempt failed', error, {
-      retry_count: retryCount,
-      max_retries: MAX_RETRIES,
-      to: options.to,
-      subject: options.subject,
-      smtp_response: error instanceof Error ? error.message : undefined
+    logger.error('Email send error:', {
+      error: error instanceof Error ? {
+        message: error.message,
+        code: (error as any).code,
+        command: (error as any).command,
+        stack: error.stack
+      } : 'Unknown error',
+      recipient: mailOptions.to,
+      subject: mailOptions.subject,
+      retryCount
     });
 
+    // Log failure
+    await logEmailSent({
+      recipient: mailOptions.to,
+      subject: mailOptions.subject,
+      booking_id: mailOptions.booking_id,
+      status: 'failed',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    // Retry if not exceeded max retries
     if (retryCount < MAX_RETRIES) {
-      logger.info(`Retrying email send (${retryCount + 1}/${MAX_RETRIES})...`);
-      await delay(RETRY_DELAY * (retryCount + 1));
-      return sendEmail(options, retryCount + 1);
+      await delay(RETRY_DELAY * Math.pow(2, retryCount)); // Exponential backoff
+      return sendEmailWithRetry(mailOptions, retryCount + 1);
     }
+
     throw error;
   }
 }
@@ -146,117 +153,38 @@ function getBookingDisplayId(booking: any): string {
 // Send booking confirmation email
 export async function sendBookingConfirmationEmail(booking: any, userEmail: string) {
   try {
-    // Validate email configuration first
-    validateEmailConfig();
-
-    const displayId = getBookingDisplayId(booking);
-
-    logger.info('Preparing to send booking confirmation email', {
-      bookingId: booking.id,
-      displayId,
-      payment_reference: booking.payment_reference,
-      payment_status: booking.paymentStatus,
-      userEmail,
-      booking_details: {
-        id: booking.id,
-        display_id: displayId,
-        vehicle: booking.vehicle?.name,
-        start_date: booking.startDate,
-        end_date: booking.endDate,
-        pickup_location: booking.pickupLocation,
-        payment_reference: booking.payment_reference,
-        payment_status: booking.paymentStatus
-      }
-    });
-
-    const formattedPaymentStatus = formatPaymentStatus(booking.paymentStatus);
-    const statusColor = formattedPaymentStatus === 'Payment Successful' ? '#22c55e' : '#ef4444';
-
     const mailOptions = {
-      ...defaultMailOptions,
       to: userEmail,
-      subject: `Booking Confirmation - ${displayId}`,
+      subject: `Booking Confirmation - ${booking.booking_id || booking.id}`,
+      booking_id: booking.id,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1>Booking Confirmation</h1>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #f26e24; text-align: center;">Booking Confirmation</h1>
+          <p>Dear Customer,</p>
           <p>Your booking has been confirmed. Here are the details:</p>
-          
-          <h2>Booking Information</h2>
-          <p><strong>Booking ID:</strong> ${displayId}</p>
-          <p><strong>Vehicle:</strong> ${booking.vehicle.name}</p>
-          <p><strong>Start Date:</strong> ${formatDateTimeIST(booking.startDate)}</p>
-          <p><strong>End Date:</strong> ${formatDateTimeIST(booking.endDate)}</p>
-          <p><strong>Pickup Location:</strong> ${booking.pickupLocation}</p>
-          <p><strong>Total Amount:</strong> ${booking.totalPrice}</p>
-          
-          <h2>Payment Information</h2>
-          <p><strong>Payment Status:</strong> <span style="color: ${statusColor}; font-weight: bold;">${formattedPaymentStatus}</span></p>
-          <p><strong>Payment ID:</strong> ${booking.payment_reference}</p>
-          <p><strong>Transaction Date:</strong> ${formatDateTimeIST(new Date())}</p>
-          
-          <div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
-            <p style="margin: 0; color: #666;">
-              Please save these details for future reference:
-              <br>• Booking ID: ${displayId}
-              <br>• Payment ID: ${booking.payment_reference}
-              <br>• Payment Status: ${formattedPaymentStatus}
-            </p>
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p><strong>Booking ID:</strong> ${booking.booking_id || booking.id}</p>
+            <p><strong>Vehicle:</strong> ${booking.vehicle?.name}</p>
+            <p><strong>Pickup Location:</strong> ${booking.pickupLocation}</p>
+            <p><strong>Start Date:</strong> ${new Date(booking.startDate).toLocaleString()}</p>
+            <p><strong>End Date:</strong> ${new Date(booking.endDate).toLocaleString()}</p>
+            <p><strong>Total Amount:</strong> ${booking.totalPrice}</p>
+            <p><strong>Payment Status:</strong> ${formatPaymentStatus(booking.paymentStatus)}</p>
+            ${booking.payment_reference ? `<p><strong>Payment Reference:</strong> ${booking.payment_reference}</p>` : ''}
           </div>
-          
-          <p style="margin-top: 20px;">If you have any questions, please contact our support team.</p>
-          
           <p>Thank you for choosing our service!</p>
+          <p>Best regards,<br>ONNRIDES Team</p>
         </div>
       `
     };
 
-    const result = await sendEmail(mailOptions);
-    
-    // Log successful email
-    await logEmailSent({
-      recipient: userEmail,
-      subject: mailOptions.subject,
-      booking_id: booking.id,
-      status: 'success',
-      message_id: result.messageId
-    });
-
-    logger.info('Booking confirmation email sent successfully', {
-      bookingId: booking.id,
-      displayId,
-      payment_reference: booking.payment_reference,
-      payment_status: formattedPaymentStatus,
-      userEmail,
-      messageId: result.messageId
-    });
-
-    return result;
+    return await sendEmailWithRetry(mailOptions);
   } catch (error) {
-    // Get display ID even in error case, with safe fallback
-    const displayId = booking ? getBookingDisplayId(booking) : 'UNKNOWN';
-    
-    // Use enhanced booking email error logging
-    logger.bookingEmailError('Failed to send booking confirmation email', error, booking?.id, {
-      displayId,
-      payment_reference: booking?.payment_reference,
-      payment_status: booking?.paymentStatus,
-      userEmail,
-      emailConfig: {
-        smtp_user: process.env.SMTP_USER,
-        smtp_from: process.env.SMTP_FROM,
-        has_smtp_pass: !!process.env.SMTP_PASS
-      }
+    logger.error('Failed to send booking confirmation email:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      bookingId: booking.id,
+      userEmail
     });
-
-    // Log failed email
-    await logEmailSent({
-      recipient: userEmail,
-      subject: `Booking Confirmation - ${displayId}`,
-      booking_id: booking?.id,
-      status: 'failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-
     throw error;
   }
 }
@@ -267,7 +195,7 @@ export async function sendPasswordResetEmail(email: string, token: string) {
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`;
     const emailContent = createPasswordResetEmail(resetUrl);
     
-    const info = await sendEmail({
+    const info = await sendEmailWithRetry({
       to: email,
       ...emailContent
     });
@@ -298,7 +226,7 @@ export async function sendPasswordResetEmail(email: string, token: string) {
 export async function sendWelcomeEmail(email: string, name: string) {
   try {
     const emailContent = createWelcomeEmail(name);
-    const info = await sendEmail({
+    const info = await sendEmailWithRetry({
       to: email,
       ...emailContent
     });

@@ -15,99 +15,76 @@ const transporterConfig: SMTPTransport.Options = {
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.SMTP_PORT || '465'),
   secure: true, // Use SSL/TLS
-  requireTLS: true,
   auth: {
-    type: 'login',
     user: process.env.SMTP_USER!,
     pass: process.env.SMTP_PASS!.replace(/\s+/g, '') // Remove any whitespace from password
   },
   tls: {
-    // Required for Gmail
+    // Required for Gmail and other secure SMTP servers
     minVersion: 'TLSv1.2',
+    rejectUnauthorized: true,
     ciphers: 'HIGH',
-    rejectUnauthorized: true
+    secureProtocol: 'TLSv1_2_method'
   },
-  debug: true, // Enable debug logs
-  logger: true // Enable built-in logger
+  debug: process.env.NODE_ENV === 'development',
+  logger: process.env.NODE_ENV === 'development'
 };
 
-// Log configuration without sensitive data
-const safeConfig = {
-  ...transporterConfig,
-  auth: transporterConfig.auth ? {
-    type: transporterConfig.auth.type,
-    user: transporterConfig.auth.user,
-    pass: '****'
-  } : undefined
+// Create transporter with retry mechanism
+const createTransporter = () => {
+  const transporter = nodemailer.createTransport(transporterConfig);
+
+  // Add error event handler
+  transporter.on('error', (error) => {
+    logger.error('SMTP Transport Error:', {
+      error: error.message,
+      code: error.code,
+      command: (error as any).command,
+      responseCode: (error as any).responseCode,
+      stack: error.stack
+    });
+  });
+
+  return transporter;
 };
 
-logger.info('Creating email transporter with config:', safeConfig);
-
-// Create transporter
-export const transporter = nodemailer.createTransport(transporterConfig);
+export const transporter = createTransporter();
 
 // Default email options
 export const defaultMailOptions = {
   from: process.env.SMTP_FROM || process.env.SMTP_USER,
-}; 
+};
 
 // Verify email configuration
 export async function verifyEmailConfig() {
   try {
     // Log environment variables (excluding sensitive data)
-    logger.info('Email environment variables:', {
+    logger.info('Email configuration:', {
       SMTP_HOST: process.env.SMTP_HOST,
       SMTP_PORT: process.env.SMTP_PORT,
       SMTP_USER: process.env.SMTP_USER,
       SMTP_FROM: process.env.SMTP_FROM,
+      NODE_ENV: process.env.NODE_ENV,
       has_SMTP_PASS: !!process.env.SMTP_PASS
     });
 
     // Verify SMTP connection
-    logger.info('Verifying SMTP connection...');
     const verifyResult = await transporter.verify();
     logger.info('SMTP connection verified:', verifyResult);
-    
-    // Send a test email
-    logger.info('Sending test email...');
-    const testResult = await transporter.sendMail({
-      ...defaultMailOptions,
-      to: process.env.SMTP_USER,
-      subject: 'ONNRIDES Email Test',
-      text: 'This is a test email to verify the email configuration.',
-      html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px;">
-          <h2>Email Configuration Test</h2>
-          <p>This is a test email to verify that the email configuration is working correctly.</p>
-          <p>Configuration details:</p>
-          <ul>
-            <li>SMTP Host: ${process.env.SMTP_HOST || 'smtp.gmail.com'}</li>
-            <li>SMTP Port: ${process.env.SMTP_PORT || '465'}</li>
-            <li>SMTP User: ${process.env.SMTP_USER}</li>
-            <li>From: ${process.env.SMTP_FROM || process.env.SMTP_USER}</li>
-            <li>Timestamp: ${new Date().toISOString()}</li>
-          </ul>
-          <p>If you received this email, your email configuration is working correctly.</p>
-        </div>
-      `
-    });
-    
-    logger.info('Test email sent successfully:', {
-      messageId: testResult.messageId,
-      response: testResult.response,
-      accepted: testResult.accepted,
-      rejected: testResult.rejected
-    });
     
     return true;
   } catch (error) {
     logger.error('Email configuration verification failed:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      code: error instanceof Error ? (error as any).code : undefined,
-      command: error instanceof Error ? (error as any).command : undefined
+      error: error instanceof Error ? {
+        message: error.message,
+        code: (error as any).code,
+        command: (error as any).command,
+        stack: error.stack
+      } : 'Unknown error'
     });
     
+    // Recreate transporter on verification failure
+    createTransporter();
     return false;
   }
 } 
