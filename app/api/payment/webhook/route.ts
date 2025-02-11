@@ -152,30 +152,33 @@ export async function POST(request: NextRequest): Promise<Response> {
         payment_method: paymentEntity.method
       });
 
-      try {
-        await sendBookingConfirmationEmail(emailBooking, booking.user_email);
-        logger.info('Booking confirmation email sent successfully', {
-          bookingId: booking.id,
-          booking_id: booking.booking_id,
-          payment_id: paymentEntity.id,
-          payment_status: paymentEntity.status,
-          email: booking.user_email
-        });
-      } catch (emailError) {
-        logger.error('Failed to send booking confirmation email:', {
-          error: emailError instanceof Error ? emailError.message : 'Unknown error',
-          booking_id: booking.id,
-          payment_id: paymentEntity.id,
-          payment_status: paymentEntity.status,
-          email: booking.user_email,
-          emailConfig: {
-            smtp_user: process.env.SMTP_USER,
-            smtp_from: process.env.SMTP_FROM,
-            has_smtp_pass: !!process.env.SMTP_PASS
+      // Replace direct email call with API endpoint call
+      const sendEmailConfirmation = async (booking: any) => {
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/email/send`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              type: 'booking-confirmation',
+              data: {
+                booking: emailBooking,
+                userEmail: booking.user_email
+              }
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to send email confirmation');
           }
-        });
-        // Don't throw here - we don't want to rollback the webhook processing just because email failed
-      }
+        } catch (error) {
+          logger.error('Failed to send webhook email confirmation:', error);
+        }
+      };
+
+      // Replace the direct email call with the new function
+      await sendEmailConfirmation(booking);
     }
 
     return NextResponse.json({ success: true });

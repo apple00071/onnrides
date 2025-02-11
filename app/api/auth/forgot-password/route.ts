@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { sendPasswordResetEmail } from '@/lib/email/service';  // Import directly from service
 import logger from '@/lib/logger';
 import crypto from 'crypto';
 
@@ -56,25 +55,34 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to save reset token');
     }
 
-    // Send password reset email
-    try {
-      logger.info('Attempting to send password reset email');
-      await sendPasswordResetEmail(email, resetToken);
-      logger.info('Password reset email sent successfully');
-    } catch (emailError) {
-      logger.error('Failed to send password reset email:', {
-        error: emailError,
-        email,
-        smtp: {
-          host: process.env.SMTP_HOST,
-          port: process.env.SMTP_PORT,
-          user: process.env.SMTP_USER,
-          from: process.env.SMTP_FROM,
-          // Don't log the password!
+    // Add the email sending function
+    const sendResetEmail = async (email: string, token: string) => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/email/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'password-reset',
+            data: {
+              email,
+              token
+            }
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to send password reset email');
         }
-      });
-      throw new Error('Failed to send password reset email');
-    }
+      } catch (error) {
+        logger.error('Failed to send password reset email:', error);
+        throw error;
+      }
+    };
+
+    // Replace the direct email call with the new function
+    await sendResetEmail(email, resetToken);
 
     return NextResponse.json({
       message: 'If an account exists with this email, you will receive a password reset link'

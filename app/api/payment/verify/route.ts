@@ -308,25 +308,33 @@ export async function POST(request: NextRequest) {
         totalPrice: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`
       };
 
-      try {
-        await sendBookingConfirmationEmail(emailBooking, booking.user_email || session.user.email);
-        logger.info('Booking confirmation email sent successfully', {
-          bookingId,
-          email: booking.user_email || session.user.email
-        });
-      } catch (emailError) {
-        logger.error('Failed to send booking confirmation email:', {
-          error: emailError instanceof Error ? emailError.message : 'Unknown error',
-          booking_id: bookingId,
-          email: booking.user_email || session.user.email,
-          emailConfig: {
-            smtp_user: process.env.SMTP_USER,
-            smtp_from: process.env.SMTP_FROM,
-            has_smtp_pass: !!process.env.SMTP_PASS
+      // Add the email sending function
+      const sendEmailConfirmation = async (booking: any, userEmail: string) => {
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/email/send`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              type: 'booking-confirmation',
+              data: {
+                booking: emailBooking,
+                userEmail: userEmail
+              }
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to send email confirmation');
           }
-        });
-        // Don't throw here - we don't want to rollback the payment verification just because email failed
-      }
+        } catch (error) {
+          logger.error('Failed to send payment verification email confirmation:', error);
+        }
+      };
+
+      // Replace the direct email call with the new function
+      await sendEmailConfirmation(booking, booking.user_email || session.user.email);
 
       logger.info('Payment verification completed successfully', { 
         bookingId,

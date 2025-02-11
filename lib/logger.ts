@@ -1,12 +1,14 @@
 import winston from 'winston';
 
-// Define log levels
-const levels = {
-  error: 0,
-  warn: 1,
-  info: 2,
-  debug: 3,
-};
+// Define log levels as a const enum for better type safety
+const LogLevel = {
+  ERROR: 0,
+  WARN: 1,
+  INFO: 2,
+  DEBUG: 3,
+} as const;
+
+type LogLevel = typeof LogLevel[keyof typeof LogLevel];
 
 // Define log colors
 const colors = {
@@ -81,59 +83,70 @@ interface Logger {
   sslError: (message: string, error: any, metadata?: Record<string, any>) => void;
 }
 
-// Create a browser-compatible logger
-const createBrowserLogger = (): Logger => ({
-  error: (message: string, ...args: any[]) => console.error(message, ...args),
-  warn: (message: string, ...args: any[]) => console.warn(message, ...args),
-  info: (message: string, ...args: any[]) => {},  // No-op in production
-  debug: (message: string, ...args: any[]) => {}, // No-op in production
-  emailError: (message: string, error: any, metadata = {}) => {
-    console.error(message, formatEmailError(error), metadata);
-  },
-  bookingEmailError: (message: string, error: any, bookingId: string, metadata = {}) => {
-    console.error(message, formatEmailError(error, 'booking-confirmation'), { bookingId, ...metadata });
-  },
-  sslError: (message: string, error: any, metadata = {}) => {
-    console.error(message, formatError(error), metadata);
-  },
-});
+// Create a unified logger that works in all environments
+const createLogger = (): Logger => {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const isBrowser = typeof window !== 'undefined';
+  const isEdgeRuntime = process.env.NEXT_RUNTIME === 'edge';
 
-// Create a server logger
-const createServerLogger = (): Logger => {
-  // Only log in development
-  if (process.env.NODE_ENV !== 'development') {
-    return {
-      error: (message: string, ...args: any[]) => {},
-      warn: (message: string, ...args: any[]) => {},
-      info: (message: string, ...args: any[]) => {},
-      debug: (message: string, ...args: any[]) => {},
-      emailError: (message: string, error: any, metadata = {}) => {},
-      bookingEmailError: (message: string, error: any, bookingId: string, metadata = {}) => {},
-      sslError: (message: string, error: any, metadata = {}) => {},
-    };
-  }
+  // Helper to format log entries
+  const formatLogEntry = (level: string, message: string, args: any[] = []) => {
+    const timestamp = new Date().toISOString();
+    const formattedArgs = args.map(arg => 
+      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
+    ).join(' ');
+    return `[${timestamp}] ${level.toUpperCase()}: ${message} ${formattedArgs}`.trim();
+  };
 
-  const logger = winston.createLogger({
-    level: 'info',
-    format: winston.format.combine(
-      winston.format.timestamp(),
-      winston.format.json()
-    ),
-    transports: [
-      new winston.transports.Console({
-        format: winston.format.simple(),
-      })
-    ],
-  });
+  // Helper to determine if we should log based on environment
+  const shouldLog = (level: LogLevel): boolean => {
+    if (!isDevelopment && (level === LogLevel.DEBUG || level === LogLevel.INFO)) {
+      return false;
+    }
+    return true;
+  };
+
+  // Core logging function
+  const log = (level: LogLevel, message: string, ...args: any[]) => {
+    // In production, we'll just store the logs for potential external service integration
+    if (!isDevelopment) {
+      // TODO: Integrate with external logging service if needed
+      // Example: sendToExternalService(level, message, args);
+      return;
+    }
+
+    // Only log to console in development
+    const formattedMessage = formatLogEntry(LogLevel[level], message, args);
+    
+    if (isBrowser || isEdgeRuntime) {
+      switch (level) {
+        case LogLevel.ERROR:
+          console.error(formattedMessage);
+          break;
+        case LogLevel.WARN:
+          console.warn(formattedMessage);
+          break;
+        case LogLevel.INFO:
+          console.info(formattedMessage);
+          break;
+        case LogLevel.DEBUG:
+          console.debug(formattedMessage);
+          break;
+      }
+    } else {
+      // Server-side development logging
+      console.log(formattedMessage);
+    }
+  };
 
   return {
-    error: (message: string, ...args: any[]) => logger.error(message, ...args),
-    warn: (message: string, ...args: any[]) => logger.warn(message, ...args),
-    info: (message: string, ...args: any[]) => logger.info(message, ...args),
-    debug: (message: string, ...args: any[]) => logger.debug(message, ...args),
+    error: (message: string, ...args: any[]) => log(LogLevel.ERROR, message, ...args),
+    warn: (message: string, ...args: any[]) => log(LogLevel.WARN, message, ...args),
+    info: (message: string, ...args: any[]) => log(LogLevel.INFO, message, ...args),
+    debug: (message: string, ...args: any[]) => log(LogLevel.DEBUG, message, ...args),
     emailError: (message: string, error: any, metadata = {}) => {
-      logger.error(message, {
-        error,
+      log(LogLevel.ERROR, message, {
+        error: formatEmailError(error),
         metadata: {
           ...metadata,
           category: 'email',
@@ -142,8 +155,8 @@ const createServerLogger = (): Logger => {
       });
     },
     bookingEmailError: (message: string, error: any, bookingId: string, metadata = {}) => {
-      logger.error(message, {
-        error,
+      log(LogLevel.ERROR, message, {
+        error: formatEmailError(error, 'booking-confirmation'),
         metadata: {
           ...metadata,
           category: 'email',
@@ -154,8 +167,8 @@ const createServerLogger = (): Logger => {
       });
     },
     sslError: (message: string, error: any, metadata = {}) => {
-      logger.error(message, {
-        error,
+      log(LogLevel.ERROR, message, {
+        error: formatError(error),
         metadata: {
           ...metadata,
           category: 'ssl',
@@ -167,12 +180,10 @@ const createServerLogger = (): Logger => {
   };
 };
 
-// Create the appropriate logger based on the environment
-const logger = typeof window !== 'undefined' || process.env.NEXT_RUNTIME === 'edge'
-  ? createBrowserLogger()
-  : createServerLogger();
+// Create a singleton logger instance
+const logger = createLogger();
 
-// Create a stream object for Morgan
+// Create a stream object for HTTP request logging
 export const stream = {
   write: (message: string) => {
     logger.info(message.trim());

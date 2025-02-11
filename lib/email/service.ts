@@ -4,6 +4,11 @@ import logger from '../logger';
 import { query } from '../db';
 import { format } from 'date-fns-tz';
 
+// Skip email functionality in Edge Runtime
+if (process.env.NEXT_RUNTIME === 'edge') {
+  throw new Error('Email functionality is not supported in Edge Runtime. Please use API routes for sending emails.');
+}
+
 // Constants
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
@@ -166,9 +171,9 @@ export async function sendBookingConfirmationEmail(booking: any, userEmail: stri
             <p><strong>Booking ID:</strong> ${booking.booking_id || booking.id}</p>
             <p><strong>Vehicle:</strong> ${booking.vehicle?.name}</p>
             <p><strong>Pickup Location:</strong> ${booking.pickupLocation}</p>
-            <p><strong>Start Date:</strong> ${new Date(booking.startDate).toLocaleString()}</p>
-            <p><strong>End Date:</strong> ${new Date(booking.endDate).toLocaleString()}</p>
-            <p><strong>Total Amount:</strong> ${booking.totalPrice}</p>
+            <p><strong>Start Date:</strong> ${format(new Date(booking.startDate), 'dd MMM yyyy, hh:mm a', { timeZone: 'Asia/Kolkata' })}</p>
+            <p><strong>End Date:</strong> ${format(new Date(booking.endDate), 'dd MMM yyyy, hh:mm a', { timeZone: 'Asia/Kolkata' })}</p>
+            <p><strong>Total Amount:</strong> ₹${booking.totalPrice}</p>
             <p><strong>Payment Status:</strong> ${formatPaymentStatus(booking.paymentStatus)}</p>
             ${booking.payment_reference ? `<p><strong>Payment Reference:</strong> ${booking.payment_reference}</p>` : ''}
           </div>
