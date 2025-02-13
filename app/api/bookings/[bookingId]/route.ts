@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth';
 import type { Booking, Vehicle } from '@/lib/types';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { sendBookingNotification } from '@/lib/whatsapp/integration';
 
 interface UpdateBookingBody {
   status?: 'pending' | 'confirmed' | 'cancelled' | 'completed';
@@ -185,7 +186,7 @@ export async function PUT(
     }
 
     const result = await query(
-      'SELECT * FROM bookings WHERE id = $1 LIMIT 1',
+      'SELECT b.*, v.name as vehicle_name FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id WHERE b.id = $1 LIMIT 1',
       [bookingId]
     );
     const booking = result.rows[0];
@@ -222,7 +223,19 @@ export async function PUT(
       [status, bookingId]
     );
 
-    return NextResponse.json(updateResult.rows[0]);
+    const updatedBooking = updateResult.rows[0];
+
+    // Send WhatsApp notification
+    await sendBookingNotification(user, {
+      vehicleName: booking.vehicle_name,
+      startDate: booking.start_date,
+      endDate: booking.end_date,
+      bookingId: booking.id,
+      status: status,
+      totalPrice: booking.total_price ? `₹${parseFloat(booking.total_price).toFixed(2)}` : undefined
+    });
+
+    return NextResponse.json(updatedBooking);
   } catch (error) {
     logger.error('Error updating booking:', error);
     return NextResponse.json(

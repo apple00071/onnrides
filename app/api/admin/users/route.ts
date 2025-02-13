@@ -26,32 +26,45 @@ export async function GET(_request: NextRequest) {
 
     const usersWithDetails = await Promise.all(
       users.map(async (user) => {
-        // Get document counts
-        const documentCounts = await db
-          .selectFrom('documents')
-          .select([
-            sql<number>`count(*)`.as('total'),
-            sql<number>`sum(case when status = 'approved' then 1 else 0 end)`.as('approved')
-          ])
-          .where('user_id', '=', user.id)
-          .executeTakeFirst();
+        try {
+          // Get document counts
+          const documentCounts = await db
+            .selectFrom('documents')
+            .select([
+              sql<number>`count(*)`.as('total'),
+              sql<number>`sum(case when status = 'approved' then 1 else 0 end)`.as('approved')
+            ])
+            .where('user_id', '=', user.id)
+            .executeTakeFirst();
 
-        // Get booking counts
-        const bookingCounts = await db
-          .selectFrom('bookings')
-          .select([
-            sql<number>`count(*)`.as('total'),
-            sql<number>`sum(case when status = 'completed' then 1 else 0 end)`.as('completed'),
-            sql<number>`sum(case when status = 'cancelled' then 1 else 0 end)`.as('cancelled')
-          ])
-          .where('user_id', '=', user.id)
-          .executeTakeFirst();
+          // Get booking counts
+          const bookingCounts = await db
+            .selectFrom('bookings')
+            .select([
+              sql<number>`count(*)`.as('total'),
+              sql<number>`sum(case when status = 'completed' then 1 else 0 end)`.as('completed'),
+              sql<number>`sum(case when status = 'cancelled' then 1 else 0 end)`.as('cancelled')
+            ])
+            .where('user_id', '=', user.id)
+            .executeTakeFirst();
 
-        return {
-          ...user,
-          documents: documentCounts,
-          bookings: bookingCounts
-        };
+          return {
+            ...user,
+            documents: documentCounts,
+            bookings: bookingCounts
+          };
+        } catch (error) {
+          logger.error('Error fetching details for user:', {
+            userId: user.id,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          // Return user with empty counts on error
+          return {
+            ...user,
+            documents: { total: 0, approved: 0 },
+            bookings: { total: 0, completed: 0, cancelled: 0 }
+          };
+        }
       })
     );
 
@@ -61,10 +74,17 @@ export async function GET(_request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Error fetching users:', error);
+    logger.error('Error fetching users:', {
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : error
+    });
     return NextResponse.json({
       success: false,
-      error: 'Failed to fetch users'
+      error: 'Failed to fetch users',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FaUser, FaCog, FaSignOutAlt, FaHistory } from 'react-icons/fa';
 import { useRouter, usePathname } from 'next/navigation';
 import { useCallback, useEffect } from 'react';
+import { User, Car, LogOut } from 'lucide-react';
 
 export default function Navbar() {
   const { data: session, status } = useSession();
@@ -60,6 +61,13 @@ export default function Navbar() {
       .join('')
       .toUpperCase();
   };
+
+  // Remove settings from pathname check
+  const hideNavbar = !!(
+    pathname?.startsWith('/auth') ||
+    pathname?.startsWith('/admin') ||
+    (session && pathname?.startsWith('/bookings'))
+  );
 
   if (status === 'loading') {
     return (
@@ -181,15 +189,9 @@ export default function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/bookings" className="flex items-center cursor-pointer">
+                  <Link href="/my-rides" className="flex items-center cursor-pointer">
                     <FaHistory className="mr-2 h-4 w-4" />
-                    <span>My Bookings</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings" className="flex items-center cursor-pointer">
-                    <FaCog className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
+                    <span>My Rides</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

@@ -15,19 +15,8 @@ import {
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { format } from 'date-fns';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  phone: string | null;
-  created_at: string;
-  documents_status?: {
-    approved: number;
-    total: number;
-  };
-}
+import { User } from '@/lib/types';
+import { FileIcon } from 'lucide-react';
 
 interface UserDocument {
   id: string;
@@ -62,10 +51,10 @@ interface Booking {
 }
 
 interface UserDetailsModalProps {
-  user: User | null;
+  user: User;
   isOpen: boolean;
   onClose: () => void;
-  onUserUpdated: (updatedUser: User) => void;
+  onUserUpdated: (user: User) => void;
 }
 
 interface CancelBookingModalProps {
@@ -87,41 +76,103 @@ function DocumentViewerModal({
 }) {
   if (!document) return null;
 
-  const isImage = document.file_url.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-  const isPDF = document.file_url.toLowerCase().endsWith('.pdf');
+  logger.info('Document viewer data:', {
+    documentId: document.id,
+    type: document.type,
+    hasFileUrl: !!document.file_url,
+    fileUrl: document.file_url
+  });
+
+  if (!document.file_url) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0">
+          <DialogHeader className="px-6 py-4 border-b">
+            <DialogTitle>Document Error</DialogTitle>
+          </DialogHeader>
+          <div className="p-6">
+            <div className="text-center space-y-2">
+              <p className="text-red-500 font-medium">Document URL is missing</p>
+              <p className="text-sm text-gray-500">
+                The document {document.type} (ID: {document.id}) has no associated file URL.
+                Please contact support if this issue persists.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  const fileUrl = document.file_url;
+  const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileUrl);
+  const isPDF = fileUrl.toLowerCase().endsWith('.pdf');
+  const fileName = fileUrl.split('/').pop() || document.type;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0">
         <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle>{document.type}</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <div>
+              {document.type}
+              <span className="ml-2 text-sm text-gray-500">
+                ({isImage ? 'Image' : isPDF ? 'PDF' : fileName})
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href={fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
+              >
+                Open in New Tab
+              </a>
+              <a
+                href={fileUrl}
+                download={fileName}
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
+              >
+                Download
+              </a>
+            </div>
+          </DialogTitle>
         </DialogHeader>
         <div className="p-6 overflow-auto max-h-[calc(90vh-100px)]">
           {isImage ? (
             <div className="relative w-full h-[600px]">
-              <Image
-                src={document.file_url}
+              <img
+                src={fileUrl}
                 alt={document.type}
-                fill
-                className="object-contain"
+                className="w-full h-full object-contain"
+                onError={() => {
+                  logger.error('Failed to load image:', {
+                    documentId: document.id,
+                    type: document.type,
+                    url: fileUrl
+                  });
+                  toast.error('Failed to load image');
+                }}
               />
             </div>
           ) : isPDF ? (
-            <iframe
-              src={`${document.file_url}#view=FitH`}
-              className="w-full h-[600px] border-0"
-              title={document.type}
-            />
+            <object
+              data={`${fileUrl}#view=FitH`}
+              type="application/pdf"
+              className="w-full h-[600px]"
+            >
+              <p>Unable to display PDF. <a href={fileUrl} target="_blank" rel="noopener noreferrer">Click here to open it</a></p>
+            </object>
           ) : (
-            <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">This file type cannot be previewed</p>
-              <a
-                href={document.file_url}
-                download
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24]"
-              >
-                Download File
-              </a>
+            <div className="text-center py-8 space-y-4">
+              <div className="text-gray-500">
+                <FileIcon className="w-16 h-16 mx-auto mb-4" />
+                <p className="text-lg font-medium">This file type cannot be previewed directly</p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Please use the buttons above to open or download the file
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -202,8 +253,15 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
       const docsData = await docsResponse.json();
       const bookingsData = await bookingsResponse.json();
 
+      logger.info('Documents response:', {
+        success: docsData.success,
+        documents: docsData.documents,
+        status: docsResponse.status
+      });
+
       if (docsResponse.ok && docsData.success) {
-        setDocuments(docsData.data || []);
+        setDocuments(docsData.documents || []);
+        logger.info('Set documents:', docsData.documents);
       } else {
         setDocuments([]);
         if (!docsResponse.ok) {
@@ -266,13 +324,14 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
 
         // Update user if document status affects user verification
         if (data.data?.user_verified !== undefined) {
-          const currentTotal = user.documents_status?.total ?? documents.length;
+          const currentTotal = user.documents?.total ?? documents.length;
           onUserUpdated({
             ...user,
-            documents_status: {
+            documents: {
+              ...user.documents,
               approved: status === 'approved' 
-                ? (user.documents_status?.approved || 0) + 1 
-                : Math.max(0, (user.documents_status?.approved || 0) - 1),
+                ? (user.documents?.approved || 0) + 1 
+                : Math.max(0, (user.documents?.approved || 0) - 1),
               total: currentTotal
             }
           });
@@ -329,6 +388,37 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
     }
   };
 
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          phone: user.phone,
+          documents: user.documents,
+          is_blocked: user.is_blocked
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update user');
+      }
+
+      const updatedUser = await response.json();
+      onUserUpdated(updatedUser);
+      toast.success('User updated successfully');
+    } catch (error) {
+      logger.error('Error updating user:', error);
+      toast.error('Failed to update user');
+    }
+  };
+
   if (!user || !isOpen) return null;
 
   const formatDate = (date: string | null) => {
@@ -382,7 +472,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                       <h3 className="text-sm font-medium text-gray-500">Documents</h3>
                       <p className="mt-1">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          {user.documents_status?.approved || 0}/{user.documents_status?.total || 0} Approved
+                          {user.documents?.approved || 0}/{user.documents?.total || 0} Approved
                         </span>
                       </p>
                     </div>
@@ -538,6 +628,18 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Documents Status */}
+              <div className="mt-4">
+                <h3 className="text-lg font-medium">Documents Status</h3>
+                <p className="text-sm text-gray-500">
+                  {user.documents ? (
+                    `${user.documents.approved}/${user.documents.total} documents approved`
+                  ) : (
+                    'No documents uploaded'
+                  )}
+                </p>
               </div>
             </div>
           </div>

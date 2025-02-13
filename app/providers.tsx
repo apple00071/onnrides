@@ -1,18 +1,23 @@
 'use client';
 
+import { ThemeProvider } from 'next-themes';
 import { SessionProvider } from 'next-auth/react';
-import { Toaster } from 'react-hot-toast';
 
 interface ProvidersProps {
   children: React.ReactNode;
-  session?: any; // This should match the session type from your auth configuration
+  session: any;
 }
 
 export function Providers({ children, session }: ProvidersProps) {
   return (
-    <SessionProvider session={session} refetchInterval={5 * 60}>
-      <Toaster position="top-center" />
-      {children}
+    <SessionProvider session={session}>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="light"
+        enableSystem={false}
+      >
+        {children}
+      </ThemeProvider>
     </SessionProvider>
   );
 } 

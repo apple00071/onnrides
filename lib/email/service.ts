@@ -164,9 +164,16 @@ export async function sendBookingConfirmationEmail(booking: any, userEmail: stri
       booking_id: booking.id,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h1 style="margin: 0; font-size: 24px;">ONNRIDES</h1>
+            <p style="margin: 5px 0; color: #666;">${userEmail}</p>
+          </div>
+          
           <h1 style="color: #f26e24; text-align: center;">Booking Confirmation</h1>
-          <p>Dear Customer,</p>
+          
+          <p>Dear ${booking.user?.name || booking.userName || 'Customer'},</p>
           <p>Your booking has been confirmed. Here are the details:</p>
+          
           <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <p><strong>Booking ID:</strong> ${booking.booking_id || booking.id}</p>
             <p><strong>Vehicle:</strong> ${booking.vehicle?.name}</p>
@@ -176,9 +183,11 @@ export async function sendBookingConfirmationEmail(booking: any, userEmail: stri
             <p><strong>Total Amount:</strong> ₹${booking.totalPrice}</p>
             <p><strong>Payment Status:</strong> ${formatPaymentStatus(booking.paymentStatus)}</p>
             ${booking.payment_reference ? `<p><strong>Payment Reference:</strong> ${booking.payment_reference}</p>` : ''}
+            <p><strong>Document Status:</strong> Pending</p>
           </div>
+          
           <p>Thank you for choosing our service!</p>
-          <p>Best regards,<br>ONNRIDES Team</p>
+          <p>ONNRIDES Team</p>
         </div>
       `
     };

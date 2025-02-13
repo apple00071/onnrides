@@ -15,15 +15,21 @@ declare module 'next/server' {
 
 export interface User {
   id: string;
+  name: string;
   email: string;
-  name: string | null;
+  role: string;
   phone: string | null;
-  password_hash: string;
-  role: UserRole;
-  reset_token: string | null;
-  reset_token_expiry: string | null;
   created_at: string;
-  updated_at: string;
+  is_blocked: boolean;
+  documents?: {
+    total: number;
+    approved: number;
+  };
+  bookings?: {
+    total: number;
+    completed: number;
+    cancelled: number;
+  };
 }
 
 export type UserRole = 'user' | 'admin';

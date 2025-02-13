@@ -15,7 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
-import { Eye, History } from 'lucide-react';
+import { Eye, History, Loader2 } from 'lucide-react';
 import { format as formatTZ } from 'date-fns-tz';
 
 interface Booking {
@@ -92,38 +92,49 @@ export default function BookingsPage() {
   const [userHistory, setUserHistory] = useState<Booking[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
-  // Fetch all bookings
-  useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await fetch('/api/admin/bookings');
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to fetch bookings');
-        }
-
-        const data = await response.json();
-        
-        if (!data.success) {
-          throw new Error(data.message || 'Failed to fetch bookings');
-        }
-
-        setBookings(data.bookings || []);
-      } catch (err) {
-        logger.error('Error fetching bookings:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch bookings');
-        toast.error('Failed to load bookings');
-      } finally {
-        setLoading(false);
+  // Fetch bookings with pagination
+  const fetchBookings = async (page: number) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch(`/api/admin/bookings?page=${page}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch bookings');
       }
-    };
 
-    fetchBookings();
-  }, []);
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to fetch bookings');
+      }
+
+      setBookings(data.data.bookings || []);
+      setCurrentPage(data.data.pagination.currentPage);
+      setTotalPages(data.data.pagination.totalPages);
+      setTotalItems(data.data.pagination.totalItems);
+    } catch (err) {
+      logger.error('Error fetching bookings:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch bookings');
+      toast.error('Failed to load bookings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch bookings on mount and page change
+  useEffect(() => {
+    fetchBookings(currentPage);
+  }, [currentPage]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
 
   // Fetch user history when needed
   const fetchUserHistory = async (userId: string) => {
@@ -225,110 +236,156 @@ export default function BookingsPage() {
   }
 
   return (
-    <>
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-8">Bookings</h1>
-
-        {!bookings || bookings.length === 0 ? (
-          <Card className="p-6 text-center">
-            <p className="text-gray-600">No bookings found.</p>
-          </Card>
-        ) : (
-          <div className="grid gap-6">
-            {bookings.map((booking) => (
-              <Card key={booking.id} className="p-6 hover:shadow-md transition-shadow">
-                <div className="flex flex-col md:flex-row justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold mb-2">
-                      {booking.vehicle.name}
-                      <span className="ml-2 text-sm text-gray-500">
-                        #{booking.booking_id}
-                      </span>
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-1">
-                      Customer: {booking.user.name}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-1">
-                      Email: {booking.user.email}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-2">
-                      Phone: {booking.user.phone || 'N/A'}
-                    </p>
-                    <div className="mt-2 text-sm text-gray-600">
-                      <div className="flex flex-col gap-2">
-                        <div>
-                          <span className="font-semibold">Pickup:</span>{' '}
-                          {formatDateTime(booking.pickup_datetime)}
-                        </div>
-                        <div>
-                          <span className="font-semibold">Drop-off:</span>{' '}
-                          {formatDateTime(booking.dropoff_datetime)}
-                        </div>
-                        <div>
-                          <span className="font-semibold">Location:</span>{' '}
-                          {formatLocation(booking.location)}
+    <div className="container mx-auto py-8">
+      <h1 className="text-2xl font-bold mb-6">Bookings Management</h1>
+      
+      {loading ? (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin" />
+        </div>
+      ) : error ? (
+        <div className="text-center py-8">
+          <p className="text-red-500">{error}</p>
+        </div>
+      ) : bookings.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-500">No bookings found</p>
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <div className="grid gap-6">
+              {bookings.map((booking) => (
+                <Card key={booking.id} className="p-6 hover:shadow-md transition-shadow">
+                  <div className="flex flex-col md:flex-row justify-between gap-4">
+                    <div>
+                      <h3 className="font-semibold mb-2">
+                        {booking.vehicle.name}
+                        <span className="ml-2 text-sm text-gray-500">
+                          #{booking.booking_id}
+                        </span>
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-1">
+                        Customer: {booking.user.name}
+                      </p>
+                      <p className="text-sm text-gray-600 mb-1">
+                        Email: {booking.user.email}
+                      </p>
+                      <p className="text-sm text-gray-600 mb-2">
+                        Phone: {booking.user.phone || 'N/A'}
+                      </p>
+                      <div className="mt-2 text-sm text-gray-600">
+                        <div className="flex flex-col gap-2">
+                          <div>
+                            <span className="font-semibold">Pickup:</span>{' '}
+                            {formatDateTime(booking.pickup_datetime)}
+                          </div>
+                          <div>
+                            <span className="font-semibold">Drop-off:</span>{' '}
+                            {formatDateTime(booking.dropoff_datetime)}
+                          </div>
+                          <div>
+                            <span className="font-semibold">Location:</span>{' '}
+                            {formatLocation(booking.location)}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-orange-500">
-                      {formatCurrency(booking.total_price)}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {formatDateTime(booking.created_at)}
-                    </p>
-                    <span className={`inline-block px-2 py-1 rounded-full text-xs ${
-                      booking.status === 'cancelled'
-                        ? 'bg-red-100 text-red-800'
-                        : booking.payment_status === 'completed'
-                        ? 'bg-green-100 text-green-800'
-                        : booking.payment_status === 'pending'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {booking.status === 'cancelled'
-                        ? 'Cancelled'
-                        : booking.payment_status === 'completed'
-                        ? 'Confirmed'
-                        : booking.payment_status === 'pending'
-                        ? 'Payment Pending'
-                        : booking.status}
-                    </span>
-                    <div className="mt-2 space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewBooking(booking)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewHistory(booking)}
-                      >
-                        <History className="h-4 w-4 mr-1" />
-                      History
-                      </Button>
-                      {booking.status !== 'cancelled' && (
+                    <div className="text-right">
+                      <p className="font-medium text-orange-500">
+                        {formatCurrency(booking.total_price)}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {formatDateTime(booking.created_at)}
+                      </p>
+                      <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                        booking.status === 'cancelled'
+                          ? 'bg-red-100 text-red-800'
+                          : booking.payment_status === 'completed'
+                          ? 'bg-green-100 text-green-800'
+                          : booking.payment_status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {booking.status === 'cancelled'
+                          ? 'Cancelled'
+                          : booking.payment_status === 'completed'
+                          ? 'Confirmed'
+                          : booking.payment_status === 'pending'
+                          ? 'Payment Pending'
+                          : booking.status}
+                      </span>
+                      <div className="mt-2 space-x-2">
                         <Button
-                          variant="destructive"
+                          variant="outline"
                           size="sm"
-                          onClick={() => handleCancelClick(booking)}
+                          onClick={() => handleViewBooking(booking)}
                         >
-                          Cancel
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
                         </Button>
-                      )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewHistory(booking)}
+                        >
+                          <History className="h-4 w-4 mr-1" />
+                        History
+                        </Button>
+                        {booking.status !== 'cancelled' && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleCancelClick(booking)}
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              ))}
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Pagination */}
+          <div className="mt-6 flex items-center justify-between">
+            <div className="text-sm text-gray-700">
+              Showing {((currentPage - 1) * 10) + 1} to {Math.min(currentPage * 10, totalItems)} of {totalItems} bookings
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  className={`px-3 py-1 rounded ${
+                    currentPage === page
+                      ? 'bg-[#f26e24] text-white'
+                      : 'border border-gray-300'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* View Booking Modal */}
       <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
@@ -517,6 +574,6 @@ export default function BookingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 } 

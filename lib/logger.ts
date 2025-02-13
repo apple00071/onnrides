@@ -95,7 +95,7 @@ const createLogger = (): Logger => {
     const formattedArgs = args.map(arg => 
       typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
     ).join(' ');
-    return `[${timestamp}] ${level.toUpperCase()}: ${message} ${formattedArgs}`.trim();
+    return `[${timestamp}] ${(level || 'INFO').toUpperCase()}: ${message} ${formattedArgs}`.trim();
   };
 
   // Helper to determine if we should log based on environment

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
-import logger from '@/lib/logger';
 
 // Define protected routes that require authentication
 const protectedRoutes = [
@@ -12,70 +11,122 @@ const protectedRoutes = [
   '/payment-status'
 ];
 
+// Define routes that should be excluded from middleware processing
+const excludedRoutes = [
+  '/api/auth',
+  '/_next',
+  '/favicon.ico'
+];
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api/auth (auth routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api/auth|_next/static|_next/image|favicon.ico).*)',
+  ],
+};
+
 export async function middleware(request: NextRequest) {
-  const pathname = new URL(request.url).pathname;
-  
-  logger.info('Middleware processing request:', {
-    pathname,
-    method: request.method
-  });
+  const url = new URL(request.url);
+  const pathname = url.pathname;
 
-  // Get the token if it exists
-  const token = await getToken({ 
-    req: request, 
-    secret: process.env.NEXTAUTH_SECRET 
-  });
+  // Skip middleware for excluded routes
+  if (excludedRoutes.some(route => pathname.startsWith(route))) {
+    return NextResponse.next();
+  }
 
-  logger.info('Token status:', {
-    hasToken: !!token,
-    pathname
-  });
+  // Handle CORS preflight requests
+  if (request.method === 'OPTIONS') {
+    return NextResponse.json(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Max-Age': '86400'
+      }
+    });
+  }
 
-  // Check if the route is protected
-  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+  try {
+    // Create base response
+    const response = NextResponse.next();
 
-  // For protected routes, require authentication
-  if (isProtectedRoute && !token) {
-    logger.warn('Unauthorized access attempt:', {
-      pathname,
-      hasToken: !!token
+    // Add CORS headers for API routes
+    if (pathname.startsWith('/api')) {
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    }
+
+    // Get the token if it exists
+    const token = await getToken({ 
+      req: request, 
+      secret: process.env.NEXTAUTH_SECRET 
     });
 
-    // For API routes, return JSON error
+    // Check if the route is protected
+    const isProtectedRoute = protectedRoutes.some(route => 
+      pathname.startsWith(route)
+    );
+
+    // For protected routes, require authentication
+    if (isProtectedRoute && !token) {
+      // For API routes, return JSON error
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json(
+          { 
+            success: false,
+            error: 'Authentication required'
+          },
+          { 
+            status: 401,
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            }
+          }
+        );
+      }
+
+      // For regular routes, redirect to sign in
+      const signInUrl = new URL('/auth/signin', request.url);
+      signInUrl.searchParams.set('from', pathname);
+      return NextResponse.redirect(signInUrl);
+    }
+
+    return response;
+
+  } catch (error) {
+    console.error('Middleware error:', error);
+    
+    // Handle errors
     if (pathname.startsWith('/api/')) {
-      return new NextResponse(
-        JSON.stringify({ 
-          success: false,
-          error: 'Authentication required',
-          details: 'User session not found'
-        }),
+      return NextResponse.json(
         { 
-          status: 401,
+          success: false, 
+          error: 'Internal server error' 
+        },
+        { 
+          status: 500,
           headers: {
-            'Content-Type': 'application/json'
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
           }
         }
       );
     }
-    // For regular routes, redirect to sign in
-    const url = new URL('/auth/signin', request.url);
-    url.searchParams.set('from', pathname);
-    return NextResponse.redirect(url);
+    // For non-API routes, continue the request chain
+    return NextResponse.next();
   }
-
-  return null;
 }
-
-// Configure which paths the middleware should run on
-export const config = {
-  matcher: [
-    '/bookings/:path*',
-    '/profile/:path*',
-    '/api/bookings/:path*',
-    '/api/payment/:path*',
-    '/payment-status/:path*'
-  ]
-};
 
 export function corsMiddleware(request: NextRequest) {
   // Handle preflight requests

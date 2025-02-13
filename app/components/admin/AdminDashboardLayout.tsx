@@ -8,8 +8,8 @@ import {
   LayoutDashboard,
   Car,
   Users,
-  CalendarRange,
-  Settings,
+  CalendarDays,
+  FileText,
   LogOut,
 } from 'lucide-react';
 
@@ -19,10 +19,10 @@ interface AdminDashboardLayoutProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'Vehicles', href: '/admin/vehicles', icon: Car },
   { name: 'Users', href: '/admin/users', icon: Users },
-  { name: 'Bookings', href: '/admin/bookings', icon: CalendarRange },
-  { name: 'Settings', href: '/admin/settings', icon: Settings },
+  { name: 'Vehicles', href: '/admin/vehicles', icon: Car },
+  { name: 'Bookings', href: '/admin/bookings', icon: CalendarDays },
+  { name: 'Documents', href: '/admin/documents', icon: FileText },
 ];
 
 export default function AdminDashboardLayout({ children }: AdminDashboardLayoutProps) {

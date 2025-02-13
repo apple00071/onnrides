@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { randomUUID } from 'crypto';
+import { sendBookingNotification } from '@/lib/whatsapp/integration';
 
 interface BookingBody {
   vehicle_id: string;
@@ -177,6 +178,14 @@ export async function POST(request: NextRequest) {
       insertValues
     });
 
+    // Get vehicle details for the notification
+    const vehicleResult = await query(
+      'SELECT name FROM vehicles WHERE id = $1',
+      [vehicle_id]
+    );
+
+    const vehicleName = vehicleResult.rows[0]?.name || 'Vehicle';
+
     // Create booking
     try {
       const result = await query(`
@@ -208,6 +217,17 @@ export async function POST(request: NextRequest) {
       }
 
       const booking = result.rows[0];
+
+      // Send WhatsApp notification
+      await sendBookingNotification(session.user, {
+        vehicleName,
+        startDate: start_date,
+        endDate: end_date,
+        bookingId: booking.id,
+        status: 'pending',
+        totalPrice: total_price.toString()
+      });
+
       logger.info('Created booking:', { 
         bookingId: booking.id,
         userId: session.user.id,
@@ -233,16 +253,7 @@ export async function POST(request: NextRequest) {
       throw dbError;
     }
   } catch (error) {
-    // Enhanced error logging
-    logger.error('Error creating booking:', {
-      error: error instanceof Error ? {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      } : error,
-      timestamp: new Date().toISOString()
-    });
-
+    logger.error('Error in POST /api/user/bookings:', error);
     return new NextResponse(JSON.stringify({ 
       error: 'Failed to create booking',
       details: error instanceof Error ? error.message : 'Unknown error'

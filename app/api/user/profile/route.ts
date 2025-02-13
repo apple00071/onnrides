@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
+    
     if (!session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -58,34 +59,57 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { name, phone } = await request.json();
+    const body = await request.json();
+    const { email } = body;
 
-    // Update user profile
-    const result = await query(
-      `UPDATE users 
-       SET name = $1, phone = $2, updated_at = NOW() 
-       WHERE id = $3 
-       RETURNING id, email, name, phone`,
-      [name, phone, session.user.id]
-    );
-
-    if (result.rowCount === 0) {
+    // Validate email
+    if (email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
+        { error: 'Invalid email format' },
+        { status: 400 }
       );
     }
 
-    const updatedUser = result.rows[0];
+    // Check if email is already taken
+    if (email) {
+      const { rows: existingUser } = await query(
+        'SELECT id FROM users WHERE email = $1 AND id != $2',
+        [email, session.user.id]
+      );
+
+      if (existingUser.length > 0) {
+        return NextResponse.json(
+          { error: 'Email is already in use' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Update user profile
+    const { rows: updatedProfile } = await query(
+      `UPDATE users 
+       SET email = COALESCE($1, email),
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2 
+       RETURNING id, name, email, phone, role, created_at, updated_at`,
+      [email, session.user.id]
+    );
+
+    if (!updatedProfile[0]) {
+      return NextResponse.json(
+        { error: 'Failed to update profile' },
+        { status: 500 }
+      );
+    }
+
     logger.info('Profile updated successfully:', {
       userId: session.user.id,
-      name,
-      phone
+      updatedFields: { email }
     });
 
     return NextResponse.json({
       message: 'Profile updated successfully',
-      user: updatedUser
+      profile: updatedProfile[0]
     });
   } catch (error) {
     logger.error('Error updating profile:', error);

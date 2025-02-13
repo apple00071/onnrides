@@ -5,24 +5,17 @@ import { toast } from 'react-hot-toast';
 import { Loader2 } from "lucide-react";
 import { FaEye } from 'react-icons/fa';
 import logger from '@/lib/logger';
+import { User } from '@/lib/types';
 import UserDetailsModal from './components/UserDetailsModal';
+import UserDocumentsModal from './components/UserDocumentsModal';
 
-interface User {
+interface Document {
   id: string;
-  name: string;
-  email: string;
-  role: string;
-  phone: string | null;
+  type: string;
+  document_type: string;
+  status: 'pending' | 'approved' | 'rejected';
+  url: string;
   created_at: string;
-  documents?: {
-    total: number;
-    approved: number;
-  };
-  bookings?: {
-    total: number;
-    completed: number;
-    cancelled: number;
-  };
 }
 
 export default function UsersPage() {
@@ -30,6 +23,9 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+  const [userDocuments, setUserDocuments] = useState<Document[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -61,6 +57,23 @@ export default function UsersPage() {
     }
   };
 
+  const fetchUserDocuments = async (userId: string) => {
+    try {
+      setLoadingDocuments(true);
+      const response = await fetch(`/api/admin/users/${userId}/documents`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch user documents');
+      }
+      const data = await response.json();
+      setUserDocuments(data.documents);
+    } catch (error) {
+      logger.error('Error fetching user documents:', error);
+      toast.error('Failed to load user documents');
+    } finally {
+      setLoadingDocuments(false);
+    }
+  };
+
   const handleViewUser = (user: User) => {
     setSelectedUser(user);
     setIsModalOpen(true);
@@ -71,6 +84,18 @@ export default function UsersPage() {
       user.id === updatedUser.id ? updatedUser : user
     ));
     setSelectedUser(updatedUser);
+  };
+
+  const handleViewDocuments = async (user: User) => {
+    setSelectedUser(user);
+    await fetchUserDocuments(user.id);
+    setShowDocumentsModal(true);
+  };
+
+  const handleDocumentUpdate = async () => {
+    if (selectedUser) {
+      await fetchUserDocuments(selectedUser.id);
+    }
   };
 
   if (loading) {
@@ -156,6 +181,20 @@ export default function UsersPage() {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onUserUpdated={handleUserUpdated}
+        />
+      )}
+
+      {selectedUser && (
+        <UserDocumentsModal
+          isOpen={showDocumentsModal}
+          onClose={() => {
+            setShowDocumentsModal(false);
+            setSelectedUser(null);
+            setUserDocuments([]);
+          }}
+          documents={userDocuments}
+          userId={selectedUser.id}
+          onDocumentUpdate={handleDocumentUpdate}
         />
       )}
     </div>
