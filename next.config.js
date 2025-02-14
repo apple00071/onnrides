@@ -76,6 +76,18 @@ const nextConfig = {
       console.warn('Warning: Some polyfills not found. This is normal in server environment.');
     }
 
+    if (!isServer) {
+      // Don't bundle server-only modules on the client-side
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        'fluent-ffmpeg': false,
+        'whatsapp-web.js': false,
+        'qrcode-terminal': false,
+        'fs': false,
+        'puppeteer': false,
+      };
+    }
+
     return config;
   },
   async redirects() {
@@ -88,7 +100,7 @@ const nextConfig = {
     ]
   },
   experimental: {
-    serverComponentsExternalPackages: ['bcrypt']
+    serverComponentsExternalPackages: ['whatsapp-web.js', 'fluent-ffmpeg', 'puppeteer', 'qrcode-terminal'],
   },
   // Temporarily disable TypeScript and ESLint errors in production
   typescript: {

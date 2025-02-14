@@ -1,3 +1,5 @@
+'use server';
+
 import { WhatsAppService } from './service';
 import { User } from '@/lib/types';
 import logger from '@/lib/logger';
@@ -13,6 +15,12 @@ export async function sendBookingNotification(
         totalPrice?: string;
     }
 ) {
+    // Skip WhatsApp integration in client-side or development
+    if (typeof window !== 'undefined' || process.env.NODE_ENV !== 'production') {
+        logger.info('Skipping WhatsApp notification in non-production/client environment');
+        return true;
+    }
+
     try {
         if (!user.phone) {
             logger.warn('Cannot send WhatsApp notification: User has no phone number', {
@@ -65,6 +73,8 @@ export async function sendBookingNotification(
                 });
                 return false;
         }
+
+        return false;
     } catch (error) {
         logger.error('Failed to send WhatsApp notification:', error);
         return false;
