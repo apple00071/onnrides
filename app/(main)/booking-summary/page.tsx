@@ -75,14 +75,14 @@ function PendingPaymentAlert({ payment, onClose }: {
 }
 
 // Create a single notification manager
-function showNotification(message: string, type: 'success' | 'error' = 'error') {
+function showNotification(message: string, type: 'success' | 'error' = 'error', options?: any) {
   // Clear any existing notifications first
   toast.dismiss();
   // Show new notification
   if (type === 'success') {
-    toast.success(message);
+    toast.success(message, options);
   } else {
-    toast.error(message);
+    toast.error(message, options);
   }
 }
 
@@ -248,9 +248,126 @@ export default function BookingSummaryPage() {
         name: "OnnRides",
         description: "Vehicle Rental Payment",
         order_id: data.orderId,
-        handler: function (response: any) {
-          showNotification('Payment successful!', 'success');
-          window.location.href = `/payment-status?reference=${response.razorpay_payment_id}`;
+        handler: async function (response: any) {
+          try {
+            // Store payment details in case verification fails
+            const paymentDetails = {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              booking_id: data.bookingId,
+              amount: data.amount,
+              timestamp: new Date().toISOString()
+            };
+            localStorage.setItem('pendingPayment', JSON.stringify(paymentDetails));
+
+            // Verify payment
+            const verifyResponse = await fetch('/api/payments/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                booking_id: data.bookingId,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              }),
+            });
+
+            const verifyData = await verifyResponse.json();
+
+            if (!verifyResponse.ok || !verifyData.success) {
+              throw new Error(verifyData.error || 'Payment verification failed');
+            }
+
+            // Clear pending payment from localStorage
+            localStorage.removeItem('pendingPayment');
+            
+            showNotification('Payment successful!', 'success');
+            
+            // Use the redirect URL from the response if available
+            const redirectUrl = verifyData.data?.redirect_url || `/bookings?success=true&booking_id=${data.bookingId}`;
+            router.push(redirectUrl);
+          } catch (error) {
+            console.error('Payment verification error:', error);
+            
+            // Instead of redirecting to recovery page, show a retry button
+            const retryVerification = async () => {
+              try {
+                const storedPayment = localStorage.getItem('pendingPayment');
+                if (!storedPayment) {
+                  throw new Error('No pending payment found');
+                }
+
+                const paymentDetails = JSON.parse(storedPayment);
+                const verifyResponse = await fetch('/api/payments/verify', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    booking_id: paymentDetails.booking_id,
+                    razorpay_order_id: paymentDetails.razorpay_order_id,
+                    razorpay_payment_id: paymentDetails.razorpay_payment_id,
+                    razorpay_signature: paymentDetails.razorpay_signature
+                  }),
+                });
+
+                const verifyData = await verifyResponse.json();
+
+                if (!verifyResponse.ok || !verifyData.success) {
+                  throw new Error(verifyData.error || 'Payment verification failed');
+                }
+
+                localStorage.removeItem('pendingPayment');
+                showNotification('Payment verification successful!', 'success');
+                
+                const redirectUrl = verifyData.data?.redirect_url || `/bookings?success=true&booking_id=${paymentDetails.booking_id}`;
+                router.push(redirectUrl);
+              } catch (error) {
+                console.error('Retry verification error:', error);
+                showNotification(
+                  'Payment verification failed',
+                  'error',
+                  {
+                    description: (
+                      <div className="flex flex-col gap-2">
+                        <p>Please try again or contact support.</p>
+                        <button
+                          onClick={retryVerification}
+                          className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition-colors"
+                        >
+                          Retry Verification
+                        </button>
+                      </div>
+                    ),
+                    duration: 10000
+                  }
+                );
+              }
+            };
+
+            // Show error with retry option
+            showNotification(
+              'Payment verification failed',
+              'error',
+              {
+                description: (
+                  <div className="flex flex-col gap-2">
+                    <p>Please try again or contact support.</p>
+                    <button
+                      onClick={retryVerification}
+                      className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition-colors"
+                    >
+                      Retry Verification
+                    </button>
+                  </div>
+                ),
+                duration: 10000
+              }
+            );
+          }
         },
         prefill: {
           name: session.user.name || '',
@@ -268,6 +385,7 @@ export default function BookingSummaryPage() {
       });
 
       razorpay.on('payment.failed', function (response: any) {
+        console.error('Payment failed:', response.error);
         showNotification(response.error.description || 'Payment failed');
         setIsLoading(false);
       });

@@ -37,7 +37,7 @@ export async function middleware(request: NextRequest) {
 
   // Skip middleware for excluded routes
   if (excludedRoutes.some(route => pathname.startsWith(route))) {
-    return NextResponse.next();
+    return new NextResponse(null, { status: 200 });
   }
 
   // Handle CORS preflight requests
@@ -54,8 +54,11 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    // Create base response
-    const response = NextResponse.next();
+    // Create base response with the original request
+    const response = new NextResponse(null, {
+      status: 200,
+      headers: new Headers(request.headers)
+    });
 
     // Add CORS headers for API routes
     if (pathname.startsWith('/api')) {
@@ -124,7 +127,7 @@ export async function middleware(request: NextRequest) {
       );
     }
     // For non-API routes, continue the request chain
-    return NextResponse.next();
+    return new NextResponse(null, { status: 200 });
   }
 }
 
