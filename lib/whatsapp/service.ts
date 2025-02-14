@@ -1,19 +1,10 @@
-import { whatsappClient, WHATSAPP_MESSAGE_TEMPLATES } from './config';
-import winston from 'winston';
-
-const logger = winston.createLogger({
-    level: 'info',
-    format: winston.format.json(),
-    transports: [
-        new winston.transports.Console({
-            format: winston.format.simple(),
-        }),
-    ],
-});
+import { WHATSAPP_MESSAGE_TEMPLATES } from './config';
+import logger from '../logger';
 
 export class WhatsAppService {
     private static instance: WhatsAppService;
     private isInitialized: boolean = false;
+    private whatsappClient: any = null;
 
     private constructor() {}
 
@@ -22,6 +13,26 @@ export class WhatsAppService {
             WhatsAppService.instance = new WhatsAppService();
         }
         return WhatsAppService.instance;
+    }
+
+    public async initialize() {
+        if (typeof window !== 'undefined') {
+            logger.warn('WhatsApp service cannot be initialized in browser environment');
+            return;
+        }
+
+        try {
+            const { initializeWhatsAppClient } = await import('./config');
+            this.whatsappClient = await initializeWhatsAppClient();
+            this.isInitialized = !!this.whatsappClient;
+            
+            if (!this.isInitialized) {
+                throw new Error('Failed to initialize WhatsApp client');
+            }
+        } catch (error) {
+            logger.error('Error initializing WhatsApp service:', error);
+            throw error;
+        }
     }
 
     private validatePhoneNumber(phoneNumber: string): string {
@@ -37,16 +48,16 @@ export class WhatsAppService {
     }
 
     private async sendMessage(to: string, message: string): Promise<boolean> {
-        try {
-            if (!this.isInitialized) {
-                logger.error('WhatsApp client not initialized');
-                return false;
-            }
+        if (!this.isInitialized || !this.whatsappClient) {
+            logger.error('WhatsApp client not initialized');
+            return false;
+        }
 
-            const formattedNumber = await this.validatePhoneNumber(to);
+        try {
+            const formattedNumber = this.validatePhoneNumber(to);
             const chatId = `${formattedNumber}@c.us`;
             
-            await whatsappClient.sendMessage(chatId, message);
+            await this.whatsappClient.sendMessage(chatId, message);
             logger.info(`Message sent successfully to ${to}`);
             return true;
         } catch (error) {
