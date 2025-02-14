@@ -56,29 +56,103 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     try {
       setError(null);
+      logger.info('Fetching dashboard data...');
       
       const response = await fetch('/api/admin/dashboard', {
+        method: 'GET',
         cache: 'no-store',
         headers: {
+          'Accept': 'application/json',
           'Cache-Control': 'no-cache',
           'Pragma': 'no-cache'
         }
       });
 
-      const data = await response.json();
+      logger.info('Response received:', { 
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
 
+      // Check if response is empty
+      const text = await response.text();
+      if (!text) {
+        logger.error('Empty response received from server');
+        throw new Error('Empty response from server');
+      }
+
+      logger.debug('Raw response:', text);
+
+      // Try to parse the response
+      let data;
+      try {
+        data = JSON.parse(text);
+        logger.info('Parsed response data:', data);
+      } catch (parseError) {
+        logger.error('Failed to parse response:', { 
+          text, 
+          error: parseError,
+          errorMessage: parseError instanceof Error ? parseError.message : String(parseError)
+        });
+        throw new Error('Invalid JSON response from server');
+      }
+
+      // Check for error responses
       if (!response.ok) {
-        throw new Error(data.details || data.error || 'Failed to fetch dashboard data');
+        const errorMessage = data.details || data.error || 'Failed to fetch dashboard data';
+        logger.error('Response not OK:', { 
+          status: response.status, 
+          errorMessage,
+          data 
+        });
+        
+        // If we have fallback data, use it
+        if (data.data) {
+          setStats(data.data);
+        } else {
+          setStats(defaultStats);
+        }
+        
+        // Show error message
+        toast.error(errorMessage);
+        return;
       }
       
+      // Check for error in successful response
+      if (!data.success) {
+        logger.warn('Error in response data:', data);
+        const errorMessage = data.details || data.error || 'Failed to fetch dashboard data';
+        toast.error(errorMessage);
+        
+        // Use the fallback data if provided
+        if (data.data) {
+          setStats(data.data);
+        } else {
+          setStats(defaultStats);
+        }
+        return;
+      }
+
       // Validate the response data
-      if (!data || typeof data !== 'object') {
-        throw new Error('Invalid response data');
+      if (!data.data || typeof data.data !== 'object') {
+        logger.error('Invalid response data structure:', { data });
+        throw new Error('Invalid response data structure');
       }
 
       // Type guard to ensure all required properties exist
       const isValidDashboardData = (data: any): data is DashboardStats => {
-        return (
+        const requiredProps = [
+          'totalUsers',
+          'totalRevenue',
+          'totalBookings',
+          'totalVehicles',
+          'bookingGrowth',
+          'revenueGrowth',
+          'recentBookings'
+        ];
+
+        const hasAllProps = requiredProps.every(prop => prop in data);
+        const hasValidTypes = (
           typeof data.totalUsers === 'number' &&
           typeof data.totalRevenue === 'number' &&
           typeof data.totalBookings === 'number' &&
@@ -87,18 +161,46 @@ export default function AdminDashboard() {
           typeof data.revenueGrowth === 'number' &&
           Array.isArray(data.recentBookings)
         );
+
+        if (!hasAllProps || !hasValidTypes) {
+          logger.error('Invalid dashboard data structure:', { 
+            data,
+            validation: {
+              hasAllProps,
+              hasValidTypes,
+              props: requiredProps.map(prop => ({
+                prop,
+                exists: prop in data,
+                type: typeof data[prop]
+              }))
+            }
+          });
+          return false;
+        }
+
+        return true;
       };
 
-      if (!isValidDashboardData(data)) {
+      if (!isValidDashboardData(data.data)) {
+        logger.error('Invalid dashboard data:', data.data);
+        setStats(defaultStats);
         throw new Error('Invalid dashboard data structure');
       }
 
-      setStats(data);
+      logger.info('Setting dashboard stats:', data.data);
+      setStats(data.data);
     } catch (error) {
-      logger.error('Error fetching dashboard data:', error);
+      logger.error('Error fetching dashboard data:', {
+        error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch dashboard data';
       setError(errorMessage);
       toast.error(errorMessage);
+      
+      // Set default stats on error
+      setStats(defaultStats);
     } finally {
       setLoading(false);
     }

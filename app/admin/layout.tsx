@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
-import { FaHome, FaCar, FaUsers, FaBookmark, FaBars, FaTimes, FaTrash, FaEnvelope } from 'react-icons/fa';
+import { FaHome, FaCar, FaUsers, FaBookmark, FaBars, FaTimes, FaTrash, FaEnvelope, FaWhatsapp, FaQrcode } from 'react-icons/fa';
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarProvider } from '@/components/admin/Sidebar';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -13,6 +13,8 @@ const menuItems = [
   { href: '/admin/users', label: 'Users', icon: <FaUsers className="h-5 w-5" /> },
   { href: '/admin/bookings', label: 'Bookings', icon: <FaBookmark className="h-5 w-5" /> },
   { href: '/admin/email-logs', label: 'Email Logs', icon: <FaEnvelope className="h-5 w-5" /> },
+  { href: '/admin/whatsapp-logs', label: 'WhatsApp Logs', icon: <FaWhatsapp className="h-5 w-5" /> },
+  { href: '/admin/whatsapp-setup', label: 'WhatsApp Setup', icon: <FaQrcode className="h-5 w-5" /> },
   { href: '/admin/cleanup', label: 'Clean Up Data', icon: <FaTrash className="h-5 w-5" /> },
 ];
 

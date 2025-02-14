@@ -30,93 +30,157 @@ async function retryQuery<T>(
 
 export async function GET(request: NextRequest) {
   try {
+    logger.info('Starting dashboard data fetch');
+    
+    // Default response data structure
+    const defaultData = {
+      totalUsers: 0,
+      totalRevenue: 0,
+      totalBookings: 0,
+      totalVehicles: 0,
+      bookingGrowth: 0,
+      revenueGrowth: 0,
+      recentBookings: []
+    };
+
+    // Ensure we always return a response with the correct headers
+    const createResponse = (data: any, status = 200) => {
+      const responseBody = JSON.stringify(data);
+      logger.info('Creating response:', { 
+        status, 
+        bodyLength: responseBody.length,
+        isEmptyBody: !responseBody || responseBody.length === 0
+      });
+      
+      return new NextResponse(responseBody, { 
+        status,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+    };
+
     const session = await getServerSession(authOptions);
+    logger.info('Session check:', { 
+      hasSession: !!session, 
+      hasUser: !!session?.user,
+      userRole: session?.user?.role 
+    });
     
     if (!session?.user || session.user.role !== 'admin') {
       logger.warn('Unauthorized access attempt to dashboard:', { user: session?.user });
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return createResponse({ 
+        success: false,
+        error: 'Unauthorized', 
+        details: 'Admin access required',
+        data: defaultData
+      }, 401);
     }
 
     logger.info('Fetching dashboard data for user:', { userId: session.user.id });
 
     try {
-      // First, let's get raw counts to verify data exists
-      const rawCounts = await query(`
-        SELECT 
-          (SELECT COUNT(*) FROM users WHERE role != 'admin') as user_count,
-          (SELECT COUNT(*) FROM vehicles) as vehicle_count,
-          (SELECT COUNT(*) FROM bookings WHERE status = 'confirmed') as booking_count
-      `);
-      
+      // Wrap all database operations in a single try-catch
+      const [rawCounts, userStats, vehicleStats, bookingStats, lastMonthStats, recentBookings] = 
+        await Promise.all([
+          query(`
+            SELECT 
+              (SELECT COUNT(*) FROM users WHERE role != 'admin') as user_count,
+              (SELECT COUNT(*) FROM vehicles) as vehicle_count,
+              (SELECT COUNT(*) FROM bookings WHERE status = 'confirmed') as booking_count
+          `),
+          retryQuery(async () => {
+            const result = await query('SELECT COUNT(id) as total FROM users WHERE role != \'admin\'');
+            if (!result?.rows?.[0]) throw new Error('Failed to fetch user statistics');
+            return { total: Number(result.rows[0]?.total) || 0 };
+          }),
+          retryQuery(async () => {
+            const result = await query('SELECT COUNT(id) as total FROM vehicles');
+            if (!result?.rows?.[0]) throw new Error('Failed to fetch vehicle statistics');
+            return { total: Number(result.rows[0]?.total) || 0 };
+          }),
+          retryQuery(async () => {
+            const result = await query(`
+              SELECT 
+                COUNT(id) as total_bookings,
+                COALESCE(SUM(total_price), 0) as total_revenue
+              FROM bookings
+              WHERE status = 'confirmed'
+            `);
+            if (!result?.rows?.[0]) throw new Error('Failed to fetch booking statistics');
+            return {
+              total_bookings: Number(result.rows[0]?.total_bookings) || 0,
+              total_revenue: Number(result.rows[0]?.total_revenue) || 0
+            };
+          }),
+          retryQuery(async () => {
+            const result = await query(`
+              SELECT 
+                COUNT(id) as total_bookings,
+                COALESCE(SUM(total_price), 0) as total_revenue
+              FROM bookings 
+              WHERE status = 'confirmed'
+              AND created_at >= date_trunc('month', current_date - interval '1' month)
+              AND created_at < date_trunc('month', current_date)
+            `);
+            if (!result?.rows?.[0]) throw new Error('Failed to fetch last month statistics');
+            return {
+              total_bookings: Number(result.rows[0]?.total_bookings) || 0,
+              total_revenue: Number(result.rows[0]?.total_revenue) || 0
+            };
+          }),
+          retryQuery(async () => {
+            const result = await query(`
+              SELECT 
+                b.id,
+                b.total_price as amount,
+                b.status,
+                b.start_date,
+                b.end_date,
+                u.name as user_name,
+                u.email as user_email,
+                v.name as vehicle_name
+              FROM bookings b
+              LEFT JOIN users u ON b.user_id = u.id
+              LEFT JOIN vehicles v ON b.vehicle_id = v.id
+              ORDER BY b.created_at DESC
+              LIMIT 5
+            `);
+            
+            return (result?.rows || []).map((booking: any) => ({
+              id: booking.id,
+              amount: Number(booking.amount) || 0,
+              status: booking.status,
+              startDate: booking.start_date,
+              endDate: booking.end_date,
+              user: {
+                name: booking.user_name,
+                email: booking.user_email
+              },
+              vehicle: {
+                name: booking.vehicle_name
+              }
+            }));
+          })
+        ]).catch(error => {
+          logger.error('Failed to fetch dashboard data:', error);
+          throw error;
+        });
+
+      if (!rawCounts?.rows?.[0]) {
+        logger.error('No raw counts data returned from database');
+        return createResponse({
+          success: false,
+          error: 'Database error',
+          details: 'Failed to fetch basic statistics',
+          data: defaultData
+        });
+      }
+
       logger.info('Raw database counts:', rawCounts.rows[0]);
-
-      // Get total users (excluding admins) with a simpler query
-      const userStats = await retryQuery(async () => {
-        const result = await query('SELECT COUNT(id) as total FROM users WHERE role != \'admin\'');
-        logger.info('User query result:', {
-          raw: result.rows,
-          parsed: result.rows[0]?.total,
-          type: typeof result.rows[0]?.total
-        });
-        return { total: Number(result.rows[0]?.total) || 0 };
-      });
-
-      // Get total vehicles with a simpler query
-      const vehicleStats = await retryQuery(async () => {
-        const result = await query('SELECT COUNT(id) as total FROM vehicles');
-        logger.info('Vehicle query result:', {
-          raw: result.rows,
-          parsed: result.rows[0]?.total,
-          type: typeof result.rows[0]?.total
-        });
-        return { total: Number(result.rows[0]?.total) || 0 };
-      });
-
-      // Get total bookings and revenue with a simpler query - only confirmed bookings
-      const bookingStats = await retryQuery(async () => {
-        const result = await query(`
-          SELECT 
-            COUNT(id) as total_bookings,
-            COALESCE(SUM(total_price), 0) as total_revenue
-          FROM bookings
-          WHERE status = 'confirmed'
-        `);
-        logger.info('Booking query result:', {
-          raw: result.rows,
-          parsed: {
-            bookings: result.rows[0]?.total_bookings,
-            revenue: result.rows[0]?.total_revenue
-          },
-          types: {
-            bookings: typeof result.rows[0]?.total_bookings,
-            revenue: typeof result.rows[0]?.total_revenue
-          }
-        });
-        return {
-          total_bookings: Number(result.rows[0]?.total_bookings) || 0,
-          total_revenue: Number(result.rows[0]?.total_revenue) || 0
-        };
-      });
-
-      // Get last month's stats for growth calculation - only confirmed bookings
-      const lastMonthStats = await retryQuery(async () => {
-        const result = await query(`
-          SELECT 
-            COUNT(id) as total_bookings,
-            COALESCE(SUM(total_price), 0) as total_revenue
-          FROM bookings 
-          WHERE status = 'confirmed'
-          AND created_at >= date_trunc('month', current_date - interval '1' month)
-          AND created_at < date_trunc('month', current_date)
-        `);
-        return {
-          total_bookings: Number(result.rows[0]?.total_bookings) || 0,
-          total_revenue: Number(result.rows[0]?.total_revenue) || 0
-        };
-      });
 
       // Calculate growth percentages
       const calculateGrowth = (current: number, previous: number) => {
@@ -135,23 +199,20 @@ export async function GET(request: NextRequest) {
       );
 
       const responseData = {
-        totalUsers: userStats.total,
-        totalRevenue: bookingStats.total_revenue,
-        totalBookings: bookingStats.total_bookings,
-        totalVehicles: vehicleStats.total,
-        bookingGrowth,
-        revenueGrowth,
-        recentBookings: []
+        success: true,
+        data: {
+          totalUsers: userStats.total,
+          totalRevenue: bookingStats.total_revenue,
+          totalBookings: bookingStats.total_bookings,
+          totalVehicles: vehicleStats.total,
+          bookingGrowth,
+          revenueGrowth,
+          recentBookings
+        }
       };
 
       logger.info('Final response data:', responseData);
-
-      const response = NextResponse.json(responseData);
-      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      response.headers.set('Pragma', 'no-cache');
-      response.headers.set('Expires', '0');
-
-      return response;
+      return createResponse(responseData);
 
     } catch (dbError) {
       logger.error('Database query error:', {
@@ -160,27 +221,25 @@ export async function GET(request: NextRequest) {
         stack: dbError instanceof Error ? dbError.stack : undefined
       });
       
-      if (dbError instanceof Error && dbError.message.includes('EAI_AGAIN')) {
-        return NextResponse.json(
-          { 
-            error: 'Database connection error',
-            details: 'Unable to connect to the database. Please try again in a few moments.'
-          },
-          { status: 503 }
-        );
-      }
-      
-      throw dbError;
+      return createResponse({ 
+        success: false,
+        error: 'Database error',
+        details: dbError instanceof Error ? dbError.message : 'Unknown database error',
+        data: defaultData
+      });
     }
-
   } catch (error) {
-    logger.error('Dashboard API Error:', error);
-    return NextResponse.json(
-      { 
-        error: 'Failed to fetch dashboard data',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    logger.error('Unhandled error in dashboard route:', {
+      error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    return createResponse({
+      success: false,
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      data: defaultData
+    });
   }
 } 

@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import { Kysely, PostgresDialect } from 'kysely';
 import type { Database } from './schema';
 import logger from './logger';
@@ -68,15 +68,16 @@ const dbConfig = getDatabaseConfig();
 // Create the pool with validated configuration and improved settings
 const pool = new Pool({
   ...dbConfig,
-  max: 20,
-  min: 4,
-  idleTimeoutMillis: 300000, // Increased to 5 minutes
-  connectionTimeoutMillis: 30000, // Increased to 30 seconds
-  statement_timeout: 300000, // Increased to 5 minutes
-  query_timeout: 300000, // Increased to 5 minutes
+  max: 10,
+  min: 2,
+  idleTimeoutMillis: 60000,
+  connectionTimeoutMillis: 10000,
+  statement_timeout: 30000,
+  query_timeout: 30000,
   allowExitOnIdle: true,
   keepAlive: true,
-  keepAliveInitialDelayMillis: 10000
+  keepAliveInitialDelayMillis: 5000,
+  application_name: 'onnrides_app'
 });
 
 // Monitor pool errors
@@ -92,24 +93,35 @@ pool.on('error', (err: Error & { code?: string }) => {
 
 // Export a wrapper function to handle connection errors with improved retry logic
 async function query(text: string, params?: any[]) {
-  let client;
-  let retries = 5;
+  let client: any = undefined;
+  let retries = 3;
   let lastError;
-  let delay = 1000; // Start with 1 second delay
+  let delay = 500;
   
   while (retries > 0) {
     try {
-      client = await pool.connect();
+      client = await Promise.race([
+        pool.connect(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout')), 10000)
+        )
+      ]) as PoolClient;
       
-      // Add keepalive query with timeout
+      // Add keepalive query with shorter timeout
       await Promise.race([
         client.query('SELECT 1'),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Keepalive timeout')), 5000)
+          setTimeout(() => reject(new Error('Keepalive timeout')), 3000)
         )
       ]);
       
-      const result = await client.query(text, params);
+      const result = await Promise.race([
+        client.query(text, params),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Query timeout')), 30000)
+        )
+      ]);
+      
       return result;
     } catch (error: any) {
       lastError = error;
@@ -124,40 +136,35 @@ async function query(text: string, params?: any[]) {
         },
         retriesLeft: retries,
         query: text,
-        delay
+        delay,
+        timestamp: new Date().toISOString()
       });
+
+      if (client) {
+        client.release(true);
+        client = undefined;
+      }
 
       // Handle different types of errors
       if (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED' || error.code === '57P01') {
-        // Connection timeout, refused, or terminated
         if (retries > 0) {
           await new Promise(resolve => setTimeout(resolve, delay));
-          // Exponential backoff with max delay of 10 seconds
-          delay = Math.min(delay * 2, 10000);
+          delay = Math.min(delay * 1.5, 5000);
           continue;
         }
-      } else if (error.code === '40P01') {
-        // Deadlock detected (40P01), retry immediately
+      } else if (error.code === '40P01' || error.code === '57014') {
         if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, Math.min(delay, 1000)));
           continue;
         }
-      } else if (error.code === '57014') {
-        // Query cancelled or timed out
-        if (retries > 0) {
-          await new Promise(resolve => setTimeout(resolve, delay));
-          delay = Math.min(delay * 1.5, 10000);
-          continue;
-        }
-      } else {
-        // For other errors, throw immediately if they're not retryable
-        if (!isRetryableError(error)) {
-          throw error;
-        }
-        if (retries > 0) {
-          await new Promise(resolve => setTimeout(resolve, delay));
-          delay = Math.min(delay * 2, 10000);
-          continue;
-        }
+      } else if (!isRetryableError(error)) {
+        throw error;
+      }
+      
+      if (retries > 0) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay = Math.min(delay * 1.5, 5000);
+        continue;
       }
     } finally {
       if (client) {

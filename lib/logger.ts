@@ -1,6 +1,7 @@
 import winston from 'winston';
+import 'winston-daily-rotate-file';
 
-// Define log levels as a const enum for better type safety
+// Define log levels
 const LogLevel = {
   ERROR: 0,
   WARN: 1,
@@ -10,184 +11,93 @@ const LogLevel = {
 
 type LogLevel = typeof LogLevel[keyof typeof LogLevel];
 
-// Define log colors
-const colors = {
-  error: 'red',
-  warn: 'yellow',
-  info: 'green',
-  debug: 'blue',
-};
+// Create custom format
+const customFormat = winston.format.printf(({ level, message, timestamp, ...meta }) => {
+  let formattedMessage = `${timestamp} [${level.toUpperCase()}]: ${message}`;
+  if (Object.keys(meta).length > 0) {
+    formattedMessage += ` ${JSON.stringify(meta)}`;
+  }
+  return formattedMessage;
+});
 
-interface ErrorInfo {
-  message: string;
-  code?: string;
-  stack?: string;
-  opensslErrorStack?: string;
-  library?: string;
-  function?: string;
-  reason?: string;
-}
+// Create transports based on environment
+const getTransports = () => {
+  const transports: winston.transport[] = [];
 
-interface EmailErrorInfo extends ErrorInfo {
-  emailType?: string;
-  recipient?: string;
-  subject?: string;
-  smtpResponse?: string;
-  transportError?: string;
-}
+  // Always add console transport
+  transports.push(
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    })
+  );
 
-// Create error formatter
-const formatError = (error: any): string => {
-  if (!error) return '';
-  
-  const errorInfo: ErrorInfo = {
-    message: error.message || error.toString(),
-    code: error.code,
-    stack: error.stack,
-    // SSL/TLS specific error properties
-    opensslErrorStack: error.opensslErrorStack,
-    library: error.library,
-    function: error.function,
-    reason: error.reason,
-  };
-
-  return JSON.stringify(errorInfo, null, 2);
-};
-
-// Create email error formatter
-const formatEmailError = (error: any, emailType?: string): string => {
-  if (!error) return '';
-  
-  const errorInfo: EmailErrorInfo = {
-    message: error.message || error.toString(),
-    code: error.code,
-    stack: error.stack,
-    emailType,
-    recipient: error.recipient,
-    subject: error.subject,
-    smtpResponse: error.response,
-    transportError: error.transportError,
-  };
-
-  return JSON.stringify(errorInfo, null, 2);
-};
-
-// Create logger interface
-interface Logger {
-  error: (message: string, ...args: any[]) => void;
-  warn: (message: string, ...args: any[]) => void;
-  info: (message: string, ...args: any[]) => void;
-  debug: (message: string, ...args: any[]) => void;
-  emailError: (message: string, error: any, metadata?: Record<string, any>) => void;
-  bookingEmailError: (message: string, error: any, bookingId: string, metadata?: Record<string, any>) => void;
-  sslError: (message: string, error: any, metadata?: Record<string, any>) => void;
-}
-
-// Create a unified logger that works in all environments
-const createLogger = (): Logger => {
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const isBrowser = typeof window !== 'undefined';
-  const isEdgeRuntime = process.env.NEXT_RUNTIME === 'edge';
-
-  // Helper to format log entries
-  const formatLogEntry = (level: string, message: string, args: any[] = []) => {
-    const timestamp = new Date().toISOString();
-    const formattedArgs = args.map(arg => 
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
-    ).join(' ');
-    return `[${timestamp}] ${(level || 'INFO').toUpperCase()}: ${message} ${formattedArgs}`.trim();
-  };
-
-  // Helper to determine if we should log based on environment
-  const shouldLog = (level: LogLevel): boolean => {
-    if (!isDevelopment && (level === LogLevel.DEBUG || level === LogLevel.INFO)) {
-      return false;
+  // Add file transport only in Node.js environment and production
+  if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
+    try {
+      transports.push(
+        new winston.transports.DailyRotateFile({
+          filename: 'logs/application-%DATE%.log',
+          datePattern: 'YYYY-MM-DD',
+          maxSize: '20m',
+          maxFiles: '14d',
+          format: winston.format.combine(
+            winston.format.timestamp(),
+            winston.format.json()
+          )
+        })
+      );
+    } catch (error) {
+      console.warn('Failed to initialize file transport:', error);
     }
-    return true;
-  };
+  }
 
-  // Core logging function
-  const log = (level: LogLevel, message: string, ...args: any[]) => {
-    // In production, we'll just store the logs for potential external service integration
-    if (!isDevelopment) {
-      // TODO: Integrate with external logging service if needed
-      // Example: sendToExternalService(level, message, args);
-      return;
-    }
+  return transports;
+};
 
-    // Only log to console in development
-    const formattedMessage = formatLogEntry(LogLevel[level], message, args);
-    
-    if (isBrowser || isEdgeRuntime) {
-      switch (level) {
-        case LogLevel.ERROR:
-          console.error(formattedMessage);
-          break;
-        case LogLevel.WARN:
-          console.warn(formattedMessage);
-          break;
-        case LogLevel.INFO:
-          console.info(formattedMessage);
-          break;
-        case LogLevel.DEBUG:
-          console.debug(formattedMessage);
-          break;
-      }
+// Create the logger instance with appropriate configuration
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    customFormat
+  ),
+  transports: getTransports()
+});
+
+// Browser-safe logging wrapper
+const safeLogger = {
+  error: (message: string, ...args: any[]) => {
+    if (typeof window !== 'undefined') {
+      console.error(message, ...args);
     } else {
-      // Server-side development logging
-      console.log(formattedMessage);
+      logger.error(message, ...args);
     }
-  };
-
-  return {
-    error: (message: string, ...args: any[]) => log(LogLevel.ERROR, message, ...args),
-    warn: (message: string, ...args: any[]) => log(LogLevel.WARN, message, ...args),
-    info: (message: string, ...args: any[]) => log(LogLevel.INFO, message, ...args),
-    debug: (message: string, ...args: any[]) => log(LogLevel.DEBUG, message, ...args),
-    emailError: (message: string, error: any, metadata = {}) => {
-      log(LogLevel.ERROR, message, {
-        error: formatEmailError(error),
-        metadata: {
-          ...metadata,
-          category: 'email',
-          errorType: error?.code || 'EMAIL_ERROR',
-        },
-      });
-    },
-    bookingEmailError: (message: string, error: any, bookingId: string, metadata = {}) => {
-      log(LogLevel.ERROR, message, {
-        error: formatEmailError(error, 'booking-confirmation'),
-        metadata: {
-          ...metadata,
-          category: 'email',
-          emailType: 'booking-confirmation',
-          bookingId,
-          errorType: error?.code || 'BOOKING_EMAIL_ERROR',
-        },
-      });
-    },
-    sslError: (message: string, error: any, metadata = {}) => {
-      log(LogLevel.ERROR, message, {
-        error: formatError(error),
-        metadata: {
-          ...metadata,
-          category: 'ssl',
-          errorType: error?.code || 'SSL_ERROR',
-          opensslErrorStack: error?.opensslErrorStack,
-        },
-      });
-    },
-  };
-};
-
-// Create a singleton logger instance
-const logger = createLogger();
-
-// Create a stream object for HTTP request logging
-export const stream = {
-  write: (message: string) => {
-    logger.info(message.trim());
   },
+  warn: (message: string, ...args: any[]) => {
+    if (typeof window !== 'undefined') {
+      console.warn(message, ...args);
+    } else {
+      logger.warn(message, ...args);
+    }
+  },
+  info: (message: string, ...args: any[]) => {
+    if (typeof window !== 'undefined') {
+      console.info(message, ...args);
+    } else {
+      logger.info(message, ...args);
+    }
+  },
+  debug: (message: string, ...args: any[]) => {
+    if (typeof window !== 'undefined') {
+      console.debug(message, ...args);
+    } else {
+      logger.debug(message, ...args);
+    }
+  }
 };
 
-export default logger; 
+export default safeLogger; 

@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
+declare module 'next/server' {
+  interface NextResponse extends Response {
+    rewrite(destination: string | URL): NextResponse;
+  }
+}
+
 // Define protected routes that require authentication
 const protectedRoutes = [
   '/bookings',
@@ -20,15 +26,13 @@ const excludedRoutes = [
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api/auth (auth routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!api/auth|_next/static|_next/image|favicon.ico).*)',
-  ],
+    // Match API routes
+    '/api/:path*',
+    // Match protected routes
+    '/bookings/:path*',
+    '/profile/:path*',
+    '/payment-status/:path*'
+  ]
 };
 
 export async function middleware(request: NextRequest) {
@@ -37,12 +41,12 @@ export async function middleware(request: NextRequest) {
 
   // Skip middleware for excluded routes
   if (excludedRoutes.some(route => pathname.startsWith(route))) {
-    return new NextResponse(null, { status: 200 });
+    return NextResponse.next();
   }
 
   // Handle CORS preflight requests
   if (request.method === 'OPTIONS') {
-    return NextResponse.json(null, {
+    return new NextResponse(null, {
       status: 204,
       headers: {
         'Access-Control-Allow-Origin': '*',
@@ -54,19 +58,6 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    // Create base response with the original request
-    const response = new NextResponse(null, {
-      status: 200,
-      headers: new Headers(request.headers)
-    });
-
-    // Add CORS headers for API routes
-    if (pathname.startsWith('/api')) {
-      response.headers.set('Access-Control-Allow-Origin', '*');
-      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    }
-
     // Get the token if it exists
     const token = await getToken({ 
       req: request, 
@@ -104,7 +95,24 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(signInUrl);
     }
 
-    return response;
+    // For API routes, add CORS headers
+    if (pathname.startsWith('/api/')) {
+      const response = new NextResponse(null, {
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        }
+      });
+      return response;
+    }
+
+    // For all other routes, forward the request
+    return new NextResponse(null, {
+      status: 200,
+      headers: new Headers(request.headers)
+    });
 
   } catch (error) {
     console.error('Middleware error:', error);
@@ -126,8 +134,12 @@ export async function middleware(request: NextRequest) {
         }
       );
     }
-    // For non-API routes, continue the request chain
-    return new NextResponse(null, { status: 200 });
+    
+    // For non-API routes, forward the request
+    return new NextResponse(null, {
+      status: 200,
+      headers: new Headers(request.headers)
+    });
   }
 }
 
@@ -145,21 +157,19 @@ export function corsMiddleware(request: NextRequest) {
     });
   }
 
-  // Create response with CORS headers
-  const response = new NextResponse(
-    request.body,
-    {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
-        'Access-Control-Allow-Credentials': 'true'
-      },
-    }
-  );
+  // Clone the request headers and add CORS headers
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('Access-Control-Allow-Origin', '*');
+  requestHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  requestHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
+  requestHeaders.set('Access-Control-Allow-Credentials', 'true');
 
-  return response;
+  // Forward the request with modified headers
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 }
 
 export const corsConfig = {

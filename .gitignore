@@ -60,3 +60,8 @@ build/
 *.swp
 *.swo
 *~
+
+# WhatsApp cache and auth
+.wwebjs_auth/
+.wwebjs_cache/
+whatsapp-auth/
