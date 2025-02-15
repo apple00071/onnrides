@@ -1,21 +1,36 @@
-import { type AuthOptions } from 'next-auth';
+import { type AuthOptions, type DefaultSession } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { User, UserRole } from '../types/auth';
+import type { User, UserRole } from '@/lib/types';
+import { comparePasswords } from './utils';
 
 declare module 'next-auth' {
   interface Session {
-    user: User;
+    user: User & DefaultSession['user'];
   }
   interface JWT {
     id: string;
     email: string;
     name: string;
     role: UserRole;
+    phone: string | null;
+    created_at: string;
+    is_blocked: boolean;
   }
 }
+
+type TokenUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  phone: string | null;
+  created_at: string;
+  is_blocked: boolean;
+};
+
+type SessionUser = User & DefaultSession['user'];
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -43,7 +58,7 @@ export const authOptions: AuthOptions = {
             return null;
           }
 
-          const isValid = await bcrypt.compare(credentials.password, user.password_hash || '');
+          const isValid = await comparePasswords(credentials.password, user.password_hash || '');
 
           if (!isValid) {
             logger.debug('Invalid password for user:', credentials.email);
@@ -56,12 +71,17 @@ export const authOptions: AuthOptions = {
             return null;
           }
 
-          return {
+          const userWithRole = {
             id: user.id,
             email: user.email,
             name: user.name || '',
-            role: user.role as UserRole
-          };
+            role: user.role as UserRole,
+            phone: user.phone,
+            created_at: user.created_at,
+            is_blocked: user.is_blocked
+          } satisfies User;
+
+          return userWithRole;
         } catch (error) {
           logger.error('Auth error:', error);
           return null;
@@ -70,33 +90,49 @@ export const authOptions: AuthOptions = {
     })
   ],
   session: {
-    strategy: 'jwt'
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  jwt: {
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
-    signIn: '/auth/login'
+    signIn: '/auth/signin',
+    error: '/auth/signin', // Redirect to sign-in page on error
   },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.name = user.name || '';
-        token.email = user.email;
-        token.role = user.role;
+    async jwt({ token, user, trigger }) {
+      if (trigger === 'signIn' && user) {
+        const typedUser = user as User;
+        const tokenUser: TokenUser = {
+          id: typedUser.id,
+          name: typedUser.name,
+          email: typedUser.email,
+          role: typedUser.role as UserRole,
+          phone: typedUser.phone,
+          created_at: typedUser.created_at,
+          is_blocked: typedUser.is_blocked
+        };
+        return { ...token, ...tokenUser };
       }
       return token;
     },
     async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.id,
-          name: token.name,
-          email: token.email,
-          role: token.role
-        }
-      };
+      const tokenUser = token as TokenUser;
+      const user = {
+        ...session.user,
+        id: tokenUser.id,
+        name: tokenUser.name || '',
+        email: tokenUser.email,
+        role: tokenUser.role as UserRole,
+        phone: tokenUser.phone,
+        created_at: tokenUser.created_at,
+        is_blocked: tokenUser.is_blocked
+      } satisfies SessionUser;
+      session.user = user;
+      return session;
     }
   },
+  debug: process.env.NODE_ENV === 'development',
   secret: process.env.NEXTAUTH_SECRET
 }; 

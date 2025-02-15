@@ -1,10 +1,9 @@
 import logger from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { authOptions } from '@/lib/auth';
 import type { Booking, Vehicle } from '@/lib/types';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { sendBookingNotification } from '@/lib/whatsapp/integration';
 
 interface UpdateBookingBody {
@@ -167,8 +166,8 @@ export async function PUT(
   { params }: { params: { bookingId: string } }
 ) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -199,7 +198,7 @@ export async function PUT(
     }
 
     // Only allow users to update their own bookings or admins to update any booking
-    if (user.role !== 'admin' && booking.user_id !== user.id) {
+    if (session.user.role !== 'admin' && booking.user_id !== session.user.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }
@@ -226,7 +225,7 @@ export async function PUT(
     const updatedBooking = updateResult.rows[0];
 
     // Send WhatsApp notification
-    await sendBookingNotification(user, {
+    await sendBookingNotification(session.user, {
       vehicleName: booking.vehicle_name,
       startDate: booking.start_date,
       endDate: booking.end_date,
@@ -251,8 +250,8 @@ export async function POST(
   { params }: { params: { bookingId: string } }
 ) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -274,7 +273,7 @@ export async function POST(
     }
 
     // Check if user is authorized to cancel this booking
-    if (booking.user_id !== user.id && user.role !== 'admin') {
+    if (booking.user_id !== session.user.id && session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

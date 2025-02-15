@@ -1,8 +1,7 @@
-import { NextRequest } from 'next/server';
-import { getServerSession } from 'next-auth/next';
+import { NextRequest, NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
+import { getServerSession } from 'next-auth';
 import { query } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
 import type { User } from '@/lib/types';
 import logger from '@/lib/logger';
 
@@ -24,9 +23,8 @@ interface UserRow {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getCurrentUser() as AuthResult | null;
-
-    if (!auth) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
@@ -34,19 +32,21 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user profile
-    const user = await query(
+    const result = await query(
       `SELECT id, name, email, phone, role, created_at, updated_at 
        FROM users 
        WHERE id = $1`,
-      [auth.user.id]
+      [session.user.id]
     );
 
-    if (!user) {
+    if (result.rowCount === 0) {
       return new Response(JSON.stringify({ error: 'User not found' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' },
       });
     }
+
+    const user = result.rows[0];
 
     return new Response(JSON.stringify(user), {
       status: 200,
@@ -63,9 +63,8 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const auth = await getCurrentUser() as AuthResult | null;
-
-    if (!auth) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
@@ -81,31 +80,26 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update user profile
-    const [user] = await db
-      .update(users)
-      .set({
-        name,
-        updated_at: new Date()
-      })
-      .where(eq(users.id, auth.user.id))
-      .returning();
+    const result = await query(
+      `UPDATE users 
+       SET name = $1, updated_at = NOW() 
+       WHERE id = $2 
+       RETURNING id, name, email, phone, role`,
+      [name, session.user.id]
+    );
 
-    if (!user) {
+    if (result.rowCount === 0) {
       return new Response(JSON.stringify({ error: 'User not found' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
+    const user = result.rows[0];
+
     return new Response(JSON.stringify({
       message: 'Profile updated successfully',
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role
-      }
+      user
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

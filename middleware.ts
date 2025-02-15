@@ -7,7 +7,7 @@ const protectedRoutes = [
   '/bookings',
   '/profile',
   '/api/bookings',
-  '/api/payment',
+  '/api/payments',
   '/payment-status',
   '/admin'
 ];
@@ -65,7 +65,7 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith(route)
     );
 
-    if (isProtectedRoute && !token) {
+    if (isProtectedRoute && !token?.id) {
       // For API routes, return JSON error
       if (pathname.startsWith('/api/')) {
         return new NextResponse(
@@ -92,14 +92,12 @@ export async function middleware(request: NextRequest) {
     return;
 
   } catch (error) {
-    console.error('Middleware error:', error);
-    
     // For API routes, return error response
     if (pathname.startsWith('/api/')) {
       return new NextResponse(
         JSON.stringify({ 
           success: false, 
-          error: 'Internal server error' 
+          error: 'Internal server error'
         }),
         { 
           status: 500,
@@ -110,7 +108,7 @@ export async function middleware(request: NextRequest) {
       );
     }
     
-    // For other routes, redirect to login
+    // For regular routes, redirect to login
     const loginUrl = new URL('/auth/signin', request.url);
     loginUrl.searchParams.set('error', 'internal_error');
     return NextResponse.redirect(loginUrl);

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authOptions, comparePasswords, hashPassword } from '@/lib/auth';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
-import { comparePasswords, hashPassword } from '@/lib/auth';
 import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {

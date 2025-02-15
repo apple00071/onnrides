@@ -58,22 +58,26 @@ export async function POST(request: NextRequest) {
     // Add the email sending function
     const sendResetEmail = async (email: string, token: string) => {
       try {
+        const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${token}`;
+        
         const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/email/send`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            type: 'password-reset',
+            type: 'password_reset',
             data: {
               email,
-              token
+              name: user.name || 'User', // Fallback to 'User' if name is not available
+              resetLink
             }
           })
         });
 
         if (!response.ok) {
-          throw new Error('Failed to send password reset email');
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to send password reset email');
         }
       } catch (error) {
         logger.error('Failed to send password reset email:', error);

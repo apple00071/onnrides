@@ -6,7 +6,7 @@ import './globals.css';
 import { Toaster } from 'react-hot-toast';
 import { Providers } from './providers';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/config';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { ScriptLoader } from '@/components/ScriptLoader';
 
@@ -39,8 +39,8 @@ export default async function RootLayout({
         <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
       </head>
       <body className={inter.className}>
-        <AuthProvider>
-          <Providers session={session}>
+        <Providers session={session}>
+          <AuthProvider>
             <Toaster
               position="bottom-center"
               toastOptions={{
@@ -73,8 +73,8 @@ export default async function RootLayout({
             />
             {children}
             <ScriptLoader />
-          </Providers>
-        </AuthProvider>
+          </AuthProvider>
+        </Providers>
       </body>
     </html>
   );
