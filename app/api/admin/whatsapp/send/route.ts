@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { initializeWhatsApp } from '@/lib/whatsapp/config';
+import { WhatsAppService } from '@/lib/whatsapp/service';
 import logger from '@/lib/logger';
-import QRCode from 'qrcode';
-import { isServerless } from '@/lib/utils';
-
-const TIMEOUT_DURATION = 25000; // 25 seconds
 
 export const runtime = 'nodejs';
-export const maxDuration = 30; // 30 seconds max duration
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,31 +17,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // In serverless environment, return a specific message
-    if (isServerless()) {
+    // Parse request body
+    const body = await request.json();
+    const { to, message } = body;
+
+    if (!to || !message) {
       return NextResponse.json({
-        status: 'unavailable',
-        message: 'WhatsApp initialization is not available in serverless environment. Please use a dedicated server.'
+        status: 'error',
+        error: 'Missing required fields: to, message'
       }, { status: 400 });
     }
 
-    // Initialize WhatsApp
+    // Send message using WhatsApp service
     try {
-      await initializeWhatsApp();
+      const whatsappService = WhatsAppService.getInstance();
+      await whatsappService.sendMessage(to, message);
       
       return NextResponse.json({
         status: 'success',
-        message: 'WhatsApp initialized successfully'
+        message: 'Message sent successfully'
       });
     } catch (error) {
-      logger.error('WhatsApp initialization error:', error);
+      logger.error('Failed to send WhatsApp message:', error);
       return NextResponse.json({
         status: 'error',
-        error: error instanceof Error ? error.message : 'Failed to initialize WhatsApp'
+        error: error instanceof Error ? error.message : 'Failed to send message'
       }, { status: 500 });
     }
   } catch (error) {
-    logger.error('WhatsApp initialization error:', error);
+    logger.error('WhatsApp send error:', error);
     return NextResponse.json({
       status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error occurred'

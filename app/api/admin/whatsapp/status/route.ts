@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { WhatsAppService } from '@/lib/whatsapp/service';
 
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     // Check authentication
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     const whatsappService = WhatsAppService.getInstance();
     const status = whatsappService.getInitializationStatus();
-
+    
     return NextResponse.json({
       status: status.isInitialized ? 'connected' : 'disconnected',
       error: status.error?.message

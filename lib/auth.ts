@@ -45,118 +45,49 @@ function getJwtKey() {
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      name: "credentials",
+      name: 'Credentials',
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-        isAdmin: { label: "Is Admin", type: "text" }
+        username: { label: 'Username', type: 'text' },
+        password: { label: 'Password', type: 'password' }
       },
       async authorize(credentials) {
-        try {
-          if (!credentials?.email || !credentials?.password) {
-            throw new Error("Please enter your email and password");
-          }
-
-          const result = await query(
-            'SELECT * FROM users WHERE email = $1 LIMIT 1',
-            [credentials.email]
-          );
-
-          const user = result.rows[0];
-
-          if (!user || !user.password_hash) {
-            throw new Error("Invalid email or password");
-          }
-
-          const isPasswordValid = await compare(
-            credentials.password,
-            user.password_hash
-          );
-
-          if (!isPasswordValid) {
-            throw new Error("Invalid email or password");
-          }
-
-          const isAdminLogin = credentials.isAdmin === 'true';
-
-          // For admin login, require admin role
-          if (isAdminLogin && user.role !== 'admin') {
-            throw new Error("AccessDenied");
-          }
-
-          // For regular login, prevent admin from using it
-          if (!isAdminLogin && user.role === 'admin') {
-            throw new Error("Please use the admin login page");
-          }
-
-          const userInfo: UserInfo = {
-            id: user.id,
-            email: user.email,
-            name: user.name || "",
-            role: user.role as UserRole,
+        // Add your authentication logic here
+        // For example, check against environment variables
+        if (
+          credentials?.username === process.env.ADMIN_USERNAME &&
+          credentials?.password === process.env.ADMIN_PASSWORD
+        ) {
+          return {
+            id: '1',
+            name: 'Admin',
+            email: 'admin@example.com',
+            role: 'admin'
           };
-
-          return userInfo;
-        } catch (error) {
-          logger.error('Auth error:', error);
-          throw error;
         }
-      },
-    }),
+        return null;
+      }
+    })
   ],
-  pages: {
-    signIn: "/auth/signin",
-    error: "/auth/error",
-  },
   session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    strategy: 'jwt'
+  },
+  pages: {
+    signIn: '/auth/signin'
   },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        return {
-          ...token,
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        };
+        token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          id: token.id,
-          email: token.email,
-          name: token.name || "",
-          role: token.role as UserRole,
-        },
-      };
-    },
-    async redirect({ url, baseUrl }) {
-      // Allows relative callback URLs
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allows callback URLs on the same origin
-      else if (new URL(url).origin === baseUrl) return url;
-      return baseUrl;
-    },
-  },
-  cookies: {
-    sessionToken: {
-      name: process.env.NODE_ENV === "production" ? "__Secure-next-auth.session-token" : "next-auth.session-token",
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-        domain: process.env.NODE_ENV === "production" ? process.env.NEXT_PUBLIC_DOMAIN : undefined,
-      },
-    },
-  },
-  debug: process.env.NODE_ENV === 'development',
+      if (session.user) {
+        (session.user as any).role = token.role;
+      }
+      return session;
+    }
+  }
 };
 
 export async function getCurrentUser() {

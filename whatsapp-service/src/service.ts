@@ -1,6 +1,6 @@
-import logger from '@/lib/logger';
 import { Client } from 'whatsapp-web.js';
 import { initializeWhatsAppClient } from './config';
+import logger from './logger';
 import Database from 'better-sqlite3';
 import path from 'path';
 
@@ -17,17 +17,6 @@ interface WhatsAppLog {
     updated_at: string;
 }
 
-// Rate limiting configuration
-interface RateLimitConfig {
-    windowMs: number;  // Time window in milliseconds
-    maxRequests: number;  // Maximum requests per window
-}
-
-interface RateLimitEntry {
-    count: number;
-    resetTime: number;
-}
-
 interface InitializationStatus {
     isInitialized: boolean;
     error?: Error;
@@ -38,17 +27,10 @@ export class WhatsAppService {
     private client: Client | null = null;
     private initializationError: Error | null = null;
     private db: Database.Database;
-    
-    // Rate limiting properties
-    private rateLimits: Map<string, RateLimitEntry> = new Map();
-    private readonly rateLimitConfig: RateLimitConfig = {
-        windowMs: 60000,  // 1 minute
-        maxRequests: 30   // 30 requests per minute
-    };
 
     private constructor() {
         // Initialize SQLite database
-        const dbPath = path.join(process.cwd(), 'whatsapp.db');
+        const dbPath = path.join(process.cwd(), 'data', 'whatsapp.db');
         this.db = new Database(dbPath);
         
         // Create tables if they don't exist
@@ -70,15 +52,6 @@ export class WhatsAppService {
                 chat_id TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
-            )
-        `);
-
-        // Create rate_limits table
-        this.db.exec(`
-            CREATE TABLE IF NOT EXISTS rate_limits (
-                phone TEXT PRIMARY KEY,
-                count INTEGER NOT NULL,
-                reset_time INTEGER NOT NULL
             )
         `);
 
@@ -181,61 +154,9 @@ export class WhatsAppService {
         }
     }
 
-    private checkRateLimit(phoneNumber: string): boolean {
-        const now = Date.now();
-
-        // Clean up old rate limits
-        this.db.prepare(`
-            DELETE FROM rate_limits 
-            WHERE reset_time < ?
-        `).run(now);
-
-        // Get current rate limit
-        const rateLimit = this.db.prepare(`
-            SELECT count, reset_time 
-            FROM rate_limits 
-            WHERE phone = ?
-        `).get(phoneNumber);
-
-        if (!rateLimit) {
-            // Create new rate limit
-            this.db.prepare(`
-                INSERT INTO rate_limits (phone, count, reset_time)
-                VALUES (?, 1, ?)
-            `).run(phoneNumber, now + this.rateLimitConfig.windowMs);
-            return true;
-        }
-
-        if (rateLimit.count >= this.rateLimitConfig.maxRequests) {
-            return false;
-        }
-
-        // Increment count
-        this.db.prepare(`
-            UPDATE rate_limits 
-            SET count = count + 1
-            WHERE phone = ?
-        `).run(phoneNumber);
-
-        return true;
-    }
-
     public async sendMessage(to: string, message: string, bookingId?: string): Promise<void> {
         if (!this.client?.info) {
             throw new Error('WhatsApp client not initialized');
-        }
-
-        if (!this.checkRateLimit(to)) {
-            const error = new Error(`Rate limit exceeded for ${to}. Please try again later.`);
-            await this.logMessage({
-                recipient: to,
-                message,
-                booking_id: bookingId,
-                status: 'failed',
-                error: error.message,
-                message_type: 'text'
-            });
-            throw error;
         }
 
         let logId: string | undefined;
@@ -323,23 +244,6 @@ export class WhatsAppService {
             return true;
         } catch (error) {
             logger.error('Failed to send payment confirmation:', error);
-            return false;
-        }
-    }
-
-    public async sendBookingReminder(
-        phone: string,
-        userName: string,
-        vehicleDetails: string,
-        bookingDate: string,
-        bookingId?: string
-    ): Promise<boolean> {
-        try {
-            const message = `Hello ${userName}!\nThis is a reminder for your upcoming booking of ${vehicleDetails} on ${bookingDate}.\nWe're looking forward to serving you!`;
-            await this.sendMessage(phone, message, bookingId);
-            return true;
-        } catch (error) {
-            logger.error('Failed to send booking reminder:', error);
             return false;
         }
     }

@@ -77,4 +77,30 @@ const browserLogger = {
   }
 };
 
-export default browserLogger; 
+type LoggerFunction = (...args: any[]) => void;
+
+interface Logger {
+  info: LoggerFunction;
+  error: LoggerFunction;
+  warn: LoggerFunction;
+  debug: LoggerFunction;
+}
+
+const logger: Logger = {
+  info: (...args: any[]) => {
+    console.log('[INFO]', ...args);
+  },
+  error: (...args: any[]) => {
+    console.error('[ERROR]', ...args);
+  },
+  warn: (...args: any[]) => {
+    console.warn('[WARN]', ...args);
+  },
+  debug: (...args: any[]) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[DEBUG]', ...args);
+    }
+  }
+};
+
+export default logger; 
