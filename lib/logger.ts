@@ -14,46 +14,36 @@ const LogLevel = {
 
 type LogLevel = typeof LogLevel[keyof typeof LogLevel];
 
-// Create custom format
-const customFormat = winston.format.printf(({ level, message, timestamp, ...meta }) => {
-  let formattedMessage = `${timestamp} [${level.toUpperCase()}]: ${message}`;
-  if (Object.keys(meta).length > 0) {
-    formattedMessage += ` ${JSON.stringify(meta)}`;
-  }
-  return formattedMessage;
-});
+// Create custom format for production
+const productionFormat = winston.format.combine(
+  winston.format.timestamp(),
+  winston.format.json(),
+  winston.format.printf(({ timestamp, level, message, ...meta }) => {
+    const metaString = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
+    return `${timestamp} [${level.toUpperCase()}]: ${message}${metaString}`;
+  })
+);
+
+// Create custom format for development
+const developmentFormat = winston.format.combine(
+  winston.format.colorize(),
+  winston.format.timestamp(),
+  winston.format.printf(({ timestamp, level, message, ...meta }) => {
+    const metaString = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
+    return `${timestamp} [${level}]: ${message}${metaString}`;
+  })
+);
 
 // Configure the logger
 const logger = winston.createLogger({
   level: isProduction ? 'info' : 'debug',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: []
-});
-
-// Add console transport for development
-if (!isProduction) {
-  logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple()
-    )
-  }));
-}
-
-// Add file transport for production server environment
-if (!isBrowser && isProduction) {
-  logger.add(
-    new winston.transports.DailyRotateFile({
-      filename: 'logs/application-%DATE%.log',
-      datePattern: 'YYYY-MM-DD',
-      maxSize: '20m',
-      maxFiles: '14d'
+  format: isProduction ? productionFormat : developmentFormat,
+  transports: [
+    new winston.transports.Console({
+      format: isProduction ? productionFormat : developmentFormat
     })
-  );
-}
+  ]
+});
 
 // Browser-safe logging methods
 const browserLogger = {
