@@ -4,10 +4,12 @@ import { authOptions } from '@/lib/auth';
 import { WhatsAppService } from '@/lib/whatsapp/service';
 import logger from '@/lib/logger';
 import QRCode from 'qrcode';
+import { isServerless } from '@/lib/utils';
 
-const TIMEOUT_DURATION = 120000; // 2 minutes
+const TIMEOUT_DURATION = 25000; // 25 seconds
 
 export const runtime = 'nodejs';
+export const maxDuration = 30; // 30 seconds max duration
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +20,14 @@ export async function POST(request: NextRequest) {
         { error: 'Unauthorized' },
         { status: 401 }
       );
+    }
+
+    // In serverless environment, return a specific message
+    if (isServerless()) {
+      return NextResponse.json({
+        status: 'unavailable',
+        message: 'WhatsApp initialization is not available in serverless environment. Please use a dedicated server.'
+      }, { status: 400 });
     }
 
     const whatsappService = WhatsAppService.getInstance();
@@ -52,7 +62,7 @@ export async function POST(request: NextRequest) {
           resolve(qrImage);
         } catch (error) {
           logger.error('Error converting QR code:', error);
-          reject(error);
+          reject(new Error('Failed to generate QR code'));
         }
       });
 
@@ -84,14 +94,30 @@ export async function POST(request: NextRequest) {
     });
 
     // Wait for QR code or ready state
-    logger.info('Waiting for QR code or ready state...');
-    const qrCode = await qrPromise;
+    try {
+      logger.info('Waiting for QR code or ready state...');
+      const qrCode = await qrPromise;
 
-    return NextResponse.json({
-      status: qrCode ? 'connecting' : 'connected',
-      qr: qrCode
-    });
-
+      return NextResponse.json({
+        status: qrCode ? 'connecting' : 'connected',
+        qr: qrCode
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      logger.error('WhatsApp initialization error:', {
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      return NextResponse.json(
+        { 
+          error: 'Failed to initialize WhatsApp',
+          details: errorMessage,
+          retry: true
+        },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     logger.error('WhatsApp initialization error:', {

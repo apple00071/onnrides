@@ -36,6 +36,12 @@ export async function initializeWhatsAppClient(): Promise<Client | null> {
     return null;
   }
 
+  // In serverless environment, return null immediately
+  if (isServerless()) {
+    logger.info('WhatsApp client initialization skipped in serverless environment');
+    return null;
+  }
+
   // If client exists and is ready, return it
   if (whatsappClient?.info) {
     logger.info('Using existing WhatsApp client');
@@ -65,11 +71,8 @@ export async function initializeWhatsAppClient(): Promise<Client | null> {
         fs.mkdirSync(sessionPath, { recursive: true });
       }
     } catch (error) {
-      logger.warn(`Could not create session directory at ${sessionPath}:`, error);
-      // In serverless, continue without session storage
-      if (!isServerless()) {
-        throw error;
-      }
+      logger.error(`Could not create session directory at ${sessionPath}:`, error);
+      throw error;
     }
 
     // Use different auth strategy based on environment
@@ -94,127 +97,91 @@ export async function initializeWhatsAppClient(): Promise<Client | null> {
           '--disable-software-rasterizer',
           '--disable-extensions',
           '--disable-web-security',
-          '--disable-features=IsolateOrigins,site-per-process'
+          '--disable-features=IsolateOrigins,site-per-process',
+          '--disable-blink-features=AutomationControlled'
         ],
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-        timeout: 60000,
+        timeout: 30000, // Reduced to 30 seconds
         defaultViewport: null,
         handleSIGINT: false,
         handleSIGTERM: false,
         handleSIGHUP: false
       },
-      qrMaxRetries: 2,
-      restartOnAuthFail: true,
-      takeoverOnConflict: true,
-      takeoverTimeoutMs: 5000,
+      qrMaxRetries: 1,
+      restartOnAuthFail: false,
+      takeoverOnConflict: false,
+      takeoverTimeoutMs: 3000,
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-    });
-
-    // Handle disconnection with improved error handling
-    whatsappClient.on('disconnected', async (reason) => {
-      logger.warn('WhatsApp client disconnected:', reason);
-      
-      // Clear the session if authentication is lost or navigation error occurs
-      if (reason === 'UNPAIRED' || reason === 'CONFLICT' || reason.includes('CONFLICT') || reason.includes('NAVIGATION')) {
-        try {
-          const sessionFiles = fs.readdirSync(sessionPath);
-          for (const file of sessionFiles) {
-            const filePath = join(sessionPath, file);
-            if (fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
-            }
-          }
-          logger.info('Cleared WhatsApp session files');
-          whatsappClient = null;
-          isInitializing = false;
-        } catch (error) {
-          logger.error('Error clearing session files:', error);
-        }
-      }
-
-      // Force cleanup
-      try {
-        if (whatsappClient?.pupPage) {
-          await whatsappClient.pupPage.close();
-        }
-        if (whatsappClient?.pupBrowser) {
-          await whatsappClient.pupBrowser.close();
-        }
-      } catch (error) {
-        logger.warn('Error during browser cleanup:', error);
-      }
-
-      whatsappClient = null;
-      isInitializing = false;
     });
 
     // Add connection timeout handler
     const connectionTimeout = setTimeout(() => {
       if (!whatsappClient?.info) {
-        logger.error('WhatsApp client connection timeout');
+        const error = new Error('WhatsApp client connection timeout');
+        logger.error(error);
         isInitializing = false;
         whatsappClient = null;
+        throw error;
       }
-    }, 60000); // 60 second timeout
+    }, 25000); // 25 second timeout
+
+    // Handle disconnection with improved error handling
+    whatsappClient.on('disconnected', async (reason) => {
+      clearTimeout(connectionTimeout);
+      logger.warn('WhatsApp client disconnected:', reason);
+      
+      await cleanupResources();
+    });
 
     // Handle authentication state with improved error handling
     whatsappClient.on('authenticated', async () => {
       clearTimeout(connectionTimeout);
       logger.info('WhatsApp client authenticated');
       isInitializing = false;
-      
-      // Clear localStorage to prevent stale data
-      try {
-        if (whatsappClient?.pupPage) {
-          await whatsappClient.pupPage.evaluate(() => {
-            localStorage.clear();
-            return true;
-          });
-        }
-      } catch (error) {
-        logger.warn('Failed to clear localStorage:', error);
-      }
     });
 
     whatsappClient.on('auth_failure', async (msg) => {
       clearTimeout(connectionTimeout);
       logger.error('WhatsApp authentication failed:', msg);
-      isInitializing = false;
       
-      // Clear session on auth failure
-      try {
-        const sessionFiles = fs.readdirSync(sessionPath);
-        for (const file of sessionFiles) {
-          const filePath = join(sessionPath, file);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        }
-        logger.info('Cleared WhatsApp session files after auth failure');
-      } catch (error) {
-        logger.error('Error clearing session files:', error);
-      }
-      
-      // Force cleanup
-      try {
-        if (whatsappClient?.pupPage) {
-          await whatsappClient.pupPage.close();
-        }
-        if (whatsappClient?.pupBrowser) {
-          await whatsappClient.pupBrowser.close();
-        }
-      } catch (error) {
-        logger.warn('Error during browser cleanup:', error);
-      }
-
-      whatsappClient = null;
+      await cleanupResources();
+      throw new Error(`Authentication failed: ${msg}`);
     });
 
     return whatsappClient;
   } catch (error) {
-    logger.error('Error importing WhatsApp dependencies:', error);
+    await cleanupResources();
+    throw error;
+  }
+}
+
+async function cleanupResources() {
+  try {
+    // Clear session files
+    const sessionPath = getSessionDir();
+    if (fs.existsSync(sessionPath)) {
+      const sessionFiles = fs.readdirSync(sessionPath);
+      for (const file of sessionFiles) {
+        const filePath = join(sessionPath, file);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+      logger.info('Cleared WhatsApp session files');
+    }
+
+    // Force cleanup browser resources
+    if (whatsappClient?.pupPage) {
+      await whatsappClient.pupPage.close().catch(() => {});
+    }
+    if (whatsappClient?.pupBrowser) {
+      await whatsappClient.pupBrowser.close().catch(() => {});
+    }
+  } catch (error) {
+    logger.warn('Error during cleanup:', error);
+  } finally {
+    whatsappClient = null;
     isInitializing = false;
-    return null;
   }
 }
 
