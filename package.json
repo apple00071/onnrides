@@ -8,7 +8,7 @@
     "build:production": "node scripts/build-production.js",
     "start": "next start & ts-node scripts/init-whatsapp.ts",
     "lint": "next lint",
-    "postinstall": "prisma generate && (type nul > postcss.config.js) && (type nul > tailwind.config.js)",
+    "postinstall": "prisma generate && node -e \"const fs=require('fs');['postcss.config.js','tailwind.config.js'].forEach(f=>!fs.existsSync(f)&&fs.writeFileSync(f,''))\"",
     "migrate": "node -r dotenv/config scripts/run-migration.js"
   },
   "dependencies": {
