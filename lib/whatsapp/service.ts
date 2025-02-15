@@ -32,6 +32,17 @@ interface WhatsAppLog {
     chat_id?: string;
 }
 
+// Rate limiting configuration
+interface RateLimitConfig {
+    windowMs: number;  // Time window in milliseconds
+    maxRequests: number;  // Maximum requests per window
+}
+
+interface RateLimitEntry {
+    count: number;
+    resetTime: number;
+}
+
 export class WhatsAppService {
     private static instance: WhatsAppService;
     private client: Client | null = null;
@@ -46,6 +57,13 @@ export class WhatsAppService {
     private reconnectTimeout: NodeJS.Timeout | null = null;
     private lastConnectionState: 'connected' | 'disconnected' | 'connecting' = 'disconnected';
     private stateCheckInterval: NodeJS.Timeout | null = null;
+    
+    // Rate limiting properties
+    private rateLimits: Map<string, RateLimitEntry> = new Map();
+    private readonly rateLimitConfig: RateLimitConfig = {
+        windowMs: 60000,  // 1 minute
+        maxRequests: 30   // 30 requests per minute
+    };
 
     private constructor() {
         this.isServerlessEnv = isServerless();
@@ -319,7 +337,56 @@ export class WhatsAppService {
         }
     }
 
+    private checkRateLimit(phoneNumber: string): boolean {
+        const now = Date.now();
+        const entry = this.rateLimits.get(phoneNumber);
+
+        if (!entry || now >= entry.resetTime) {
+            // If no entry exists or the window has expired, create a new entry
+            this.rateLimits.set(phoneNumber, {
+                count: 1,
+                resetTime: now + this.rateLimitConfig.windowMs
+            });
+            return true;
+        }
+
+        if (entry.count >= this.rateLimitConfig.maxRequests) {
+            // Rate limit exceeded
+            return false;
+        }
+
+        // Increment the counter
+        entry.count++;
+        return true;
+    }
+
+    private cleanupRateLimits(): void {
+        const now = Date.now();
+        for (const [phone, entry] of this.rateLimits.entries()) {
+            if (now >= entry.resetTime) {
+                this.rateLimits.delete(phone);
+            }
+        }
+    }
+
     public async sendMessage(to: string, message: string, bookingId?: string): Promise<void> {
+        // Clean up expired rate limits
+        this.cleanupRateLimits();
+
+        // Check rate limit
+        if (!this.checkRateLimit(to)) {
+            const error = new Error(`Rate limit exceeded for ${to}. Please try again later.`);
+            await this.logMessage({
+                recipient: to,
+                message,
+                booking_id: bookingId,
+                status: 'failed',
+                error: error.message,
+                message_type: 'text'
+            });
+            throw error;
+        }
+
         let logId: string | undefined;
         let attempts = 0;
         const maxAttempts = 3;
