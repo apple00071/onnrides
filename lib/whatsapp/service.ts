@@ -6,8 +6,15 @@ import { isServerless } from '@/lib/utils';
 import fs from 'fs';
 import { join } from 'path';
 
-// Use require for qrcode-terminal since it doesn't have TypeScript types
-const qrcodeTerminal = require('qrcode-terminal');
+// Dynamic import for qrcode-terminal
+let qrcodeTerminal: any;
+if (typeof window === 'undefined') {
+  try {
+    qrcodeTerminal = require('qrcode-terminal');
+  } catch (error) {
+    logger.warn('qrcode-terminal not available:', error);
+  }
+}
 
 // Define SESSION_DIR at the top of the file
 const SESSION_DIR = join(process.cwd(), 'whatsapp-sessions');

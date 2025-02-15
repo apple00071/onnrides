@@ -7,6 +7,8 @@ import QRCode from 'qrcode';
 
 const TIMEOUT_DURATION = 120000; // 2 minutes
 
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     // Check authentication
