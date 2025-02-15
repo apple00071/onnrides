@@ -489,12 +489,18 @@ export class WhatsAppService {
         bookingDate: string,
         bookingId?: string
     ): Promise<boolean> {
-        const message = WHATSAPP_MESSAGE_TEMPLATES.BOOKING_CONFIRMATION(
-            userName,
-            vehicleDetails,
-            bookingDate
-        );
-        return this.sendMessage(phone, message, bookingId) instanceof Promise;
+        try {
+            const message = WHATSAPP_MESSAGE_TEMPLATES.BOOKING_CONFIRMATION(
+                userName,
+                vehicleDetails,
+                bookingDate
+            );
+            await this.sendMessage(phone, message, bookingId);
+            return true;
+        } catch (error) {
+            logger.error('Failed to send booking confirmation:', error);
+            return false;
+        }
     }
 
     public async sendBookingCancellation(
@@ -503,11 +509,17 @@ export class WhatsAppService {
         vehicleDetails: string,
         bookingId?: string
     ): Promise<boolean> {
-        const message = WHATSAPP_MESSAGE_TEMPLATES.BOOKING_CANCELLATION(
-            userName,
-            vehicleDetails
-        );
-        return this.sendMessage(phone, message, bookingId) instanceof Promise;
+        try {
+            const message = WHATSAPP_MESSAGE_TEMPLATES.BOOKING_CANCELLATION(
+                userName,
+                vehicleDetails
+            );
+            await this.sendMessage(phone, message, bookingId);
+            return true;
+        } catch (error) {
+            logger.error('Failed to send booking cancellation:', error);
+            return false;
+        }
     }
 
     public async sendPaymentConfirmation(
@@ -516,12 +528,18 @@ export class WhatsAppService {
         amount: string,
         bookingId: string
     ): Promise<boolean> {
-        const message = WHATSAPP_MESSAGE_TEMPLATES.PAYMENT_CONFIRMATION(
-            userName,
-            amount,
-            bookingId
-        );
-        return this.sendMessage(phone, message, bookingId) instanceof Promise;
+        try {
+            const message = WHATSAPP_MESSAGE_TEMPLATES.PAYMENT_CONFIRMATION(
+                userName,
+                amount,
+                bookingId
+            );
+            await this.sendMessage(phone, message, bookingId);
+            return true;
+        } catch (error) {
+            logger.error('Failed to send payment confirmation:', error);
+            return false;
+        }
     }
 
     public async sendBookingReminder(
@@ -531,12 +549,18 @@ export class WhatsAppService {
         bookingDate: string,
         bookingId?: string
     ): Promise<boolean> {
-        const message = WHATSAPP_MESSAGE_TEMPLATES.BOOKING_REMINDER(
-            userName,
-            vehicleDetails,
-            bookingDate
-        );
-        return this.sendMessage(phone, message, bookingId) instanceof Promise;
+        try {
+            const message = WHATSAPP_MESSAGE_TEMPLATES.BOOKING_REMINDER(
+                userName,
+                vehicleDetails,
+                bookingDate
+            );
+            await this.sendMessage(phone, message, bookingId);
+            return true;
+        } catch (error) {
+            logger.error('Failed to send booking reminder:', error);
+            return false;
+        }
     }
 
     private async clearSessionFiles() {
@@ -551,7 +575,11 @@ export class WhatsAppService {
             for (const file of sessionFiles) {
                 const filePath = join(sessionPath, file);
                 if (fs.existsSync(filePath)) {
-                    fs.unlinkSync(filePath);
+                    try {
+                        fs.unlinkSync(filePath);
+                    } catch (unlinkError) {
+                        logger.warn(`Failed to delete session file ${file}:`, unlinkError);
+                    }
                 }
             }
             logger.info('Cleared WhatsApp session files');
