@@ -1,7 +1,7 @@
 import winston from 'winston';
 import 'winston-daily-rotate-file';
 
-const isBrowser = typeof process === 'undefined' || !process.versions || !process.versions.node;
+const isBrowser = typeof window !== 'undefined';
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Define log levels
@@ -34,49 +34,6 @@ const developmentFormat = winston.format.combine(
   })
 );
 
-// Configure the logger
-const logger = winston.createLogger({
-  level: isProduction ? 'info' : 'debug',
-  format: isProduction ? productionFormat : developmentFormat,
-  transports: [
-    new winston.transports.Console({
-      format: isProduction ? productionFormat : developmentFormat
-    })
-  ]
-});
-
-// Browser-safe logging methods
-const browserLogger = {
-  error: (message: string, ...meta: any[]) => {
-    if (isBrowser) {
-      console.error(message, ...meta);
-    } else {
-      logger.error(message, ...meta);
-    }
-  },
-  warn: (message: string, ...meta: any[]) => {
-    if (isBrowser) {
-      console.warn(message, ...meta);
-    } else {
-      logger.warn(message, ...meta);
-    }
-  },
-  info: (message: string, ...meta: any[]) => {
-    if (isBrowser) {
-      console.info(message, ...meta);
-    } else {
-      logger.info(message, ...meta);
-    }
-  },
-  debug: (message: string, ...meta: any[]) => {
-    if (isBrowser) {
-      console.debug(message, ...meta);
-    } else {
-      logger.debug(message, ...meta);
-    }
-  }
-};
-
 type LoggerFunction = (...args: any[]) => void;
 
 interface Logger {
@@ -86,21 +43,39 @@ interface Logger {
   debug: LoggerFunction;
 }
 
-const logger: Logger = {
-  info: (...args: any[]) => {
-    console.log('[INFO]', ...args);
-  },
-  error: (...args: any[]) => {
-    console.error('[ERROR]', ...args);
-  },
-  warn: (...args: any[]) => {
-    console.warn('[WARN]', ...args);
-  },
-  debug: (...args: any[]) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.debug('[DEBUG]', ...args);
-    }
+// Create a unified logger that works in both browser and Node environments
+const logger: Logger = (() => {
+  if (isBrowser) {
+    // Browser logger
+    return {
+      info: (...args: any[]) => console.log('[INFO]', ...args),
+      error: (...args: any[]) => console.error('[ERROR]', ...args),
+      warn: (...args: any[]) => console.warn('[WARN]', ...args),
+      debug: (...args: any[]) => {
+        if (!isProduction) {
+          console.debug('[DEBUG]', ...args);
+        }
+      }
+    };
+  } else {
+    // Node.js logger using Winston
+    const winstonLogger = winston.createLogger({
+      level: isProduction ? 'info' : 'debug',
+      format: isProduction ? productionFormat : developmentFormat,
+      transports: [
+        new winston.transports.Console({
+          format: isProduction ? productionFormat : developmentFormat
+        })
+      ]
+    });
+
+    return {
+      info: (message: string, ...meta: any[]) => winstonLogger.info(message, ...meta),
+      error: (message: string, ...meta: any[]) => winstonLogger.error(message, ...meta),
+      warn: (message: string, ...meta: any[]) => winstonLogger.warn(message, ...meta),
+      debug: (message: string, ...meta: any[]) => winstonLogger.debug(message, ...meta)
+    };
   }
-};
+})();
 
 export default logger; 

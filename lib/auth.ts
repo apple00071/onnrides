@@ -2,37 +2,13 @@ import logger from '@/lib/logger';
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
 import { query } from '@/lib/db';
-import type { User } from '@/lib/db/schema';
 import { NextResponse } from 'next/server';
 import { getServerSession, type AuthOptions, NextAuthOptions } from 'next-auth';
-import type { DefaultJWT, JWT } from 'next-auth/jwt';
+import type { DefaultJWT } from 'next-auth/jwt';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { compare } from "bcrypt";
-
-export type UserRole = 'user' | 'admin';
-
-type UserInfo = {
-  id: string;
-  email: string;
-  name: string;
-  role: UserRole;
-};
-
-declare module 'next-auth' {
-  interface Session {
-    user: UserInfo;
-  }
-}
-
-declare module 'next-auth/jwt' {
-  interface JWT extends DefaultJWT {
-    id: string;
-    email: string;
-    name: string;
-    role: UserRole;
-  }
-}
+import { User, UserRole } from './types/auth';
 
 function getJwtKey() {
   const secretKey = process.env.JWT_SECRET_KEY;
@@ -122,7 +98,7 @@ export async function findUserByEmail(email: string): Promise<User | null> {
 
 export async function validateUser(email: string, password: string): Promise<User | null> {
   const user = await findUserByEmail(email);
-  if (!user) return null;
+  if (!user || !user.password_hash) return null;
   const isValid = await comparePasswords(password, user.password_hash);
   return isValid ? user : null;
 } 

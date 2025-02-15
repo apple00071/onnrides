@@ -33,6 +33,11 @@ interface InitializationStatus {
     error?: Error;
 }
 
+interface RateLimitRecord {
+    count: number;
+    reset_time: number;
+}
+
 export class WhatsAppService {
     private static instance: WhatsAppService;
     private client: Client | null = null;
@@ -195,7 +200,7 @@ export class WhatsAppService {
             SELECT count, reset_time 
             FROM rate_limits 
             WHERE phone = ?
-        `).get(phoneNumber);
+        `).get(phoneNumber) as RateLimitRecord | undefined;
 
         if (!rateLimit) {
             // Create new rate limit

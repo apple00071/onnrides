@@ -3,15 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-
-type UserRole = 'user' | 'admin';
-
-interface User {
-  id: string;
-  email: string;
-  name: string | null;
-  role: UserRole;
-}
+import { User, UserRole } from '../types/auth';
 
 declare module 'next-auth' {
   interface Session {
