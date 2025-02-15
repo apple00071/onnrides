@@ -168,11 +168,16 @@ export const initializeWhatsApp = async () => {
     // Generate QR Code for authentication if needed
     client.on('qr', async (qr: string) => {
       logger.info('WhatsApp QR Code generated. Please scan with your WhatsApp app.');
-      try {
-        const qrcodeTerminal = require('qrcode-terminal');
-        qrcodeTerminal.generate(qr, { small: true });
-      } catch (error) {
-        logger.error('Error generating QR code:', error);
+      
+      // Only try to use qrcode-terminal in development
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          // Dynamic import of qrcode-terminal
+          const qrcodeTerminal = (await import('qrcode-terminal')).default;
+          qrcodeTerminal(qr, { small: true });
+        } catch (error) {
+          logger.warn('qrcode-terminal not available:', error);
+        }
       }
     });
 
