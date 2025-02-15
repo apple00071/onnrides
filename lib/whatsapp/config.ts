@@ -4,10 +4,26 @@ import { isServerless } from '@/lib/utils';
 import { join } from 'path';
 import fs from 'fs';
 
-// Ensure sessions directory exists with absolute path
-const SESSION_DIR = join(process.cwd(), 'whatsapp-sessions');
-if (!fs.existsSync(SESSION_DIR)) {
-  fs.mkdirSync(SESSION_DIR, { recursive: true });
+// Define session directories
+const LOCAL_SESSION_DIR = join(process.cwd(), 'whatsapp-sessions');
+const SERVERLESS_SESSION_DIR = '/tmp/whatsapp-sessions';
+
+// Get the appropriate session directory based on environment
+const getSessionDir = () => {
+  if (isServerless()) {
+    return SERVERLESS_SESSION_DIR;
+  }
+  return LOCAL_SESSION_DIR;
+};
+
+// Ensure sessions directory exists with appropriate path
+const SESSION_DIR = getSessionDir();
+try {
+  if (!fs.existsSync(SESSION_DIR)) {
+    fs.mkdirSync(SESSION_DIR, { recursive: true });
+  }
+} catch (error) {
+  logger.warn(`Could not create session directory at ${SESSION_DIR}:`, error);
 }
 
 let whatsappClient: Client | null = null;
@@ -39,13 +55,21 @@ export async function initializeWhatsAppClient(): Promise<Client | null> {
     
     // Use a consistent session ID
     const sessionId = 'onnrides-whatsapp-session';
-    const sessionPath = isServerless() ? '/tmp/whatsapp-sessions' : SESSION_DIR;
+    const sessionPath = getSessionDir();
 
     logger.info('Initializing WhatsApp client with session path:', sessionPath);
 
     // Create session directory if it doesn't exist
-    if (!fs.existsSync(sessionPath)) {
-      fs.mkdirSync(sessionPath, { recursive: true });
+    try {
+      if (!fs.existsSync(sessionPath)) {
+        fs.mkdirSync(sessionPath, { recursive: true });
+      }
+    } catch (error) {
+      logger.warn(`Could not create session directory at ${sessionPath}:`, error);
+      // In serverless, continue without session storage
+      if (!isServerless()) {
+        throw error;
+      }
     }
 
     // Use different auth strategy based on environment

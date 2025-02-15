@@ -6,8 +6,17 @@ import { isServerless } from '@/lib/utils';
 import fs from 'fs';
 import { join } from 'path';
 
-// Define SESSION_DIR at the top of the file
-const SESSION_DIR = join(process.cwd(), 'whatsapp-sessions');
+// Define session directories
+const LOCAL_SESSION_DIR = join(process.cwd(), 'whatsapp-sessions');
+const SERVERLESS_SESSION_DIR = '/tmp/whatsapp-sessions';
+
+// Get the appropriate session directory based on environment
+const getSessionDir = () => {
+  if (isServerless()) {
+    return SERVERLESS_SESSION_DIR;
+  }
+  return LOCAL_SESSION_DIR;
+};
 
 type QRCodeHandler = (qr: string) => void;
 type ReadyHandler = () => void;
@@ -531,10 +540,16 @@ export class WhatsAppService {
     }
 
     private async clearSessionFiles() {
+        if (this.isServerlessEnv) {
+            logger.info('Skipping session file cleanup in serverless environment');
+            return;
+        }
+
         try {
-            const sessionFiles = fs.readdirSync(SESSION_DIR);
+            const sessionPath = getSessionDir();
+            const sessionFiles = fs.readdirSync(sessionPath);
             for (const file of sessionFiles) {
-                const filePath = join(SESSION_DIR, file);
+                const filePath = join(sessionPath, file);
                 if (fs.existsSync(filePath)) {
                     fs.unlinkSync(filePath);
                 }
