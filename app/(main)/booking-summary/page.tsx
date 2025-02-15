@@ -289,82 +289,48 @@ export default function BookingSummaryPage() {
             // Use the redirect URL from the response if available
             const redirectUrl = verifyData.data?.redirect_url || `/bookings?success=true&booking_id=${data.bookingId}`;
             router.push(redirectUrl);
+            setIsLoading(false); // Reset loading state after successful redirect
           } catch (error) {
             console.error('Payment verification error:', error);
+            setIsLoading(false); // Reset loading state on error
             
-            // Instead of redirecting to recovery page, show a retry button
-            const retryVerification = async () => {
-              try {
-                const storedPayment = localStorage.getItem('pendingPayment');
-                if (!storedPayment) {
-                  throw new Error('No pending payment found');
-                }
-
-                const paymentDetails = JSON.parse(storedPayment);
-                const verifyResponse = await fetch('/api/payments/verify', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    booking_id: paymentDetails.booking_id,
-                    razorpay_order_id: paymentDetails.razorpay_order_id,
-                    razorpay_payment_id: paymentDetails.razorpay_payment_id,
-                    razorpay_signature: paymentDetails.razorpay_signature
-                  }),
-                });
-
-                const verifyData = await verifyResponse.json();
-
-                if (!verifyResponse.ok || !verifyData.success) {
-                  throw new Error(verifyData.error || 'Payment verification failed');
-                }
-
-                localStorage.removeItem('pendingPayment');
-                showNotification('Payment verification successful!', 'success');
-                
-                const redirectUrl = verifyData.data?.redirect_url || `/bookings?success=true&booking_id=${paymentDetails.booking_id}`;
-                router.push(redirectUrl);
-              } catch (error) {
-                console.error('Retry verification error:', error);
-                showNotification(
-                  'Payment verification failed',
-                  'error',
-                  {
-                    description: (
-                      <div className="flex flex-col gap-2">
-                        <p>Please try again or contact support.</p>
-                        <button
-                          onClick={retryVerification}
-                          className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition-colors"
-                        >
-                          Retry Verification
-                        </button>
-                      </div>
-                    ),
-                    duration: 10000
-                  }
-                );
-              }
-            };
-
-            // Show error with retry option
+            // Show error with support team contact message
             showNotification(
-              'Payment verification failed',
+              'Payment Verification Failed',
               'error',
               {
                 description: (
-                  <div className="flex flex-col gap-2">
-                    <p>Please try again or contact support.</p>
-                    <button
-                      onClick={retryVerification}
-                      className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition-colors"
-                    >
-                      Retry Verification
-                    </button>
+                  <div className="flex flex-col gap-4">
+                    <div className="text-red-800">
+                      <p className="font-medium">Your payment may have been processed but verification failed.</p>
+                      <p className="mt-1">Please contact our support team with the following details:</p>
+                      <ul className="mt-2 list-disc list-inside text-sm">
+                        <li>Order ID: {response.razorpay_order_id}</li>
+                        <li>Payment ID: {response.razorpay_payment_id}</li>
+                        <li>Booking ID: {data.bookingId}</li>
+                      </ul>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => {
+                          const supportInfo = `Order ID: ${response.razorpay_order_id}\nPayment ID: ${response.razorpay_payment_id}\nBooking ID: ${data.bookingId}`;
+                          navigator.clipboard.writeText(supportInfo);
+                          toast.success('Payment details copied to clipboard');
+                        }}
+                        className="bg-gray-100 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors text-sm"
+                      >
+                        Copy Payment Details
+                      </button>
+                      <a
+                        href={`mailto:support@onnrides.com?subject=Payment%20Verification%20Failed&body=Order%20ID:%20${response.razorpay_order_id}%0APayment%20ID:%20${response.razorpay_payment_id}%0ABooking%20ID:%20${data.bookingId}`}
+                        className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition-colors text-center"
+                      >
+                        Contact Support
+                      </a>
+                    </div>
                   </div>
                 ),
-                duration: 10000
+                duration: 0 // Keep the notification until user dismisses it
               }
             );
           }
@@ -379,22 +345,19 @@ export default function BookingSummaryPage() {
         },
         modal: {
           ondismiss: function() {
-            setIsLoading(false);
+            setIsLoading(false); // Reset loading state when modal is dismissed
           }
         }
       });
 
-      razorpay.on('payment.failed', function (response: any) {
-        console.error('Payment failed:', response.error);
-        showNotification(response.error.description || 'Payment failed');
-        setIsLoading(false);
-      });
-
       razorpay.open();
     } catch (error) {
-      console.error('Error in handleConfirmBooking:', error);
-      showNotification(error instanceof Error ? error.message : 'Unable to process booking');
-      setIsLoading(false);
+      console.error('Booking error:', error);
+      setIsLoading(false); // Reset loading state on error
+      showNotification(
+        error instanceof Error ? error.message : 'Failed to process booking',
+        'error'
+      );
     }
   };
 

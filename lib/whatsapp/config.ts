@@ -14,10 +14,13 @@ export async function initializeWhatsAppClient(): Promise<Client | null> {
   try {
     const { Client, LocalAuth } = await import('whatsapp-web.js');
     
+    // Generate a unique session ID based on timestamp
+    const sessionId = `onnrides-whatsapp-${Date.now()}`;
+    
     whatsappClient = new Client({
       authStrategy: new LocalAuth({
-        clientId: 'onnrides-whatsapp-client',
-        dataPath: './whatsapp-auth'
+        clientId: sessionId,
+        dataPath: './whatsapp-sessions'
       }),
       puppeteer: {
         headless: true,
@@ -28,12 +31,20 @@ export async function initializeWhatsAppClient(): Promise<Client | null> {
           '--disable-accelerated-2d-canvas',
           '--no-first-run',
           '--no-zygote',
-          '--disable-gpu'
+          '--disable-gpu',
+          '--disable-software-rasterizer',
+          '--disable-extensions'
         ]
       },
       qrMaxRetries: 3,
       authTimeoutMs: 60000,
       restartOnAuthFail: true
+    });
+
+    // Add error event handler
+    whatsappClient.on('disconnected', (reason) => {
+      logger.warn('WhatsApp client disconnected:', reason);
+      whatsappClient = null;
     });
 
     return whatsappClient;
@@ -74,6 +85,7 @@ export const initializeWhatsApp = async () => {
     // Handle authentication failures
     client.on('auth_failure', (error: Error) => {
       logger.error('WhatsApp authentication failed:', error);
+      whatsappClient = null;
     });
 
     // Initialize the client
@@ -99,6 +111,14 @@ We hope to serve you again soon!`,
 Hello ${userName}!
 Your payment of Rs. ${amount} for booking ID: ${bookingId} has been received. 
 Thank you for your payment!`,
+
+  PAYMENT_FAILED: (userName: string, amount: string, bookingId: string, orderId: string) => `
+Hello ${userName}!
+We noticed that your payment of Rs. ${amount} for booking ID: ${bookingId} was not successful.
+Order ID: ${orderId}
+
+Please try again or contact our support if you need assistance.
+Support: support@onnrides.com`,
 
   BOOKING_REMINDER: (userName: string, vehicleDetails: string, bookingDate: string) => `
 Hello ${userName}!

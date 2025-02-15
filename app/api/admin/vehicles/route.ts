@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { getDb } from '@/lib/db';
+import { db, query } from '@/lib/db';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { randomUUID } from 'crypto';
 import type { NewVehicle, Vehicle } from '@/lib/schema';
-import { query } from '@/lib/db';
 
 export async function GET(_request: NextRequest) {
   try {
-    const db = getDb();
     const vehicles = await db
       .selectFrom('vehicles')
       .selectAll()
@@ -38,10 +36,10 @@ export async function GET(_request: NextRequest) {
 
         // Clean up each location
         locations = locations
-          .map(loc => loc.trim())
+          .map((loc: string) => loc.trim())
           .filter(Boolean)
-          .map(loc => loc.replace(/^["']|["']$/g, '')) // Remove quotes
-          .map(loc => loc.replace(/\\+/g, '')); // Remove backslashes
+          .map((loc: string) => loc.replace(/^["']|["']$/g, '')) // Remove quotes
+          .map((loc: string) => loc.replace(/\\+/g, '')); // Remove backslashes
       } catch (e) {
         logger.error('Error parsing location:', e);
         locations = [String(vehicle.location).replace(/[{}"\\]/g, '').trim()];
@@ -110,8 +108,6 @@ export async function POST(request: NextRequest) {
 
     // Convert location array to JSON string
     const locationJson = JSON.stringify(location);
-
-    const db = getDb();
 
     try {
       // Create the vehicle

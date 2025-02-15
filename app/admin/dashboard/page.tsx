@@ -1,6 +1,5 @@
 'use client';
 
-import logger from '@/lib/logger';
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -36,6 +35,21 @@ interface DashboardStats {
   }>;
 }
 
+interface BookingData {
+  id?: string | number;
+  amount?: number | string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  user?: {
+    name?: string;
+    email?: string;
+  };
+  vehicle?: {
+    name?: string;
+  };
+}
+
 const defaultStats: DashboardStats = {
   totalUsers: 0,
   totalRevenue: 0,
@@ -47,194 +61,94 @@ const defaultStats: DashboardStats = {
 };
 
 export default function AdminDashboard() {
-  const { data: session, status } = useSession();
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [stats, setStats] = useState<DashboardStats>(defaultStats);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Handle authentication
+  useEffect(() => {
+    if (status === 'loading') return;
+
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
+      return;
+    }
+
+    if (status === 'authenticated') {
+      if (session?.user?.role !== 'admin') {
+        router.push('/');
+        return;
+      }
+      fetchDashboardData();
+    }
+  }, [status, session, router]);
+
   const fetchDashboardData = async () => {
     try {
       setError(null);
-      logger.info('Fetching dashboard data...');
+      setLoading(true);
       
       const response = await fetch('/api/admin/dashboard', {
         method: 'GET',
-        cache: 'no-store',
         headers: {
           'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache'
         }
       });
 
-      logger.info('Response received:', { 
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-
-      // Check if response is empty
-      const text = await response.text();
-      if (!text) {
-        logger.error('Empty response received from server');
-        throw new Error('Empty response from server');
+      if (response.status === 401) {
+        router.push('/auth/signin');
+        return;
       }
 
-      logger.debug('Raw response:', text);
-
-      // Try to parse the response
-      let data;
-      try {
-        data = JSON.parse(text);
-        logger.info('Parsed response data:', data);
-      } catch (parseError) {
-        logger.error('Failed to parse response:', { 
-          text, 
-          error: parseError,
-          errorMessage: parseError instanceof Error ? parseError.message : String(parseError)
-        });
-        throw new Error('Invalid JSON response from server');
-      }
-
-      // Check for error responses
       if (!response.ok) {
-        const errorMessage = data.details || data.error || 'Failed to fetch dashboard data';
-        logger.error('Response not OK:', { 
-          status: response.status, 
-          errorMessage,
-          data 
-        });
-        
-        // If we have fallback data, use it
-        if (data.data) {
-          setStats(data.data);
-        } else {
-          setStats(defaultStats);
-        }
-        
-        // Show error message
-        toast.error(errorMessage);
-        return;
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
-      // Check for error in successful response
+
+      const data = await response.json();
+
       if (!data.success) {
-        logger.warn('Error in response data:', data);
-        const errorMessage = data.details || data.error || 'Failed to fetch dashboard data';
-        toast.error(errorMessage);
-        
-        // Use the fallback data if provided
-        if (data.data) {
-          setStats(data.data);
-        } else {
-          setStats(defaultStats);
-        }
-        return;
+        throw new Error(data.error || 'Failed to fetch dashboard data');
       }
 
-      // Validate the response data
-      if (!data.data || typeof data.data !== 'object') {
-        logger.error('Invalid response data structure:', { data });
-        throw new Error('Invalid response data structure');
-      }
-
-      // Type guard to ensure all required properties exist
-      const isValidDashboardData = (data: any): data is DashboardStats => {
-        const requiredProps = [
-          'totalUsers',
-          'totalRevenue',
-          'totalBookings',
-          'totalVehicles',
-          'bookingGrowth',
-          'revenueGrowth',
-          'recentBookings'
-        ];
-
-        const hasAllProps = requiredProps.every(prop => prop in data);
-        const hasValidTypes = (
-          typeof data.totalUsers === 'number' &&
-          typeof data.totalRevenue === 'number' &&
-          typeof data.totalBookings === 'number' &&
-          typeof data.totalVehicles === 'number' &&
-          typeof data.bookingGrowth === 'number' &&
-          typeof data.revenueGrowth === 'number' &&
-          Array.isArray(data.recentBookings)
-        );
-
-        if (!hasAllProps || !hasValidTypes) {
-          logger.error('Invalid dashboard data structure:', { 
-            data,
-            validation: {
-              hasAllProps,
-              hasValidTypes,
-              props: requiredProps.map(prop => ({
-                prop,
-                exists: prop in data,
-                type: typeof data[prop]
-              }))
-            }
-          });
-          return false;
-        }
-
-        return true;
-      };
-
-      if (!isValidDashboardData(data.data)) {
-        logger.error('Invalid dashboard data:', data.data);
-        setStats(defaultStats);
-        throw new Error('Invalid dashboard data structure');
-      }
-
-      logger.info('Setting dashboard stats:', data.data);
-      setStats(data.data);
-    } catch (error) {
-      logger.error('Error fetching dashboard data:', {
-        error,
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
+      setStats({
+        totalUsers: data.data.totalUsers || 0,
+        totalRevenue: data.data.totalRevenue || 0,
+        totalBookings: data.data.totalBookings || 0,
+        totalVehicles: data.data.totalVehicles || 0,
+        bookingGrowth: data.data.bookingGrowth || 0,
+        revenueGrowth: data.data.revenueGrowth || 0,
+        recentBookings: Array.isArray(data.data.recentBookings) 
+          ? data.data.recentBookings.map((booking: BookingData) => ({
+              id: String(booking.id || ''),
+              amount: Number(booking.amount || 0),
+              status: String(booking.status || 'pending'),
+              startDate: String(booking.startDate || ''),
+              endDate: String(booking.endDate || ''),
+              user: {
+                name: String(booking.user?.name || 'Unknown'),
+                email: String(booking.user?.email || 'N/A')
+              },
+              vehicle: {
+                name: String(booking.vehicle?.name || 'Unknown')
+              }
+            }))
+          : []
       });
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch dashboard data';
-      setError(errorMessage);
-      toast.error(errorMessage);
-      
-      // Set default stats on error
-      setStats(defaultStats);
+
+    } catch (error) {
+      console.error('Dashboard fetch error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch dashboard data');
+      toast.error('Failed to fetch dashboard data');
     } finally {
       setLoading(false);
     }
   };
 
-  // Initial data fetch when component mounts
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/admin/login');
-      return;
-    }
-    
-    if (status === 'authenticated' && session?.user?.role !== 'admin') {
-      router.push('/');
-      return;
-    }
-
-    if (status === 'authenticated' && session?.user?.role === 'admin') {
-      setLoading(true);
-      fetchDashboardData();
-    }
-  }, [status, session, router]);
-
-  // Set up auto-refresh every 30 seconds
-  useEffect(() => {
-    if (status !== 'authenticated' || session?.user?.role !== 'admin') return;
-
-    const intervalId = setInterval(() => {
-      fetchDashboardData();
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(intervalId);
-  }, [status, session]);
-
+  // Show loading state
   if (status === 'loading' || loading) {
     return (
       <div className="p-4 md:p-6 space-y-6">
@@ -258,13 +172,14 @@ export default function AdminDashboard() {
     );
   }
 
+  // Show error state
   if (error) {
     return (
       <div className="p-4 md:p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-800">{error}</p>
           <button 
-            onClick={() => window.location.reload()}
+            onClick={() => fetchDashboardData()}
             className="mt-2 text-red-600 hover:text-red-800 font-medium"
           >
             Try Again
@@ -274,6 +189,7 @@ export default function AdminDashboard() {
     );
   }
 
+  // Show dashboard content
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -307,23 +223,23 @@ export default function AdminDashboard() {
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Recent Bookings</h2>
         <div className="space-y-2">
-          {Array.isArray(stats.recentBookings) && stats.recentBookings.length > 0 ? (
+          {stats.recentBookings.length > 0 ? (
             stats.recentBookings.map((booking) => (
               <div
                 key={booking.id}
                 className="bg-white rounded-lg shadow p-4 flex items-center justify-between"
               >
                 <div>
-                  <p className="font-medium">{booking.user?.name || 'N/A'}</p>
-                  <p className="text-sm text-gray-500">{booking.user?.email || 'N/A'}</p>
-                  <p className="text-sm text-gray-500">{booking.vehicle?.name || 'N/A'}</p>
+                  <p className="font-medium">{booking.user.name}</p>
+                  <p className="text-sm text-gray-500">{booking.user.email}</p>
+                  <p className="text-sm text-gray-500">{booking.vehicle.name}</p>
                 </div>
                 <div className="text-right">
                   <p className="font-medium">
                     {booking.startDate && format(new Date(booking.startDate), 'MMM dd')} -{' '}
                     {booking.endDate && format(new Date(booking.endDate), 'MMM dd')}
                   </p>
-                  <p className="text-sm font-medium">{formatCurrency(booking.amount || 0)}</p>
+                  <p className="text-sm font-medium">{formatCurrency(booking.amount)}</p>
                   <span
                     className={`text-xs px-2 py-1 rounded-full ${
                       booking.status === 'completed'
@@ -333,7 +249,7 @@ export default function AdminDashboard() {
                         : 'bg-blue-100 text-blue-800'
                     }`}
                   >
-                    {booking.status || 'pending'}
+                    {booking.status}
                   </span>
                 </div>
               </div>

@@ -5,6 +5,25 @@ import { authOptions } from '@/lib/auth/config';
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
+interface BookingRow {
+  id: string;
+  booking_id: string | null;
+  user_id: string;
+  vehicle_id: string;
+  start_date: string;
+  end_date: string;
+  total_hours: number | null;
+  total_price: number | null;
+  status: string;
+  payment_status: string | null;
+  created_at: string;
+  vehicle_location: string | null;
+  user_name: string | null;
+  user_email: string | null;
+  user_phone: string | null;
+  vehicle_name: string | null;
+}
+
 const ITEMS_PER_PAGE = 10;
 
 // Helper function to format date
@@ -42,6 +61,10 @@ function generateBookingId(): string {
   }
   return result;
 }
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
 export async function GET(request: NextRequest) {
   try {
@@ -101,7 +124,7 @@ export async function GET(request: NextRequest) {
     const result = await query(sqlQuery, [ITEMS_PER_PAGE, offset]);
 
     // Transform the result
-    const bookings = result.rows.map((booking) => ({
+    const bookings = result.rows.map((booking: BookingRow) => ({
       id: booking.id,
       booking_id: booking.booking_id || `OR${booking.id.slice(0, 3)}`,
       user_id: booking.user_id,

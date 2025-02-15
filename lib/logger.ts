@@ -1,6 +1,9 @@
 import winston from 'winston';
 import 'winston-daily-rotate-file';
 
+const isBrowser = typeof process === 'undefined' || !process.versions || !process.versions.node;
+const isProduction = process.env.NODE_ENV === 'production';
+
 // Define log levels
 const LogLevel = {
   ERROR: 0,
@@ -20,84 +23,68 @@ const customFormat = winston.format.printf(({ level, message, timestamp, ...meta
   return formattedMessage;
 });
 
-// Create transports based on environment
-const getTransports = () => {
-  const transports: winston.transport[] = [];
-
-  // Always add console transport
-  transports.push(
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      )
-    })
-  );
-
-  // Add file transport only in Node.js environment and production
-  if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
-    try {
-      transports.push(
-        new winston.transports.DailyRotateFile({
-          filename: 'logs/application-%DATE%.log',
-          datePattern: 'YYYY-MM-DD',
-          maxSize: '20m',
-          maxFiles: '14d',
-          format: winston.format.combine(
-            winston.format.timestamp(),
-            winston.format.json()
-          )
-        })
-      );
-    } catch (error) {
-      console.warn('Failed to initialize file transport:', error);
-    }
-  }
-
-  return transports;
-};
-
-// Create the logger instance with appropriate configuration
+// Configure the logger
 const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
+  level: isProduction ? 'info' : 'debug',
   format: winston.format.combine(
     winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    customFormat
+    winston.format.json()
   ),
-  transports: getTransports()
+  transports: []
 });
 
-// Browser-safe logging wrapper
-const safeLogger = {
-  error: (message: string, ...args: any[]) => {
-    if (typeof window !== 'undefined') {
-      console.error(message, ...args);
+// Add console transport for development
+if (!isProduction) {
+  logger.add(new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.simple()
+    )
+  }));
+}
+
+// Add file transport for production server environment
+if (!isBrowser && isProduction) {
+  logger.add(
+    new winston.transports.DailyRotateFile({
+      filename: 'logs/application-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxSize: '20m',
+      maxFiles: '14d'
+    })
+  );
+}
+
+// Browser-safe logging methods
+const browserLogger = {
+  error: (message: string, ...meta: any[]) => {
+    if (isBrowser) {
+      console.error(message, ...meta);
     } else {
-      logger.error(message, ...args);
+      logger.error(message, ...meta);
     }
   },
-  warn: (message: string, ...args: any[]) => {
-    if (typeof window !== 'undefined') {
-      console.warn(message, ...args);
+  warn: (message: string, ...meta: any[]) => {
+    if (isBrowser) {
+      console.warn(message, ...meta);
     } else {
-      logger.warn(message, ...args);
+      logger.warn(message, ...meta);
     }
   },
-  info: (message: string, ...args: any[]) => {
-    if (typeof window !== 'undefined') {
-      console.info(message, ...args);
+  info: (message: string, ...meta: any[]) => {
+    if (isBrowser) {
+      console.info(message, ...meta);
     } else {
-      logger.info(message, ...args);
+      logger.info(message, ...meta);
     }
   },
-  debug: (message: string, ...args: any[]) => {
-    if (typeof window !== 'undefined') {
-      console.debug(message, ...args);
+  debug: (message: string, ...meta: any[]) => {
+    if (isBrowser) {
+      console.debug(message, ...meta);
     } else {
-      logger.debug(message, ...args);
+      logger.debug(message, ...meta);
     }
   }
 };
 
-export default safeLogger; 
+export default browserLogger; 

@@ -8,7 +8,8 @@
     "build:production": "node scripts/build-production.js",
     "start": "next start & ts-node scripts/init-whatsapp.ts",
     "lint": "next lint",
-    "postinstall": "prisma generate && touch postcss.config.js tailwind.config.js"
+    "postinstall": "prisma generate && touch postcss.config.js tailwind.config.js",
+    "migrate": "node -r dotenv/config scripts/run-migration.js"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.734.0",
@@ -64,7 +65,7 @@
     "pg": "^8.13.1",
     "postcss": "^8.4.31",
     "postgres": "^3.4.3",
-    "puppeteer": "^24.2.0",
+    "puppeteer": "^24.2.1",
     "qrcode-terminal": "^0.12.0",
     "razorpay": "^2.9.5",
     "react": "^18",

@@ -1,268 +1,213 @@
-import { transporter, defaultMailOptions } from './config';
-import { createBookingConfirmationEmail, createPasswordResetEmail, createWelcomeEmail } from './templates';
+import nodemailer from 'nodemailer';
 import logger from '../logger';
 import { query } from '../db';
-import { format } from 'date-fns-tz';
 
-// Skip email functionality in Edge Runtime
-if (process.env.NEXT_RUNTIME === 'edge') {
-  throw new Error('Email functionality is not supported in Edge Runtime. Please use API routes for sending emails.');
-}
-
-// Constants
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // 1 second
-
-// Types
 interface EmailLog {
   recipient: string;
   subject: string;
+  message_content: string;
   booking_id?: string;
-  status: 'success' | 'failed';
+  status: 'pending' | 'success' | 'failed';
   error?: string;
   message_id?: string;
 }
 
-// Helper function for delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+export class EmailService {
+  private static instance: EmailService;
+  private transporter: nodemailer.Transporter;
 
-// Function to log email to database
-async function logEmailSent(data: EmailLog) {
-  try {
-    await query(
-      `INSERT INTO email_logs 
-       (recipient, subject, booking_id, status, error, message_id, created_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-      [
-        data.recipient,
-        data.subject,
-        data.booking_id,
-        data.status,
-        data.error,
-        data.message_id
-      ]
-    );
-    
-    logger.info('Email log saved successfully', {
-      recipient: data.recipient,
-      subject: data.subject,
-      booking_id: data.booking_id,
-      status: data.status,
-      message_id: data.message_id
+  private constructor() {
+    // Log email configuration (excluding sensitive data)
+    logger.info('Initializing email service with config:', {
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      secure: process.env.SMTP_SECURE === 'true',
+      user: process.env.SMTP_USER,
+      hasPassword: !!process.env.SMTP_PASS
     });
-  } catch (error) {
-    logger.error('Failed to log email:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      data
+
+    this.transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '465'),
+      secure: true, // Use SSL/TLS
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS?.replace(/\s+/g, '') // Remove any whitespace from password
+      },
     });
   }
-}
 
-// Helper function to send email with retry logic
-async function sendEmailWithRetry(mailOptions: any, retryCount = 0): Promise<any> {
-  try {
-    const result = await transporter.sendMail({
-      ...defaultMailOptions,
-      ...mailOptions
-    });
-
-    // Log success
-    await logEmailSent({
-      recipient: mailOptions.to,
-      subject: mailOptions.subject,
-      booking_id: mailOptions.booking_id,
-      status: 'success',
-      message_id: result.messageId
-    });
-
-    return result;
-  } catch (error) {
-    logger.error('Email send error:', {
-      error: error instanceof Error ? {
-        message: error.message,
-        code: (error as any).code,
-        command: (error as any).command,
-        stack: error.stack
-      } : 'Unknown error',
-      recipient: mailOptions.to,
-      subject: mailOptions.subject,
-      retryCount
-    });
-
-    // Log failure
-    await logEmailSent({
-      recipient: mailOptions.to,
-      subject: mailOptions.subject,
-      booking_id: mailOptions.booking_id,
-      status: 'failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-
-    // Retry if not exceeded max retries
-    if (retryCount < MAX_RETRIES) {
-      await delay(RETRY_DELAY * Math.pow(2, retryCount)); // Exponential backoff
-      return sendEmailWithRetry(mailOptions, retryCount + 1);
+  public static getInstance(): EmailService {
+    if (!EmailService.instance) {
+      EmailService.instance = new EmailService();
     }
-
-    throw error;
+    return EmailService.instance;
   }
-}
 
-// Format date in IST with consistent format
-function formatDateTimeIST(date: string | Date) {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return format(dateObj, 'dd MMM yyyy, hh:mm a', { timeZone: 'Asia/Kolkata' });
-}
+  private async logEmail(log: EmailLog): Promise<string> {
+    try {
+      // For test emails, don't include booking_id if it doesn't match UUID format
+      const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const bookingId = log.booking_id && isValidUUID.test(log.booking_id) ? log.booking_id : null;
 
-// Format payment status for display
-function formatPaymentStatus(status: string): string {
-  switch (status?.toLowerCase()) {
-    case 'completed':
-    case 'captured':
-      return 'Payment Successful';
-    case 'pending':
-      return 'Payment Pending';
-    case 'failed':
-      return 'Payment Failed';
-    default:
-      return status || 'Unknown';
+      const result = await query(
+        `INSERT INTO email_logs (recipient, subject, message_content, booking_id, status, error, message_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id`,
+        [
+          log.recipient,
+          log.subject,
+          log.message_content,
+          bookingId,
+          log.status,
+          log.error || null,
+          log.message_id || null
+        ]
+      );
+      return result.rows[0].id;
+    } catch (error) {
+      logger.error('Failed to log email:', error);
+      throw error;
+    }
   }
-}
 
-// Validate email configuration
-function validateEmailConfig() {
-  const requiredEnvVars = {
-    SMTP_USER: process.env.SMTP_USER,
-    SMTP_PASS: process.env.SMTP_PASS,
-    SMTP_FROM: process.env.SMTP_FROM
-  };
+  private async updateEmailLog(id: string, updates: Partial<EmailLog>): Promise<void> {
+    try {
+      const setClauses = Object.entries(updates)
+        .map(([key, _], index) => `${key} = $${index + 2}`)
+        .join(', ');
 
-  const missingVars = Object.entries(requiredEnvVars)
-    .filter(([_, value]) => !value)
-    .map(([key]) => key);
-
-  if (missingVars.length > 0) {
-    throw new Error(`Missing required email configuration: ${missingVars.join(', ')}`);
+      await query(
+        `UPDATE email_logs 
+         SET ${setClauses}
+         WHERE id = $1`,
+        [id, ...Object.values(updates)]
+      );
+    } catch (error) {
+      logger.error('Failed to update email log:', error);
+    }
   }
-}
 
-// Function to get booking display ID
-function getBookingDisplayId(booking: any): string {
-  const displayId = booking.booking_id || booking.payment_intent_id || booking.id || booking.displayId;
-  if (!displayId) {
-    throw new Error('Missing booking identifier');
+  public async sendEmail(
+    to: string,
+    subject: string,
+    html: string,
+    bookingId?: string
+  ): Promise<void> {
+    let logId: string | undefined;
+    let retries = 3;
+
+    while (retries > 0) {
+      try {
+        // Log the pending email if first attempt
+        if (!logId) {
+          logId = await this.logEmail({
+            recipient: to,
+            subject,
+            message_content: html,
+            booking_id: bookingId,
+            status: 'pending'
+          });
+        }
+
+        // Verify transporter connection
+        await this.transporter.verify();
+
+        const mailOptions = {
+          from: process.env.SMTP_FROM || 'support@onnrides.com',
+          to,
+          subject,
+          html,
+        };
+
+        const info = await this.transporter.sendMail(mailOptions);
+        
+        // Update log with success
+        await this.updateEmailLog(logId, {
+          status: 'success',
+          message_id: info.messageId
+        });
+
+        logger.info('Email sent successfully', { 
+          to, 
+          subject, 
+          messageId: info.messageId,
+          bookingId 
+        });
+
+        return; // Success, exit the retry loop
+      } catch (error) {
+        retries--;
+        logger.error(`Failed to send email (${retries} retries left):`, {
+          error,
+          to,
+          subject,
+          bookingId
+        });
+
+        if (retries === 0) {
+          // Update log with final error
+          if (logId) {
+            await this.updateEmailLog(logId, {
+              status: 'failed',
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+          }
+          throw error;
+        }
+
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // If connection error, recreate transporter
+        if (error instanceof Error && 
+            (error.message.includes('connection') || error.message.includes('authentication'))) {
+          this.transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST,
+            port: parseInt(process.env.SMTP_PORT || '587'),
+            secure: process.env.SMTP_SECURE === 'true',
+            auth: {
+              user: process.env.SMTP_USER,
+              pass: process.env.SMTP_PASSWORD,
+            },
+          });
+        }
+      }
+    }
   }
-  return displayId;
-}
 
-// Send booking confirmation email
-export async function sendBookingConfirmationEmail(booking: any, userEmail: string) {
-  try {
-    const mailOptions = {
-      to: userEmail,
-      subject: `Booking Confirmation - ${booking.booking_id || booking.id}`,
-      booking_id: booking.id,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <h1 style="margin: 0; font-size: 24px;">ONNRIDES</h1>
-            <p style="margin: 5px 0; color: #666;">${userEmail}</p>
-          </div>
-          
-          <h1 style="color: #f26e24; text-align: center;">Booking Confirmation</h1>
-          
-          <p>Dear ${booking.user?.name || booking.userName || 'Customer'},</p>
-          <p>Your booking has been confirmed. Here are the details:</p>
-          
-          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p><strong>Booking ID:</strong> ${booking.booking_id || booking.id}</p>
-            <p><strong>Vehicle:</strong> ${booking.vehicle?.name}</p>
-            <p><strong>Pickup Location:</strong> ${booking.pickupLocation}</p>
-            <p><strong>Start Date:</strong> ${format(new Date(booking.startDate), 'dd MMM yyyy, hh:mm a', { timeZone: 'Asia/Kolkata' })}</p>
-            <p><strong>End Date:</strong> ${format(new Date(booking.endDate), 'dd MMM yyyy, hh:mm a', { timeZone: 'Asia/Kolkata' })}</p>
-            <p><strong>Total Amount:</strong> ₹${booking.totalPrice}</p>
-            <p><strong>Payment Status:</strong> ${formatPaymentStatus(booking.paymentStatus)}</p>
-            ${booking.payment_reference ? `<p><strong>Payment Reference:</strong> ${booking.payment_reference}</p>` : ''}
-            <p><strong>Document Status:</strong> Pending</p>
-          </div>
-          
-          <p>Thank you for choosing our service!</p>
-          <p>ONNRIDES Team</p>
-        </div>
-      `
-    };
-
-    return await sendEmailWithRetry(mailOptions);
-  } catch (error) {
-    logger.error('Failed to send booking confirmation email:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      bookingId: booking.id,
-      userEmail
-    });
-    throw error;
+  public async sendPaymentConfirmation(
+    to: string,
+    userName: string,
+    amount: string,
+    bookingId: string
+  ): Promise<void> {
+    const subject = 'Payment Confirmation - OnnRides';
+    const html = `
+      <h2>Payment Confirmation</h2>
+      <p>Hello ${userName},</p>
+      <p>Your payment of Rs. ${amount} for booking ID: ${bookingId} has been received.</p>
+      <p>Thank you for choosing OnnRides!</p>
+    `;
+    await this.sendEmail(to, subject, html, bookingId);
   }
-}
 
-// Send password reset email
-export async function sendPasswordResetEmail(email: string, token: string) {
-  try {
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`;
-    const emailContent = createPasswordResetEmail(resetUrl);
-    
-    const info = await sendEmailWithRetry({
-      to: email,
-      ...emailContent
-    });
-
-    await logEmailSent({
-      recipient: email,
-      subject: emailContent.subject,
-      status: 'success',
-      message_id: info.messageId
-    });
-
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    logger.error('Failed to send password reset email:', error);
-    
-    await logEmailSent({
-      recipient: email,
-      subject: 'Reset Your Password - ONNRIDES',
-      status: 'failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-
-    throw new Error('Failed to send password reset email');
-  }
-}
-
-// Send welcome email
-export async function sendWelcomeEmail(email: string, name: string) {
-  try {
-    const emailContent = createWelcomeEmail(name);
-    const info = await sendEmailWithRetry({
-      to: email,
-      ...emailContent
-    });
-
-    await logEmailSent({
-      recipient: email,
-      subject: emailContent.subject,
-      status: 'success',
-      message_id: info.messageId
-    });
-
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    logger.error('Failed to send welcome email:', error);
-    
-    await logEmailSent({
-      recipient: email,
-      subject: 'Welcome to ONNRIDES! 🎉',
-      status: 'failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-
-    throw new Error('Failed to send welcome email');
+  public async sendPaymentFailure(
+    to: string,
+    userName: string,
+    amount: string,
+    bookingId: string,
+    orderId: string
+  ): Promise<void> {
+    const subject = 'Payment Failed - OnnRides';
+    const html = `
+      <h2>Payment Failed</h2>
+      <p>Hello ${userName},</p>
+      <p>We noticed that your payment of Rs. ${amount} for booking ID: ${bookingId} was not successful.</p>
+      <p>Order ID: ${orderId}</p>
+      <p>Please try again or contact our support if you need assistance.</p>
+      <p>Support: support@onnrides.com</p>
+    `;
+    await this.sendEmail(to, subject, html, bookingId);
   }
 } 

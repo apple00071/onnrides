@@ -10,7 +10,7 @@ interface WhatsAppLog {
     recipient: string;
     message: string;
     booking_id?: string;
-    status: 'pending' | 'success' | 'error';
+    status: 'pending' | 'success' | 'failed';
     error?: string;
     message_type: string;
     chat_id?: string;
@@ -18,11 +18,10 @@ interface WhatsAppLog {
 
 export class WhatsAppService {
     private static instance: WhatsAppService;
+    private client: Client | null = null;
     private isInitialized: boolean = false;
-    private whatsappClient: Client | null = null;
     private initializationError: Error | null = null;
     private initializationPromise: Promise<void> | null = null;
-    private authTimeout: NodeJS.Timeout | null = null;
 
     private constructor() {}
 
@@ -33,102 +32,85 @@ export class WhatsAppService {
         return WhatsAppService.instance;
     }
 
-    public async initialize() {
-        // Check if we're in a browser environment
-        if (typeof process === 'undefined' || !process.versions || process.versions.node === undefined) {
-            logger.warn('WhatsApp service cannot be initialized in browser environment');
-            return;
-        }
-
-        // If already initializing, return the existing promise
+    public async initialize(): Promise<void> {
         if (this.initializationPromise) {
             return this.initializationPromise;
         }
 
-        this.initializationPromise = this._initialize();
-        return this.initializationPromise;
-    }
-
-    private async _initialize() {
-        try {
-            // Clear any existing timeout
-            if (this.authTimeout) {
-                clearTimeout(this.authTimeout);
-                this.authTimeout = null;
-            }
-
-            // Check if already initialized
-            if (this.isInitialized && this.whatsappClient) {
-                logger.info('WhatsApp service already initialized');
-                return;
-            }
-
-            logger.info('Initializing WhatsApp service...');
-            const { initializeWhatsAppClient } = await import('./config');
-            this.whatsappClient = await initializeWhatsAppClient();
-            
-            if (!this.whatsappClient) {
-                throw new Error('WhatsApp client initialization failed');
-            }
-
-            // Add event listeners for client state
-            this.whatsappClient.on('ready', () => {
-                logger.info('WhatsApp client is ready and authenticated');
-                this.isInitialized = true;
-                this.initializationError = null;
+        this.initializationPromise = new Promise<void>(async (resolve, reject) => {
+            try {
+                const { Client, LocalAuth } = await import('whatsapp-web.js');
                 
-                // Clear auth timeout if it exists
-                if (this.authTimeout) {
-                    clearTimeout(this.authTimeout);
-                }
-            });
+                // Create a new client with proper configuration
+                this.client = new Client({
+                    authStrategy: new LocalAuth({
+                        clientId: 'onnrides-whatsapp',
+                        dataPath: './whatsapp-sessions'
+                    }),
+                    puppeteer: {
+                        headless: true,
+                        args: [
+                            '--no-sandbox',
+                            '--disable-setuid-sandbox',
+                            '--disable-dev-shm-usage',
+                            '--disable-accelerated-2d-canvas',
+                            '--no-first-run',
+                            '--no-zygote',
+                            '--disable-gpu'
+                        ]
+                    },
+                    qrMaxRetries: 3,
+                    authTimeoutMs: 60000,
+                    restartOnAuthFail: true
+                });
 
-            this.whatsappClient.on('auth_failure', (error: any) => {
-                logger.error('WhatsApp authentication failed:', error);
-                this.isInitialized = false;
-                this.initializationError = new Error('Authentication failed');
-            });
-
-            this.whatsappClient.on('disconnected', (reason: string) => {
-                logger.warn('WhatsApp client disconnected:', reason);
-                this.isInitialized = false;
-            });
-
-            // Generate QR code for authentication
-            this.whatsappClient.on('qr', (qr: string) => {
-                logger.info('WhatsApp QR Code generated. Please scan with your WhatsApp app.');
-                try {
+                // Set up event handlers
+                this.client.on('qr', (qr) => {
                     qrcodeTerminal.generate(qr, { small: true });
-                    
-                    // Set a timeout for QR code scanning
-                    if (this.authTimeout) {
-                        clearTimeout(this.authTimeout);
-                    }
-                    this.authTimeout = setTimeout(() => {
-                        if (!this.isInitialized) {
-                            logger.error('QR code scanning timeout - please try again');
-                            this.initializationError = new Error('QR code scanning timeout');
-                        }
-                    }, 60000); // 60 seconds timeout
-                } catch (error) {
-                    logger.error('Error generating QR code:', error);
-                }
-            });
+                    logger.info('WhatsApp QR code generated. Please scan with your WhatsApp app.');
+                });
 
-            await this.whatsappClient.initialize();
-            logger.info('WhatsApp client initialization completed');
-            
-        } catch (error) {
-            this.isInitialized = false;
-            this.initializationError = error instanceof Error ? error : new Error('Unknown error');
-            logger.error('Error initializing WhatsApp service:', {
-                error: this.initializationError,
-                stack: this.initializationError.stack
-            });
-            throw this.initializationError;
-        } finally {
-            this.initializationPromise = null;
-        }
+                this.client.on('ready', () => {
+                    this.isInitialized = true;
+                    this.initializationError = null;
+                    logger.info('WhatsApp client is ready and authenticated');
+                    resolve();
+                });
+
+                this.client.on('authenticated', () => {
+                    logger.info('WhatsApp client authenticated successfully');
+                });
+
+                this.client.on('auth_failure', (error) => {
+                    this.isInitialized = false;
+                    this.initializationError = new Error(String(error));
+                    logger.error('WhatsApp authentication failed:', error);
+                    reject(error);
+                });
+
+                this.client.on('disconnected', (reason) => {
+                    this.isInitialized = false;
+                    this.initializationError = new Error(reason);
+                    logger.error('WhatsApp client disconnected:', reason);
+                    // Try to reinitialize after disconnection
+                    setTimeout(() => {
+                        this.initializationPromise = null;
+                        this.initialize().catch(logger.error);
+                    }, 5000);
+                });
+
+                logger.info('Initializing WhatsApp client...');
+                await this.client.initialize();
+                logger.info('WhatsApp client initialization completed');
+            } catch (error) {
+                this.isInitialized = false;
+                this.initializationError = error instanceof Error ? error : new Error('Unknown error');
+                logger.error('Failed to initialize WhatsApp client:', error);
+                reject(error);
+            }
+        });
+
+        return this.initializationPromise;
     }
 
     public getInitializationStatus(): { 
@@ -153,7 +135,7 @@ export class WhatsAppService {
         return cleanNumber;
     }
 
-    private async logMessage(log: WhatsAppLog) {
+    private async logMessage(log: WhatsAppLog): Promise<string> {
         try {
             const result = await query(
                 `INSERT INTO whatsapp_logs (recipient, message, booking_id, status, error, message_type, chat_id)
@@ -176,46 +158,109 @@ export class WhatsAppService {
         }
     }
 
-    public async sendMessage(to: string, message: string, bookingId?: string) {
+    private async updateMessageLog(id: string, updates: Partial<WhatsAppLog>): Promise<void> {
         try {
-            if (!this.whatsappClient) {
-                throw new Error('WhatsApp client not initialized');
-            }
+            const setClauses = Object.entries(updates)
+                .map(([key, _], index) => `${key} = $${index + 2}`)
+                .join(', ');
 
-            // Log the message as pending
-            const logId = await this.logMessage({
-                recipient: to,
-                message,
-                booking_id: bookingId,
-                status: 'pending',
-                message_type: 'text'
-            });
-
-            // Send the message
-            const formattedNumber = this.validatePhoneNumber(to);
-            const chatId = `${formattedNumber}@c.us`;
-            const result = await this.whatsappClient.sendMessage(chatId, message);
-
-            // Update the log with success status and chat ID
             await query(
                 `UPDATE whatsapp_logs 
-                 SET status = $1, chat_id = $2 
-                 WHERE id = $3`,
-                ['success', result.id.id, logId]
+                 SET ${setClauses}, updated_at = NOW()
+                 WHERE id = $1`,
+                [id, ...Object.values(updates)]
             );
-
-            return result;
         } catch (error) {
-            // Log the error
-            if (error instanceof Error) {
-                await query(
-                    `UPDATE whatsapp_logs 
-                     SET status = $1, error = $2 
-                     WHERE recipient = $3 AND message = $4 AND status = 'pending'`,
-                    ['error', error.message, to, message]
-                );
+            logger.error('Failed to update WhatsApp message log:', error);
+        }
+    }
+
+    public async sendMessage(to: string, message: string, bookingId?: string): Promise<void> {
+        let logId: string | undefined;
+        let retries = 3;
+
+        while (retries > 0) {
+            try {
+                // Log the pending message if first attempt
+                if (!logId) {
+                    logId = await this.logMessage({
+                        recipient: to,
+                        message,
+                        booking_id: bookingId,
+                        status: 'pending',
+                        message_type: 'text'
+                    });
+                }
+
+                // Check if client needs initialization
+                if (!this.client || !this.isInitialized) {
+                    logger.info('WhatsApp client not initialized, attempting to initialize...');
+                    await this.initialize();
+                    
+                    if (!this.client || !this.isInitialized) {
+                        throw new Error('WhatsApp client initialization failed');
+                    }
+                }
+
+                // Format the phone number
+                const formattedNumber = this.validatePhoneNumber(to);
+                
+                // Check if the number exists on WhatsApp
+                const numberExists = await this.client.isRegisteredUser(`${formattedNumber}@c.us`);
+                if (!numberExists) {
+                    const error = new Error(`Phone number ${to} is not registered on WhatsApp`);
+                    await this.updateMessageLog(logId, {
+                        status: 'failed',
+                        error: error.message
+                    });
+                    throw error;
+                }
+
+                // Send the message
+                const result = await this.client.sendMessage(`${formattedNumber}@c.us`, message);
+                
+                // Update log with success
+                await this.updateMessageLog(logId, {
+                    status: 'success',
+                    chat_id: result.id.id
+                });
+
+                logger.info('WhatsApp message sent successfully', {
+                    to: formattedNumber,
+                    messageId: result.id.id,
+                    bookingId
+                });
+
+                return; // Success, exit the retry loop
+            } catch (error) {
+                retries--;
+                logger.error(`Failed to send WhatsApp message (${retries} retries left):`, {
+                    error,
+                    to,
+                    bookingId
+                });
+
+                if (retries === 0) {
+                    // Update log with final error
+                    if (logId) {
+                        await this.updateMessageLog(logId, {
+                            status: 'failed',
+                            error: error instanceof Error ? error.message : 'Unknown error'
+                        });
+                    }
+                    throw error;
+                }
+
+                // Wait before retrying
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // If client error, reset client for next retry
+                if (error instanceof Error && error.message.includes('client')) {
+                    this.client = null;
+                    this.isInitialized = false;
+                    this.initializationPromise = null;
+                }
             }
-            throw error;
         }
     }
 

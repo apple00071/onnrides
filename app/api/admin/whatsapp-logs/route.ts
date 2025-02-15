@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { query } from '@/lib/db';
+import { db } from '@/lib/db';
 import logger from '@/lib/logger';
+import { sql } from 'kysely';
+import type { WhatsAppLog } from '@/lib/schema';
 
 const ITEMS_PER_PAGE = 20;
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
 
 export async function GET(request: NextRequest) {
     try {
@@ -22,38 +28,35 @@ export async function GET(request: NextRequest) {
         const offset = (page - 1) * ITEMS_PER_PAGE;
 
         // Get total count
-        const countResult = await query('SELECT COUNT(*) FROM whatsapp_logs');
-        const totalItems = parseInt(countResult.rows[0].count);
+        const totalCount = await db
+            .selectFrom('whatsapp_logs')
+            .select(sql<number>`count(*)`.as('count'))
+            .executeTakeFirst();
+
+        const totalItems = Number(totalCount?.count || 0);
         const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
         // Get logs with pagination
-        const result = await query(
-            `SELECT wl.*, b.vehicle_id 
-             FROM whatsapp_logs wl 
-             LEFT JOIN bookings b ON wl.booking_id = b.id 
-             ORDER BY wl.created_at DESC 
-             LIMIT $1 OFFSET $2`,
-            [ITEMS_PER_PAGE, offset]
-        );
-
-        // Get vehicle details for the logs
-        const logs = await Promise.all(result.rows.map(async (log) => {
-            let vehicleName = null;
-            if (log.vehicle_id) {
-                const vehicleResult = await query(
-                    'SELECT name FROM vehicles WHERE id = $1',
-                    [log.vehicle_id]
-                );
-                if (vehicleResult.rows[0]) {
-                    vehicleName = vehicleResult.rows[0].name;
-                }
-            }
-
-            return {
-                ...log,
-                vehicle_name: vehicleName
-            };
-        }));
+        const logs = await db
+            .selectFrom('whatsapp_logs as wl')
+            .leftJoin('bookings as b', 'wl.booking_id', 'b.id')
+            .leftJoin('vehicles as v', 'b.vehicle_id', 'v.id')
+            .select([
+                'wl.id',
+                'wl.recipient',
+                'wl.message',
+                'wl.booking_id',
+                'wl.status',
+                'wl.error',
+                'wl.message_type',
+                'wl.chat_id',
+                'wl.created_at',
+                'v.name as vehicle_name'
+            ])
+            .orderBy('wl.created_at', 'desc')
+            .limit(ITEMS_PER_PAGE)
+            .offset(offset)
+            .execute();
 
         return NextResponse.json({
             success: true,

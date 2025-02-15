@@ -24,12 +24,27 @@ export const roleEnum = {
   enumValues: ['user', 'admin'] as const,
 } as const;
 
+// WhatsApp logs table interface
+interface WhatsAppLogsTable {
+  id: string;
+  recipient: string;
+  message: string;
+  booking_id: string | null;
+  status: string;
+  error: string | null;
+  message_type: string;
+  chat_id: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 // Database interface
 interface Database {
   users: UsersTable;
   vehicles: VehiclesTable;
   bookings: BookingsTable;
   documents: DocumentsTable;
+  whatsapp_logs: WhatsAppLogsTable;
 }
 
 // Users table interface
@@ -107,6 +122,9 @@ export type NewBooking = Insertable<BookingsTable>;
 
 export type Document = Selectable<DocumentsTable>;
 export type NewDocument = Insertable<DocumentsTable>;
+
+export type WhatsAppLog = Selectable<WhatsAppLogsTable>;
+export type NewWhatsAppLog = Insertable<WhatsAppLogsTable>;
 
 // Export the Database interface
 export type { Database }; 

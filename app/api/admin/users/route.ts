@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getDb } from '@/lib/db';
+import { db } from '@/lib/db';
 import logger from '@/lib/logger';
 import { sql } from 'kysely';
 
@@ -14,8 +14,6 @@ export async function GET(_request: NextRequest) {
         error: 'Not authenticated'
       }, { status: 401 });
     }
-
-    const db = getDb();
 
     // Get all non-admin users
     const users = await db
@@ -109,8 +107,6 @@ export async function DELETE(_request: NextRequest) {
         error: 'User ID is required'
       }, { status: 400 });
     }
-
-    const db = getDb();
 
     // Check if user exists and is not an admin
     const userCheck = await db

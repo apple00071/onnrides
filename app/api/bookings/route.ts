@@ -394,7 +394,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         WHERE b.vehicle_id = $1 
           AND b.pickup_location = $2
           AND b.status NOT IN ('cancelled', 'failed')
-          AND b.payment_status != 'failed'
+          AND b.payment_status NOT IN ('failed', 'pending')
           AND (
             ($3::timestamp BETWEEN b.start_date AND b.end_date)
             OR ($4::timestamp BETWEEN b.start_date AND b.end_date)
