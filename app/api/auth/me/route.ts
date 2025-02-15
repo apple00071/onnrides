@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import logger from '@/lib/logger';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,7 +36,10 @@ export async function GET(request: NextRequest) {
         id: session.user.id,
         email: session.user.email,
         name: session.user.name,
-        role: session.user.role
+        role: session.user.role,
+        phone: session.user.phone,
+        created_at: session.user.created_at,
+        is_blocked: session.user.is_blocked
       }
     });
   } catch (error) {
