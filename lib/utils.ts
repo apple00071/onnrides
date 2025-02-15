@@ -180,4 +180,19 @@ export function formatDuration(hours: number): string {
     return `${days} ${days === 1 ? 'Day' : 'Days'}${remainingHours > 0 ? `, ${remainingHours} ${remainingHours === 1 ? 'Hour' : 'Hours'}` : ''}`;
   }
   return `${hours} ${hours === 1 ? 'Hour' : 'Hours'}`;
+}
+
+/**
+ * Check if the current environment is serverless
+ * This checks for common serverless environment indicators
+ */
+export function isServerless(): boolean {
+  return (
+    process.env.VERCEL === '1' ||  // Vercel
+    process.env.AWS_LAMBDA_FUNCTION_NAME !== undefined ||  // AWS Lambda
+    process.env.FUNCTIONS_WORKER_RUNTIME !== undefined ||  // Azure Functions
+    process.env.K_SERVICE !== undefined ||  // Google Cloud Functions
+    process.env.NETLIFY === 'true' ||  // Netlify
+    process.env.CLOUD_FUNCTION_NAME !== undefined  // Other cloud functions
+  );
 } 

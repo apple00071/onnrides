@@ -65,3 +65,4 @@ build/
 .wwebjs_auth/
 .wwebjs_cache/
 whatsapp-auth/
+whatsapp-sessions/

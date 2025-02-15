@@ -9,6 +9,7 @@ import { Booking, ApiResponse } from '@/lib/types';
 import { randomUUID } from 'crypto';
 import Razorpay from 'razorpay';
 import { createOrder } from '@/lib/razorpay';
+import { generateBookingId } from '@/lib/bookingIdGenerator';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
@@ -186,16 +187,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Helper function to generate unique booking ID
-function generateBookingId(): string {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = 'OR';
-  for (let i = 0; i < 3; i++) {
-    result += characters.charAt(Math.floor(Math.random() * characters.length));
-  }
-  return result;
-}
-
 // POST /api/bookings - Create booking
 export async function POST(request: NextRequest): Promise<Response> {
   try {
@@ -221,6 +212,23 @@ export async function POST(request: NextRequest): Promise<Response> {
     } catch (alterError) {
       logger.error('Error ensuring payment_intent_id column exists:', alterError);
       // Continue anyway, as the column might already exist
+    }
+
+    // First, ensure the booking_id column exists
+    try {
+      await query(`
+        DO $$ 
+        BEGIN
+          BEGIN
+            ALTER TABLE bookings ADD COLUMN booking_id TEXT;
+          EXCEPTION
+            WHEN duplicate_column THEN 
+              -- Column already exists, do nothing
+          END;
+        END $$;
+      `);
+    } catch (alterError) {
+      logger.error('Error ensuring booking_id column exists:', alterError);
     }
 
     // Log request method and URL
@@ -407,7 +415,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       WHERE concurrent_bookings >= quantity
     `, [data.vehicleId, data.location, pickupDate.toISOString(), dropoffDate.toISOString()]);
 
-    if (overlapCheckResult.rowCount > 0) {
+    if (overlapCheckResult && overlapCheckResult.rowCount !== null && overlapCheckResult.rowCount > 0) {
       logger.error('Overlapping booking found:', {
         vehicleId: data.vehicleId,
         location: data.location,
@@ -424,189 +432,190 @@ export async function POST(request: NextRequest): Promise<Response> {
         },
         { status: 409 }
       );
-    }
+    } else {
+      // Generate UUID for booking
+      const bookingId = await generateBookingId();
+      logger.info('Generated booking ID:', { bookingId });
 
-    // Generate UUID for booking
-    const bookingId = randomUUID();
-    logger.info('Generated booking ID:', { bookingId });
+      // Calculate duration in hours
+      const durationInHours = Math.ceil((dropoffDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60));
+      logger.info('Calculated duration:', { durationInHours });
 
-    // Calculate duration in hours
-    const durationInHours = Math.ceil((dropoffDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60));
-    logger.info('Calculated duration:', { durationInHours });
-
-    // Create Razorpay order
-    try {
-      // Ensure amount is a valid number and at least 1 rupee (100 paise)
-      const amountInRupees = parseFloat(data.totalPrice.toFixed(2));
-      const amountInPaise = Math.max(Math.round(amountInRupees * 100), 100);
-      
-      if (isNaN(amountInPaise) || amountInPaise <= 0) {
-        throw new Error(`Invalid amount: ${amountInRupees} rupees (${amountInPaise} paise)`);
-      }
-
-      logger.info('Processing payment amount:', {
-        originalAmount: data.totalPrice,
-        amountInRupees,
-        amountInPaise,
-        formattedAmount: new Intl.NumberFormat('en-IN', {
-          style: 'currency',
-          currency: 'INR'
-        }).format(amountInRupees)
-      });
-
-      const orderOptions = {
-        amount: amountInPaise,
-        currency: "INR",
-        receipt: `OR${bookingId.substring(0, 8)}`,
-        notes: {
-          booking_id: bookingId,
-          user_id: session.user.id,
-          vehicle_id: data.vehicleId,
-          pickup_date: data.pickupDate,
-          dropoff_date: data.dropoffDate,
-          amount_in_rupees: amountInRupees
-        },
-        payment_capture: 1 // Auto capture payment when successful
-      };
-
-      logger.info('Creating Razorpay order with options:', {
-        ...orderOptions,
-        key_id: RAZORPAY_KEY_ID?.substring(0, 6) + '...',
-        key_secret_exists: !!RAZORPAY_KEY_SECRET,
-        razorpay_initialized: !!razorpay,
-        orders_api_exists: !!razorpay?.orders
-      });
-
-      // Create the order using direct API call instead of SDK
-      let order;
+      // Create Razorpay order
       try {
-        const response = await fetch('https://api.razorpay.com/v1/orders', {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Basic ' + Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64'),
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(orderOptions)
-        });
-
-        const responseText = await response.text();
-        logger.info('Razorpay API response:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          body: responseText
-        });
-
-        if (!response.ok) {
-          throw new Error(`Razorpay API error: ${response.status} ${response.statusText} - ${responseText}`);
-        }
-
-        try {
-          order = JSON.parse(responseText);
-        } catch (parseError) {
-          logger.error('Failed to parse Razorpay response:', {
-            error: parseError,
-            responseText
-          });
-          throw new Error('Invalid JSON response from Razorpay');
-        }
-
-        if (!order || !order.id) {
-          logger.error('Invalid order response:', { order });
-          throw new Error('Invalid order response from Razorpay');
-        }
-
-        logger.info('Razorpay order created successfully:', {
-          orderId: order.id,
-          amount: order.amount,
-          currency: order.currency,
-          receipt: order.receipt,
-          status: order.status
-        });
-      } catch (orderError: any) {
-        logger.error('Failed to create Razorpay order:', {
-          error: orderError,
-          message: orderError.message,
-          stack: orderError.stack,
-          orderOptions: {
-            ...orderOptions,
-            key_id: RAZORPAY_KEY_ID?.substring(0, 6) + '...'
-          }
-        });
-        throw new Error(`Failed to create Razorpay order: ${orderError.message}`);
-      }
-      
-      // Create the booking in database
-      let bookingResult;
-      try {
-        // First, let's check the actual table structure
-        const tableInfo = await query(`
-          SELECT column_name, data_type 
-          FROM information_schema.columns 
-          WHERE table_name = 'bookings' 
-          ORDER BY ordinal_position;
-        `);
+        // Ensure amount is a valid number and at least 1 rupee (100 paise)
+        const amountInRupees = parseFloat(data.totalPrice.toFixed(2));
+        const amountInPaise = Math.max(Math.round(amountInRupees * 100), 100);
         
-        logger.info('Bookings table structure:', {
-          columns: tableInfo.rows
-        });
+        if (isNaN(amountInPaise) || amountInPaise <= 0) {
+          throw new Error(`Invalid amount: ${amountInRupees} rupees (${amountInPaise} paise)`);
+        }
 
-        bookingResult = await query(`
-      INSERT INTO bookings (
-            id,
-        user_id,
-        vehicle_id,
-            start_date,
-            end_date,
-        total_hours,
-        total_price,
-        status,
-        payment_status,
-            payment_intent_id,
-        pickup_location,
-        created_at,
-        updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
-      RETURNING *
-    `, [
-      bookingId,
-      session.user.id,
-          data.vehicleId,
-          pickupDate.toISOString(),
-          dropoffDate.toISOString(),
-          durationInHours,
+        logger.info('Processing payment amount:', {
+          originalAmount: data.totalPrice,
           amountInRupees,
-          'pending',
-          'pending',
-          order.id,  // Store the Razorpay order ID
-          data.location, // Add pickup location
-        ]);
-      } catch (dbError) {
-        logger.error('Database error creating booking:', {
-          error: dbError,
-          message: dbError instanceof Error ? dbError.message : 'Unknown database error',
-          query: {
-            bookingId,
-            userId: session.user.id,
-            vehicleId: data.vehicleId,
-            startTime: pickupDate.toISOString(),
-            endTime: dropoffDate.toISOString(),
-            totalHours: durationInHours,
-            totalAmount: amountInRupees,
-            orderId: order.id
-          }
+          amountInPaise,
+          formattedAmount: new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR'
+          }).format(amountInRupees)
         });
-        throw new Error(`Database error: ${dbError instanceof Error ? dbError.message : 'Failed to create booking record'}`);
-      }
 
-      const booking = bookingResult.rows[0];
-      logger.info('Successfully created booking:', booking);
+        const orderOptions = {
+          amount: amountInPaise,
+          currency: "INR",
+          receipt: `OR${bookingId.substring(0, 8)}`,
+          notes: {
+            booking_id: bookingId,
+            user_id: session.user.id,
+            vehicle_id: data.vehicleId,
+            pickup_date: data.pickupDate,
+            dropoff_date: data.dropoffDate,
+            amount_in_rupees: amountInRupees
+          },
+          payment_capture: 1 // Auto capture payment when successful
+        };
 
-    return NextResponse.json({
-      success: true,
-        bookingId: booking.id,
+        logger.info('Creating Razorpay order with options:', {
+          ...orderOptions,
+          key_id: RAZORPAY_KEY_ID?.substring(0, 6) + '...',
+          key_secret_exists: !!RAZORPAY_KEY_SECRET,
+          razorpay_initialized: !!razorpay,
+          orders_api_exists: !!razorpay?.orders
+        });
+
+        // Create the order using direct API call instead of SDK
+        let order;
+        try {
+          const response = await fetch('https://api.razorpay.com/v1/orders', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Basic ' + Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64'),
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(orderOptions)
+          });
+
+          const responseText = await response.text();
+          logger.info('Razorpay API response:', {
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries()),
+            body: responseText
+          });
+
+          if (!response.ok) {
+            throw new Error(`Razorpay API error: ${response.status} ${response.statusText} - ${responseText}`);
+          }
+
+          try {
+            order = JSON.parse(responseText);
+          } catch (parseError) {
+            logger.error('Failed to parse Razorpay response:', {
+              error: parseError,
+              responseText
+            });
+            throw new Error('Invalid JSON response from Razorpay');
+          }
+
+          if (!order || !order.id) {
+            logger.error('Invalid order response:', { order });
+            throw new Error('Invalid order response from Razorpay');
+          }
+
+          logger.info('Razorpay order created successfully:', {
+            orderId: order.id,
+            amount: order.amount,
+            currency: order.currency,
+            receipt: order.receipt,
+            status: order.status
+          });
+        } catch (orderError: any) {
+          logger.error('Failed to create Razorpay order:', {
+            error: orderError,
+            message: orderError.message,
+            stack: orderError.stack,
+            orderOptions: {
+              ...orderOptions,
+              key_id: RAZORPAY_KEY_ID?.substring(0, 6) + '...'
+            }
+          });
+          throw new Error(`Failed to create Razorpay order: ${orderError.message}`);
+        }
+        
+        // Create the booking in database
+        let bookingResult;
+        try {
+          // First, let's check the actual table structure
+          const tableInfo = await query(`
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'bookings' 
+            ORDER BY ordinal_position;
+          `);
+          
+          logger.info('Bookings table structure:', {
+            columns: tableInfo.rows
+          });
+
+          bookingResult = await query(`
+            INSERT INTO bookings (
+              id,
+              booking_id,
+              user_id,
+              vehicle_id,
+              start_date,
+              end_date,
+              total_hours,
+              total_price,
+              status,
+              payment_status,
+              payment_intent_id,
+              pickup_location,
+              created_at,
+              updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+            RETURNING *
+          `, [
+            randomUUID(), // Use UUID for primary key
+            bookingId, // Use our custom format for display
+            session.user.id,
+            data.vehicleId,
+            pickupDate.toISOString(),
+            dropoffDate.toISOString(),
+            durationInHours,
+            amountInRupees,
+            'pending',
+            'pending',
+            order.id,
+            data.location,
+          ]);
+        } catch (dbError) {
+          logger.error('Database error creating booking:', {
+            error: dbError,
+            message: dbError instanceof Error ? dbError.message : 'Unknown database error',
+            query: {
+              bookingId,
+              userId: session.user.id,
+              vehicleId: data.vehicleId,
+              startTime: pickupDate.toISOString(),
+              endTime: dropoffDate.toISOString(),
+              totalHours: durationInHours,
+              totalAmount: amountInRupees,
+              orderId: order.id
+            }
+          });
+          throw new Error(`Database error: ${dbError instanceof Error ? dbError.message : 'Failed to create booking record'}`);
+        }
+
+        const booking = bookingResult.rows[0];
+        logger.info('Successfully created booking:', booking);
+
+      return NextResponse.json({
+        success: true,
+        bookingId: booking.booking_id,
         data: {
-        ...booking,
+          ...booking,
           totalPrice: booking.total_price,
           totalHours: booking.total_hours,
           pickupDate: booking.start_date,
@@ -616,27 +625,28 @@ export async function POST(request: NextRequest): Promise<Response> {
           paymentIntentId: booking.payment_intent_id,
           amount: order.amount,
           currency: order.currency,
-          bookingId: booking.id
+          bookingId: booking.booking_id
         }
       });
-    } catch (error) {
-      logger.error('Error in booking creation:', {
-        error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        name: error instanceof Error ? error.name : undefined
-      });
+      } catch (error) {
+        logger.error('Error in booking creation:', {
+          error,
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          name: error instanceof Error ? error.name : undefined
+        });
 
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to create booking',
-          details: error instanceof Error ? error.message : 'Unknown error occurred',
-          errorType: error instanceof Error ? error.name : 'Unknown',
-          timestamp: new Date().toISOString()
-        },
-        { status: 500 }
-      );
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Failed to create booking',
+            details: error instanceof Error ? error.message : 'Unknown error occurred',
+            errorType: error instanceof Error ? error.name : 'Unknown',
+            timestamp: new Date().toISOString()
+          },
+          { status: 500 }
+        );
+      }
     }
   } catch (error) {
     logger.error('Error creating booking:', {

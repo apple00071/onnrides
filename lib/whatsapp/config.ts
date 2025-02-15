@@ -1,27 +1,61 @@
 import logger from '../logger';
 import type { Client } from 'whatsapp-web.js';
+import { isServerless } from '@/lib/utils';
+import { join } from 'path';
+import fs from 'fs';
 
-const qrcodeTerminal = require('qrcode-terminal');
+// Ensure sessions directory exists with absolute path
+const SESSION_DIR = join(process.cwd(), 'whatsapp-sessions');
+if (!fs.existsSync(SESSION_DIR)) {
+  fs.mkdirSync(SESSION_DIR, { recursive: true });
+}
+
 let whatsappClient: Client | null = null;
+let isInitializing = false;
 
-// Initialize WhatsApp client with local authentication
+// Initialize WhatsApp client with appropriate authentication
 export async function initializeWhatsAppClient(): Promise<Client | null> {
-  if (typeof process === 'undefined' || !process.versions || process.versions.node === undefined) {
+  if (typeof window !== 'undefined') {
     logger.warn('WhatsApp client cannot be initialized in browser environment');
     return null;
   }
 
+  // If client exists and is ready, return it
+  if (whatsappClient?.info) {
+    logger.info('Using existing WhatsApp client');
+    return whatsappClient;
+  }
+
+  // If already initializing, wait for it
+  if (isInitializing) {
+    logger.info('WhatsApp client initialization already in progress');
+    return null;
+  }
+
+  isInitializing = true;
+
   try {
     const { Client, LocalAuth } = await import('whatsapp-web.js');
     
-    // Generate a unique session ID based on timestamp
-    const sessionId = `onnrides-whatsapp-${Date.now()}`;
+    // Use a consistent session ID
+    const sessionId = 'onnrides-whatsapp-session';
+    const sessionPath = isServerless() ? '/tmp/whatsapp-sessions' : SESSION_DIR;
+
+    logger.info('Initializing WhatsApp client with session path:', sessionPath);
+
+    // Create session directory if it doesn't exist
+    if (!fs.existsSync(sessionPath)) {
+      fs.mkdirSync(sessionPath, { recursive: true });
+    }
+
+    // Use different auth strategy based on environment
+    const authStrategy = new LocalAuth({
+      clientId: sessionId,
+      dataPath: sessionPath
+    });
     
     whatsappClient = new Client({
-      authStrategy: new LocalAuth({
-        clientId: sessionId,
-        dataPath: './whatsapp-sessions'
-      }),
+      authStrategy,
       puppeteer: {
         headless: true,
         args: [
@@ -32,24 +66,88 @@ export async function initializeWhatsAppClient(): Promise<Client | null> {
           '--no-first-run',
           '--no-zygote',
           '--disable-gpu',
+          '--single-process',
           '--disable-software-rasterizer',
-          '--disable-extensions'
-        ]
+          '--disable-extensions',
+          '--disable-web-security',
+          '--disable-features=IsolateOrigins,site-per-process'
+        ],
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+        timeout: 120000,
+        defaultViewport: null
       },
       qrMaxRetries: 3,
-      authTimeoutMs: 60000,
-      restartOnAuthFail: true
+      restartOnAuthFail: true,
+      takeoverOnConflict: true,
+      takeoverTimeoutMs: 10000
     });
 
-    // Add error event handler
-    whatsappClient.on('disconnected', (reason) => {
+    // Handle disconnection
+    whatsappClient.on('disconnected', async (reason) => {
       logger.warn('WhatsApp client disconnected:', reason);
+      
+      // Clear the session if authentication is lost or navigation error occurs
+      if (reason === 'UNPAIRED' || reason === 'CONFLICT' || reason.includes('CONFLICT') || reason.includes('NAVIGATION')) {
+        try {
+          const sessionFiles = fs.readdirSync(sessionPath);
+          for (const file of sessionFiles) {
+            const filePath = join(sessionPath, file);
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+          }
+          logger.info('Cleared WhatsApp session files');
+          whatsappClient = null;
+          isInitializing = false;
+        } catch (error) {
+          logger.error('Error clearing session files:', error);
+        }
+      }
+    });
+
+    // Handle authentication state
+    whatsappClient.on('authenticated', async () => {
+      logger.info('WhatsApp client authenticated');
+      isInitializing = false;
+      
+      // Clear localStorage to prevent stale data
+      try {
+        if (whatsappClient?.pupPage) {
+          await whatsappClient.pupPage.evaluate(() => {
+            localStorage.clear();
+            return true;
+          });
+        }
+      } catch (error) {
+        logger.warn('Failed to clear localStorage:', error);
+      }
+    });
+
+    whatsappClient.on('auth_failure', async () => {
+      logger.error('WhatsApp authentication failed');
+      isInitializing = false;
+      
+      // Clear session on auth failure
+      try {
+        const sessionFiles = fs.readdirSync(sessionPath);
+        for (const file of sessionFiles) {
+          const filePath = join(sessionPath, file);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        }
+        logger.info('Cleared WhatsApp session files after auth failure');
+      } catch (error) {
+        logger.error('Error clearing session files:', error);
+      }
+      
       whatsappClient = null;
     });
 
     return whatsappClient;
   } catch (error) {
     logger.error('Error importing WhatsApp dependencies:', error);
+    isInitializing = false;
     return null;
   }
 }
@@ -67,10 +165,11 @@ export const initializeWhatsApp = async () => {
       throw new Error('Failed to initialize WhatsApp client');
     }
 
-    // Generate QR Code for authentication
+    // Generate QR Code for authentication if needed
     client.on('qr', async (qr: string) => {
       logger.info('WhatsApp QR Code generated. Please scan with your WhatsApp app.');
       try {
+        const qrcodeTerminal = require('qrcode-terminal');
         qrcodeTerminal.generate(qr, { small: true });
       } catch (error) {
         logger.error('Error generating QR code:', error);
@@ -79,13 +178,7 @@ export const initializeWhatsApp = async () => {
 
     // Handle successful authentication
     client.on('ready', () => {
-      logger.info('WhatsApp client is ready!');
-    });
-
-    // Handle authentication failures
-    client.on('auth_failure', (error: Error) => {
-      logger.error('WhatsApp authentication failed:', error);
-      whatsappClient = null;
+      logger.info('WhatsApp client is ready and authenticated!');
     });
 
     // Initialize the client

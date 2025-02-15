@@ -6,10 +6,30 @@ interface EmailLog {
   recipient: string;
   subject: string;
   message_content: string;
-  booking_id?: string;
+  booking_id?: string | null;
   status: 'pending' | 'success' | 'failed';
   error?: string;
   message_id?: string;
+}
+
+interface BookingConfirmationData {
+  userName: string;
+  vehicleName: string;
+  bookingId: string;
+  startDate: string;
+  endDate: string;
+  amount: string;
+  paymentId: string;
+}
+
+interface PaymentFailureData {
+  userName: string;
+  bookingId: string;
+  amount: string;
+  orderId: string;
+  paymentId: string;
+  supportEmail: string;
+  supportPhone: string;
 }
 
 export class EmailService {
@@ -52,7 +72,7 @@ export class EmailService {
 
       const result = await query(
         `INSERT INTO email_logs (recipient, subject, message_content, booking_id, status, error, message_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         VALUES ($1, $2, $3, $4::uuid, $5, $6, $7)
          RETURNING id`,
         [
           log.recipient,
@@ -176,38 +196,63 @@ export class EmailService {
     }
   }
 
-  public async sendPaymentConfirmation(
+  public async sendBookingConfirmation(
     to: string,
-    userName: string,
-    amount: string,
-    bookingId: string
+    data: BookingConfirmationData
   ): Promise<void> {
-    const subject = 'Payment Confirmation - OnnRides';
+    const subject = 'Booking Confirmation - OnnRides';
     const html = `
-      <h2>Payment Confirmation</h2>
-      <p>Hello ${userName},</p>
-      <p>Your payment of Rs. ${amount} for booking ID: ${bookingId} has been received.</p>
-      <p>Thank you for choosing OnnRides!</p>
+      <h2>Booking Confirmation</h2>
+      <p>Hello ${data.userName},</p>
+      <p>Your booking has been confirmed!</p>
+      
+      <h3>Booking Details:</h3>
+      <ul>
+        <li>Booking ID: ${data.bookingId}</li>
+        <li>Vehicle: ${data.vehicleName}</li>
+        <li>Start Date: ${data.startDate}</li>
+        <li>End Date: ${data.endDate}</li>
+        <li>Amount Paid: ${data.amount}</li>
+        <li>Payment ID: ${data.paymentId}</li>
+      </ul>
+
+      <p>Thank you for choosing OnnRides! We hope you enjoy your ride.</p>
+      
+      <p>If you have any questions, please contact our support team:</p>
+      <ul>
+        <li>Email: support@onnrides.com</li>
+        <li>Phone: +91 8247494622</li>
+      </ul>
     `;
-    await this.sendEmail(to, subject, html, bookingId);
+    await this.sendEmail(to, subject, html, data.bookingId);
   }
 
   public async sendPaymentFailure(
     to: string,
-    userName: string,
-    amount: string,
-    bookingId: string,
-    orderId: string
+    data: PaymentFailureData
   ): Promise<void> {
     const subject = 'Payment Failed - OnnRides';
     const html = `
       <h2>Payment Failed</h2>
-      <p>Hello ${userName},</p>
-      <p>We noticed that your payment of Rs. ${amount} for booking ID: ${bookingId} was not successful.</p>
-      <p>Order ID: ${orderId}</p>
-      <p>Please try again or contact our support if you need assistance.</p>
-      <p>Support: support@onnrides.com</p>
+      <p>Hello ${data.userName},</p>
+      <p>We noticed that your payment of ${data.amount} for booking ID: ${data.bookingId} was not successful.</p>
+      
+      <h3>Payment Details:</h3>
+      <ul>
+        <li>Order ID: ${data.orderId}</li>
+        <li>Payment ID: ${data.paymentId}</li>
+        <li>Amount: ${data.amount}</li>
+      </ul>
+
+      <p>Please contact our support team for assistance:</p>
+      <ul>
+        <li>Email: ${data.supportEmail}</li>
+        <li>Phone: ${data.supportPhone}</li>
+      </ul>
+
+      <p>Our support team will help you complete the payment or resolve any issues.</p>
+      <p>Please have your booking ID and payment details ready when contacting support.</p>
     `;
-    await this.sendEmail(to, subject, html, bookingId);
+    await this.sendEmail(to, subject, html, data.bookingId);
   }
 } 

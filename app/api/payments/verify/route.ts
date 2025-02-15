@@ -4,7 +4,7 @@ import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { WhatsAppService } from '@/lib/whatsapp/service';
 import { EmailService } from '@/lib/email/service';
-import { WHATSAPP_MESSAGE_TEMPLATES } from '@/lib/whatsapp/config';
+import { formatDate, formatCurrency } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
   const whatsappService = WhatsAppService.getInstance();
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
        FROM bookings b
        INNER JOIN users u ON b.user_id = u.id
        INNER JOIN vehicles v ON b.vehicle_id = v.id
-       WHERE b.id = $1
+       WHERE b.booking_id = $1
        FOR UPDATE`,
       [booking_id]
     );
@@ -94,35 +94,47 @@ export async function POST(request: NextRequest) {
                payment_status = 'completed',
                payment_details = $1::jsonb,
                updated_at = NOW()
-           WHERE id = $2
+           WHERE booking_id = $2
            RETURNING id, status, payment_status, payment_details`,
           [JSON.stringify(paymentDetails), booking_id]
         );
 
         await query('COMMIT');
 
+        // Send booking confirmation notifications
+        const bookingStartDate = formatDate(booking.start_date);
+        const amount = formatCurrency(booking.total_price);
+
+        // Prepare notification content
+        const notificationContent = {
+          userName: booking.user_name || 'User',
+          vehicleName: booking.vehicle_name,
+          bookingId: booking.booking_id,
+          startDate: bookingStartDate,
+          endDate: formatDate(booking.end_date),
+          amount: amount,
+          paymentId: razorpay_payment_id
+        };
+
         // Send notifications asynchronously
         Promise.allSettled([
           // Send WhatsApp notification
           booking.user_phone ? 
-            whatsappService.sendMessage(
-              booking.user_phone, 
-              WHATSAPP_MESSAGE_TEMPLATES.PAYMENT_CONFIRMATION(
-                booking.user_name || 'User',
-                booking.total_price.toString(),
-                booking.id
-              )
-            ).catch(error => logger.error('Failed to send WhatsApp success notification:', error)) : 
+            whatsappService.sendBookingConfirmation(
+              booking.user_phone,
+              notificationContent.userName,
+              notificationContent.vehicleName,
+              notificationContent.startDate,
+              booking.booking_id
+            ).catch(error => logger.error('Failed to send WhatsApp booking confirmation:', error)) : 
             Promise.resolve(),
 
           // Send email notification  
           booking.user_email ?
-            emailService.sendPaymentConfirmation(
+            emailService.sendBookingConfirmation(
               booking.user_email,
-              booking.user_name || 'User',
-              booking.total_price.toString(),
-              booking.id
-            ).catch(error => logger.error('Failed to send email success notification:', error)) :
+              notificationContent
+            ).catch(error => logger.error('Failed to send email booking confirmation:', error)) :
             Promise.resolve()
         ]).catch(error => {
           logger.error('Error sending notifications:', error);
@@ -130,12 +142,12 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
           success: true,
-          message: 'Payment verified successfully',
+          message: 'Payment verified and booking confirmed',
           data: {
-            booking_id: booking.id,
+            booking_id: booking.booking_id,
             status: 'confirmed',
             payment_status: 'completed',
-            redirect_url: `/bookings/${booking.id}`
+            redirect_url: `/bookings/${booking.booking_id}`
           }
         });
       } else {
@@ -153,51 +165,46 @@ export async function POST(request: NextRequest) {
                payment_status = 'failed',
                payment_details = $1::jsonb,
                updated_at = NOW()
-           WHERE id = $2`,
+           WHERE booking_id = $2`,
           [JSON.stringify(failureDetails), booking_id]
         );
 
-        // Send failure notifications
-        const notificationPromises = [];
+        // Send failure notifications with support details
+        const supportEmail = 'support@onnrides.com';
+        const supportPhone = '+91 8247494622';
+        
+        const failureContent = {
+          userName: booking.user_name || 'User',
+          bookingId: booking.booking_id,
+          amount: formatCurrency(booking.total_price),
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+          supportEmail,
+          supportPhone
+        };
 
-        if (booking.user_phone) {
-          const whatsappMessage = WHATSAPP_MESSAGE_TEMPLATES.PAYMENT_FAILED(
-            booking.user_name || 'User',
-            booking.total_price.toString(),
-            booking.id,
-            razorpay_order_id
-          );
-          notificationPromises.push(
-            whatsappService.sendMessage(booking.user_phone, whatsappMessage)
-              .catch(error => logger.error('Failed to send WhatsApp failure notification:', error))
-          );
-        }
-
+        // Send notifications
         if (booking.user_email) {
-          notificationPromises.push(
-            emailService.sendPaymentFailure(
-              booking.user_email,
-              booking.user_name || 'User',
-              booking.total_price.toString(),
-              booking.id,
-              razorpay_order_id
-            ).catch(error => logger.error('Failed to send email failure notification:', error))
-          );
+          emailService.sendPaymentFailure(
+            booking.user_email,
+            failureContent
+          ).catch(error => logger.error('Failed to send email failure notification:', error));
         }
-
-        // Wait for notifications to be sent
-        await Promise.allSettled(notificationPromises);
 
         await query('COMMIT');
 
         return NextResponse.json(
           { 
             success: false, 
-            error: 'Invalid payment signature',
+            error: 'Payment verification failed',
             data: {
-              booking_id: booking.id,
+              booking_id: booking.booking_id,
               status: 'payment_failed',
-              payment_status: 'failed'
+              payment_status: 'failed',
+              support: {
+                email: supportEmail,
+                phone: supportPhone
+              }
             }
           },
           { status: 400 }

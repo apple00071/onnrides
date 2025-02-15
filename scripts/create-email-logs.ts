@@ -1,4 +1,10 @@
-const { Pool } = require('pg');
+import { Pool } from 'pg';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+// Load environment variables
+const envPath = resolve(__dirname, '../.env');
+config({ path: envPath });
 
 async function createEmailLogsTable() {
   const pool = new Pool({
@@ -24,7 +30,8 @@ async function createEmailLogsTable() {
           id SERIAL PRIMARY KEY,
           recipient VARCHAR(255) NOT NULL,
           subject VARCHAR(255) NOT NULL,
-          booking_id TEXT,
+          message_content TEXT,
+          booking_id UUID,
           status VARCHAR(50) NOT NULL,
           error TEXT,
           message_id VARCHAR(255),
@@ -62,12 +69,16 @@ async function createEmailLogsTable() {
 }
 
 // Run the script
-createEmailLogsTable()
-  .then(() => {
-    console.log('Script completed successfully');
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error('Script failed:', error);
-    process.exit(1);
-  }); 
+if (require.main === module) {
+  createEmailLogsTable()
+    .then(() => {
+      console.log('Script completed successfully');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('Script failed:', error);
+      process.exit(1);
+    });
+}
+
+export default createEmailLogsTable; 

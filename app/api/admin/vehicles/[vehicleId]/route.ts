@@ -1,30 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
-import { revalidatePath } from 'next/cache';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { db, query } from '@/lib/db';
 import logger from '@/lib/logger';
 import type { Vehicle, VehicleStatus } from '@/lib/schema';
+import { revalidatePath } from 'next/cache';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { vehicleId: string } }
 ) {
   try {
-    const db = getDb();
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { vehicleId } = params;
+
     const vehicle = await db
       .selectFrom('vehicles')
       .selectAll()
-      .where('id', '=', params.vehicleId)
+      .where('id', '=', vehicleId)
       .executeTakeFirst();
 
     if (!vehicle) {
-      return NextResponse.json(
-        { error: 'Vehicle not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
     }
 
-    return NextResponse.json(vehicle);
+    return NextResponse.json({ vehicle });
   } catch (error) {
     logger.error('Error fetching vehicle:', error);
     return NextResponse.json(
@@ -39,8 +43,8 @@ export async function PUT(
   { params }: { params: { vehicleId: string } }
 ) {
   try {
-    const user = await getCurrentUser();
-    if (!user || user.role !== 'admin') {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -58,9 +62,9 @@ export async function PUT(
     }
 
     // Format location data
-    let locationData;
+    let locationData: string;
     if (Array.isArray(data.location)) {
-      locationData = JSON.stringify(data.location.map(loc => loc.trim()).filter(Boolean));
+      locationData = JSON.stringify(data.location.map((loc: string) => loc.trim()).filter(Boolean));
     } else if (typeof data.location === 'string') {
       try {
         const parsed = JSON.parse(data.location);
@@ -72,9 +76,7 @@ export async function PUT(
       locationData = JSON.stringify([String(data.location)]);
     }
 
-    const db = getDb();
-
-    // Update vehicle
+    // Update vehicle using the db instance
     const [vehicle] = await db
       .updateTable('vehicles')
       .set({
@@ -129,86 +131,38 @@ export async function DELETE(
   { params }: { params: { vehicleId: string } }
 ) {
   try {
-    const user = await getCurrentUser();
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const db = getDb();
-    logger.info('Attempting to delete vehicle:', { vehicleId: params.vehicleId });
+    const { vehicleId } = params;
 
-    try {
-      // Check if vehicle exists before deleting
-      const [existingVehicle] = await db
-        .selectFrom('vehicles')
-        .selectAll()
-        .where('id', '=', params.vehicleId)
-        .execute();
+    // Check if vehicle exists
+    const vehicle = await db
+      .selectFrom('vehicles')
+      .selectAll()
+      .where('id', '=', vehicleId)
+      .executeTakeFirst();
 
-      logger.info('Vehicle existence check:', { exists: !!existingVehicle });
-
-      if (!existingVehicle) {
-        return NextResponse.json(
-          { error: 'Vehicle not found' },
-          { status: 404 }
-        );
-      }
-
-      // Check if vehicle has any confirmed bookings
-      const [confirmedBooking] = await db
-        .selectFrom('bookings')
-        .selectAll()
-        .where('vehicle_id', '=', params.vehicleId)
-        .where('status', '=', 'confirmed' as const)
-        .execute();
-
-      logger.info('Confirmed bookings check:', { hasConfirmedBooking: !!confirmedBooking });
-
-      if (confirmedBooking) {
-        return NextResponse.json(
-          { error: 'Cannot delete vehicle with confirmed bookings' },
-          { status: 400 }
-        );
-      }
-
-      // First, delete any pending bookings
-      await db
-        .deleteFrom('bookings')
-        .where('vehicle_id', '=', params.vehicleId)
-        .where('status', '=', 'pending' as const)
-        .execute();
-
-      logger.info('Deleted pending bookings');
-
-      // Then delete the vehicle
-      await db
-        .deleteFrom('vehicles')
-        .where('id', '=', params.vehicleId)
-        .execute();
-
-      logger.info('Vehicle deleted successfully');
-
-      revalidatePath('/vehicles');
-      revalidatePath('/admin/vehicles');
-
-      return NextResponse.json({ success: true });
-    } catch (dbError: any) {
-      logger.error('Database operation failed:', dbError);
-      throw new Error(`Database operation failed: ${dbError?.message || 'Unknown database error'}`);
+    if (!vehicle) {
+      return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
     }
-  } catch (error: any) {
-    logger.error('Error deleting vehicle:', {
-      error,
-      message: error?.message || 'Unknown error',
-      stack: error?.stack,
-      vehicleId: params.vehicleId
+
+    // Delete the vehicle
+    await db
+      .deleteFrom('vehicles')
+      .where('id', '=', vehicleId)
+      .execute();
+
+    return NextResponse.json({
+      success: true,
+      message: 'Vehicle deleted successfully'
     });
-    
+  } catch (error) {
+    logger.error('Error deleting vehicle:', error);
     return NextResponse.json(
-      { error: `Failed to delete vehicle: ${error?.message || 'Unknown error'}` },
+      { error: 'Failed to delete vehicle' },
       { status: 500 }
     );
   }

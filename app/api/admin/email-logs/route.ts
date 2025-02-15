@@ -31,7 +31,7 @@ export async function GET(req: Request) {
     const result = await query(
       `SELECT el.*, b.vehicle_id, v.name as vehicle_name 
        FROM email_logs el 
-       LEFT JOIN bookings b ON el.booking_id = b.id::text 
+       LEFT JOIN bookings b ON el.booking_id = b.id 
        LEFT JOIN vehicles v ON b.vehicle_id = v.id 
        ORDER BY el.created_at DESC 
        LIMIT $1 OFFSET $2`,

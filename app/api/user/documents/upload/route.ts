@@ -1,20 +1,21 @@
-import logger from '@/lib/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
-import pool from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { db } from '@/lib/db';
+import logger from '@/lib/logger';
+import { put } from '@vercel/blob';
+import { randomUUID } from 'crypto';
 
 // Use the new route segment config format
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
-  const client = await pool.connect();
   try {
-    // Get current user
-    const user = await getCurrentUser();
-    if (!user?.id) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
       return NextResponse.json(
-        { message: 'Unauthorized' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
@@ -25,61 +26,60 @@ export async function POST(request: NextRequest) {
 
     if (!file || !type) {
       return NextResponse.json(
-        { message: 'File and type are required' },
+        { error: 'File and document type are required' },
         { status: 400 }
       );
     }
 
-    // Convert file to base64 for storage
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64String = buffer.toString('base64');
-    const fileUrl = `data:${file.type};base64,${base64String}`;
-
-    // Start transaction
-    await client.query('BEGIN');
-
-    // Check if document of this type already exists
-    const existingDoc = await client.query(
-      `SELECT id FROM document_submissions 
-       WHERE user_id = $1 AND document_type = $2`,
-      [user.id, type]
-    );
-
-    let result;
-    if (existingDoc.rows.length > 0) {
-      // Update existing document
-      result = await client.query(
-        `UPDATE document_submissions 
-         SET document_url = $1, status = $2, updated_at = CURRENT_TIMESTAMP
-         WHERE user_id = $3 AND document_type = $4
-         RETURNING *`,
-        [fileUrl, 'pending', user.id, type]
-      );
-    } else {
-      // Insert new document record
-      result = await client.query(
-        `INSERT INTO document_submissions (user_id, document_type, document_url, status)
-         VALUES ($1, $2, $3, $4)
-         RETURNING *`,
-        [user.id, type, fileUrl, 'pending']
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json(
+        { error: 'Invalid file type. Only JPEG, PNG and PDF files are allowed.' },
+        { status: 400 }
       );
     }
 
-    await client.query('COMMIT');
+    // Validate document type
+    const validTypes = ['license', 'id_proof', 'address_proof'];
+    if (!validTypes.includes(type)) {
+      return NextResponse.json(
+        { error: 'Invalid document type' },
+        { status: 400 }
+      );
+    }
+
+    // Upload file to blob storage
+    const filename = `${session.user.id}/${type}/${randomUUID()}-${file.name}`;
+    const blob = await put(filename, file, {
+      access: 'public',
+      addRandomSuffix: false
+    });
+
+    // Save document record in database
+    const result = await db
+      .insertInto('documents')
+      .values({
+        id: randomUUID(),
+        user_id: session.user.id,
+        type: type as 'license' | 'id_proof' | 'address_proof',
+        file_url: blob.url,
+        status: 'pending',
+        created_at: new Date(),
+        updated_at: new Date()
+      })
+      .returning(['id', 'type', 'status', 'file_url'])
+      .executeTakeFirst();
 
     return NextResponse.json({
-      message: 'Document uploaded successfully',
-      document: result.rows[0]
+      success: true,
+      data: result
     });
   } catch (error) {
-    await client.query('ROLLBACK');
     logger.error('Error uploading document:', error);
     return NextResponse.json(
-      { message: error instanceof Error ? error.message : 'Failed to upload document' },
+      { error: 'Failed to upload document' },
       { status: 500 }
     );
-  } finally {
-    client.release();
   }
 } 
