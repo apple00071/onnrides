@@ -37,21 +37,29 @@ export async function sendDocumentUploadReminder(
   name: string,
   bookingId: string
 ) {
-  const emailService = EmailService.getInstance();
-  
   try {
-    await emailService.sendEmail(
-      email,
-      'Document Upload Required for Your Booking',
-      'document_upload_reminder',
-      {
+    const emailService = EmailService.getInstance();
+    
+    const emailContent = {
+      subject: 'Document Upload Required for Your Booking',
+      template: 'document_upload_reminder',
+      data: {
         name,
         bookingId,
-        uploadUrl: `${process.env.NEXT_PUBLIC_APP_URL}/profile/documents`
+        uploadUrl: `${process.env.NEXT_PUBLIC_APP_URL}/profile/documents`,
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@onnrides.com'
       }
-    );
+    };
 
-    logger.info('Document upload reminder sent:', { email, bookingId });
+    await emailService.sendEmail(email, emailContent);
+    
+    logger.info('Document upload reminder sent:', { 
+      email, 
+      bookingId,
+      template: emailContent.template 
+    });
+
+    return true;
   } catch (error) {
     logger.error('Failed to send document upload reminder:', error);
     throw error;
@@ -70,16 +78,27 @@ export async function sendBookingConfirmationAndRequirements(
     totalAmount: number;
   }
 ) {
-  const emailService = EmailService.getInstance();
-  const whatsappService = WhatsAppService.getInstance();
-  
   try {
+    const emailService = EmailService.getInstance();
+    const whatsappService = WhatsAppService.getInstance();
+    
     // Send email confirmation
-    await emailService.sendEmail(
-      email,
-      'Booking Confirmation and Document Requirements',
-      'booking_confirmation_template',
-    );
+    const emailContent = {
+      subject: 'Booking Confirmation and Document Requirements',
+      template: 'booking_confirmation',
+      data: {
+        name,
+        bookingId,
+        vehicleName: bookingDetails.vehicleName,
+        startDate: bookingDetails.startDate,
+        endDate: bookingDetails.endDate,
+        totalAmount: bookingDetails.totalAmount,
+        uploadUrl: `${process.env.NEXT_PUBLIC_APP_URL}/profile/documents`,
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@onnrides.com'
+      }
+    };
+
+    await emailService.sendEmail(email, emailContent);
 
     // Send WhatsApp notification
     await whatsappService.sendMessage(
@@ -87,7 +106,13 @@ export async function sendBookingConfirmationAndRequirements(
       `🎉 Booking Confirmed!\n\nHi ${name},\n\nYour booking (ID: ${bookingId}) for ${bookingDetails.vehicleName} has been confirmed.\n\n⚠️ Important: Please upload required documents within 24 hours to avoid booking cancellation.\n\nUpload here: ${process.env.NEXT_PUBLIC_APP_URL}/profile/documents`
     );
 
-    logger.info('Booking confirmation sent:', { email, bookingId });
+    logger.info('Booking confirmation sent:', { 
+      email, 
+      bookingId,
+      template: emailContent.template 
+    });
+
+    return true;
   } catch (error) {
     logger.error('Failed to send booking confirmation:', error);
     throw error;

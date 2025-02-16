@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node server.js",
     "build": "prisma generate && next build",
     "build:production": "node scripts/build-production.js",
-    "start": "next start & ts-node scripts/init-whatsapp.ts",
+    "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
     "postinstall": "prisma generate && node -e \"const fs=require('fs');['postcss.config.js','tailwind.config.js'].forEach(f=>!fs.existsSync(f)&&fs.writeFileSync(f,''))\"",
     "migrate": "node -r dotenv/config scripts/run-migration.js"
@@ -112,6 +112,7 @@
     "@types/react-dom": "18.2.19",
     "@types/uuid": "^9.0.7",
     "@types/winston": "^2.4.4",
+    "@types/ws": "^8.5.14",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "eslint": "^8",

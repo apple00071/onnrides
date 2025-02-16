@@ -5,12 +5,24 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
-  password_hash?: string;
+  phone?: string | null;
+  created_at?: string;
+  is_blocked?: boolean;
+  documents?: {
+    total: number;
+    approved: number;
+  };
+  bookings_count?: number;
+  deleted?: boolean;
 }
 
 declare module 'next-auth' {
   interface Session {
-    user: User;
+    user: User & {
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    };
   }
 }
 

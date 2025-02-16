@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { Loader2 } from "lucide-react";
-import { FaEye } from 'react-icons/fa';
+import { FaEye, FaBan, FaTrash } from 'react-icons/fa';
 import logger from '@/lib/logger';
 import { User } from '@/lib/types';
 import UserDetailsModal from './components/UserDetailsModal';
 import UserDocumentsModal from './components/UserDocumentsModal';
+import { Button } from '@/components/ui/button';
 
 interface Document {
   id: string;
@@ -98,6 +99,66 @@ export default function UsersPage() {
     }
   };
 
+  const handleBlockUser = async (user: User) => {
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}/block`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked: !user.is_blocked }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update user status');
+      }
+
+      const updatedUser = await response.json();
+      handleUserUpdated(updatedUser);
+      
+      // Notify user about being blocked
+      await fetch(`/api/admin/users/${user.id}/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'blocked' }),
+      });
+      
+      toast.success(`User ${user.is_blocked ? 'unblocked' : 'blocked'} successfully`);
+    } catch (error) {
+      logger.error('Error updating user status:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update user status');
+    }
+  };
+
+  const handleDeleteUser = async (user: User) => {
+    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // First notify the user about being deleted
+      await fetch(`/api/admin/users/${user.id}/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deleted' }),
+      });
+
+      const response = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete user');
+      }
+
+      setUsers(users.filter(u => u.id !== user.id));
+      toast.success('User deleted successfully');
+    } catch (error) {
+      logger.error('Error deleting user:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete user');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -160,13 +221,33 @@ export default function UsersPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => handleViewUser(user)}
-                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24]"
+                      className="text-blue-600 hover:text-blue-900"
                     >
-                      <FaEye className="w-4 h-4 mr-2" />
-                      View
-                    </button>
+                      <FaEye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleBlockUser(user)}
+                      className={user.is_blocked ? 
+                        "text-green-600 hover:text-green-900" : 
+                        "text-orange-600 hover:text-orange-900"
+                      }
+                    >
+                      <FaBan className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteUser(user)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      <FaTrash className="h-4 w-4" />
+                    </Button>
                   </td>
                 </tr>
               ))}

@@ -18,6 +18,20 @@ import { format } from 'date-fns';
 import { User } from '@/lib/types';
 import { FileIcon } from 'lucide-react';
 import { DocumentPreview } from '../../../../components/documents/DocumentPreview';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Ban, Trash2, UserX } from 'lucide-react';
 
 interface UserDocument {
   id: string;
@@ -150,6 +164,12 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [name, setName] = useState(user.name || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
 
   const fetchUserData = useCallback(async () => {
     if (!user) return;
@@ -300,24 +320,18 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
 
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+
     try {
       const response = await fetch(`/api/admin/users/${user.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          phone: user.phone,
-          documents: user.documents,
-          is_blocked: user.is_blocked
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update user');
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update user');
       }
 
       const updatedUser = await response.json();
@@ -325,7 +339,59 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
       toast.success('User updated successfully');
     } catch (error) {
       logger.error('Error updating user:', error);
-      toast.error('Failed to update user');
+      toast.error(error instanceof Error ? error.message : 'Failed to update user');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete user');
+      }
+
+      toast.success('User deleted successfully');
+      onClose();
+      onUserUpdated({ ...user, deleted: true });
+    } catch (error) {
+      logger.error('Error deleting user:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete user');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
+  const handleBlockUser = async () => {
+    setIsBlocking(true);
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}/block`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked: !user.is_blocked }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update user status');
+      }
+
+      const updatedUser = await response.json();
+      onUserUpdated(updatedUser);
+      toast.success(`User ${user.is_blocked ? 'unblocked' : 'blocked'} successfully`);
+    } catch (error) {
+      logger.error('Error updating user status:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update user status');
+    } finally {
+      setIsBlocking(false);
+      setShowBlockDialog(false);
     }
   };
 
@@ -575,6 +641,74 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
         onConfirm={handleCancelBooking}
         loading={cancelLoading}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this user? This action cannot be undone.
+              All associated data (bookings, documents, etc.) will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteUser}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Deleting...
+                </div>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Block Confirmation Dialog */}
+      <AlertDialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {user.is_blocked ? 'Unblock User' : 'Block User'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {user.is_blocked ? (
+                'Are you sure you want to unblock this user? They will be able to access the platform again.'
+              ) : (
+                'Are you sure you want to block this user? They will not be able to access the platform until unblocked.'
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBlocking}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBlockUser}
+              disabled={isBlocking}
+              className={user.is_blocked ? 
+                "bg-green-600 hover:bg-green-700 text-white" : 
+                "bg-orange-600 hover:bg-orange-700 text-white"
+              }
+            >
+              {isBlocking ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  {user.is_blocked ? 'Unblocking...' : 'Blocking...'}
+                </div>
+              ) : (
+                user.is_blocked ? 'Unblock' : 'Block'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 } 

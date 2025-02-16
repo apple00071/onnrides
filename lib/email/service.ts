@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import logger from '../logger';
+import logger from '@/lib/logger';
 import { query } from '../db';
 
 interface EmailLog {
@@ -32,6 +32,12 @@ interface PaymentFailureData {
   supportPhone: string;
 }
 
+interface EmailContent {
+  subject: string;
+  template: string;
+  data: Record<string, any>;
+}
+
 export class EmailService {
   private static instance: EmailService;
   private transporter: nodemailer.Transporter;
@@ -48,11 +54,11 @@ export class EmailService {
 
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '465'),
-      secure: true, // Use SSL/TLS
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
       auth: {
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS?.replace(/\s+/g, '') // Remove any whitespace from password
+        pass: process.env.SMTP_PASSWORD,
       },
     });
   }
@@ -108,91 +114,69 @@ export class EmailService {
     }
   }
 
-  public async sendEmail(
-    to: string,
-    subject: string,
-    html: string,
-    bookingId?: string
-  ): Promise<void> {
-    let logId: string | undefined;
-    let retries = 3;
+  private getEmailTemplate(template: string, data: Record<string, any>): string {
+    switch (template) {
+      case 'document_upload_reminder':
+        return `
+          <h2>Hello ${data.name},</h2>
+          <p>This is a reminder to upload your required documents for booking ID: ${data.bookingId}.</p>
+          <p>Please upload your documents within 24 hours to avoid booking cancellation.</p>
+          <p>You can upload your documents here: <a href="${data.uploadUrl}">${data.uploadUrl}</a></p>
+          <p>Required documents:</p>
+          <ul>
+            <li>Valid ID Proof</li>
+            <li>Driving License</li>
+            <li>Address Proof</li>
+          </ul>
+          <p>If you need any assistance, please contact us at ${data.supportEmail}.</p>
+          <p>Best regards,<br>OnnRides Team</p>
+        `;
 
-    while (retries > 0) {
-      try {
-        // Log the pending email if first attempt
-        if (!logId) {
-          logId = await this.logEmail({
-            recipient: to,
-            subject,
-            message_content: html,
-            booking_id: bookingId,
-            status: 'pending'
-          });
-        }
+      case 'booking_confirmation':
+        return `
+          <h2>Hello ${data.name},</h2>
+          <p>Your booking has been confirmed!</p>
+          <p><strong>Booking Details:</strong></p>
+          <ul>
+            <li>Booking ID: ${data.bookingId}</li>
+            <li>Vehicle: ${data.vehicleName}</li>
+            <li>Start Date: ${data.startDate}</li>
+            <li>End Date: ${data.endDate}</li>
+            <li>Total Amount: ₹${data.totalAmount}</li>
+          </ul>
+          <p><strong>Important:</strong> Please upload your required documents within 24 hours to avoid booking cancellation.</p>
+          <p>You can upload your documents here: <a href="${data.uploadUrl}">${data.uploadUrl}</a></p>
+          <p>Required documents:</p>
+          <ul>
+            <li>Valid ID Proof</li>
+            <li>Driving License</li>
+            <li>Address Proof</li>
+          </ul>
+          <p>If you need any assistance, please contact us at ${data.supportEmail}.</p>
+          <p>Best regards,<br>OnnRides Team</p>
+        `;
 
-        // Verify transporter connection
-        await this.transporter.verify();
+      default:
+        throw new Error(`Unknown email template: ${template}`);
+    }
+  }
 
-        const mailOptions = {
-          from: process.env.SMTP_FROM || 'support@onnrides.com',
-          to,
-          subject,
-          html,
-        };
+  public async sendEmail(to: string, content: EmailContent): Promise<void> {
+    try {
+      const html = this.getEmailTemplate(content.template, content.data);
 
-        const info = await this.transporter.sendMail(mailOptions);
-        
-        // Update log with success
-        await this.updateEmailLog(logId, {
-          status: 'success',
-          message_id: info.messageId
-        });
+      const mailOptions = {
+        from: process.env.SMTP_FROM || 'OnnRides <no-reply@onnrides.com>',
+        to,
+        subject: content.subject,
+        html,
+      };
 
-        logger.info('Email sent successfully', { 
-          to, 
-          subject, 
-          messageId: info.messageId,
-          bookingId 
-        });
-
-        return; // Success, exit the retry loop
-      } catch (error) {
-        retries--;
-        logger.error(`Failed to send email (${retries} retries left):`, {
-          error,
-          to,
-          subject,
-          bookingId
-        });
-
-        if (retries === 0) {
-          // Update log with final error
-          if (logId) {
-            await this.updateEmailLog(logId, {
-              status: 'failed',
-              error: error instanceof Error ? error.message : 'Unknown error'
-            });
-          }
-          throw error;
-        }
-
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // If connection error, recreate transporter
-        if (error instanceof Error && 
-            (error.message.includes('connection') || error.message.includes('authentication'))) {
-          this.transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
-            port: parseInt(process.env.SMTP_PORT || '587'),
-            secure: process.env.SMTP_SECURE === 'true',
-            auth: {
-              user: process.env.SMTP_USER,
-              pass: process.env.SMTP_PASSWORD,
-            },
-          });
-        }
-      }
+      await this.transporter.sendMail(mailOptions);
+      logger.info('Email sent successfully:', { to, template: content.template });
+    } catch (error) {
+      logger.error('Failed to send email:', error);
+      throw error;
     }
   }
 
@@ -224,7 +208,7 @@ export class EmailService {
         <li>Phone: +91 8247494622</li>
       </ul>
     `;
-    await this.sendEmail(to, subject, html, data.bookingId);
+    await this.sendEmail(to, { subject, template: 'booking_confirmation', data });
   }
 
   public async sendPaymentFailure(
@@ -253,6 +237,6 @@ export class EmailService {
       <p>Our support team will help you complete the payment or resolve any issues.</p>
       <p>Please have your booking ID and payment details ready when contacting support.</p>
     `;
-    await this.sendEmail(to, subject, html, data.bookingId);
+    await this.sendEmail(to, { subject, template: 'payment_failure', data });
   }
 } 
