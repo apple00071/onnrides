@@ -38,6 +38,14 @@ interface EmailContent {
   data: Record<string, any>;
 }
 
+interface DocumentUploadReminderData {
+  name: string;
+  bookingId: string;
+  uploadUrl: string;
+  supportEmail: string;
+  deadline?: string;
+}
+
 export class EmailService {
   private static instance: EmailService;
   private transporter!: nodemailer.Transporter;
@@ -55,13 +63,22 @@ export class EmailService {
       const port = parseInt(process.env.SMTP_PORT || '465', 10);
       const secure = process.env.SMTP_SECURE === 'true' || port === 465;
 
+      // Check for required credentials
+      if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+        throw new Error('SMTP credentials are not configured');
+      }
+
       this.transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: port,
         secure: secure, // true for 465, false for other ports
         auth: {
           user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASSWORD,
+          pass: process.env.SMTP_PASSWORD, // Use SMTP_PASSWORD instead of SMTP_PASS
+        },
+        tls: {
+          // Required for Gmail
+          rejectUnauthorized: true
         },
         pool: true, // Use pooled connections
         maxConnections: 5,
@@ -81,8 +98,18 @@ export class EmailService {
         hasPassword: !!process.env.SMTP_PASSWORD
       });
     } catch (error) {
+      // Provide more specific error messages
+      const emailError = error as { code?: string; message?: string; command?: string };
+      
+      if (emailError.code === 'EAUTH') {
+        logger.error('Email authentication failed. Please check your SMTP credentials and ensure you are using an App Password for Gmail');
+      }
       this.initializationError = error instanceof Error ? error : new Error('Unknown error during initialization');
-      logger.error('Failed to initialize email service:', error);
+      logger.error('Failed to initialize email service:', {
+        error: emailError.message || 'Unknown error',
+        code: emailError.code,
+        command: emailError.command
+      });
       // Queue will handle retries, so we don't throw here
     }
   }
@@ -310,6 +337,37 @@ export class EmailService {
       <p>Please have your booking ID and payment details ready when contacting support.</p>
     `;
     await this.sendEmail(to, { subject, template: 'payment_failure', data });
+  }
+
+  public async sendDocumentUploadReminder(
+    to: string,
+    data: DocumentUploadReminderData
+  ): Promise<void> {
+    const subject = 'Document Upload Required - OnnRides';
+    const content = {
+      subject,
+      template: 'document_upload_reminder',
+      data: {
+        ...data,
+        deadline: data.deadline || '24 hours',
+        supportEmail: data.supportEmail || 'support@onnrides.com'
+      }
+    };
+
+    try {
+      await this.sendEmail(to, content, 1); // Higher priority for document reminders
+      logger.info('Document upload reminder sent:', {
+        recipient: to,
+        bookingId: data.bookingId
+      });
+    } catch (error) {
+      logger.error('Failed to send document upload reminder:', {
+        error,
+        recipient: to,
+        bookingId: data.bookingId
+      });
+      throw error;
+    }
   }
 }
 
