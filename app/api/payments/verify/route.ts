@@ -32,11 +32,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const secretKey = process.env.RAZORPAY_SECRET_KEY;
+    // Try both environment variables for backward compatibility
+    const secretKey = process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET_KEY;
     if (!secretKey) {
-      logger.error('Razorpay secret key is not configured');
+      logger.error('Razorpay secret key is not configured', {
+        hasKeySecret: !!process.env.RAZORPAY_KEY_SECRET,
+        hasSecretKey: !!process.env.RAZORPAY_SECRET_KEY
+      });
       return NextResponse.json(
-        { success: false, error: 'Payment verification is not properly configured' },
+        { 
+          success: false, 
+          error: 'Payment verification is not properly configured',
+          details: 'Missing Razorpay credentials. Please contact support.'
+        },
         { status: 500 }
       );
     }
@@ -58,7 +66,15 @@ export async function POST(request: NextRequest) {
     );
 
     if (bookingResult.rowCount === 0) {
-      throw new Error('Booking details not found');
+      logger.error('Booking not found:', { bookingId: booking_id });
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Booking not found',
+          details: 'The booking associated with this payment could not be found'
+        },
+        { status: 404 }
+      );
     }
 
     const booking = bookingResult.rows[0];
@@ -161,10 +177,16 @@ export async function POST(request: NextRequest) {
         await query('ROLLBACK');
         logger.error('Invalid payment signature', {
           orderId: razorpay_order_id,
-          paymentId: razorpay_payment_id
+          paymentId: razorpay_payment_id,
+          expectedSignature: generated_signature,
+          receivedSignature: razorpay_signature
         });
         return NextResponse.json(
-          { success: false, error: 'Invalid payment signature' },
+          { 
+            success: false, 
+            error: 'Invalid payment signature',
+            details: 'The payment signature verification failed. Please contact support if payment was deducted.'
+          },
           { status: 400 }
         );
       }
@@ -173,12 +195,15 @@ export async function POST(request: NextRequest) {
       throw error;
     }
   } catch (error) {
-    logger.error('Payment verification error:', error);
+    logger.error('Payment verification error:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
       { 
         success: false, 
         error: 'Payment verification failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'An unexpected error occurred during payment verification'
       },
       { status: 500 }
     );
