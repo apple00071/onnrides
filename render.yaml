@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: onnrides-whatsapp
+    env: docker
+    buildCommand: docker build -t onnrides-whatsapp .
+    startCommand: docker run -p $PORT:3001 onnrides-whatsapp
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SERVICE_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://your-main-app.vercel.app
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: whatsapp-data
+      mountPath: /app/.wwebjs_auth
+      sizeGB: 1 

@@ -1,35 +1,47 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import logger from '@/lib/logger';
-
-interface Booking {
-  id: string;
-  vehicle_name: string;
-  pickup_date: string;
-  dropoff_date: string;
-  total_amount: number;
-  status: string;
-  created_at: string;
-}
+import type { Booking } from '@/lib/types/booking';
+import { BookingCard } from '@/components/bookings/BookingCard';
 
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin');
+      return;
+    }
+
+    if (status === 'authenticated') {
+      fetchBookings();
+    }
+  }, [status]);
 
   const fetchBookings = async () => {
     try {
       const response = await fetch('/api/user/bookings');
       if (!response.ok) {
-        throw new Error('Failed to fetch bookings');
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch bookings');
       }
       const data = await response.json();
-      setBookings(data.bookings || []);
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch bookings');
+      }
+
+      setBookings(data.data || []);
     } catch (error) {
       logger.error('Error fetching bookings:', error);
-      toast.error('Failed to fetch bookings');
+      toast.error(error instanceof Error ? error.message : 'Failed to fetch bookings');
     } finally {
       setLoading(false);
     }
@@ -42,25 +54,31 @@ export default function BookingsPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to cancel booking');
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to cancel booking');
       }
 
       toast.success('Booking cancelled successfully');
       fetchBookings(); // Refresh the list
     } catch (error) {
       logger.error('Error cancelling booking:', error);
-      toast.error('Failed to cancel booking');
+      toast.error(error instanceof Error ? error.message : 'Failed to cancel booking');
     }
   };
 
-  useEffect(() => {
-    fetchBookings();
-  }, []);
-
-  if (loading) {
+  if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#f26e24]"></div>
+      </div>
+    );
+  }
+
+  if (bookings.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h2 className="text-2xl font-semibold mb-2">No Bookings Found</h2>
+        <p className="text-gray-600">You haven't made any bookings yet.</p>
       </div>
     );
   }
@@ -68,73 +86,14 @@ export default function BookingsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">My Bookings</h1>
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Vehicle
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Dates
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Amount
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {bookings.map((booking) => (
-              <tr key={booking.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    {booking.vehicle_name}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    {format(new Date(booking.pickup_date), 'MMM d, yyyy')}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    to {format(new Date(booking.dropoff_date), 'MMM d, yyyy')}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  ₹{booking.total_amount}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    booking.status === 'completed'
-                      ? 'bg-green-100 text-green-800'
-                      : booking.status === 'cancelled'
-                        ? 'bg-red-100 text-red-800'
-                        : booking.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-blue-100 text-blue-800'
-                  }`}>
-                    {booking.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  {booking.status === 'pending' && (
-                    <button
-                      onClick={() => handleCancelBooking(booking.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {bookings.map((booking) => (
+          <BookingCard
+            key={booking.id}
+            booking={booking}
+            onCancel={() => handleCancelBooking(booking.id)}
+          />
+        ))}
       </div>
     </div>
   );

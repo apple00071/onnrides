@@ -1,21 +1,22 @@
 'use client';
 
-import logger from '@/lib/logger';
 import * as React from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
+import logger from '@/lib/logger';
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const searchParams = useSearchParams();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (loading) return;
     setLoading(true);
 
@@ -38,7 +39,7 @@ export default function AdminLoginPage() {
       if (result.error) {
         if (result.error === 'Admin access required') {
           toast.error('This account does not have admin access');
-        } else if (result.error === 'Invalid email or password') {
+        } else if (result.error === 'Invalid credentials') {
           toast.error('Invalid email or password');
         } else {
           toast.error('Failed to sign in');

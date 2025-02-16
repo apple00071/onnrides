@@ -17,6 +17,7 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { User } from '@/lib/types';
 import { FileIcon } from 'lucide-react';
+import { DocumentPreview } from '../../../../components/documents/DocumentPreview';
 
 interface UserDocument {
   id: string;
@@ -76,106 +77,15 @@ function DocumentViewerModal({
 }) {
   if (!document) return null;
 
-  logger.info('Document viewer data:', {
-    documentId: document.id,
-    type: document.type,
-    hasFileUrl: !!document.file_url,
-    fileUrl: document.file_url
-  });
-
-  if (!document.file_url) {
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0">
-          <DialogHeader className="px-6 py-4 border-b">
-            <DialogTitle>Document Error</DialogTitle>
-          </DialogHeader>
-          <div className="p-6">
-            <div className="text-center space-y-2">
-              <p className="text-red-500 font-medium">Document URL is missing</p>
-              <p className="text-sm text-gray-500">
-                The document {document.type} (ID: {document.id}) has no associated file URL.
-                Please contact support if this issue persists.
-              </p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  const fileUrl = document.file_url;
-  const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileUrl);
-  const isPDF = fileUrl.toLowerCase().endsWith('.pdf');
-  const fileName = fileUrl.split('/').pop() || document.type;
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0">
-        <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle className="flex items-center justify-between">
-            <div>
-              {document.type}
-              <span className="ml-2 text-sm text-gray-500">
-                ({isImage ? 'Image' : isPDF ? 'PDF' : fileName})
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <a
-                href={fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
-              >
-                Open in New Tab
-              </a>
-              <a
-                href={fileUrl}
-                download={fileName}
-                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
-              >
-                Download
-              </a>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
-        <div className="p-6 overflow-auto max-h-[calc(90vh-100px)]">
-          {isImage ? (
-            <div className="relative w-full h-[600px]">
-              <img
-                src={fileUrl}
-                alt={document.type}
-                className="w-full h-full object-contain"
-                onError={() => {
-                  logger.error('Failed to load image:', {
-                    documentId: document.id,
-                    type: document.type,
-                    url: fileUrl
-                  });
-                  toast.error('Failed to load image');
-                }}
-              />
-            </div>
-          ) : isPDF ? (
-            <object
-              data={`${fileUrl}#view=FitH`}
-              type="application/pdf"
-              className="w-full h-[600px]"
-            >
-              <p>Unable to display PDF. <a href={fileUrl} target="_blank" rel="noopener noreferrer">Click here to open it</a></p>
-            </object>
-          ) : (
-            <div className="text-center py-8 space-y-4">
-              <div className="text-gray-500">
-                <FileIcon className="w-16 h-16 mx-auto mb-4" />
-                <p className="text-lg font-medium">This file type cannot be previewed directly</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  Please use the buttons above to open or download the file
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+      <DialogContent className="max-w-4xl p-0 overflow-hidden">
+        <DocumentPreview
+          fileUrl={document.file_url}
+          fileName={document.type}
+          onClose={onClose}
+          showActions={false}
+        />
       </DialogContent>
     </Dialog>
   );

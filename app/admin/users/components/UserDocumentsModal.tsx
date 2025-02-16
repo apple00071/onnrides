@@ -17,9 +17,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Eye, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import { Eye, Trash2, CheckCircle2, XCircle, X } from 'lucide-react';
+import { DocumentPreview } from '@/components/documents/DocumentPreview';
 
 interface Document {
   id: string;
@@ -146,7 +146,7 @@ export default function UserDocumentsModal({
                       <p className="text-sm text-gray-500">{formatDate(doc.created_at)}</p>
                     </div>
 
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -191,9 +191,7 @@ export default function UserDocumentsModal({
                         <Trash2 className="h-4 w-4 mr-1" />
                         Delete
                       </Button>
-                    </div>
 
-                    <div className="ml-4">
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         doc.status === 'approved' 
                           ? 'bg-green-100 text-green-800'
@@ -242,113 +240,19 @@ export default function UserDocumentsModal({
       </AlertDialog>
 
       {/* Document Preview Dialog */}
-      <Dialog open={!!showPreview} onOpenChange={() => setShowPreview(null)}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>
-              Document Preview: {showPreview && formatDocumentType(showPreview.document_type || showPreview.type)}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="mt-4 flex flex-col items-center justify-center">
-            {showPreview && (
-              <>
-                {(() => {
-                  // Get file extension from URL or content type
-                  const getFileExtension = (url: string) => {
-                    const urlWithoutQuery = url.split('?')[0];
-                    return urlWithoutQuery.split('.').pop()?.toLowerCase() || '';
-                  };
-
-                  // Check if URL is valid
-                  if (!showPreview.url) {
-                    return (
-                      <div className="text-center py-8">
-                        <p className="text-red-500 mb-4">Error: Document URL is missing</p>
-                      </div>
-                    );
-                  }
-
-                  const fileExtension = getFileExtension(showPreview.url);
-                  logger.info('Document preview:', {
-                    url: showPreview.url,
-                    type: showPreview.document_type || showPreview.type,
-                    fileExtension
-                  });
-
-                  // Handle image files
-                  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension)) {
-                    return (
-                      <div className="relative w-full max-h-[70vh] overflow-auto">
-                        <img 
-                          src={showPreview.url} 
-                          alt={`Preview of ${formatDocumentType(showPreview.document_type || showPreview.type)}`}
-                          className="max-w-full h-auto object-contain mx-auto"
-                          onError={(e) => {
-                            logger.error('Image failed to load:', {
-                              url: showPreview.url,
-                              error: e
-                            });
-                            toast.error('Failed to load image');
-                          }}
-                        />
-                      </div>
-                    );
-                  }
-
-                  // Handle PDF files
-                  if (fileExtension === 'pdf') {
-                    return (
-                      <div className="w-full h-[70vh]">
-                        <object
-                          data={showPreview.url}
-                          type="application/pdf"
-                          className="w-full h-full"
-                        >
-                          <iframe
-                            src={`https://docs.google.com/viewer?url=${encodeURIComponent(showPreview.url)}&embedded=true`}
-                            className="w-full h-full border-0"
-                            title={`PDF Preview of ${formatDocumentType(showPreview.document_type || showPreview.type)}`}
-                          />
-                        </object>
-                      </div>
-                    );
-                  }
-
-                  // For non-previewable files
-                  return (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 mb-4">
-                        This file type cannot be previewed directly
-                      </p>
-                      <div className="flex flex-col items-center gap-4">
-                        <Button
-                          variant="outline"
-                          onClick={() => window.open(showPreview.url, '_blank')}
-                        >
-                          Open in New Tab
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            const a = document.createElement('a');
-                            a.href = showPreview.url;
-                            a.download = `${formatDocumentType(showPreview.document_type || showPreview.type)}.${fileExtension}`;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                          }}
-                        >
-                          Download File
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {showPreview && (
+        <Dialog modal open={!!showPreview} onOpenChange={() => setShowPreview(null)}>
+          <DialogContent className="max-w-5xl p-0 overflow-hidden">
+            <DocumentPreview
+              fileUrl={showPreview.url}
+              fileName={formatDocumentType(showPreview.document_type || showPreview.type)}
+              onClose={() => setShowPreview(null)}
+              showActions={true}
+              isAdmin={true}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 } 

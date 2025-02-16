@@ -32,9 +32,10 @@ export const initializeWhatsAppClient = async (): Promise<Client> => {
     const client = new Client({
         authStrategy: new LocalAuth({
             clientId: 'whatsapp-service',
-            dataPath: './data/auth'
+            dataPath: path.join(process.cwd(), '.wwebjs_auth')
         }),
         puppeteer: {
+            headless: true,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -42,10 +43,12 @@ export const initializeWhatsAppClient = async (): Promise<Client> => {
                 '--disable-accelerated-2d-canvas',
                 '--no-first-run',
                 '--no-zygote',
+                '--single-process',
                 '--disable-gpu'
             ],
-            headless: true,
-            executablePath: process.env.CHROME_BIN || undefined
+            executablePath: process.env.CHROME_BIN || undefined,
+            // Increase timeout for slower environments
+            timeout: 100000
         }
     });
 
@@ -54,6 +57,17 @@ export const initializeWhatsAppClient = async (): Promise<Client> => {
             try {
                 qrCodeData = await qrcode.toString(qr, { type: 'terminal' });
                 logger.info('New QR code generated');
+
+                // Also save QR code as image for backup
+                try {
+                    await qrcode.toFile(
+                        path.join(process.cwd(), 'whatsapp-qr.png'),
+                        qr,
+                        { scale: 8 }
+                    );
+                } catch (error) {
+                    logger.error('Failed to save QR code image:', error);
+                }
             } catch (error) {
                 logger.error('Failed to generate QR code:', error);
             }

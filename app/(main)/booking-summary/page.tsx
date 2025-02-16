@@ -8,8 +8,10 @@ import { calculateDuration, formatCurrency } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 import { useSession } from 'next-auth/react';
 import { Loader2 } from 'lucide-react';
+import { BookingSummary } from '@/components/bookings/BookingSummary';
+import logger from '@/lib/logger';
 
-interface BookingSummary {
+interface BookingSummaryDetails {
   vehicleId: string;
   vehicleName: string;
   vehicleImage: string;
@@ -90,8 +92,7 @@ export default function BookingSummaryPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const [bookingDetails, setBookingDetails] = useState<BookingSummary | null>(null);
-  const [couponCode, setCouponCode] = useState('');
+  const [bookingDetails, setBookingDetails] = useState<BookingSummaryDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingPayment, setPendingPayment] = useState<any>(null);
 
@@ -107,7 +108,7 @@ export default function BookingSummaryPage() {
   }, [searchParams, router]);
 
   useEffect(() => {
-    const details: BookingSummary = {
+    const details: BookingSummaryDetails = {
       vehicleId: searchParams.get('vehicleId') || '',
       vehicleName: searchParams.get('vehicleName') || '',
       vehicleImage: searchParams.get('vehicleImage') || '/placeholder-vehicle.jpg',
@@ -146,34 +147,7 @@ export default function BookingSummaryPage() {
     }
   }, []);
 
-  const handleBooking = async () => {
-    // Proceed with booking logic
-  };
-
-  if (!bookingDetails) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  const pickupDateTime = new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`);
-  const dropoffDateTime = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`);
-  const duration = calculateDuration(pickupDateTime, dropoffDateTime);
-  
-  // Calculate base price with minimum duration rules
-  const isWeekend = pickupDateTime.getDay() === 0 || pickupDateTime.getDay() === 6;
-  const minimumHours = isWeekend ? 24 : 12;
-  const effectiveDuration = Math.max(duration, minimumHours);
-  const basePrice = effectiveDuration * bookingDetails.pricePerHour;
-  
-  // Calculate additional charges
-  const gst = basePrice * 0.18;
-  const serviceFee = basePrice * 0.05;
-  const totalPrice = basePrice + gst + serviceFee;
-
-  const handleConfirmBooking = async () => {
+  const handleProceedToPayment = async () => {
     try {
       if (!session?.user) {
         showNotification('Please sign in to continue');
@@ -186,6 +160,21 @@ export default function BookingSummaryPage() {
       }
 
       setIsLoading(true);
+
+      const pickupDateTime = new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`);
+      const dropoffDateTime = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`);
+      const duration = calculateDuration(pickupDateTime, dropoffDateTime);
+      
+      // Calculate base price with minimum duration rules
+      const isWeekend = pickupDateTime.getDay() === 0 || pickupDateTime.getDay() === 6;
+      const minimumHours = isWeekend ? 24 : 12;
+      const effectiveDuration = Math.max(duration, minimumHours);
+      const basePrice = effectiveDuration * bookingDetails.pricePerHour;
+      
+      // Calculate additional charges
+      const gst = basePrice * 0.18;
+      const serviceFee = basePrice * 0.05;
+      const totalPrice = basePrice + gst + serviceFee;
 
       // Create booking
       const createBookingResponse = await fetch('/api/bookings', {
@@ -352,13 +341,49 @@ export default function BookingSummaryPage() {
 
       razorpay.open();
     } catch (error) {
-      console.error('Booking error:', error);
-      setIsLoading(false); // Reset loading state on error
-      showNotification(
-        error instanceof Error ? error.message : 'Failed to process booking',
-        'error'
-      );
+      logger.error('Error processing booking:', error);
+      showNotification(error instanceof Error ? error.message : 'Failed to process booking');
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  if (!bookingDetails) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  const pickupDateTime = new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`);
+  const dropoffDateTime = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`);
+  const duration = calculateDuration(pickupDateTime, dropoffDateTime);
+  
+  // Calculate base price with minimum duration rules
+  const isWeekend = pickupDateTime.getDay() === 0 || pickupDateTime.getDay() === 6;
+  const minimumHours = isWeekend ? 24 : 12;
+  const effectiveDuration = Math.max(duration, minimumHours);
+  const basePrice = effectiveDuration * bookingDetails.pricePerHour;
+  
+  // Calculate additional charges
+  const gst = basePrice * 0.18;
+  const serviceFee = basePrice * 0.05;
+  const totalPrice = basePrice + gst + serviceFee;
+
+  const booking = {
+    vehicle: {
+      name: bookingDetails.vehicleName,
+      image: bookingDetails.vehicleImage,
+      location: bookingDetails.location,
+    },
+    start_date: `${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`,
+    end_date: `${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`,
+    duration: effectiveDuration,
+    total_price: totalPrice,
+    base_price: basePrice,
+    gst: gst,
+    service_fee: serviceFee,
   };
 
   return (
@@ -373,99 +398,10 @@ export default function BookingSummaryPage() {
         />
       )}
       
-      <h1 className="text-2xl font-bold mb-8">SUMMARY</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Left Column - Vehicle Details */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="relative h-64 md:h-80 w-full flex items-center justify-center bg-gray-100 rounded-lg mb-6">
-            <div className="relative h-56 md:h-72 w-full">
-              <Image
-                src={bookingDetails.vehicleImage}
-                alt={bookingDetails.vehicleName}
-                fill
-                className="object-contain p-4"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                priority
-              />
-            </div>
-          </div>
-          <h2 className="text-xl font-semibold mb-4">{bookingDetails.vehicleName}</h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between text-gray-600">
-              <div className="flex flex-col">
-                <span className="font-medium text-gray-900">Pickup</span>
-                <span>{pickupDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                <span className="text-sm">{pickupDateTime.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-              </div>
-              <div className="text-gray-400">to</div>
-              <div className="flex flex-col text-right">
-                <span className="font-medium text-gray-900">Drop-off</span>
-                <span>{dropoffDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                <span className="text-sm">{dropoffDateTime.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-              </div>
-            </div>
-            <div className="pt-4 border-t">
-              <div className="text-gray-600">
-                <span className="font-medium">Location:</span>{' '}
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                  {bookingDetails.location}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column - Billing Details */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-semibold mb-6">Billing Details</h2>
-          
-          {/* Apply Coupon */}
-          <div className="mb-6">
-            <p className="text-sm font-medium mb-2">Apply Coupon</p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value)}
-                placeholder="Enter coupon code"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
-              <button className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors">
-                APPLY
-              </button>
-            </div>
-          </div>
-
-          {/* Booking Details */}
-          <div className="space-y-4 mb-6">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Vehicle Rental Charges</span>
-              <span className="font-medium">₹{basePrice.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">GST (18%)</span>
-              <span className="font-medium">₹{gst.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Service Fee (5%)</span>
-              <span className="font-medium">₹{serviceFee.toFixed(2)}</span>
-            </div>
-            <div className="border-t pt-4 flex justify-between items-center">
-              <span className="font-semibold">Total Due</span>
-              <span className="font-bold text-lg">₹{totalPrice.toFixed(2)}</span>
-            </div>
-          </div>
-
-          {/* Make Payment Button */}
-          <button
-            onClick={handleConfirmBooking}
-            disabled={isLoading}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? 'Processing...' : 'Make payment'}
-          </button>
-        </div>
-      </div>
+      <BookingSummary
+        booking={booking}
+        onProceedToPayment={handleProceedToPayment}
+      />
     </div>
   );
 } 
