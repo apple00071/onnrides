@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { WhatsAppService } from '@/lib/whatsapp/service';
 import { EmailService } from '@/lib/email/service';
 import { formatDate, formatCurrency } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
-  const whatsappService = WhatsAppService.getInstance();
   const emailService = EmailService.getInstance();
   
   try {
@@ -101,44 +99,53 @@ export async function POST(request: NextRequest) {
 
         await query('COMMIT');
 
-        // Send booking confirmation notifications
-        const bookingStartDate = formatDate(booking.start_date);
-        const amount = formatCurrency(booking.total_price);
-
         // Prepare notification content
         const notificationContent = {
           userName: booking.user_name || 'User',
           vehicleName: booking.vehicle_name,
           bookingId: booking.booking_id,
-          startDate: bookingStartDate,
+          startDate: formatDate(booking.start_date),
           endDate: formatDate(booking.end_date),
-          amount: amount,
+          amount: formatCurrency(booking.total_price),
           paymentId: razorpay_payment_id
         };
 
-        // Send notifications asynchronously
-        Promise.allSettled([
-          // Send WhatsApp notification
-          booking.user_phone ? 
-            whatsappService.sendBookingConfirmation(
-              booking.user_phone,
-              notificationContent.userName,
-              notificationContent.vehicleName,
-              notificationContent.startDate,
-              booking.booking_id
-            ).catch(error => logger.error('Failed to send WhatsApp booking confirmation:', error)) : 
-            Promise.resolve(),
+        // Queue WhatsApp notification in the background
+        if (booking.user_phone) {
+          try {
+            await query(
+              `INSERT INTO notification_queue (
+                type,
+                recipient,
+                data,
+                status,
+                created_at
+              ) VALUES ($1, $2, $3, $4, NOW())`,
+              [
+                'whatsapp_booking_confirmation',
+                booking.user_phone,
+                JSON.stringify(notificationContent),
+                'pending'
+              ]
+            );
+          } catch (error) {
+            logger.error('Failed to queue WhatsApp notification:', error);
+            // Don't throw error, continue with the response
+          }
+        }
 
-          // Send email notification  
-          booking.user_email ?
-            emailService.sendBookingConfirmation(
+        // Send email notification
+        if (booking.user_email) {
+          try {
+            await emailService.sendBookingConfirmation(
               booking.user_email,
               notificationContent
-            ).catch(error => logger.error('Failed to send email booking confirmation:', error)) :
-            Promise.resolve()
-        ]).catch(error => {
-          logger.error('Error sending notifications:', error);
-        });
+            );
+          } catch (error) {
+            logger.error('Failed to send email booking confirmation:', error);
+            // Don't throw error, continue with the response
+          }
+        }
 
         return NextResponse.json({
           success: true,
@@ -151,62 +158,13 @@ export async function POST(request: NextRequest) {
           }
         });
       } else {
-        // Payment verification failed
-        const failureDetails = {
-          razorpay_order_id,
-          razorpay_payment_id,
-          error: 'Invalid payment signature',
-          failed_at: new Date().toISOString()
-        };
-
-        await query(
-          `UPDATE bookings 
-           SET status = 'payment_failed',
-               payment_status = 'failed',
-               payment_details = $1::jsonb,
-               updated_at = NOW()
-           WHERE booking_id = $2`,
-          [JSON.stringify(failureDetails), booking_id]
-        );
-
-        // Send failure notifications with support details
-        const supportEmail = 'support@onnrides.com';
-        const supportPhone = '+91 8247494622';
-        
-        const failureContent = {
-          userName: booking.user_name || 'User',
-          bookingId: booking.booking_id,
-          amount: formatCurrency(booking.total_price),
+        await query('ROLLBACK');
+        logger.error('Invalid payment signature', {
           orderId: razorpay_order_id,
-          paymentId: razorpay_payment_id,
-          supportEmail,
-          supportPhone
-        };
-
-        // Send notifications
-        if (booking.user_email) {
-          emailService.sendPaymentFailure(
-            booking.user_email,
-            failureContent
-          ).catch(error => logger.error('Failed to send email failure notification:', error));
-        }
-
-        await query('COMMIT');
-
+          paymentId: razorpay_payment_id
+        });
         return NextResponse.json(
-          { 
-            success: false, 
-            error: 'Payment verification failed',
-            data: {
-              booking_id: booking.booking_id,
-              status: 'payment_failed',
-              payment_status: 'failed',
-              support: {
-                email: supportEmail,
-                phone: supportPhone
-              }
-            }
-          },
+          { success: false, error: 'Invalid payment signature' },
           { status: 400 }
         );
       }
@@ -220,8 +178,7 @@ export async function POST(request: NextRequest) {
       { 
         success: false, 
         error: 'Payment verification failed',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        retry_allowed: true
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );

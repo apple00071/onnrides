@@ -1,10 +1,32 @@
 import { Client, LocalAuth } from 'whatsapp-web.js';
 import qrcode from 'qrcode';
 import logger from './logger';
+import fs from 'fs';
+import path from 'path';
 
-let qrString: string | null = null;
+let qrCodeData: string | null = null;
 
-export const getQRCode = (): string | null => qrString;
+export function setQRCode(qrCode: string) {
+  qrCodeData = qrCode;
+}
+
+export function getQRCode(): string | null {
+  return qrCodeData;
+}
+
+export function clearQRCode() {
+  qrCodeData = null;
+  
+  // Clean up QR code file if it exists
+  const qrFilePath = path.join(process.cwd(), 'whatsapp-qr.png');
+  if (fs.existsSync(qrFilePath)) {
+    try {
+      fs.unlinkSync(qrFilePath);
+    } catch (error) {
+      logger.error('Failed to delete QR code file:', error);
+    }
+  }
+}
 
 export const initializeWhatsAppClient = async (): Promise<Client> => {
     const client = new Client({
@@ -30,7 +52,7 @@ export const initializeWhatsAppClient = async (): Promise<Client> => {
     return new Promise((resolve, reject) => {
         client.on('qr', async (qr) => {
             try {
-                qrString = await qrcode.toString(qr, { type: 'terminal' });
+                qrCodeData = await qrcode.toString(qr, { type: 'terminal' });
                 logger.info('New QR code generated');
             } catch (error) {
                 logger.error('Failed to generate QR code:', error);
@@ -38,13 +60,13 @@ export const initializeWhatsAppClient = async (): Promise<Client> => {
         });
 
         client.on('ready', () => {
-            qrString = null;
+            qrCodeData = null;
             logger.info('WhatsApp client is ready');
             resolve(client);
         });
 
         client.on('authenticated', () => {
-            qrString = null;
+            qrCodeData = null;
             logger.info('WhatsApp client authenticated');
         });
 
@@ -54,7 +76,7 @@ export const initializeWhatsAppClient = async (): Promise<Client> => {
         });
 
         client.on('disconnected', (reason) => {
-            qrString = null;
+            qrCodeData = null;
             logger.warn('WhatsApp client disconnected:', reason);
         });
 

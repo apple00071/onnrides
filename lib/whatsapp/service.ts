@@ -1,8 +1,7 @@
 import logger from '@/lib/logger';
 import { Client } from 'whatsapp-web.js';
 import { initializeWhatsAppClient } from './config';
-import Database from 'better-sqlite3';
-import path from 'path';
+import { query } from '@/lib/db';
 
 interface WhatsAppLog {
     id: string;
@@ -33,66 +32,58 @@ interface InitializationStatus {
     error?: Error;
 }
 
-interface RateLimitRecord {
-    count: number;
-    reset_time: number;
-}
-
 export class WhatsAppService {
     private static instance: WhatsAppService;
     private client: Client | null = null;
     private initializationError: Error | null = null;
-    private db: Database.Database;
     
     // Rate limiting properties
-    private rateLimits: Map<string, RateLimitEntry> = new Map();
     private readonly rateLimitConfig: RateLimitConfig = {
         windowMs: 60000,  // 1 minute
         maxRequests: 30   // 30 requests per minute
     };
 
     private constructor() {
-        // Initialize SQLite database
-        const dbPath = path.join(process.cwd(), 'whatsapp.db');
-        this.db = new Database(dbPath);
-        
-        // Create tables if they don't exist
         this.initializeDatabase();
         this.initializeClient();
     }
 
-    private initializeDatabase() {
-        // Create messages table
-        this.db.exec(`
-            CREATE TABLE IF NOT EXISTS whatsapp_logs (
-                id TEXT PRIMARY KEY,
-                recipient TEXT NOT NULL,
-                message TEXT NOT NULL,
-                booking_id TEXT,
-                status TEXT NOT NULL,
-                error TEXT,
-                message_type TEXT NOT NULL,
-                chat_id TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-        `);
+    private async initializeDatabase() {
+        try {
+            // Create whatsapp_logs table
+            await query(`
+                CREATE TABLE IF NOT EXISTS whatsapp_logs (
+                    id TEXT PRIMARY KEY,
+                    recipient TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    booking_id TEXT,
+                    status TEXT NOT NULL,
+                    error TEXT,
+                    message_type TEXT NOT NULL,
+                    chat_id TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
 
-        // Create rate_limits table
-        this.db.exec(`
-            CREATE TABLE IF NOT EXISTS rate_limits (
-                phone TEXT PRIMARY KEY,
-                count INTEGER NOT NULL,
-                reset_time INTEGER NOT NULL
-            )
-        `);
+            // Create rate_limits table
+            await query(`
+                CREATE TABLE IF NOT EXISTS rate_limits (
+                    phone TEXT PRIMARY KEY,
+                    count INTEGER NOT NULL,
+                    reset_time BIGINT NOT NULL
+                )
+            `);
 
-        // Create indices
-        this.db.exec(`
-            CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_recipient ON whatsapp_logs(recipient);
-            CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_status ON whatsapp_logs(status);
-            CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_booking_id ON whatsapp_logs(booking_id);
-        `);
+            // Create indices
+            await query(`
+                CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_recipient ON whatsapp_logs(recipient);
+                CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_status ON whatsapp_logs(status);
+                CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_booking_id ON whatsapp_logs(booking_id);
+            `);
+        } catch (error) {
+            logger.error('Error initializing WhatsApp database:', error);
+        }
     }
 
     private async initializeClient() {
@@ -133,29 +124,25 @@ export class WhatsAppService {
     private async logMessage(log: Omit<WhatsAppLog, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
         try {
             const id = this.generateId();
-            const now = new Date().toISOString();
-
-            const stmt = this.db.prepare(`
-                INSERT INTO whatsapp_logs (
+            const result = await query(
+                `INSERT INTO whatsapp_logs (
                     id, recipient, message, booking_id, status, 
-                    error, message_type, chat_id, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `);
-
-            stmt.run(
-                id,
-                log.recipient,
-                log.message,
-                log.booking_id || null,
-                log.status,
-                log.error || null,
-                log.message_type,
-                log.chat_id || null,
-                now,
-                now
+                    error, message_type, chat_id
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                RETURNING id`,
+                [
+                    id,
+                    log.recipient,
+                    log.message,
+                    log.booking_id || null,
+                    log.status,
+                    log.error || null,
+                    log.message_type,
+                    log.chat_id || null
+                ]
             );
 
-            return id;
+            return result.rows[0].id;
         } catch (error) {
             logger.error('Failed to log WhatsApp message:', error);
             throw error;
@@ -164,65 +151,62 @@ export class WhatsAppService {
 
     private async updateMessageLog(id: string, updates: Partial<WhatsAppLog>): Promise<void> {
         try {
-            const now = new Date().toISOString();
-            const setClauses = Object.entries(updates)
-                .map(([key]) => `${key} = ?`)
-                .concat(['updated_at = ?'])
+            const setClause = Object.entries(updates)
+                .map(([key], index) => `${key} = $${index + 2}`)
                 .join(', ');
 
-            const stmt = this.db.prepare(`
-                UPDATE whatsapp_logs 
-                SET ${setClauses}
-                WHERE id = ?
-            `);
-
-            stmt.run(
-                ...Object.values(updates),
-                now,
-                id
+            await query(
+                `UPDATE whatsapp_logs 
+                 SET ${setClause}, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = $1`,
+                [id, ...Object.values(updates)]
             );
         } catch (error) {
             logger.error('Failed to update WhatsApp message log:', error);
         }
     }
 
-    private checkRateLimit(phoneNumber: string): boolean {
+    private async checkRateLimit(phoneNumber: string): Promise<boolean> {
         const now = Date.now();
 
-        // Clean up old rate limits
-        this.db.prepare(`
-            DELETE FROM rate_limits 
-            WHERE reset_time < ?
-        `).run(now);
+        try {
+            // Clean up old rate limits
+            await query(
+                'DELETE FROM rate_limits WHERE reset_time < $1',
+                [now]
+            );
 
-        // Get current rate limit
-        const rateLimit = this.db.prepare(`
-            SELECT count, reset_time 
-            FROM rate_limits 
-            WHERE phone = ?
-        `).get(phoneNumber) as RateLimitRecord | undefined;
+            // Get current rate limit
+            const result = await query(
+                'SELECT count, reset_time FROM rate_limits WHERE phone = $1',
+                [phoneNumber]
+            );
 
-        if (!rateLimit) {
-            // Create new rate limit
-            this.db.prepare(`
-                INSERT INTO rate_limits (phone, count, reset_time)
-                VALUES (?, 1, ?)
-            `).run(phoneNumber, now + this.rateLimitConfig.windowMs);
+            if (result.rowCount === 0) {
+                // Create new rate limit
+                await query(
+                    'INSERT INTO rate_limits (phone, count, reset_time) VALUES ($1, 1, $2)',
+                    [phoneNumber, now + this.rateLimitConfig.windowMs]
+                );
+                return true;
+            }
+
+            const rateLimit = result.rows[0];
+            if (rateLimit.count >= this.rateLimitConfig.maxRequests) {
+                return false;
+            }
+
+            // Increment count
+            await query(
+                'UPDATE rate_limits SET count = count + 1 WHERE phone = $1',
+                [phoneNumber]
+            );
+
             return true;
-        }
-
-        if (rateLimit.count >= this.rateLimitConfig.maxRequests) {
+        } catch (error) {
+            logger.error('Error checking rate limit:', error);
             return false;
         }
-
-        // Increment count
-        this.db.prepare(`
-            UPDATE rate_limits 
-            SET count = count + 1
-            WHERE phone = ?
-        `).run(phoneNumber);
-
-        return true;
     }
 
     public async sendMessage(to: string, message: string, bookingId?: string): Promise<void> {
@@ -230,7 +214,7 @@ export class WhatsAppService {
             throw new Error('WhatsApp client not initialized');
         }
 
-        if (!this.checkRateLimit(to)) {
+        if (!await this.checkRateLimit(to)) {
             const error = new Error(`Rate limit exceeded for ${to}. Please try again later.`);
             await this.logMessage({
                 recipient: to,

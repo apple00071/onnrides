@@ -2,28 +2,22 @@ import fs from 'fs';
 import path from 'path';
 import logger from './logger';
 
-const requiredDirs = [
-    'data',
-    'data/auth',
-    'logs'
-];
+export function initializeDirectories() {
+    const directories = [
+        'logs',
+        '.wwebjs_auth',
+        '.wwebjs_cache'
+    ];
 
-export const initializeDirectories = () => {
-    const baseDir = process.cwd();
-
-    for (const dir of requiredDirs) {
-        const fullPath = path.join(baseDir, dir);
-        
-        if (!fs.existsSync(fullPath)) {
+    directories.forEach(dir => {
+        const dirPath = path.join(process.cwd(), dir);
+        if (!fs.existsSync(dirPath)) {
             try {
-                fs.mkdirSync(fullPath, { recursive: true });
+                fs.mkdirSync(dirPath, { recursive: true });
                 logger.info(`Created directory: ${dir}`);
             } catch (error) {
                 logger.error(`Failed to create directory ${dir}:`, error);
-                throw error;
             }
         }
-    }
-
-    logger.info('Directory initialization completed');
-}; 
+    });
+} 

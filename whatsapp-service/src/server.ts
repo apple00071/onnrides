@@ -3,8 +3,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import logger from './logger';
 import { initializeDirectories } from './init';
-import { WhatsAppService } from './service';
+import { WhatsAppService } from './whatsapp';
 import { getQRCode } from './config';
+import { NotificationWorker } from './notification-worker';
 
 // Load environment variables
 dotenv.config();
@@ -32,15 +33,25 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
     next();
 };
 
+// Initialize services
+const whatsappService = WhatsAppService.getInstance();
+const notificationWorker = new NotificationWorker();
+
+// Start the notification worker
+notificationWorker.start();
+
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok' });
+    const status = whatsappService.getInitializationStatus();
+    res.json({
+        status: 'ok',
+        whatsapp: status
+    });
 });
 
 // Initialize WhatsApp endpoint
 app.get('/whatsapp/init', authMiddleware, (_req: Request, res: Response) => {
-    const whatsapp = WhatsAppService.getInstance();
-    const status = whatsapp.getInitializationStatus();
+    const status = whatsappService.getInitializationStatus();
     
     if (status.error) {
         return res.status(500).json({ 
@@ -59,8 +70,7 @@ app.get('/whatsapp/init', authMiddleware, (_req: Request, res: Response) => {
 
 // WhatsApp status endpoint
 app.get('/whatsapp/status', authMiddleware, (_req: Request, res: Response) => {
-    const whatsapp = WhatsAppService.getInstance();
-    const status = whatsapp.getInitializationStatus();
+    const status = whatsappService.getInitializationStatus();
     
     res.json({
         initialized: status.isInitialized,
@@ -83,8 +93,7 @@ app.post('/whatsapp/send', authMiddleware, async (req: Request<{}, {}, SendMessa
     }
     
     try {
-        const whatsapp = WhatsAppService.getInstance();
-        await whatsapp.sendMessage(to, message, bookingId);
+        await whatsappService.sendMessage(to, message, bookingId);
         res.json({ success: true });
     } catch (error) {
         logger.error('Failed to send WhatsApp message:', error);
@@ -112,8 +121,7 @@ app.post('/whatsapp/booking/confirm', authMiddleware, async (req: Request<{}, {}
     }
     
     try {
-        const whatsapp = WhatsAppService.getInstance();
-        const success = await whatsapp.sendBookingConfirmation(
+        const success = await whatsappService.sendBookingConfirmation(
             phone,
             userName,
             vehicleDetails,
@@ -147,8 +155,7 @@ app.post('/whatsapp/booking/cancel', authMiddleware, async (req: Request<{}, {},
     }
     
     try {
-        const whatsapp = WhatsAppService.getInstance();
-        const success = await whatsapp.sendBookingCancellation(
+        const success = await whatsappService.sendBookingCancellation(
             phone,
             userName,
             vehicleDetails,
@@ -181,8 +188,7 @@ app.post('/whatsapp/payment/confirm', authMiddleware, async (req: Request<{}, {}
     }
     
     try {
-        const whatsapp = WhatsAppService.getInstance();
-        const success = await whatsapp.sendPaymentConfirmation(
+        const success = await whatsappService.sendPaymentConfirmation(
             phone,
             userName,
             amount,
@@ -199,6 +205,19 @@ app.post('/whatsapp/payment/confirm', authMiddleware, async (req: Request<{}, {}
     }
 });
 
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    logger.info('SIGTERM received. Shutting down gracefully...');
+    notificationWorker.stop();
+    process.exit(0);
+});
+
+process.on('SIGINT', () => {
+    logger.info('SIGINT received. Shutting down gracefully...');
+    notificationWorker.stop();
+    process.exit(0);
+});
+
 // Start the server
 const startServer = async () => {
     try {
@@ -206,7 +225,7 @@ const startServer = async () => {
         initializeDirectories();
         
         // Initialize WhatsApp service
-        WhatsAppService.getInstance();
+        whatsappService.getInstance();
         
         app.listen(port, () => {
             logger.info(`WhatsApp service listening on port ${port}`);
