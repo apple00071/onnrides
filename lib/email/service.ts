@@ -40,27 +40,51 @@ interface EmailContent {
 
 export class EmailService {
   private static instance: EmailService;
-  private transporter: nodemailer.Transporter;
+  private transporter!: nodemailer.Transporter;
+  private isInitialized: boolean = false;
+  private initializationError: Error | null = null;
+  private readonly maxRetries = 3;
+  private readonly retryDelay = 5000; // 5 seconds
 
   private constructor() {
-    // Log email configuration (excluding sensitive data)
-    logger.info('Initializing email service with config:', {
-      host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
-      secure: process.env.SMTP_SECURE === 'true',
-      user: process.env.SMTP_USER,
-      hasPassword: !!process.env.SMTP_PASS
-    });
+    this.initializeTransporter();
+  }
 
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
+  private async initializeTransporter() {
+    try {
+      const port = parseInt(process.env.SMTP_PORT || '465', 10);
+      const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+
+      this.transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: port,
+        secure: secure, // true for 465, false for other ports
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASSWORD,
+        },
+        pool: true, // Use pooled connections
+        maxConnections: 5,
+        maxMessages: 100,
+        rateDelta: 1000, // Minimum time between messages
+        rateLimit: 5, // Maximum messages per rateDelta
+      });
+
+      // Verify connection
+      await this.transporter.verify();
+      this.isInitialized = true;
+      logger.info('Email service initialized successfully with config:', {
+        host: process.env.SMTP_HOST,
+        port: port,
+        secure: secure,
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      },
-    });
+        hasPassword: !!process.env.SMTP_PASSWORD
+      });
+    } catch (error) {
+      this.initializationError = error instanceof Error ? error : new Error('Unknown error during initialization');
+      logger.error('Failed to initialize email service:', error);
+      // Queue will handle retries, so we don't throw here
+    }
   }
 
   public static getInstance(): EmailService {
@@ -161,22 +185,70 @@ export class EmailService {
     }
   }
 
-  public async sendEmail(to: string, content: EmailContent): Promise<void> {
+  private async queueEmail(to: string, content: EmailContent, priority: number = 0): Promise<void> {
     try {
-      const html = this.getEmailTemplate(content.template, content.data);
+      const result = await query(
+        `INSERT INTO notification_queue (
+          type,
+          recipient,
+          data,
+          status,
+          priority,
+          created_at
+        ) VALUES ($1, $2, $3, $4, $5, NOW())
+        RETURNING id`,
+        [
+          `email_${content.template}`,
+          to,
+          JSON.stringify({
+            ...content,
+            attempts: 0,
+            lastAttempt: null
+          }),
+          'pending',
+          priority
+        ]
+      );
 
-      const mailOptions = {
-        from: process.env.SMTP_FROM || 'OnnRides <no-reply@onnrides.com>',
+      logger.info('Email queued successfully:', {
+        recipient: to,
+        template: content.template,
+        queueId: result.rows[0].id
+      });
+    } catch (error) {
+      logger.error('Failed to queue email:', error);
+      throw error;
+    }
+  }
+
+  public async sendEmail(to: string, content: EmailContent, priority: number = 0): Promise<void> {
+    try {
+      // Always queue the email first
+      await this.queueEmail(to, content, priority);
+
+      // If email service is not initialized, just return as the queue will handle it
+      if (!this.isInitialized) {
+        logger.warn('Email service not initialized, message queued for later delivery');
+        return;
+      }
+
+      // Attempt immediate delivery if possible
+      const emailContent = this.getEmailTemplate(content.template, content.data);
+      
+      await this.transporter.sendMail({
+        from: process.env.SMTP_FROM,
         to,
         subject: content.subject,
-        html,
-      };
+        html: emailContent,
+      });
 
-      await this.transporter.sendMail(mailOptions);
-      logger.info('Email sent successfully:', { to, template: content.template });
+      logger.info('Email sent successfully:', {
+        recipient: to,
+        template: content.template
+      });
     } catch (error) {
       logger.error('Failed to send email:', error);
-      throw error;
+      // Don't throw since it's queued
     }
   }
 
@@ -239,4 +311,7 @@ export class EmailService {
     `;
     await this.sendEmail(to, { subject, template: 'payment_failure', data });
   }
-} 
+}
+
+// Initialize the service
+EmailService.getInstance(); 

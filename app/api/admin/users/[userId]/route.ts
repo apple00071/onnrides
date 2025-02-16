@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
+import WebSocketService from '@/lib/websocket/service';
 
 export async function PUT(
   request: NextRequest,
@@ -98,6 +99,10 @@ export async function DELETE(
 
       // Commit the transaction
       await query('COMMIT');
+
+      // Send WebSocket notification to force logout
+      const wsService = WebSocketService.getInstance();
+      wsService.notifyUserStatus(userId, 'deleted');
 
       logger.info('User deleted:', {
         userId,

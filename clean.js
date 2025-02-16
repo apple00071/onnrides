@@ -4,10 +4,10 @@ const path = require('path');
 const rimraf = require('rimraf');
 
 const dirsToRemove = [
-  'app/(main)/vehicles/[id]',
-  'app/api/user/bookings/[id]',
-  'app/api/user/vehicles/[id]',
-  'app/api/vehicles/[id]'
+  'app/(main)/vehicles/[vehicleId]',
+  'app/api/user/bookings/[bookingId]',
+  'app/api/user/vehicles/[vehicleId]',
+  'app/api/vehicles/[vehicleId]'
 ];
 
 dirsToRemove.forEach(dir => {

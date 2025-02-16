@@ -346,20 +346,30 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
   };
 
   const handleDeleteUser = async () => {
+    if (!user) return;
+    
     setIsDeleting(true);
     try {
       const response = await fetch(`/api/admin/users/${user.id}`, {
-        method: 'DELETE',
+        method: 'DELETE'
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to delete user');
+        throw new Error(error.error || 'Failed to delete user');
       }
+
+      // Notify through WebSocket
+      await fetch(`/api/admin/users/${user.id}/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deleted' })
+      });
 
       toast.success('User deleted successfully');
       onClose();
-      onUserUpdated({ ...user, deleted: true });
+      // Update the user object with all existing properties plus deleted: true
+      onUserUpdated({ ...user, deleted: true } as User);
     } catch (error) {
       logger.error('Error deleting user:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to delete user');

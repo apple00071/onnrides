@@ -1,8 +1,15 @@
 const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
-const WebSocket = require('ws');
-const logger = require('./lib/logger').default;
+const WebSocketService = require('./dist/lib/websocket/service').default;
+
+// Simple logger for server.js
+const logger = {
+  info: (...args) => console.log(new Date().toISOString(), 'INFO:', ...args),
+  error: (...args) => console.error(new Date().toISOString(), 'ERROR:', ...args),
+  warn: (...args) => console.warn(new Date().toISOString(), 'WARN:', ...args),
+  debug: (...args) => console.debug(new Date().toISOString(), 'DEBUG:', ...args)
+};
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -23,57 +30,25 @@ app.prepare().then(() => {
     }
   });
 
-  // Create WebSocket server
-  const wss = new WebSocket.Server({ 
-    noServer: true // Important: use noServer: true
-  });
-
-  // Handle WebSocket connections
-  wss.on('connection', (ws, req) => {
-    const userId = new URL(req.url, 'http://localhost').searchParams.get('userId');
-    
-    if (userId) {
-      logger.info('WebSocket client connected:', { userId });
-
-      // Store the connection
-      ws.userId = userId;
-
-      ws.on('close', () => {
-        logger.info('WebSocket client disconnected:', { userId });
-      });
-
-      ws.on('error', (error) => {
-        logger.error('WebSocket error:', { userId, error });
-      });
-    } else {
-      ws.close();
-    }
-  });
-
-  // Handle upgrade requests
+  // Handle upgrade requests before initializing WebSocket
   server.on('upgrade', (request, socket, head) => {
-    const pathname = parse(request.url).pathname;
+    const parsedUrl = parse(request.url, true);
+    const { pathname } = parsedUrl;
 
     if (pathname === '/ws') {
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request);
-      });
-    } else {
+      // Let WebSocket handle this
+      return;
+    }
+
+    // For all other paths, let Next.js handle it
+    if (!socket.destroyed) {
       socket.destroy();
     }
   });
 
-  // Broadcast to specific user
-  wss.notifyUser = (userId, message) => {
-    wss.clients.forEach((client) => {
-      if (client.userId === userId && client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(message));
-      }
-    });
-  };
-
-  // Make WebSocket server globally accessible
-  global.wss = wss;
+  // Initialize WebSocket service
+  const wsService = WebSocketService.getInstance();
+  wsService.initialize(server);
 
   server.listen(port, () => {
     logger.info(`Server listening on port ${port}`);
