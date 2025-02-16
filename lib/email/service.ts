@@ -60,35 +60,56 @@ export class EmailService {
 
   private async initializeTransporter() {
     try {
+      // Log all email-related environment variables (excluding sensitive values)
+      logger.info('Checking email configuration:', {
+        SMTP_HOST: process.env.SMTP_HOST || 'not set',
+        SMTP_PORT: process.env.SMTP_PORT || 'not set',
+        SMTP_USER: process.env.SMTP_USER ? 'set' : 'not set',
+        SMTP_PASSWORD: process.env.SMTP_PASSWORD ? 'set' : 'not set',
+        SMTP_FROM: process.env.SMTP_FROM || 'not set'
+      });
+
+      // Validate required environment variables
+      const requiredVars = {
+        SMTP_HOST: process.env.SMTP_HOST,
+        SMTP_USER: process.env.SMTP_USER,
+        SMTP_PASSWORD: process.env.SMTP_PASSWORD,
+        SMTP_FROM: process.env.SMTP_FROM
+      };
+
+      const missingVars = Object.entries(requiredVars)
+        .filter(([_, value]) => !value)
+        .map(([key]) => key);
+
+      if (missingVars.length > 0) {
+        throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+      }
+
       const port = parseInt(process.env.SMTP_PORT || '465', 10);
       const secure = process.env.SMTP_SECURE === 'true' || port === 465;
-
-      // Check for required credentials
-      if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
-        throw new Error('SMTP credentials are not configured');
-      }
 
       this.transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: port,
-        secure: secure, // true for 465, false for other ports
+        secure: secure,
         auth: {
           user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASSWORD, // Use SMTP_PASSWORD instead of SMTP_PASS
+          pass: process.env.SMTP_PASSWORD,
         },
         tls: {
-          // Required for Gmail
           rejectUnauthorized: true
         },
-        pool: true, // Use pooled connections
+        pool: true,
         maxConnections: 5,
         maxMessages: 100,
-        rateDelta: 1000, // Minimum time between messages
-        rateLimit: 5, // Maximum messages per rateDelta
+        rateDelta: 1000,
+        rateLimit: 5,
       });
 
-      // Verify connection
+      // Test the connection
+      logger.info('Testing SMTP connection...');
       await this.transporter.verify();
+      
       this.isInitialized = true;
       logger.info('Email service initialized successfully with config:', {
         host: process.env.SMTP_HOST,
@@ -98,19 +119,18 @@ export class EmailService {
         hasPassword: !!process.env.SMTP_PASSWORD
       });
     } catch (error) {
-      // Provide more specific error messages
       const emailError = error as { code?: string; message?: string; command?: string };
       
       if (emailError.code === 'EAUTH') {
         logger.error('Email authentication failed. Please check your SMTP credentials and ensure you are using an App Password for Gmail');
       }
+
       this.initializationError = error instanceof Error ? error : new Error('Unknown error during initialization');
       logger.error('Failed to initialize email service:', {
         error: emailError.message || 'Unknown error',
         code: emailError.code,
         command: emailError.command
       });
-      // Queue will handle retries, so we don't throw here
     }
   }
 
