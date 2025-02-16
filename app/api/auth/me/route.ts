@@ -4,7 +4,6 @@ import { authOptions } from '@/lib/auth/config';
 import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
   try {
