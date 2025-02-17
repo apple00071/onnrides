@@ -52,12 +52,20 @@ export default function Navbar() {
           ) : session?.user ? (
             <UserNav user={session.user} />
           ) : (
-            <Link
-              href="/auth/signin"
-              className="text-sm font-medium text-gray-500 hover:text-[#f26e24]"
-            >
-              Sign In
-            </Link>
+            <>
+              <Link
+                href="/auth/signin"
+                className="text-sm font-medium text-gray-500 hover:text-[#f26e24]"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/auth/signup"
+                className="bg-[#f26e24] text-white hover:bg-[#e05d13] px-3 py-2 rounded-md text-sm font-medium transition-colors"
+              >
+                Sign Up
+              </Link>
+            </>
           )}
         </div>
       </div>
