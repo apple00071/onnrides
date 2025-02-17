@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast';
 declare global {
   interface Window {
     Razorpay: any;
+    razorpayInstance: any; // Track the current instance
   }
 }
 
@@ -122,6 +123,17 @@ const isBrowserSupported = () => {
 export const initializeRazorpayPayment = async (options: PaymentOptions) => {
   return new Promise((resolve, reject) => {
     try {
+      // Clean up any existing Razorpay instance
+      if (window.razorpayInstance) {
+        logger.info('Cleaning up existing Razorpay instance');
+        try {
+          window.razorpayInstance.close();
+          window.razorpayInstance = null;
+        } catch (cleanupError) {
+          logger.warn('Error cleaning up previous Razorpay instance:', cleanupError);
+        }
+      }
+
       // Always log browser info when payment is initialized
       const ua = window.navigator.userAgent.toLowerCase();
       logger.info('Payment initialization browser info:', {
@@ -134,12 +146,13 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
         screenWidth: window.screen.width,
         screenHeight: window.screen.height,
         devicePixelRatio: window.devicePixelRatio,
-        razorpayAvailable: !!window.Razorpay
+        razorpayAvailable: !!window.Razorpay,
+        existingInstance: !!window.razorpayInstance
       });
 
       // Wait for Razorpay to be available with better error handling
       let attempts = 0;
-      const maxAttempts = 10; // Increased from 5 to 10
+      const maxAttempts = 10;
       const checkRazorpay = () => {
         logger.info('Checking Razorpay availability:', { 
           attempt: attempts + 1, 
@@ -153,7 +166,6 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
         } else if (attempts < maxAttempts) {
           attempts++;
           logger.info('Razorpay not found, retrying...', { attempt: attempts });
-          // Exponential backoff
           setTimeout(checkRazorpay, Math.min(1000 * Math.pow(1.5, attempts), 5000));
         } else {
           const error = new Error('Payment system failed to load. Please try refreshing the page.');
@@ -172,7 +184,8 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
         }
 
         try {
-          const razorpay = new window.Razorpay({
+          // Create new Razorpay instance
+          window.razorpayInstance = new window.Razorpay({
             key: options.key,
             amount: options.amount,
             currency: options.currency,
@@ -185,6 +198,9 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
             },
             handler: async function (response: any) {
               try {
+                // Clear the instance after successful payment
+                window.razorpayInstance = null;
+
                 logger.info('Payment successful, verifying...', {
                   orderId: response.razorpay_order_id,
                   paymentId: response.razorpay_payment_id,
@@ -213,6 +229,7 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
                 toast.success('Payment successful!');
                 resolve(verifyData);
               } catch (error) {
+                window.razorpayInstance = null; // Clear instance on error
                 logger.error('Payment verification error:', {
                   error,
                   bookingId: options.bookingId,
@@ -224,13 +241,16 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
             },
             modal: {
               ondismiss: function() {
+                // Clear the instance when modal is dismissed
+                window.razorpayInstance = null;
                 logger.info('Payment modal dismissed by user');
                 toast.error('Payment cancelled');
                 reject(new Error('Payment cancelled by user'));
               },
               confirm_close: true,
               escape: false,
-              backdropclose: false
+              backdropclose: false,
+              animation: true // Enable animations
             },
             theme: {
               color: '#f26e24',
@@ -242,8 +262,9 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
           });
 
           logger.info('Opening Razorpay modal');
-          razorpay.open();
+          window.razorpayInstance.open();
         } catch (error) {
+          window.razorpayInstance = null; // Clear instance on error
           logger.error('Error creating Razorpay instance:', error);
           toast.error('Failed to initialize payment. Please refresh and try again.');
           reject(error);
@@ -253,6 +274,7 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
       // Start checking for Razorpay
       checkRazorpay();
     } catch (error) {
+      window.razorpayInstance = null; // Clear instance on any error
       logger.error('Failed to initialize Razorpay:', error);
       toast.error('Failed to initialize payment. Please refresh and try again.');
       reject(error);
@@ -262,6 +284,20 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
 
 export default function RazorpayProvider() {
   const [scriptLoaded, setScriptLoaded] = useState(false);
+
+  useEffect(() => {
+    // Cleanup function to clear any existing instance
+    return () => {
+      if (window.razorpayInstance) {
+        try {
+          window.razorpayInstance.close();
+          window.razorpayInstance = null;
+        } catch (error) {
+          logger.warn('Error cleaning up Razorpay instance:', error);
+        }
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (scriptLoaded) {
