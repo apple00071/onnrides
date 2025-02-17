@@ -137,24 +137,32 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
         razorpayAvailable: !!window.Razorpay
       });
 
-      // Remove browser check completely
-      // if (!isBrowserSupported()) {
-      //   const errorMessage = 'This browser may not be fully supported...';
-      //   logger.warn('Browser compatibility warning shown to user');
-      //   toast.error(errorMessage);
-      // }
-
-      // Wait for Razorpay to be available
+      // Wait for Razorpay to be available with better error handling
       let attempts = 0;
-      const maxAttempts = 5;
+      const maxAttempts = 10; // Increased from 5 to 10
       const checkRazorpay = () => {
+        logger.info('Checking Razorpay availability:', { 
+          attempt: attempts + 1, 
+          maxAttempts,
+          razorpayExists: !!window.Razorpay 
+        });
+
         if (window.Razorpay) {
+          logger.info('Razorpay found, initializing payment');
           initializePayment();
         } else if (attempts < maxAttempts) {
           attempts++;
-          setTimeout(checkRazorpay, 1000);
+          logger.info('Razorpay not found, retrying...', { attempt: attempts });
+          // Exponential backoff
+          setTimeout(checkRazorpay, Math.min(1000 * Math.pow(1.5, attempts), 5000));
         } else {
-          throw new Error('Payment system failed to load. Please refresh the page or try a different browser.');
+          const error = new Error('Payment system failed to load. Please try refreshing the page.');
+          logger.error('Max attempts reached waiting for Razorpay:', {
+            attempts,
+            scriptLoaded: document.querySelector('script[src*="razorpay"]') !== null
+          });
+          reject(error);
+          toast.error(error.message);
         }
       };
 
@@ -163,76 +171,90 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
           throw new Error('Booking ID is required');
         }
 
-        const razorpay = new window.Razorpay({
-          key: options.key,
-          amount: options.amount,
-          currency: options.currency,
-          name: 'OnnRides',
-          description: `Booking ID: ${options.bookingId}`,
-          order_id: options.orderId,
-          prefill: options.prefill,
-          notes: {
-            booking_id: options.bookingId
-          },
-          handler: async function (response: any) {
-            try {
-              logger.info('Payment successful, verifying...', {
-                orderId: response.razorpay_order_id,
-                paymentId: response.razorpay_payment_id,
-                bookingId: options.bookingId
-              });
-
-              const verifyResponse = await fetch('/api/payments/verify', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                  booking_id: options.bookingId
-                }),
-              });
-
-              const verifyData = await verifyResponse.json();
-              
-              if (!verifyResponse.ok || !verifyData.success) {
-                throw new Error(verifyData.error || 'Payment verification failed');
-              }
-
-              toast.success('Payment successful!');
-              resolve(verifyData);
-            } catch (error) {
-              logger.error('Payment verification error:', {
-                error,
-                bookingId: options.bookingId,
-                orderId: response.razorpay_order_id
-              });
-              toast.error('Payment verification failed. Please contact support.');
-              reject(error);
-            }
-          },
-          modal: {
-            ondismiss: function() {
-              toast.error('Payment cancelled');
-              reject(new Error('Payment cancelled by user'));
+        try {
+          const razorpay = new window.Razorpay({
+            key: options.key,
+            amount: options.amount,
+            currency: options.currency,
+            name: 'OnnRides',
+            description: `Booking ID: ${options.bookingId}`,
+            order_id: options.orderId,
+            prefill: options.prefill,
+            notes: {
+              booking_id: options.bookingId
             },
-            confirm_close: true,
-            escape: false
-          },
-          theme: {
-            color: '#f26e24',
-          },
-        });
+            handler: async function (response: any) {
+              try {
+                logger.info('Payment successful, verifying...', {
+                  orderId: response.razorpay_order_id,
+                  paymentId: response.razorpay_payment_id,
+                  bookingId: options.bookingId
+                });
 
-        razorpay.open();
+                const verifyResponse = await fetch('/api/payments/verify', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                    booking_id: options.bookingId
+                  }),
+                });
+
+                const verifyData = await verifyResponse.json();
+                
+                if (!verifyResponse.ok || !verifyData.success) {
+                  throw new Error(verifyData.error || 'Payment verification failed');
+                }
+
+                toast.success('Payment successful!');
+                resolve(verifyData);
+              } catch (error) {
+                logger.error('Payment verification error:', {
+                  error,
+                  bookingId: options.bookingId,
+                  orderId: response.razorpay_order_id
+                });
+                toast.error('Payment verification failed. Please contact support.');
+                reject(error);
+              }
+            },
+            modal: {
+              ondismiss: function() {
+                logger.info('Payment modal dismissed by user');
+                toast.error('Payment cancelled');
+                reject(new Error('Payment cancelled by user'));
+              },
+              confirm_close: true,
+              escape: false,
+              backdropclose: false
+            },
+            theme: {
+              color: '#f26e24',
+            },
+            retry: {
+              enabled: true,
+              max_count: 3
+            }
+          });
+
+          logger.info('Opening Razorpay modal');
+          razorpay.open();
+        } catch (error) {
+          logger.error('Error creating Razorpay instance:', error);
+          toast.error('Failed to initialize payment. Please refresh and try again.');
+          reject(error);
+        }
       };
 
+      // Start checking for Razorpay
       checkRazorpay();
     } catch (error) {
       logger.error('Failed to initialize Razorpay:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to initialize payment. Please try again.');
+      toast.error('Failed to initialize payment. Please refresh and try again.');
       reject(error);
     }
   });
@@ -249,9 +271,15 @@ export default function RazorpayProvider() {
 
   return (
     <Script
+      id="razorpay-script"
       src="https://checkout.razorpay.com/v1/checkout.js"
-      strategy="beforeInteractive"
-      onLoad={() => setScriptLoaded(true)}
+      strategy="afterInteractive"
+      async
+      defer
+      onLoad={() => {
+        logger.info('Razorpay script loaded event triggered');
+        setScriptLoaded(true);
+      }}
       onError={(e: Error) => {
         logger.error('Failed to load Razorpay script:', e);
         toast.error('Failed to load payment system. Please refresh the page.');
