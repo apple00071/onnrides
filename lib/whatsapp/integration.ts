@@ -15,9 +15,9 @@ export async function sendBookingNotification(
         totalPrice?: string;
     }
 ) {
-    // Skip WhatsApp integration in client-side or development
-    if (typeof window !== 'undefined' || process.env.NODE_ENV !== 'production') {
-        logger.info('Skipping WhatsApp notification in non-production/client environment');
+    // Only skip WhatsApp integration in client-side
+    if (typeof window !== 'undefined') {
+        logger.info('Skipping WhatsApp notification in client environment');
         return true;
     }
 

@@ -21,6 +21,8 @@ export class WhatsAppService {
     private readonly apiUrl: string;
     private readonly token: string;
     private readonly instanceId: string;
+    private isInitialized: boolean = false;
+    private initializationPromise: Promise<void>;
 
     private constructor() {
         this.token = process.env.ULTRAMSG_TOKEN!;
@@ -31,18 +33,25 @@ export class WhatsAppService {
             throw new Error('ULTRAMSG_TOKEN and ULTRAMSG_INSTANCE_ID must be provided');
         }
 
-        // Initialize database
-        this.initializeDatabase().catch(error => {
-            logger.error('Failed to initialize database:', error);
-        });
+        // Initialize database and set initialization promise
+        this.initializationPromise = this.initializeDatabase()
+            .then(() => {
+                this.isInitialized = true;
+                logger.info('WhatsApp service initialized successfully');
+            })
+            .catch(error => {
+                logger.error('Failed to initialize WhatsApp service:', error);
+                this.isInitialized = false;
+                throw error;
+            });
     }
 
     private async initializeDatabase() {
         try {
-            // Create whatsapp_logs table
+            // Create whatsapp_logs table with TEXT booking_id
             await query(`
                 CREATE TABLE IF NOT EXISTS whatsapp_logs (
-                    id UUID PRIMARY KEY,
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     recipient TEXT NOT NULL,
                     message TEXT NOT NULL,
                     booking_id TEXT,
@@ -50,6 +59,22 @@ export class WhatsAppService {
                     error TEXT,
                     message_type TEXT NOT NULL,
                     chat_id TEXT,
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            // Create notification_queue table
+            await query(`
+                CREATE TABLE IF NOT EXISTS notification_queue (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    type TEXT NOT NULL,
+                    recipient TEXT NOT NULL,
+                    data JSONB NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    error TEXT,
+                    retry_count INTEGER DEFAULT 0,
+                    next_retry_at TIMESTAMP WITH TIME ZONE,
                     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
@@ -69,6 +94,9 @@ export class WhatsAppService {
                 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_recipient ON whatsapp_logs(recipient);
                 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_status ON whatsapp_logs(status);
                 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_booking_id ON whatsapp_logs(booking_id);
+                CREATE INDEX IF NOT EXISTS idx_notification_queue_status ON notification_queue(status);
+                CREATE INDEX IF NOT EXISTS idx_notification_queue_type ON notification_queue(type);
+                CREATE INDEX IF NOT EXISTS idx_notification_queue_next_retry ON notification_queue(next_retry_at) WHERE status = 'pending';
             `);
 
             logger.info('WhatsApp database tables initialized successfully');
@@ -86,7 +114,15 @@ export class WhatsAppService {
     }
 
     private validatePhoneNumber(phoneNumber: string): string {
+        // Remove any non-digit characters
         const cleanNumber = phoneNumber.replace(/\D/g, '');
+        
+        // Ensure the number starts with country code (91 for India)
+        if (cleanNumber.length < 10) {
+            throw new Error('Invalid phone number: too short');
+        }
+        
+        // If number doesn't start with 91, add it
         return cleanNumber.startsWith('91') ? cleanNumber : `91${cleanNumber}`;
     }
 
@@ -96,24 +132,35 @@ export class WhatsAppService {
 
     private async logMessage(log: Omit<WhatsAppLog, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
         try {
-            const id = this.generateId();
+            // Try to insert without the booking_id first
             const result = await query(
                 `INSERT INTO whatsapp_logs (
-                    id, recipient, message, booking_id, status, 
+                    recipient, message, status, 
                     error, message_type, chat_id
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ) VALUES ($1, $2, $3, $4, $5, $6)
                 RETURNING id`,
                 [
-                    id,
                     log.recipient,
                     log.message,
-                    log.booking_id || null,
                     log.status,
                     log.error || null,
                     log.message_type,
                     log.chat_id || null
                 ]
             );
+
+            // If we have a booking_id, update it separately
+            if (log.booking_id) {
+                await query(
+                    `UPDATE whatsapp_logs 
+                     SET booking_id = $2
+                     WHERE id = $1`,
+                    [result.rows[0].id, log.booking_id]
+                ).catch(error => {
+                    // If update fails, just log it but don't fail the whole operation
+                    logger.warn('Failed to update booking_id in whatsapp_logs:', error);
+                });
+            }
 
             return result.rows[0].id;
         } catch (error) {
@@ -139,7 +186,23 @@ export class WhatsAppService {
         }
     }
 
+    private async waitForInitialization() {
+        try {
+            await this.initializationPromise;
+        } catch (error) {
+            logger.error('Failed to initialize WhatsApp service:', error);
+            throw new Error('WhatsApp service initialization failed');
+        }
+    }
+
     async sendMessage(to: string, message: string, bookingId?: string) {
+        // Wait for initialization before proceeding
+        await this.waitForInitialization();
+
+        if (!this.isInitialized) {
+            throw new Error('WhatsApp service is not properly initialized');
+        }
+
         const phoneNumber = this.validatePhoneNumber(to);
         let logId: string | undefined;
 
@@ -164,7 +227,8 @@ export class WhatsAppService {
                 {
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded'
-                    }
+                    },
+                    timeout: 10000 // 10 second timeout
                 }
             );
 
@@ -173,8 +237,8 @@ export class WhatsAppService {
             // UltraMsg returns sent: "true" (as string) when successful
             if (response.data && response.data.sent === "true") {
                 // Update log with success
-                await this.updateMessageLog(logId, {
-                    status: 'success',
+            await this.updateMessageLog(logId, {
+                status: 'success',
                     chat_id: response.data.id?.toString()
                 });
 
@@ -191,16 +255,47 @@ export class WhatsAppService {
 
         } catch (error) {
             logger.error('Error sending WhatsApp message:', error);
-
+            
             if (logId) {
                 await this.updateMessageLog(logId, {
                     status: 'failed',
                     error: error instanceof Error ? error.message : 'Unknown error'
                 });
             }
-
+            
             throw error;
         }
+    }
+
+    async sendBookingConfirmation(to: string, userName: string, vehicleName: string, startDate: string, bookingId: string) {
+        const message = `🎉 Booking Confirmed!\n\n` +
+            `Hello ${userName}!\n\n` +
+            `Your booking for ${vehicleName} has been confirmed.\n` +
+            `Pickup time: ${startDate}\n` +
+            `Booking ID: ${bookingId}\n\n` +
+            `Thank you for choosing OnnRides! Drive safe! 🚗`;
+
+        return this.sendMessage(to, message, bookingId);
+    }
+
+    async sendBookingCancellation(to: string, userName: string, vehicleName: string) {
+        const message = `❌ Booking Cancelled\n\n` +
+            `Hello ${userName},\n\n` +
+            `Your booking for ${vehicleName} has been cancelled.\n\n` +
+            `If you didn't request this cancellation, please contact our support:\n` +
+            `📞 Phone: +91 8247494622\n` +
+            `📧 Email: support@onnrides.com`;
+
+        return this.sendMessage(to, message);
+    }
+
+    async sendPaymentConfirmation(to: string, userName: string, amount: string, bookingId: string) {
+        const message = `💰 Payment Confirmed\n\n` +
+            `Hello ${userName},\n\n` +
+            `We've received your payment of ${amount} for booking ID: ${bookingId}.\n\n` +
+            `Thank you for choosing OnnRides! 🙏`;
+
+        return this.sendMessage(to, message, bookingId);
     }
 
     async sendMedia(to: string, mediaUrl: string, caption: string = '', bookingId?: string) {

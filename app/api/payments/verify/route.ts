@@ -5,6 +5,7 @@ import logger from '@/lib/logger';
 import { EmailService } from '@/lib/email/service';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import type { QueryResult } from 'pg';
+import { WhatsAppService } from '@/lib/whatsapp/service';
 
 // Set timeout for the API route
 export const maxDuration = 30; // 30 seconds timeout
@@ -28,6 +29,7 @@ interface BookingRow {
 
 export async function POST(request: NextRequest) {
   const emailService = EmailService.getInstance();
+  const whatsappService = WhatsAppService.getInstance();
   
   try {
     // Parse request body with error handling
@@ -180,21 +182,17 @@ export async function POST(request: NextRequest) {
           paymentId: razorpay_payment_id
         };
 
-        // Queue notifications asynchronously
-        void Promise.all([
-          // Queue WhatsApp notification
-          booking.user_phone ? query(
-            `INSERT INTO notification_queue (
-              type, recipient, data, status, created_at
-            ) VALUES ($1, $2, $3, $4, NOW())`,
-            [
-              'whatsapp_booking_confirmation',
-              booking.user_phone,
-              JSON.stringify(notificationContent),
-              'pending'
-            ]
-          ).catch(error => {
-            logger.error('Failed to queue WhatsApp notification:', error);
+        // Send notifications directly
+        await Promise.all([
+          // Send WhatsApp notification
+          booking.user_phone ? whatsappService.sendBookingConfirmation(
+            booking.user_phone,
+            booking.user_name,
+            booking.vehicle_name,
+            new Date(booking.start_date).toLocaleString('en-IN'),
+            booking.booking_id
+          ).catch((error: Error) => {
+            logger.error('Failed to send WhatsApp notification:', error);
             return null;
           }) : null,
 
@@ -202,11 +200,11 @@ export async function POST(request: NextRequest) {
           booking.user_email ? emailService.sendBookingConfirmation(
             booking.user_email,
             notificationContent
-          ).catch(error => {
+          ).catch((error: Error) => {
             logger.error('Failed to send email confirmation:', error);
             return null;
           }) : null
-        ]).catch(error => {
+        ]).catch((error: Error) => {
           logger.error('Error in notification promises:', error);
           return null;
         });

@@ -3,36 +3,48 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import WebSocketService from '@/lib/websocket/service';
+import { WhatsAppService } from '@/lib/whatsapp/service';
 
-export async function PUT(
-  request: NextRequest,
+export async function GET(
+  request: Request,
   { params }: { params: { userId: string } }
 ) {
   try {
-    // Check admin authentication
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.role || session.user.role !== 'admin') {
+    const result = await query(
+      'SELECT * FROM users WHERE id = $1',
+      [params.userId]
+    );
+
+    if (result.rows.length === 0) {
       return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
+        { error: 'User not found' },
+        { status: 404 }
       );
     }
 
-    const { userId } = params;
-    const { name } = await request.json();
+    return NextResponse.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error fetching user:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch user' },
+      { status: 500 }
+    );
+  }
+}
 
-    // Update user details
+export async function PUT(
+  request: Request,
+  { params }: { params: { userId: string } }
+) {
+  try {
+    const { status, message } = await request.json();
+    
     const result = await query(
-      `UPDATE users 
-       SET name = $1, 
-           updated_at = NOW() 
-       WHERE id = $2 
-       RETURNING id, name, email, role, phone, is_blocked, created_at`,
-      [name, userId]
+      'UPDATE users SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+      [status, params.userId]
     );
 
-    if (result.rowCount === 0) {
+    if (result.rows.length === 0) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
@@ -40,12 +52,26 @@ export async function PUT(
     }
 
     const updatedUser = result.rows[0];
-    logger.info('User updated:', {
-      userId,
-      adminId: session.user.id
-    });
 
-    return NextResponse.json(updatedUser);
+    // Send WhatsApp notification if message is provided
+    if (message && updatedUser.phone) {
+      const whatsapp = WhatsAppService.getInstance();
+      const notificationResult = await whatsapp.sendMessage(
+        updatedUser.phone,
+        message
+      );
+      
+      logger.info(`Status notification sent to user ${params.userId}`, {
+        messageId: notificationResult.messageId,
+        status
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      user: updatedUser,
+      message: 'User updated successfully'
+    });
   } catch (error) {
     logger.error('Error updating user:', error);
     return NextResponse.json(
@@ -56,74 +82,31 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { userId: string } }
 ) {
   try {
-    // Check admin authentication
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.role || session.user.role !== 'admin') {
+    const result = await query(
+      'DELETE FROM users WHERE id = $1 RETURNING *',
+      [params.userId]
+    );
+
+    if (result.rows.length === 0) {
       return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
+        { error: 'User not found' },
+        { status: 404 }
       );
     }
 
-    const { userId } = params;
-
-    // Start a transaction
-    await query('BEGIN');
-
-    try {
-      // Delete user's documents
-      await query(
-        'DELETE FROM documents WHERE user_id = $1',
-        [userId]
-      );
-
-      // Delete user's bookings
-      await query(
-        'DELETE FROM bookings WHERE user_id = $1',
-        [userId]
-      );
-
-      // Delete the user
-      const result = await query(
-        'DELETE FROM users WHERE id = $1 RETURNING id',
-        [userId]
-      );
-
-      if (result.rowCount === 0) {
-        throw new Error('User not found');
-      }
-
-      // Commit the transaction
-      await query('COMMIT');
-
-      // Send WebSocket notification to force logout
-      const wsService = WebSocketService.getInstance();
-      wsService.notifyUserStatus(userId, 'deleted');
-
-      logger.info('User deleted:', {
-        userId,
-        adminId: session.user.id
-      });
-
-      return NextResponse.json({
-        message: 'User deleted successfully'
-      });
-    } catch (error) {
-      // Rollback the transaction on error
-      await query('ROLLBACK');
-      throw error;
-    }
+    return NextResponse.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
   } catch (error) {
     logger.error('Error deleting user:', error);
     return NextResponse.json(
-      { 
-        error: error instanceof Error ? error.message : 'Failed to delete user'
-      },
-      { status: error instanceof Error && error.message === 'User not found' ? 404 : 500 }
+      { error: 'Failed to delete user' },
+      { status: 500 }
     );
   }
 } 

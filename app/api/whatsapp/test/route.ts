@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { WhatsAppService } from '@/lib/whatsapp/service';
+import logger from '@/lib/logger';
 
 export async function GET(req: Request) {
     try {
@@ -14,17 +15,31 @@ export async function GET(req: Request) {
             );
         }
 
+        logger.info('Starting WhatsApp test with configuration:', {
+            instanceId: process.env.ULTRAMSG_INSTANCE_ID,
+            testPhone,
+            hasToken: !!process.env.ULTRAMSG_TOKEN
+        });
+
         const whatsapp = WhatsAppService.getInstance();
         
         // Send a test message with current timestamp
         const timestamp = new Date().toLocaleString();
-        const result = await whatsapp.sendMessage(
-            testPhone,
-            `🔔 Onnrides WhatsApp Test Message\n\n` +
+        const message = `🔔 Onnrides WhatsApp Test Message\n\n` +
             `This is a test message sent at: ${timestamp}\n\n` +
             `Your phone number: ${testPhone}\n` +
-            `If you receive this message, the WhatsApp integration is working correctly! 🎉`
-        );
+            `Instance ID: ${process.env.ULTRAMSG_INSTANCE_ID}\n` +
+            `If you receive this message, the WhatsApp integration is working correctly! 🎉`;
+
+        logger.info('Sending test message:', { message });
+
+        const result = await whatsapp.sendMessage(testPhone, message);
+
+        logger.info('WhatsApp test result:', {
+            success: true,
+            messageId: result.messageId,
+            response: result.response
+        });
 
         return NextResponse.json({
             success: true,
@@ -34,11 +49,19 @@ export async function GET(req: Request) {
                 messageId: result.messageId,
                 logId: result.logId,
                 recipient: testPhone,
-                apiResponse: result.response
+                apiResponse: result.response,
+                message
             }
         });
     } catch (error) {
-        console.error('WhatsApp Test Error:', error);
+        logger.error('WhatsApp Test Error:', {
+            error,
+            config: {
+                instanceId: process.env.ULTRAMSG_INSTANCE_ID,
+                testPhone: process.env.TEST_PHONE_NUMBER,
+                hasToken: !!process.env.ULTRAMSG_TOKEN
+            }
+        });
         
         return NextResponse.json(
             { 
