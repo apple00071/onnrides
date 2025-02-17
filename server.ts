@@ -1,7 +1,6 @@
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
-import WebSocketService from './lib/websocket/service';
 import logger from './lib/logger';
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -22,9 +21,6 @@ app.prepare().then(() => {
       res.end('Internal Server Error');
     }
   });
-
-  // Initialize WebSocket server
-  WebSocketService.getInstance().initialize(server);
 
   server.listen(port, () => {
     logger.info(`Server listening on port ${port}`);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
@@ -112,11 +112,16 @@ export async function POST(request: NextRequest) {
 
     const document = result.rows[0];
     logger.info('Document uploaded successfully:', document.id);
-    return NextResponse.json(document);
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Document uploaded successfully and pending verification',
+      document
+    });
   } catch (error) {
-    logger.error("Error uploading document:", error);
+    logger.error('Error uploading document:', error);
     return NextResponse.json(
-      { error: "Failed to upload document" },
+      { error: 'Failed to upload document' },
       { status: 500 }
     );
   }
