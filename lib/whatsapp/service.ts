@@ -132,12 +132,13 @@ export class WhatsAppService {
 
     private async logMessage(log: Omit<WhatsAppLog, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
         try {
-            // Try to insert without the booking_id first
+            // Insert the initial log entry
             const result = await query(
                 `INSERT INTO whatsapp_logs (
                     recipient, message, status, 
-                    error, message_type, chat_id
-                ) VALUES ($1, $2, $3, $4, $5, $6)
+                    error, message_type, chat_id,
+                    booking_id
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
                 RETURNING id`,
                 [
                     log.recipient,
@@ -145,22 +146,10 @@ export class WhatsAppService {
                     log.status,
                     log.error || null,
                     log.message_type,
-                    log.chat_id || null
+                    log.chat_id || null,
+                    log.booking_id || null  // Include booking_id in initial insert
                 ]
             );
-
-            // If we have a booking_id, update it separately
-            if (log.booking_id) {
-                await query(
-                    `UPDATE whatsapp_logs 
-                     SET booking_id = $2
-                     WHERE id = $1`,
-                    [result.rows[0].id, log.booking_id]
-                ).catch(error => {
-                    // If update fails, just log it but don't fail the whole operation
-                    logger.warn('Failed to update booking_id in whatsapp_logs:', error);
-                });
-            }
 
             return result.rows[0].id;
         } catch (error) {
