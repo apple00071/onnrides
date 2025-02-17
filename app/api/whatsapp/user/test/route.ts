@@ -5,6 +5,10 @@ import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(req: Request) {
     try {
         // Get authenticated user
