@@ -27,45 +27,94 @@ interface PaymentOptions {
 const isBrowserSupported = () => {
   try {
     const ua = window.navigator.userAgent.toLowerCase();
-    logger.info('Checking browser compatibility:', { userAgent: ua });
+    const vendor = window.navigator.vendor?.toLowerCase() || '';
+    const platform = window.navigator.platform?.toLowerCase() || '';
+    
+    logger.info('Browser detection:', { 
+      userAgent: ua,
+      vendor,
+      platform,
+      language: window.navigator.language,
+      cookiesEnabled: window.navigator.cookieEnabled,
+      isSecureContext: window.isSecureContext
+    });
     
     // Check for mobile browsers
-    const isMobile = /mobile|android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
+    const isMobile = /mobile|android|iphone|ipad|ipod|blackberry|iemobile|opera mini|silk|webos|windows phone/i.test(ua);
     
-    // For mobile devices, be more permissive
+    // For mobile devices, be extremely permissive
     if (isMobile) {
-      // Allow all modern mobile browsers
-      const isModernMobile = /chrome|safari|firefox|edge|opera|samsung|ucbrowser|miui/i.test(ua);
+      // Allow almost all mobile browsers
+      const isModernMobile = /chrome|safari|firefox|edge|opera|samsung|ucbrowser|miui|huawei|vivo|oppo|xiaomi|webview|wv/i.test(ua);
+      
       logger.info('Mobile browser check:', { 
         isMobile: true, 
         isModernMobile,
-        browserType: ua.match(/chrome|safari|firefox|edge|opera|samsung|ucbrowser|miui/i)?.[0] 
+        browserType: ua.match(/chrome|safari|firefox|edge|opera|samsung|ucbrowser|miui|huawei|vivo|oppo|xiaomi|webview|wv/i)?.[0],
+        vendor,
+        platform
       });
       
-      // Special handling for WebView browsers
+      // Special handling for WebView browsers - be more permissive
       if (/(webview|wv)/i.test(ua)) {
-        logger.info('WebView detected, checking if supported');
-        // Allow WebViews from major browsers
-        return /chrome|safari|firefox/i.test(ua);
+        logger.info('WebView detected:', {
+          userAgent: ua,
+          isChrome: /chrome/i.test(ua),
+          isSafari: /safari/i.test(ua),
+          isWebKit: /webkit/i.test(ua)
+        });
+        // Allow any WebView that's based on a modern browser engine
+        return /webkit|chrome|safari|firefox/i.test(ua);
       }
       
-      return isModernMobile;
+      // If it's a mobile browser but not recognized as modern,
+      // still allow it but log for monitoring
+      if (!isModernMobile) {
+        logger.warn('Unrecognized mobile browser allowed:', {
+          userAgent: ua,
+          vendor,
+          platform
+        });
+      }
+      
+      // Allow all mobile browsers
+      return true;
     }
 
-    // For desktop, be more permissive with browser support
-    const isModernDesktop = /chrome|firefox|safari|edge|opera|chromium/i.test(ua);
+    // For desktop, be very permissive with browser support
+    const isModernDesktop = /chrome|firefox|safari|edge|opera|chromium|webkit|gecko/i.test(ua);
     
     logger.info('Desktop browser check:', { 
       isMobile: false, 
       isModernDesktop,
-      browserType: ua.match(/chrome|firefox|safari|edge|opera|chromium/i)?.[0]
+      browserType: ua.match(/chrome|firefox|safari|edge|opera|chromium|webkit|gecko/i)?.[0],
+      vendor,
+      platform
     });
 
-    return isModernDesktop;
+    // If it's a desktop browser but not recognized as modern,
+    // still allow it but log for monitoring
+    if (!isModernDesktop) {
+      logger.warn('Unrecognized desktop browser allowed:', {
+        userAgent: ua,
+        vendor,
+        platform
+      });
+    }
+
+    // Allow all desktop browsers
+    return true;
+
   } catch (error) {
-    logger.error('Error checking browser compatibility:', error);
-    // If there's an error in detection, allow the browser
-    // Better to try the payment than block unnecessarily
+    logger.error('Error in browser detection:', {
+      error,
+      navigator: {
+        userAgent: window.navigator.userAgent,
+        vendor: window.navigator.vendor,
+        platform: window.navigator.platform
+      }
+    });
+    // If there's any error in detection, allow the browser
     return true;
   }
 };
@@ -73,12 +122,27 @@ const isBrowserSupported = () => {
 export const initializeRazorpayPayment = async (options: PaymentOptions) => {
   return new Promise((resolve, reject) => {
     try {
-      if (!isBrowserSupported()) {
-        const errorMessage = 'This browser may not be fully supported. For the best experience, please use Chrome, Firefox, Safari, or Edge. If you continue to have issues, try using a different browser or contact our support.';
-        logger.warn('Browser compatibility warning shown to user');
-        toast.error(errorMessage);
-        // Don't throw error, just warn and continue
-      }
+      // Always log browser info when payment is initialized
+      const ua = window.navigator.userAgent.toLowerCase();
+      logger.info('Payment initialization browser info:', {
+        userAgent: ua,
+        vendor: window.navigator.vendor,
+        platform: window.navigator.platform,
+        language: window.navigator.language,
+        cookiesEnabled: window.navigator.cookieEnabled,
+        isSecureContext: window.isSecureContext,
+        screenWidth: window.screen.width,
+        screenHeight: window.screen.height,
+        devicePixelRatio: window.devicePixelRatio,
+        razorpayAvailable: !!window.Razorpay
+      });
+
+      // Remove browser check completely
+      // if (!isBrowserSupported()) {
+      //   const errorMessage = 'This browser may not be fully supported...';
+      //   logger.warn('Browser compatibility warning shown to user');
+      //   toast.error(errorMessage);
+      // }
 
       // Wait for Razorpay to be available
       let attempts = 0;
