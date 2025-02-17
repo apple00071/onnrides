@@ -48,13 +48,15 @@ export class WhatsAppService {
 
     private async initializeDatabase() {
         try {
-            // Create whatsapp_logs table with TEXT booking_id
+            // Drop and recreate whatsapp_logs table with correct structure
+            await query(`DROP TABLE IF EXISTS whatsapp_logs CASCADE`);
+            
             await query(`
-                CREATE TABLE IF NOT EXISTS whatsapp_logs (
+                CREATE TABLE whatsapp_logs (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     recipient TEXT NOT NULL,
                     message TEXT NOT NULL,
-                    booking_id TEXT,
+                    booking_id TEXT,  -- Changed to TEXT type to handle any format
                     status TEXT NOT NULL,
                     error TEXT,
                     message_type TEXT NOT NULL,
