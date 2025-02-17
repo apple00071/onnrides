@@ -17,6 +17,15 @@ export default function ClientLayout({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // Clear any existing Razorpay instances on mount
+    if (typeof window !== 'undefined' && window.razorpayInstance) {
+      try {
+        window.razorpayInstance.close();
+        window.razorpayInstance = null;
+      } catch (error) {
+        logger.warn('Error cleaning up Razorpay instance:', error);
+      }
+    }
     setMounted(true);
   }, []);
 
