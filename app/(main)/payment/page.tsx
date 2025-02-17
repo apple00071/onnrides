@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/utils';
 import { Loader } from '@/components/ui/loader';
+import { useSession } from 'next-auth/react';
 
 declare global {
   interface Window {
@@ -24,11 +25,13 @@ interface BookingDetails {
   pickup_datetime: Date;
   dropoff_datetime: Date;
   total_hours: number;
+  user_phone?: string;
 }
 
 export default function PaymentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState<BookingDetails | null>(null);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
@@ -146,6 +149,40 @@ export default function PaymentPage() {
         notes: {
           booking_id: booking.id
         },
+        prefill: {
+          name: session?.user?.name || '',
+          email: session?.user?.email || '',
+          contact: booking.user_phone || ''
+        },
+        config: {
+          display: {
+            blocks: {
+              utib: {
+                name: 'Pay using UPI',
+                instruments: [
+                  {
+                    method: 'upi'
+                  }
+                ]
+              },
+              other: {
+                name: 'Other Payment Methods',
+                instruments: [
+                  {
+                    method: 'card'
+                  },
+                  {
+                    method: 'netbanking'
+                  }
+                ]
+              }
+            },
+            sequence: ['block.utib', 'block.other'],
+            preferences: {
+              show_default_blocks: false
+            }
+          }
+        },
         retry: {
           enabled: true,
           max_count: 3
@@ -198,11 +235,6 @@ export default function PaymentPage() {
           },
           confirm_close: true,
           escape: false
-        },
-        prefill: {
-          name: '', // Add user's name from session
-          email: '', // Add user's email from session
-          contact: '', // Add user's phone from session
         },
         theme: {
           color: '#f26e24',

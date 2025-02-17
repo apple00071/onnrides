@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { sql } from 'kysely';
-import type { WhatsAppLog } from '@/lib/schema';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -28,40 +26,37 @@ export async function GET(request: NextRequest) {
         const offset = (page - 1) * ITEMS_PER_PAGE;
 
         // Get total count
-        const totalCount = await db
-            .selectFrom('whatsapp_logs')
-            .select(sql<number>`count(*)`.as('count'))
-            .executeTakeFirst();
-
-        const totalItems = Number(totalCount?.count || 0);
+        const totalCountResult = await query(
+            'SELECT COUNT(*) as count FROM whatsapp_logs'
+        );
+        const totalItems = parseInt(totalCountResult.rows[0].count);
         const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
         // Get logs with pagination
-        const logs = await db
-            .selectFrom('whatsapp_logs as wl')
-            .leftJoin('bookings as b', 'wl.booking_id', 'b.id')
-            .leftJoin('vehicles as v', 'b.vehicle_id', 'v.id')
-            .select([
-                'wl.id',
-                'wl.recipient',
-                'wl.message',
-                'wl.booking_id',
-                'wl.status',
-                'wl.error',
-                'wl.message_type',
-                'wl.chat_id',
-                'wl.created_at',
-                'v.name as vehicle_name'
-            ])
-            .orderBy('wl.created_at', 'desc')
-            .limit(ITEMS_PER_PAGE)
-            .offset(offset)
-            .execute();
+        const logsResult = await query(
+            `SELECT 
+                wl.id,
+                wl.recipient,
+                wl.message,
+                wl.booking_id,
+                wl.status,
+                wl.error,
+                wl.message_type,
+                wl.chat_id,
+                wl.created_at,
+                COALESCE(v.name, '-') as vehicle_name
+            FROM whatsapp_logs wl
+            LEFT JOIN bookings b ON wl.booking_id = b.booking_id
+            LEFT JOIN vehicles v ON b.vehicle_id = v.id
+            ORDER BY wl.created_at DESC
+            LIMIT $1 OFFSET $2`,
+            [ITEMS_PER_PAGE, offset]
+        );
 
         return NextResponse.json({
             success: true,
             data: {
-                logs,
+                logs: logsResult.rows,
                 pagination: {
                     currentPage: page,
                     totalPages,
