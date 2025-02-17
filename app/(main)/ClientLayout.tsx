@@ -4,10 +4,10 @@ import { Toaster } from 'react-hot-toast';
 import { SessionProvider } from 'next-auth/react';
 import { ThemeProvider } from 'next-themes';
 import { useEffect, useState } from 'react';
-import Script from 'next/script';
 import logger from '@/lib/logger';
 import Navbar from './components/Navbar';
 import { Footer } from '@/components/ui/footer';
+import RazorpayProvider from './providers/RazorpayProvider';
 
 export default function ClientLayout({
   children,
@@ -15,7 +15,6 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   const [mounted, setMounted] = useState(false);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -45,18 +44,7 @@ export default function ClientLayout({
 
   return (
     <SessionProvider>
-      <Script
-        id="razorpay-script"
-        src="https://checkout.razorpay.com/v1/checkout.js"
-        strategy="afterInteractive"
-        onLoad={() => {
-          setScriptLoaded(true);
-          logger.info('Razorpay script loaded successfully');
-        }}
-        onError={(e) => {
-          logger.error('Failed to load Razorpay script:', e);
-        }}
-      />
+      <RazorpayProvider />
       <ThemeProvider
         attribute="class"
         defaultTheme="light"

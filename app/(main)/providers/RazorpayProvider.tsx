@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Script from 'next/script';
 import logger from '@/lib/logger';
 import { toast } from 'react-hot-toast';
 
@@ -31,57 +32,24 @@ const getDomain = () => {
   if (hostname.includes('vercel.app')) {
     return 'https://onnrides.vercel.app';
   }
+  if (hostname === 'localhost') {
+    return 'http://localhost:3000';
+  }
   return 'https://onnrides.com';
 };
 
-// Function to load Razorpay script
-const loadRazorpayScript = (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    if (window.Razorpay) {
-      resolve();
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.defer = false;
-
-    script.onload = () => {
-      logger.info('Razorpay script loaded successfully');
-      resolve();
-    };
-
-    script.onerror = () => {
-      logger.error('Failed to load Razorpay script');
-      reject(new Error('Failed to load Razorpay script'));
-    };
-
-    document.body.appendChild(script);
-  });
-};
-
-// Function to cleanup Razorpay instance
-const cleanupRazorpay = () => {
-  if (window.razorpayInstance) {
-    try {
-      window.razorpayInstance.close();
-      window.razorpayInstance = null;
-      logger.info('Cleaned up Razorpay instance');
-    } catch (error) {
-      logger.warn('Error cleaning up Razorpay instance:', error);
-    }
-  }
-};
-
 export const initializeRazorpayPayment = async (options: PaymentOptions) => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise((resolve, reject) => {
     try {
-      // Clean up any existing instance
-      cleanupRazorpay();
-
-      // Load Razorpay script if not already loaded
-      await loadRazorpayScript();
+      // Clean up any existing Razorpay instance
+      if (window.razorpayInstance) {
+        try {
+          window.razorpayInstance.close();
+          window.razorpayInstance = null;
+        } catch (error) {
+          logger.warn('Error cleaning up Razorpay instance:', error);
+        }
+      }
 
       const currentDomain = getDomain();
       logger.info('Initializing payment:', {
@@ -110,7 +78,7 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
         },
         handler: async function (response: any) {
           try {
-            cleanupRazorpay();
+            window.razorpayInstance = null;
 
             logger.info('Payment successful, verifying...', {
               orderId: response.razorpay_order_id,
@@ -137,6 +105,7 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
             toast.success('Payment successful!');
             resolve(verifyData);
           } catch (error) {
+            window.razorpayInstance = null;
             logger.error('Payment verification error:', error);
             toast.error('Payment verification failed. Please contact support.');
             reject(error);
@@ -144,7 +113,7 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
         },
         modal: {
           ondismiss: function() {
-            cleanupRazorpay();
+            window.razorpayInstance = null;
             logger.info('Payment modal dismissed');
             reject(new Error('Payment cancelled'));
           },
@@ -165,7 +134,7 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
       logger.info('Opening Razorpay modal');
       window.razorpayInstance.open();
     } catch (error) {
-      cleanupRazorpay();
+      window.razorpayInstance = null;
       logger.error('Payment initialization error:', error);
       toast.error('Failed to start payment. Please try again.');
       reject(error);
@@ -174,17 +143,21 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
 };
 
 export default function RazorpayProvider() {
-  useEffect(() => {
-    // Load Razorpay script when component mounts
-    loadRazorpayScript().catch(error => {
-      logger.error('Failed to load Razorpay script:', error);
-    });
+  const [scriptLoaded, setScriptLoaded] = useState(false);
 
-    // Cleanup on unmount
-    return () => {
-      cleanupRazorpay();
-    };
-  }, []);
-
-  return null;
+  return (
+    <Script
+      id="razorpay-checkout"
+      src="https://checkout.razorpay.com/v1/checkout.js"
+      strategy="beforeInteractive"
+      onLoad={() => {
+        logger.info('Razorpay script loaded successfully');
+        setScriptLoaded(true);
+      }}
+      onError={(e) => {
+        logger.error('Failed to load Razorpay script:', e);
+        toast.error('Failed to load payment system. Please refresh the page.');
+      }}
+    />
+  );
 } 

@@ -6,6 +6,11 @@ import { WhatsAppService } from '@/lib/whatsapp/service';
 import { formatCurrency } from '@/lib/utils';
 import logger from '@/lib/logger';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const revalidate = 0;
+
 // Define admin notification recipients
 const ADMIN_EMAILS = ['contact@onnrides.com', 'onnrides@gmail.com'];
 const ADMIN_PHONES = ['8247494622', '9182495481'];
