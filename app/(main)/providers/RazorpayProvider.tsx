@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import Script from 'next/script';
 import logger from '@/lib/logger';
 import { toast } from 'react-hot-toast';
 
@@ -26,38 +27,46 @@ interface PaymentOptions {
 const isBrowserSupported = () => {
   try {
     const ua = window.navigator.userAgent.toLowerCase();
+    logger.info('Checking browser compatibility:', { userAgent: ua });
     
     // Check for mobile browsers
     const isMobile = /mobile|android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
     
-    // For mobile devices, be more lenient with browser support
+    // For mobile devices, be more permissive
     if (isMobile) {
-      // Allow most modern mobile browsers
-      const isModernMobile = /chrome|safari|firefox|edge|opera/i.test(ua);
-      if (!isModernMobile) {
-        logger.warn('Unsupported mobile browser detected:', { userAgent: ua });
-        return false;
+      // Allow all modern mobile browsers
+      const isModernMobile = /chrome|safari|firefox|edge|opera|samsung|ucbrowser|miui/i.test(ua);
+      logger.info('Mobile browser check:', { 
+        isMobile: true, 
+        isModernMobile,
+        browserType: ua.match(/chrome|safari|firefox|edge|opera|samsung|ucbrowser|miui/i)?.[0] 
+      });
+      
+      // Special handling for WebView browsers
+      if (/(webview|wv)/i.test(ua)) {
+        logger.info('WebView detected, checking if supported');
+        // Allow WebViews from major browsers
+        return /chrome|safari|firefox/i.test(ua);
       }
-      return true;
+      
+      return isModernMobile;
     }
 
-    // For desktop, check specific browsers
-    const isChrome = /chrome/.test(ua) && !/edg/.test(ua);
-    const isFirefox = /firefox/.test(ua);
-    const isSafari = /safari/.test(ua) && !/chrome/.test(ua);
-    const isEdge = /edg/.test(ua);
-    const isOpera = /opera|opr/.test(ua);
+    // For desktop, be more permissive with browser support
+    const isModernDesktop = /chrome|firefox|safari|edge|opera|chromium/i.test(ua);
+    
+    logger.info('Desktop browser check:', { 
+      isMobile: false, 
+      isModernDesktop,
+      browserType: ua.match(/chrome|firefox|safari|edge|opera|chromium/i)?.[0]
+    });
 
-    const isSupported = isChrome || isFirefox || isSafari || isEdge || isOpera;
-    
-    if (!isSupported) {
-      logger.warn('Unsupported desktop browser detected:', { userAgent: ua });
-    }
-    
-    return isSupported;
+    return isModernDesktop;
   } catch (error) {
     logger.error('Error checking browser compatibility:', error);
-    return false;
+    // If there's an error in detection, allow the browser
+    // Better to try the payment than block unnecessarily
+    return true;
   }
 };
 
@@ -65,7 +74,10 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
   return new Promise((resolve, reject) => {
     try {
       if (!isBrowserSupported()) {
-        throw new Error('Please use a supported browser (Chrome, Firefox, Safari, Edge, or Opera) to make the payment.');
+        const errorMessage = 'This browser may not be fully supported. For the best experience, please use Chrome, Firefox, Safari, or Edge. If you continue to have issues, try using a different browser or contact our support.';
+        logger.warn('Browser compatibility warning shown to user');
+        toast.error(errorMessage);
+        // Don't throw error, just warn and continue
       }
 
       // Wait for Razorpay to be available
@@ -176,7 +188,7 @@ export default function RazorpayProvider() {
       src="https://checkout.razorpay.com/v1/checkout.js"
       strategy="beforeInteractive"
       onLoad={() => setScriptLoaded(true)}
-      onError={(e) => {
+      onError={(e: Error) => {
         logger.error('Failed to load Razorpay script:', e);
         toast.error('Failed to load payment system. Please refresh the page.');
       }}
