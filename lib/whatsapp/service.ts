@@ -1,10 +1,7 @@
 import axios from 'axios';
 import logger from '@/lib/logger';
-import { Client, LocalAuth } from 'whatsapp-web.js';
-import { initializeWhatsAppClient } from './config';
 import { query } from '@/lib/db';
-import express from 'express';
-import QRCode from 'qrcode';
+import crypto from 'crypto';
 
 interface WhatsAppLog {
     id: string;
@@ -19,40 +16,11 @@ interface WhatsAppLog {
     updated_at: string;
 }
 
-// Rate limiting configuration
-interface RateLimitConfig {
-    windowMs: number;  // Time window in milliseconds
-    maxRequests: number;  // Maximum requests per window
-}
-
-interface RateLimitEntry {
-    count: number;
-    resetTime: number;
-}
-
-interface InitializationStatus {
-    isInitialized: boolean;
-    error?: Error;
-}
-
-const app = express();
-const port = process.env.WHATSAPP_PORT || 3001;
-
 export class WhatsAppService {
     private static instance: WhatsAppService;
     private readonly apiUrl: string;
     private readonly token: string;
     private readonly instanceId: string;
-    private client: Client;
-    private isInitialized: boolean = false;
-    private initializationError: Error | null = null;
-    private qrCode: string | null = null;
-    
-    // Rate limiting properties
-    private readonly rateLimitConfig: RateLimitConfig = {
-        windowMs: 60000,  // 1 minute
-        maxRequests: 30   // 30 requests per minute
-    };
 
     private constructor() {
         this.token = process.env.ULTRAMSG_TOKEN!;
@@ -63,50 +31,10 @@ export class WhatsAppService {
             throw new Error('ULTRAMSG_TOKEN and ULTRAMSG_INSTANCE_ID must be provided');
         }
 
-        // Initialize Express server for health checks and QR code
-        app.get('/health', (req, res) => {
-            res.status(200).json({
-                status: 'healthy',
-                initialized: this.isInitialized,
-                hasQR: !!this.qrCode,
-                timestamp: new Date().toISOString()
-            });
+        // Initialize database
+        this.initializeDatabase().catch(error => {
+            logger.error('Failed to initialize database:', error);
         });
-
-        app.get('/qr', (req, res) => {
-            if (this.qrCode) {
-                res.type('png').send(Buffer.from(this.qrCode, 'base64'));
-            } else {
-                res.status(404).json({ error: 'QR code not available' });
-            }
-        });
-
-        app.listen(port, () => {
-            logger.info(`WhatsApp service running on port ${port}`);
-        });
-
-        this.client = new Client({
-            authStrategy: new LocalAuth({
-                clientId: "onnrides-whatsapp",
-                dataPath: process.env.WWEBJS_AUTH_PATH || ".wwebjs_auth"
-            }),
-            puppeteer: {
-                headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--no-first-run',
-                    '--no-zygote',
-                    '--single-process',
-                    '--disable-gpu'
-                ],
-                executablePath: process.env.CHROME_BIN || undefined
-            }
-        });
-
-        this.initializeClient();
     }
 
     private async initializeDatabase() {
@@ -114,7 +42,7 @@ export class WhatsAppService {
             // Create whatsapp_logs table
             await query(`
                 CREATE TABLE IF NOT EXISTS whatsapp_logs (
-                    id TEXT PRIMARY KEY,
+                    id UUID PRIMARY KEY,
                     recipient TEXT NOT NULL,
                     message TEXT NOT NULL,
                     booking_id TEXT,
@@ -142,58 +70,11 @@ export class WhatsAppService {
                 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_status ON whatsapp_logs(status);
                 CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_booking_id ON whatsapp_logs(booking_id);
             `);
+
+            logger.info('WhatsApp database tables initialized successfully');
         } catch (error) {
             logger.error('Error initializing WhatsApp database:', error);
-        }
-    }
-
-    private async initializeClient() {
-        try {
-            this.client.on('qr', async (qr) => {
-                try {
-                    // Generate QR code as base64 PNG
-                    this.qrCode = await QRCode.toDataURL(qr);
-                    const qrUrl = `${process.env.RAILWAY_STATIC_URL || 'http://localhost:3001'}/qr`;
-                    logger.info('New QR Code generated. Access it at:', qrUrl);
-                } catch (error) {
-                    logger.error('Failed to generate QR code:', error);
-                }
-            });
-
-            this.client.on('ready', () => {
-                this.isInitialized = true;
-                this.qrCode = null; // Clear QR code once authenticated
-                logger.info('WhatsApp client is ready!');
-            });
-
-            this.client.on('authenticated', () => {
-                this.qrCode = null;
-                logger.info('WhatsApp client authenticated successfully');
-            });
-
-            this.client.on('auth_failure', (msg) => {
-                this.initializationError = new Error(msg.toString());
-                logger.error('WhatsApp authentication failed:', msg);
-            });
-
-            this.client.on('disconnected', (reason) => {
-                this.isInitialized = false;
-                logger.warn('WhatsApp client disconnected:', reason);
-                // Attempt to reconnect after a delay
-                setTimeout(() => {
-                    logger.info('Attempting to reconnect...');
-                    this.client.initialize().catch(error => {
-                        logger.error('Failed to reconnect:', error);
-                    });
-                }, 5000);
-            });
-
-            await this.client.initialize();
-        } catch (error) {
-            this.initializationError = error instanceof Error ? error : new Error('Unknown error during initialization');
-            logger.error('Failed to initialize WhatsApp client:', error);
-            // Attempt to reinitialize after a delay
-            setTimeout(() => this.initializeClient(), 10000);
+            throw error;
         }
     }
 
@@ -204,20 +85,13 @@ export class WhatsAppService {
         return WhatsAppService.instance;
     }
 
-    public getInitializationStatus(): InitializationStatus {
-        return {
-            isInitialized: this.isInitialized,
-            error: this.initializationError || undefined
-        };
-    }
-
     private validatePhoneNumber(phoneNumber: string): string {
         const cleanNumber = phoneNumber.replace(/\D/g, '');
         return cleanNumber.startsWith('91') ? cleanNumber : `91${cleanNumber}`;
     }
 
     private generateId(): string {
-        return Date.now().toString(36) + Math.random().toString(36).substring(2);
+        return crypto.randomUUID();
     }
 
     private async logMessage(log: Omit<WhatsAppLog, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
@@ -265,49 +139,6 @@ export class WhatsAppService {
         }
     }
 
-    private async checkRateLimit(phoneNumber: string): Promise<boolean> {
-        const now = Date.now();
-
-        try {
-            // Clean up old rate limits
-            await query(
-                'DELETE FROM rate_limits WHERE reset_time < $1',
-                [now]
-            );
-
-            // Get current rate limit
-            const result = await query(
-                'SELECT count, reset_time FROM rate_limits WHERE phone = $1',
-                [phoneNumber]
-            );
-
-            if (result.rowCount === 0) {
-                // Create new rate limit
-                await query(
-                    'INSERT INTO rate_limits (phone, count, reset_time) VALUES ($1, 1, $2)',
-                    [phoneNumber, now + this.rateLimitConfig.windowMs]
-                );
-                return true;
-            }
-
-            const rateLimit = result.rows[0];
-            if (rateLimit.count >= this.rateLimitConfig.maxRequests) {
-                return false;
-            }
-
-            // Increment count
-            await query(
-                'UPDATE rate_limits SET count = count + 1 WHERE phone = $1',
-                [phoneNumber]
-            );
-
-            return true;
-        } catch (error) {
-            logger.error('Error checking rate limit:', error);
-            return false;
-        }
-    }
-
     async sendMessage(to: string, message: string, bookingId?: string) {
         const phoneNumber = this.validatePhoneNumber(to);
         let logId: string | undefined;
@@ -328,8 +159,8 @@ export class WhatsAppService {
                     token: this.token,
                     to: phoneNumber,
                     body: message,
-                    priority: '1'
-                }),
+                    priority: '10'
+                }).toString(),
                 {
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded'
@@ -337,20 +168,25 @@ export class WhatsAppService {
                 }
             );
 
-            if (response.data.status === 'success') {
+            logger.info('UltraMsg API Response:', response.data);
+
+            // UltraMsg returns sent: "true" (as string) when successful
+            if (response.data && response.data.sent === "true") {
                 // Update log with success
                 await this.updateMessageLog(logId, {
                     status: 'success',
-                    chat_id: response.data.id
+                    chat_id: response.data.id?.toString()
                 });
 
                 return {
                     success: true,
                     messageId: response.data.id,
-                    logId
+                    logId,
+                    response: response.data
                 };
             } else {
-                throw new Error(response.data.message || 'Failed to send message');
+                const errorMessage = response.data?.message || 'Failed to send message';
+                throw new Error(errorMessage);
             }
 
         } catch (error) {
@@ -387,8 +223,8 @@ export class WhatsAppService {
                     to: phoneNumber,
                     image: mediaUrl,
                     caption: caption,
-                    priority: '1'
-                }),
+                    priority: '10'
+                }).toString(),
                 {
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded'
@@ -396,19 +232,24 @@ export class WhatsAppService {
                 }
             );
 
-            if (response.data.status === 'success') {
+            logger.info('UltraMsg Media API Response:', response.data);
+
+            // UltraMsg returns sent: "true" (as string) when successful
+            if (response.data && response.data.sent === "true") {
                 await this.updateMessageLog(logId, {
                     status: 'success',
-                    chat_id: response.data.id
+                    chat_id: response.data.id?.toString()
                 });
 
                 return {
                     success: true,
                     messageId: response.data.id,
-                    logId
+                    logId,
+                    response: response.data
                 };
             } else {
-                throw new Error(response.data.message || 'Failed to send media');
+                const errorMessage = response.data?.message || 'Failed to send media';
+                throw new Error(errorMessage);
             }
 
         } catch (error) {
@@ -424,73 +265,4 @@ export class WhatsAppService {
             throw error;
         }
     }
-
-    public async sendBookingConfirmation(
-        phone: string,
-        userName: string,
-        vehicleDetails: string,
-        bookingDate: string,
-        bookingId?: string
-    ): Promise<boolean> {
-        try {
-            const message = `Hello ${userName}!\nYour booking has been confirmed for ${vehicleDetails} on ${bookingDate}.\nThank you for choosing our service!`;
-            await this.sendMessage(phone, message, bookingId);
-            return true;
-        } catch (error) {
-            logger.error('Failed to send booking confirmation:', error);
-            return false;
-        }
-    }
-
-    public async sendBookingCancellation(
-        phone: string,
-        userName: string,
-        vehicleDetails: string,
-        bookingId?: string
-    ): Promise<boolean> {
-        try {
-            const message = `Hello ${userName}!\nYour booking for ${vehicleDetails} has been cancelled.\nWe hope to serve you again soon!`;
-            await this.sendMessage(phone, message, bookingId);
-            return true;
-        } catch (error) {
-            logger.error('Failed to send booking cancellation:', error);
-            return false;
-        }
-    }
-
-    public async sendPaymentConfirmation(
-        phone: string,
-        userName: string,
-        amount: string,
-        bookingId: string
-    ): Promise<boolean> {
-        try {
-            const message = `Hello ${userName}!\nYour payment of Rs. ${amount} for booking ID: ${bookingId} has been received.\nThank you for your payment!`;
-            await this.sendMessage(phone, message, bookingId);
-            return true;
-        } catch (error) {
-            logger.error('Failed to send payment confirmation:', error);
-            return false;
-        }
-    }
-
-    public async sendBookingReminder(
-        phone: string,
-        userName: string,
-        vehicleDetails: string,
-        bookingDate: string,
-        bookingId?: string
-    ): Promise<boolean> {
-        try {
-            const message = `Hello ${userName}!\nThis is a reminder for your upcoming booking of ${vehicleDetails} on ${bookingDate}.\nWe're looking forward to serving you!`;
-            await this.sendMessage(phone, message, bookingId);
-            return true;
-        } catch (error) {
-            logger.error('Failed to send booking reminder:', error);
-            return false;
-        }
-    }
-}
-
-// Initialize the service
-WhatsAppService.getInstance(); 
+} 
