@@ -25,6 +25,16 @@ interface PaymentOptions {
   };
 }
 
+// Get the current domain
+const getDomain = () => {
+  if (typeof window === 'undefined') return '';
+  const hostname = window.location.hostname;
+  if (hostname.includes('vercel.app')) {
+    return 'https://onnrides.vercel.app';
+  }
+  return 'https://onnrides.com';
+};
+
 export const initializeRazorpayPayment = async (options: PaymentOptions) => {
   return new Promise((resolve, reject) => {
     try {
@@ -38,11 +48,14 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
         }
       }
 
-      // Log initialization attempt
+      // Log initialization attempt with domain info
+      const currentDomain = getDomain();
       logger.info('Initializing payment:', {
         orderId: options.orderId,
         bookingId: options.bookingId,
-        amount: options.amount
+        amount: options.amount,
+        domain: currentDomain,
+        hostname: window.location.hostname
       });
 
       // Initialize payment immediately if Razorpay is available
@@ -51,23 +64,22 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
         return;
       }
 
-      // If Razorpay is not available, wait for it
-      let attempts = 0;
-      const maxAttempts = 10;
-      const checkInterval = setInterval(() => {
-        attempts++;
-        
-        if (window.Razorpay) {
-          clearInterval(checkInterval);
-          initializePayment();
-        } else if (attempts >= maxAttempts) {
-          clearInterval(checkInterval);
-          const error = new Error('Payment system not available. Please refresh the page.');
-          logger.error('Failed to load Razorpay:', { attempts });
-          reject(error);
-          toast.error(error.message);
-        }
-      }, 1000);
+      // If Razorpay is not available, load it dynamically
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      
+      script.onload = () => {
+        logger.info('Razorpay script loaded dynamically');
+        initializePayment();
+      };
+      
+      script.onerror = (error) => {
+        logger.error('Failed to load Razorpay script dynamically:', error);
+        reject(new Error('Failed to load payment system. Please refresh the page.'));
+      };
+      
+      document.body.appendChild(script);
 
       function initializePayment() {
         try {
@@ -85,7 +97,8 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
               contact: options.prefill?.contact || ''
             },
             notes: {
-              booking_id: options.bookingId
+              booking_id: options.bookingId,
+              domain: currentDomain
             },
             handler: async function (response: any) {
               try {
@@ -93,10 +106,11 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
 
                 logger.info('Payment successful, verifying...', {
                   orderId: response.razorpay_order_id,
-                  paymentId: response.razorpay_payment_id
+                  paymentId: response.razorpay_payment_id,
+                  domain: currentDomain
                 });
 
-                const verifyResponse = await fetch('/api/payments/verify', {
+                const verifyResponse = await fetch(`${currentDomain}/api/payments/verify`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -176,19 +190,28 @@ export default function RazorpayProvider() {
     };
   }, []);
 
-  return (
-    <Script
-      id="razorpay-script"
-      src="https://checkout.razorpay.com/v1/checkout.js"
-      strategy="beforeInteractive"
-      onLoad={() => {
+  // Don't use Next.js Script component to avoid hydration issues
+  useEffect(() => {
+    const loadScript = () => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      
+      script.onload = () => {
         logger.info('Razorpay script loaded');
         setScriptLoaded(true);
-      }}
-      onError={(e) => {
-        logger.error('Failed to load Razorpay script:', e);
+      };
+      
+      script.onerror = (error) => {
+        logger.error('Failed to load Razorpay script:', error);
         toast.error('Failed to load payment system. Please refresh the page.');
-      }}
-    />
-  );
+      };
+      
+      document.body.appendChild(script);
+    };
+
+    loadScript();
+  }, []);
+
+  return null;
 } 
