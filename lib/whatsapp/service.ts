@@ -1,7 +1,10 @@
+import axios from 'axios';
 import logger from '@/lib/logger';
-import { Client } from 'whatsapp-web.js';
+import { Client, LocalAuth } from 'whatsapp-web.js';
 import { initializeWhatsAppClient } from './config';
 import { query } from '@/lib/db';
+import express from 'express';
+import QRCode from 'qrcode';
 
 interface WhatsAppLog {
     id: string;
@@ -32,10 +35,18 @@ interface InitializationStatus {
     error?: Error;
 }
 
+const app = express();
+const port = process.env.WHATSAPP_PORT || 3001;
+
 export class WhatsAppService {
     private static instance: WhatsAppService;
-    private client: Client | null = null;
+    private readonly apiUrl: string;
+    private readonly token: string;
+    private readonly instanceId: string;
+    private client: Client;
+    private isInitialized: boolean = false;
     private initializationError: Error | null = null;
+    private qrCode: string | null = null;
     
     // Rate limiting properties
     private readonly rateLimitConfig: RateLimitConfig = {
@@ -44,7 +55,57 @@ export class WhatsAppService {
     };
 
     private constructor() {
-        this.initializeDatabase();
+        this.token = process.env.ULTRAMSG_TOKEN!;
+        this.instanceId = process.env.ULTRAMSG_INSTANCE_ID!;
+        this.apiUrl = `https://api.ultramsg.com/${this.instanceId}`;
+
+        if (!this.token || !this.instanceId) {
+            throw new Error('ULTRAMSG_TOKEN and ULTRAMSG_INSTANCE_ID must be provided');
+        }
+
+        // Initialize Express server for health checks and QR code
+        app.get('/health', (req, res) => {
+            res.status(200).json({
+                status: 'healthy',
+                initialized: this.isInitialized,
+                hasQR: !!this.qrCode,
+                timestamp: new Date().toISOString()
+            });
+        });
+
+        app.get('/qr', (req, res) => {
+            if (this.qrCode) {
+                res.type('png').send(Buffer.from(this.qrCode, 'base64'));
+            } else {
+                res.status(404).json({ error: 'QR code not available' });
+            }
+        });
+
+        app.listen(port, () => {
+            logger.info(`WhatsApp service running on port ${port}`);
+        });
+
+        this.client = new Client({
+            authStrategy: new LocalAuth({
+                clientId: "onnrides-whatsapp",
+                dataPath: process.env.WWEBJS_AUTH_PATH || ".wwebjs_auth"
+            }),
+            puppeteer: {
+                headless: true,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process',
+                    '--disable-gpu'
+                ],
+                executablePath: process.env.CHROME_BIN || undefined
+            }
+        });
+
         this.initializeClient();
     }
 
@@ -88,13 +149,51 @@ export class WhatsAppService {
 
     private async initializeClient() {
         try {
-            this.client = await initializeWhatsAppClient();
-            if (!this.client) {
-                throw new Error('Failed to initialize WhatsApp client');
-            }
+            this.client.on('qr', async (qr) => {
+                try {
+                    // Generate QR code as base64 PNG
+                    this.qrCode = await QRCode.toDataURL(qr);
+                    const qrUrl = `${process.env.RAILWAY_STATIC_URL || 'http://localhost:3001'}/qr`;
+                    logger.info('New QR Code generated. Access it at:', qrUrl);
+                } catch (error) {
+                    logger.error('Failed to generate QR code:', error);
+                }
+            });
+
+            this.client.on('ready', () => {
+                this.isInitialized = true;
+                this.qrCode = null; // Clear QR code once authenticated
+                logger.info('WhatsApp client is ready!');
+            });
+
+            this.client.on('authenticated', () => {
+                this.qrCode = null;
+                logger.info('WhatsApp client authenticated successfully');
+            });
+
+            this.client.on('auth_failure', (msg) => {
+                this.initializationError = new Error(msg.toString());
+                logger.error('WhatsApp authentication failed:', msg);
+            });
+
+            this.client.on('disconnected', (reason) => {
+                this.isInitialized = false;
+                logger.warn('WhatsApp client disconnected:', reason);
+                // Attempt to reconnect after a delay
+                setTimeout(() => {
+                    logger.info('Attempting to reconnect...');
+                    this.client.initialize().catch(error => {
+                        logger.error('Failed to reconnect:', error);
+                    });
+                }, 5000);
+            });
+
+            await this.client.initialize();
         } catch (error) {
-            this.initializationError = error instanceof Error ? error : new Error('Unknown initialization error');
-            logger.error('WhatsApp client initialization failed:', error);
+            this.initializationError = error instanceof Error ? error : new Error('Unknown error during initialization');
+            logger.error('Failed to initialize WhatsApp client:', error);
+            // Attempt to reinitialize after a delay
+            setTimeout(() => this.initializeClient(), 10000);
         }
     }
 
@@ -107,7 +206,7 @@ export class WhatsAppService {
 
     public getInitializationStatus(): InitializationStatus {
         return {
-            isInitialized: !!this.client?.info,
+            isInitialized: this.isInitialized,
             error: this.initializationError || undefined
         };
     }
@@ -209,60 +308,119 @@ export class WhatsAppService {
         }
     }
 
-    public async sendMessage(to: string, message: string, bookingId?: string): Promise<void> {
-        if (!this.client?.info) {
-            throw new Error('WhatsApp client not initialized');
-        }
-
-        if (!await this.checkRateLimit(to)) {
-            const error = new Error(`Rate limit exceeded for ${to}. Please try again later.`);
-            await this.logMessage({
-                recipient: to,
-                message,
-                booking_id: bookingId,
-                status: 'failed',
-                error: error.message,
-                message_type: 'text'
-            });
-            throw error;
-        }
-
+    async sendMessage(to: string, message: string, bookingId?: string) {
+        const phoneNumber = this.validatePhoneNumber(to);
         let logId: string | undefined;
 
         try {
             // Log the pending message
             logId = await this.logMessage({
-                recipient: to,
+                recipient: phoneNumber,
                 message,
                 booking_id: bookingId,
                 status: 'pending',
                 message_type: 'text'
             });
 
-            const formattedNumber = this.validatePhoneNumber(to);
-            const chat = await this.client.getChatById(formattedNumber + '@c.us');
-            const result = await chat.sendMessage(message);
-            
-            await this.updateMessageLog(logId, {
-                status: 'success',
-                chat_id: result.id._serialized
-            });
+            const response = await axios.post(
+                `${this.apiUrl}/messages/chat`,
+                new URLSearchParams({
+                    token: this.token,
+                    to: phoneNumber,
+                    body: message,
+                    priority: '1'
+                }),
+                {
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                }
+            );
 
-            logger.info('WhatsApp message sent successfully', {
-                to: formattedNumber,
-                messageId: result.id._serialized,
-                bookingId
-            });
+            if (response.data.status === 'success') {
+                // Update log with success
+                await this.updateMessageLog(logId, {
+                    status: 'success',
+                    chat_id: response.data.id
+                });
+
+                return {
+                    success: true,
+                    messageId: response.data.id,
+                    logId
+                };
+            } else {
+                throw new Error(response.data.message || 'Failed to send message');
+            }
+
         } catch (error) {
-            logger.error('Failed to send WhatsApp message:', error);
-            
+            logger.error('Error sending WhatsApp message:', error);
+
             if (logId) {
                 await this.updateMessageLog(logId, {
                     status: 'failed',
                     error: error instanceof Error ? error.message : 'Unknown error'
                 });
             }
-            
+
+            throw error;
+        }
+    }
+
+    async sendMedia(to: string, mediaUrl: string, caption: string = '', bookingId?: string) {
+        const phoneNumber = this.validatePhoneNumber(to);
+        let logId: string | undefined;
+
+        try {
+            logId = await this.logMessage({
+                recipient: phoneNumber,
+                message: caption,
+                booking_id: bookingId,
+                status: 'pending',
+                message_type: 'media'
+            });
+
+            const response = await axios.post(
+                `${this.apiUrl}/messages/image`,
+                new URLSearchParams({
+                    token: this.token,
+                    to: phoneNumber,
+                    image: mediaUrl,
+                    caption: caption,
+                    priority: '1'
+                }),
+                {
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                }
+            );
+
+            if (response.data.status === 'success') {
+                await this.updateMessageLog(logId, {
+                    status: 'success',
+                    chat_id: response.data.id
+                });
+
+                return {
+                    success: true,
+                    messageId: response.data.id,
+                    logId
+                };
+            } else {
+                throw new Error(response.data.message || 'Failed to send media');
+            }
+
+        } catch (error) {
+            logger.error('Error sending WhatsApp media:', error);
+
+            if (logId) {
+                await this.updateMessageLog(logId, {
+                    status: 'failed',
+                    error: error instanceof Error ? error.message : 'Unknown error'
+                });
+            }
+
             throw error;
         }
     }
@@ -332,4 +490,7 @@ export class WhatsAppService {
             return false;
         }
     }
-} 
+}
+
+// Initialize the service
+WhatsAppService.getInstance(); 

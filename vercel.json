@@ -1,11 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
-  "framework": "nextjs",
-  "regions": ["sin1"],
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
   "env": {
-    "NEXTAUTH_URL": "https://onnrides.vercel.app",
-    "VERCEL_URL": "https://onnrides.vercel.app"
+    "ULTRAMSG_TOKEN": "@ultramsg_token",
+    "ULTRAMSG_INSTANCE_ID": "@ultramsg_instance_id"
   }
 } 
