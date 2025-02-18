@@ -4,10 +4,10 @@ import { Toaster } from 'react-hot-toast';
 import { SessionProvider } from 'next-auth/react';
 import { ThemeProvider } from 'next-themes';
 import { useEffect, useState } from 'react';
-import logger from '@/lib/logger';
 import Navbar from './components/Navbar';
 import { Footer } from '@/components/ui/footer';
 import RazorpayProvider from './providers/RazorpayProvider';
+import { ScriptLoader } from '@/components/ScriptLoader';
 
 export default function ClientLayout({
   children,
@@ -17,15 +17,6 @@ export default function ClientLayout({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Clear any existing Razorpay instances on mount
-    if (typeof window !== 'undefined' && window.razorpayInstance) {
-      try {
-        window.razorpayInstance.close();
-        window.razorpayInstance = null;
-      } catch (error) {
-        logger.warn('Error cleaning up Razorpay instance:', error);
-      }
-    }
     setMounted(true);
   }, []);
 
@@ -53,7 +44,6 @@ export default function ClientLayout({
 
   return (
     <SessionProvider>
-      <RazorpayProvider />
       <ThemeProvider
         attribute="class"
         defaultTheme="light"
@@ -73,6 +63,7 @@ export default function ClientLayout({
             duration: 5000,
           }}
         />
+        <RazorpayProvider />
       </ThemeProvider>
     </SessionProvider>
   );
