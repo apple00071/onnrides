@@ -143,32 +143,117 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="container max-w-2xl py-8">
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h1 className="text-2xl font-bold mb-6">Payment</h1>
-        
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-xl font-bold">{booking.vehicle.name}</h2>
-            <p className="text-gray-500 capitalize">{booking.vehicle.type}</p>
-            <p className="text-sm text-gray-500 mt-2">Booking ID: {booking.booking_id}</p>
-          </div>
+    <div className="container max-w-md mx-auto p-4 space-y-4">
+      <div className="bg-white rounded-lg shadow-sm">
+        {/* Vehicle Details Section */}
+        <div className="p-4 border-b">
+          <h1 className="text-lg font-semibold text-gray-900 mb-4">Vehicle Details</h1>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-base font-medium text-gray-900">{booking.vehicle.name}</h3>
+              <p className="text-sm text-gray-500 capitalize">{booking.vehicle.type}</p>
+            </div>
+            
+            <div className="flex justify-between items-center text-sm">
+              <div>
+                <p className="text-gray-600">Pickup Date</p>
+                <p className="font-medium text-gray-900">
+                  {new Date(booking.pickup_datetime).toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-gray-600">Drop-off Date</p>
+                <p className="font-medium text-gray-900">
+                  {new Date(booking.dropoff_datetime).toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+            </div>
 
-          <div className="border-t pt-4">
-            <div className="flex justify-between font-medium">
-              <span>Total Amount</span>
-              <span className="text-primary">
-                {formatCurrency(booking.total_price)}
-              </span>
+            <div className="flex justify-between items-center text-sm pt-2">
+              <p className="text-gray-600">Duration</p>
+              <p className="font-medium text-gray-900">{booking.total_hours} Hours</p>
             </div>
           </div>
+        </div>
 
+        {/* Billing Details Section */}
+        <div className="p-4 space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900">Billing Details</h2>
+          
+          {/* Charges Breakdown */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Vehicle Rental Charges</span>
+              <span className="text-gray-900 font-medium">{formatCurrency(booking.total_price)}</span>
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">Service Fee (5%)</span>
+              <span className="text-gray-900 font-medium">{formatCurrency(booking.total_price * 0.05)}</span>
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">GST (18%)</span>
+              <span className="text-gray-900 font-medium">{formatCurrency(booking.total_price * 0.18)}</span>
+            </div>
+
+            {/* Coupon Section */}
+            <div className="py-3 border-t border-b">
+              <button className="text-primary text-sm font-medium flex items-center">
+                <span className="mr-1">Apply Coupon</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+
+            {/* Total Amount */}
+            <div className="pt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-medium text-gray-900">Total Amount</span>
+                <span className="text-lg font-semibold text-primary">
+                  {formatCurrency(booking.total_price * 1.23)} {/* Base + Service Fee + GST */}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                (Inclusive of all taxes)
+              </p>
+            </div>
+
+            {/* Booking ID */}
+            <div className="text-xs text-gray-500 pt-2">
+              Booking ID: {booking.booking_id}
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Button */}
+        <div className="p-4 bg-gray-50 rounded-b-lg">
           <button
             onClick={handlePayment}
             disabled={processing}
-            className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-4 py-3.5 bg-primary text-white rounded-lg font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors flex items-center justify-center"
           >
-            {processing ? 'Processing...' : 'Pay Now'}
+            {processing ? (
+              <>
+                <Loader className="w-4 h-4 mr-2" />
+                Processing...
+              </>
+            ) : (
+              'Proceed to Payment'
+            )}
           </button>
         </div>
       </div>

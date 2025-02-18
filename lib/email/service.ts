@@ -50,12 +50,12 @@ export class EmailService {
   private static instance: EmailService;
   private transporter!: Transporter;
   private initialized: boolean = false;
-  private initializationError: Error | null = null;
+  private initializationPromise: Promise<void>;
 
   private constructor() {
-    this.initialize().catch(error => {
+    this.initializationPromise = this.initialize().catch(error => {
       logger.error('Failed to initialize email service:', error);
-      this.initializationError = error;
+      throw error;
     });
   }
 
@@ -65,16 +65,14 @@ export class EmailService {
       this.transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: parseInt(process.env.SMTP_PORT || '465'),
-        secure: true, // true for port 465
+        secure: true,
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASSWORD,
         },
-        pool: true,
-        maxConnections: 5,
-        maxMessages: 100,
-        rateDelta: 1000,
-        rateLimit: 5
+        tls: {
+          rejectUnauthorized: false
+        }
       });
 
       // Verify connection configuration
@@ -86,7 +84,7 @@ export class EmailService {
       await this.initializeDatabase();
     } catch (error) {
       this.initialized = false;
-      this.initializationError = error instanceof Error ? error : new Error('Unknown error');
+      logger.error('Email service initialization failed:', error);
       throw error;
     }
   }
@@ -139,52 +137,78 @@ export class EmailService {
   }
 
   async sendEmail(to: string, subject: string, html: string) {
-    if (!this.initialized) {
-      if (this.initializationError) {
-        throw this.initializationError;
-      }
-      await this.initialize();
-    }
-
-    let logId: string | undefined;
-
     try {
-      // Log the pending email
-      logId = await this.logEmail(to, subject, html, 'pending');
+      // Wait for initialization to complete
+      await this.initializationPromise;
 
-      const result = await this.transporter.sendMail({
-        from: process.env.SMTP_FROM,
-        to,
-        subject,
-        html,
-        headers: {
-          'X-Log-ID': logId
-        }
-      });
+      if (!this.initialized) {
+        throw new Error('Email service not properly initialized');
+      }
 
-      // Update log with success
-      await query(
-        `UPDATE email_logs 
-         SET status = 'sent', updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1`,
-        [logId]
-      );
+      let logId: string | undefined;
 
-      logger.info('Email sent successfully:', { logId, messageId: result.messageId });
-      return { success: true, messageId: result.messageId, logId };
+      try {
+        // Log the pending email
+        logId = await this.logEmail(to, subject, html, 'pending');
 
-    } catch (error) {
-      logger.error('Failed to send email:', error);
+        logger.info('Sending email:', {
+          to,
+          subject,
+          logId,
+          smtpConfig: {
+            host: process.env.SMTP_HOST,
+            port: process.env.SMTP_PORT,
+            user: process.env.SMTP_USER?.substring(0, 5) + '...',
+            from: process.env.SMTP_FROM
+          }
+        });
 
-      if (logId) {
+        const result = await this.transporter.sendMail({
+          from: process.env.SMTP_FROM,
+          to,
+          subject,
+          html,
+          headers: {
+            'X-Log-ID': logId
+          }
+        });
+
+        // Update log with success
         await query(
           `UPDATE email_logs 
-           SET status = 'failed', error = $2, updated_at = CURRENT_TIMESTAMP
+           SET status = 'success', updated_at = CURRENT_TIMESTAMP
            WHERE id = $1`,
-          [logId, error instanceof Error ? error.message : 'Unknown error']
+          [logId]
         );
-      }
 
+        logger.info('Email sent successfully:', { 
+          logId, 
+          messageId: result.messageId,
+          response: result.response
+        });
+        
+        return { success: true, messageId: result.messageId, logId };
+      } catch (error) {
+        logger.error('Failed to send email:', {
+          error,
+          to,
+          subject,
+          logId
+        });
+
+        if (logId) {
+          await query(
+            `UPDATE email_logs 
+             SET status = 'failed', error = $2, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $1`,
+            [logId, error instanceof Error ? error.message : 'Unknown error']
+          );
+        }
+
+        throw error;
+      }
+    } catch (error) {
+      logger.error('Email service error:', error);
       throw error;
     }
   }

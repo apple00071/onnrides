@@ -42,38 +42,44 @@ export function TermsAndConditionsModal({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Terms & Conditions</DialogTitle>
+      <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="sticky top-0 bg-white z-10 pb-4 border-b">
+          <DialogTitle className="text-xl font-semibold">Terms & Conditions</DialogTitle>
         </DialogHeader>
         
-        <div className="mt-4 space-y-4">
-          <div className="max-h-[400px] overflow-y-auto space-y-4 text-sm text-gray-600">
-            <p>1. Vehicle Rental Agreement Terms:</p>
-            <ul className="list-disc pl-6 space-y-2">
-              <li>The renter must be at least 18 years old and possess a valid driving license.</li>
-              <li>Required documents must be uploaded within 24 hours of booking.</li>
-              <li>The vehicle must be returned in the same condition as received.</li>
-              <li>Any damage to the vehicle will be charged as per our damage policy.</li>
-            </ul>
+        <div className="space-y-6 py-4">
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold text-gray-900">1. Vehicle Rental Agreement Terms</h3>
+              <ul className="list-disc pl-6 space-y-2 text-sm text-gray-600">
+                <li>The renter must be at least 18 years old and possess a valid driving license.</li>
+                <li>Required documents must be uploaded within 24 hours of booking.</li>
+                <li>The vehicle must be returned in the same condition as received.</li>
+                <li>Any damage to the vehicle will be charged as per our damage policy.</li>
+              </ul>
+            </div>
 
-            <p>2. Document Requirements:</p>
-            <ul className="list-disc pl-6 space-y-2">
-              <li>Valid government-issued ID proof</li>
-              <li>Valid driving license</li>
-              <li>Additional documents may be required based on vehicle type</li>
-              <li>Documents must be uploaded within 24 hours of booking confirmation</li>
-            </ul>
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold text-gray-900">2. Document Requirements</h3>
+              <ul className="list-disc pl-6 space-y-2 text-sm text-gray-600">
+                <li>Valid government-issued ID proof</li>
+                <li>Valid driving license</li>
+                <li>Additional documents may be required based on vehicle type</li>
+                <li>Documents must be uploaded within 24 hours of booking confirmation</li>
+              </ul>
+            </div>
 
-            <p>3. Cancellation Policy:</p>
-            <ul className="list-disc pl-6 space-y-2">
-              <li>Free cancellation up to 24 hours before pickup</li>
-              <li>Booking may be cancelled if required documents are not uploaded within 24 hours</li>
-              <li>Refund will be processed within 5-7 business days</li>
-            </ul>
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold text-gray-900">3. Cancellation Policy</h3>
+              <ul className="list-disc pl-6 space-y-2 text-sm text-gray-600">
+                <li>Free cancellation up to 24 hours before pickup</li>
+                <li>Booking may be cancelled if required documents are not uploaded within 24 hours</li>
+                <li>Refund will be processed within 5-7 business days</li>
+              </ul>
+            </div>
           </div>
 
-          <div className="flex items-center space-x-2 pt-4">
+          <div className="flex items-center space-x-2 border-t pt-4">
             <Checkbox 
               id="terms" 
               checked={accepted}
@@ -91,21 +97,25 @@ export function TermsAndConditionsModal({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={handleAccept}
-            disabled={!accepted}
-          >
-            Continue to Payment
-          </Button>
+        <DialogFooter className="sticky bottom-0 bg-white pt-4 border-t">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 w-full sm:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAccept}
+              disabled={!accepted}
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+            >
+              Continue to Payment
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
