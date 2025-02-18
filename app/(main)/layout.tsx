@@ -19,11 +19,13 @@ export default function RootLayout({
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+          name="format-detection"
+          content="telephone=no, date=no, email=no, address=no"
+        />
       </head>
-      <body className={inter.className} suppressHydrationWarning>
-        <div id="app-root">
-          <ClientLayout>{children}</ClientLayout>
-        </div>
+      <body className={`${inter.className} min-h-screen`} suppressHydrationWarning>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );
