@@ -115,19 +115,26 @@ export function calculateBookingPrice(
     return 0;
   }
 
+  // Calculate duration in hours
   const durationInHours = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60));
-  const perHourRate = vehicle.price_per_hour; // Use the hourly rate directly
-  const startDay = startDate.getDay(); // 0 = Sunday, 6 = Saturday
+  
+  // Get the day of week for start date (0 = Sunday, 6 = Saturday)
+  const startDay = startDate.getDay();
   
   // Check if it's a weekend (Saturday or Sunday)
   const isWeekend = startDay === 0 || startDay === 6;
   
-  // Calculate billable hours (minimum 24 hours for weekend, 12 hours for weekday)
+  // Set minimum hours based on weekend/weekday
   const minimumHours = isWeekend ? 24 : 12;
+  
+  // Calculate billable hours (cannot be less than minimum hours)
   const billableHours = Math.max(minimumHours, durationInHours);
   
-  // Return the price based on billable hours
-  return billableHours * perHourRate;
+  // Calculate base price
+  const basePrice = vehicle.price_per_hour * billableHours;
+  
+  // Return the calculated price
+  return basePrice;
 }
 
 export function calculateDuration(startDate: Date, endDate: Date): number {

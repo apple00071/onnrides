@@ -155,19 +155,19 @@ export function BookingSummary({ booking, onProceedToPayment }: BookingSummaryPr
             <div className="space-y-3 border-t pt-3">
               <div className="flex justify-between text-sm sm:text-base">
                 <span>Base Price</span>
-                <span>₹{formatAmount(booking.base_price || booking.total_price * 0.81)}</span>
+                <span className="text-gray-900">{formatAmount(booking.base_price || booking.total_price * 0.81)}</span>
               </div>
               <div className="flex justify-between text-sm sm:text-base">
                 <span>GST (18%)</span>
-                <span>₹{formatAmount(booking.gst || booking.total_price * 0.15)}</span>
+                <span className="text-gray-900">{formatAmount(booking.gst || booking.total_price * 0.15)}</span>
               </div>
               <div className="flex justify-between text-sm sm:text-base">
                 <span>Service Fee (5%)</span>
-                <span>₹{formatAmount(booking.service_fee || booking.total_price * 0.04)}</span>
+                <span className="text-gray-900">{formatAmount(booking.service_fee || booking.total_price * 0.04)}</span>
               </div>
-              <div className="flex justify-between font-semibold pt-2 border-t text-base sm:text-lg">
+              <div className="flex justify-between pt-2 border-t text-base sm:text-lg">
                 <span>Total Amount</span>
-                <span>₹{formatAmount(booking.total_price)}</span>
+                <span className="text-gray-900">{formatAmount(booking.total_price)}</span>
               </div>
               <p className="text-xs text-gray-500 text-right">Inclusive of all taxes</p>
             </div>

@@ -141,8 +141,11 @@ export function VehicleCard({
       
       if (!pickupDate || !pickupTime || !dropoffDate || !dropoffTime) {
         return {
-          baseAmount: 0,
-          totalHours: 0
+          baseAmount: vehicle.price_per_hour,
+          totalAmount: vehicle.price_per_hour,
+          totalHours: 0,
+          durationHours: 0,
+          isWeekend: false
         };
       }
 
@@ -158,34 +161,32 @@ export function VehicleCard({
       const dayOfWeek = pickupDateTime.getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Saturday or Sunday
       
-      // Use vehicle's specific price per hour
-      const basePrice = vehicle.price_per_hour;
+      // Calculate minimum required hours
+      const minimumHours = isWeekend ? 24 : 12;
       
-      // Calculate base amount based on duration and minimum hours
-      const totalHours = isWeekend 
-        ? Math.max(24, durationHours)  // Weekend pricing (minimum 24 hours)
-        : Math.max(12, durationHours); // Weekday pricing (minimum 12 hours)
-
-      const baseAmount = basePrice * totalHours;
+      // Calculate total billable hours
+      const totalHours = Math.max(minimumHours, durationHours);
 
       return {
-        baseAmount,
+        baseAmount: vehicle.price_per_hour,
+        totalAmount: vehicle.price_per_hour * totalHours,
         totalHours,
-        durationHours
+        durationHours,
+        isWeekend
       };
     } catch (error) {
       console.error('Error calculating price:', error);
       return {
-        baseAmount: 0,
+        baseAmount: vehicle.price_per_hour,
+        totalAmount: vehicle.price_per_hour,
         totalHours: 0,
-        durationHours: 0
+        durationHours: 0,
+        isWeekend: false
       };
     }
   };
 
   const priceDetails = calculatePrice();
-  const price = priceDetails.baseAmount;
-  const actualDuration = priceDetails.durationHours;
 
   // Parse dates from URL format
   const getDateTimeFromParams = () => {
@@ -256,35 +257,25 @@ export function VehicleCard({
             </div>
           ) : (
             // Multiple locations dropdown
-            <div className="relative">
-              <select
-                value={selectedLocation || ''}
-                onChange={(e) => handleLocationSelect(e.target.value)}
-                className={cn(
-                  "w-full p-2 border border-gray-300 rounded-md bg-white appearance-none cursor-pointer pr-8",
-                  !selectedLocation && "text-gray-500"
-                )}
-              >
-                <option value="" disabled>Select location</option>
+            <Select value={selectedLocation} onValueChange={handleLocationSelect}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select location" />
+              </SelectTrigger>
+              <SelectContent>
                 {vehicle.location.map((loc) => (
-                  <option key={loc} value={loc}>{loc}</option>
+                  <SelectItem key={loc} value={loc}>
+                    {loc}
+                  </SelectItem>
                 ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
+              </SelectContent>
+            </Select>
           )}
         </div>
 
         {/* Price and Book Section */}
         <div className="flex items-center justify-between mt-4">
-          <div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-lg text-gray-900">{formatCurrency(vehicle.price_per_hour)}</span>
-            </div>
+          <div className="text-lg text-gray-900 font-bold">
+            {formatCurrency(priceDetails.totalHours > 0 ? priceDetails.totalAmount : priceDetails.baseAmount)}
           </div>
           <Button
             onClick={handleBookNow}
