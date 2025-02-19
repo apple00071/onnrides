@@ -235,12 +235,12 @@ export default function ProfileClient() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="container mx-auto px-4 py-4 sm:py-8 max-w-6xl">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Profile Card */}
-        <div className="bg-white rounded-lg border border-[#f26e24]/20 p-6 w-[340px] h-[445px] mx-auto">
+        <div className="bg-white rounded-lg border border-[#f26e24]/20 p-4 sm:p-6 w-full sm:w-[340px] h-auto sm:h-[445px] mx-auto">
           <div className="flex flex-col items-center">
-            <div className="w-20 h-20 rounded-full bg-gray-100 mb-3 flex items-center justify-center">
+            <div className="w-16 sm:w-20 h-16 sm:h-20 rounded-full bg-gray-100 mb-3 flex items-center justify-center">
               {profile?.avatar_url ? (
                 <img
                   src={profile.avatar_url}
@@ -248,23 +248,23 @@ export default function ProfileClient() {
                   className="w-full h-full object-cover rounded-full"
                 />
               ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-10 h-10 text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 sm:w-10 h-8 sm:h-10 text-gray-400">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                 </svg>
               )}
             </div>
-            <h2 className="text-lg font-semibold text-[#f26e24] mb-1">{profile?.name || 'PAVAN KUMAR'}</h2>
-            <p className="text-gray-600 text-sm mb-4">Account Status: <span className="font-medium">Awaiting Document Upload</span></p>
+            <h2 className="text-base sm:text-lg font-semibold text-[#f26e24] mb-1">{profile?.name || 'PAVAN KUMAR'}</h2>
+            <p className="text-gray-600 text-xs sm:text-sm mb-4 text-center">Account Status: <span className="font-medium">Awaiting Document Upload</span></p>
 
             <div className="w-full space-y-3">
               <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-gray-400 mr-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
                 </svg>
-                <span className="text-gray-700 text-sm flex-grow">{profile?.phone || 'No phone number'}</span>
+                <span className="text-gray-700 text-xs sm:text-sm break-all">{profile?.phone || 'No phone number'}</span>
               </div>
               <div className="flex items-center group relative">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-gray-400 mr-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                 </svg>
                 {isEditingEmail ? (
@@ -273,7 +273,7 @@ export default function ProfileClient() {
                       type="email"
                       value={profile?.email || ''}
                       onChange={(e) => handleUpdateEmail(e.target.value)}
-                      className="text-gray-700 text-sm flex-grow bg-transparent border-b border-gray-300 focus:outline-none focus:border-[#f26e24] px-1 py-0.5"
+                      className="text-gray-700 text-xs sm:text-sm flex-grow bg-transparent border-b border-gray-300 focus:outline-none focus:border-[#f26e24] px-1 py-0.5"
                       autoFocus
                       onBlur={() => setIsEditingEmail(false)}
                       onKeyDown={(e) => {
@@ -283,12 +283,12 @@ export default function ProfileClient() {
                       }}
                     />
                   </div>
-                ) : (
+                ) :
                   <>
-                    <span className="text-gray-700 text-sm flex-grow">{profile?.email || 'No email'}</span>
+                    <span className="text-gray-700 text-xs sm:text-sm break-all">{profile?.email || 'No email'}</span>
                     <button 
                       onClick={() => setIsEditingEmail(true)}
-                      className="focus:outline-none"
+                      className="focus:outline-none ml-1"
                     >
                       <svg 
                         xmlns="http://www.w3.org/2000/svg" 
@@ -302,40 +302,40 @@ export default function ProfileClient() {
                       </svg>
                     </button>
                   </>
-                )}
+                }
               </div>
             </div>
           </div>
         </div>
 
         {/* Document Verification Card */}
-        <div className="bg-white rounded-lg border border-[#f26e24]/20 p-8">
-          <h2 className="text-xl font-semibold text-[#f26e24] mb-6">Document Verification</h2>
-          <div className="space-y-6">
+        <div className="bg-white rounded-lg border border-[#f26e24]/20 p-4 sm:p-8">
+          <h2 className="text-lg sm:text-xl font-semibold text-[#f26e24] mb-4 sm:mb-6">Document Verification</h2>
+          <div className="space-y-4 sm:space-y-6">
             <div>
-              <p className="text-gray-700 mb-2">Please upload the following documents:</p>
-              <ul className="list-disc list-inside space-y-1 text-gray-600 ml-4">
+              <p className="text-sm sm:text-base text-gray-700 mb-2">Please upload the following documents:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs sm:text-sm text-gray-600 ml-2 sm:ml-4">
                 <li>Driving License/International Driving Permit</li>
                 <li>Identification Proof</li>
               </ul>
             </div>
             
             <div>
-              <p className="text-gray-700">Accepted forms of ID that can be uploaded are:</p>
-              <p className="text-gray-600 mt-1">Aadhaar Card, Passport. For international users, a passport along with a valid visa.</p>
+              <p className="text-sm sm:text-base text-gray-700">Accepted forms of ID that can be uploaded are:</p>
+              <p className="text-xs sm:text-sm text-gray-600 mt-1">Aadhaar Card, Passport. For international users, a passport along with a valid visa.</p>
             </div>
 
             <div>
-              <p className="text-gray-700">Additional Information:</p>
-              <ul className="list-disc list-inside space-y-1 text-gray-600 ml-4 mt-1">
+              <p className="text-sm sm:text-base text-gray-700">Additional Information:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs sm:text-sm text-gray-600 ml-2 sm:ml-4 mt-1">
                 <li>For bulk bookings, contact our support team.</li>
                 <li>Ensure to upload pictures of original documents only.</li>
                 <li>Learner license is not applicable for renting a vehicle with us.</li>
               </ul>
             </div>
 
-            {/* Progress Steps */}
-            <div className="mt-8">
+            {/* Progress Steps - Mobile Optimized */}
+            <div className="mt-6 sm:mt-8">
               <div className="relative">
                 <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-[2px] bg-gray-200">
                   <div 
@@ -346,89 +346,89 @@ export default function ProfileClient() {
                 <div className="relative flex justify-between">
                   {/* Profile Photo Step */}
                   <div className="flex flex-col items-center">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center ${
                       getStepStatus(documents, 'profile') === 'completed'
                         ? 'bg-[#f26e24] text-white'
                         : 'bg-gray-200 text-gray-600'
                     }`}>
                       {getStepStatus(documents, 'profile') === 'completed' ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3 sm:w-4 sm:h-4">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
                       ) : (
-                        <span className="text-xs font-medium">1</span>
+                        <span className="text-[10px] sm:text-xs font-medium">1</span>
                       )}
                     </div>
-                    <span className="mt-2 text-xs text-gray-600">Profile Photo</span>
+                    <span className="mt-1 sm:mt-2 text-[10px] sm:text-xs text-gray-600 whitespace-nowrap">Profile Photo</span>
                   </div>
 
                   {/* DL Front Step */}
                   <div className="flex flex-col items-center">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center ${
                       getStepStatus(documents, 'dl_front') === 'completed'
                         ? 'bg-[#f26e24] text-white'
                         : 'bg-gray-200 text-gray-600'
                     }`}>
                       {getStepStatus(documents, 'dl_front') === 'completed' ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3 sm:w-4 sm:h-4">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
                       ) : (
-                        <span className="text-xs font-medium">2</span>
+                        <span className="text-[10px] sm:text-xs font-medium">2</span>
                       )}
                     </div>
-                    <span className="mt-2 text-xs text-gray-600">DL Front</span>
+                    <span className="mt-1 sm:mt-2 text-[10px] sm:text-xs text-gray-600 whitespace-nowrap">DL Front</span>
                   </div>
 
                   {/* DL Back Step */}
                   <div className="flex flex-col items-center">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center ${
                       getStepStatus(documents, 'dl_back') === 'completed'
                         ? 'bg-[#f26e24] text-white'
                         : 'bg-gray-200 text-gray-600'
                     }`}>
                       {getStepStatus(documents, 'dl_back') === 'completed' ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3 sm:w-4 sm:h-4">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
                       ) : (
-                        <span className="text-xs font-medium">3</span>
+                        <span className="text-[10px] sm:text-xs font-medium">3</span>
                       )}
                     </div>
-                    <span className="mt-2 text-xs text-gray-600">DL Back</span>
+                    <span className="mt-1 sm:mt-2 text-[10px] sm:text-xs text-gray-600 whitespace-nowrap">DL Back</span>
                   </div>
 
                   {/* ID Step */}
                   <div className="flex flex-col items-center">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center ${
                       getStepStatus(documents, 'id') === 'completed'
                         ? 'bg-[#f26e24] text-white'
                         : 'bg-gray-200 text-gray-600'
                     }`}>
                       {getStepStatus(documents, 'id') === 'completed' ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3 sm:w-4 sm:h-4">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
                       ) : (
-                        <span className="text-xs font-medium">4</span>
+                        <span className="text-[10px] sm:text-xs font-medium">4</span>
                       )}
                     </div>
-                    <span className="mt-2 text-xs text-gray-600">ID Proof</span>
+                    <span className="mt-1 sm:mt-2 text-[10px] sm:text-xs text-gray-600 whitespace-nowrap">ID Proof</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Upload Document Button */}
-            <div className="flex items-center justify-between mt-8">
+            <div className="flex items-center justify-between mt-6 sm:mt-8">
               <button
                 onClick={() => setIsUploadModalOpen(true)}
-                className="flex items-center gap-2 text-gray-700 hover:text-gray-900"
+                className="flex items-center gap-1 sm:gap-2 text-gray-700 hover:text-gray-900"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 sm:w-5 sm:h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                 </svg>
-                <span className="font-medium">UPLOAD DOCUMENT</span>
+                <span className="text-sm sm:text-base font-medium">UPLOAD DOCUMENT</span>
               </button>
             </div>
           </div>

@@ -151,20 +151,20 @@ export default function AdminDashboard() {
   // Show loading state
   if (status === 'loading' || loading) {
     return (
-      <div className="p-4 md:p-6 space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
           {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="p-4 md:p-6">
+            <Card key={i} className="p-3 sm:p-4 md:p-6">
               <Skeleton className="h-4 w-24 mb-2" />
               <Skeleton className="h-8 w-32" />
             </Card>
           ))}
         </div>
-        <div className="space-y-4">
-          <Skeleton className="h-8 w-48" />
-          <div className="space-y-2">
+        <div className="space-y-3 sm:space-y-4">
+          <Skeleton className="h-7 sm:h-8 w-36 sm:w-48" />
+          <div className="space-y-2 sm:space-y-3">
             {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-16 w-full" />
+              <Skeleton key={i} className="h-[4.5rem] sm:h-16 w-full" />
             ))}
           </div>
         </div>
@@ -175,12 +175,12 @@ export default function AdminDashboard() {
   // Show error state
   if (error) {
     return (
-      <div className="p-4 md:p-6">
+      <div className="p-3 sm:p-4 md:p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{error}</p>
+          <p className="text-red-800 text-sm sm:text-base">{error}</p>
           <button 
             onClick={() => fetchDashboardData()}
-            className="mt-2 text-red-600 hover:text-red-800 font-medium"
+            className="mt-2 text-red-600 hover:text-red-800 font-medium text-sm sm:text-base"
           >
             Try Again
           </button>
@@ -191,71 +191,73 @@ export default function AdminDashboard() {
 
   // Show dashboard content
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <Card className="p-4 md:p-6">
-          <h3 className="text-sm text-gray-500">Total Users</h3>
-          <p className="text-2xl md:text-3xl font-bold">{stats.totalUsers}</p>
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+        <Card className="p-3 sm:p-4 md:p-6">
+          <h3 className="text-xs sm:text-sm text-gray-500">Total Users</h3>
+          <p className="text-xl sm:text-2xl md:text-3xl font-bold mt-1">{stats.totalUsers}</p>
         </Card>
 
-        <Card className="p-4 md:p-6">
-          <h3 className="text-sm text-gray-500">Total Revenue</h3>
-          <p className="text-2xl md:text-3xl font-bold">{formatCurrency(stats.totalRevenue)}</p>
-          <span className={`text-sm ${stats.revenueGrowth >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
+        <Card className="p-3 sm:p-4 md:p-6">
+          <h3 className="text-xs sm:text-sm text-gray-500">Total Revenue</h3>
+          <p className="text-xl sm:text-2xl md:text-3xl font-bold mt-1">{formatCurrency(stats.totalRevenue)}</p>
+          <span className={`text-xs sm:text-sm ${stats.revenueGrowth >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
             {stats.revenueGrowth >= 0 ? '+' : ''}{stats.revenueGrowth}% this month
           </span>
         </Card>
 
-        <Card className="p-4 md:p-6">
-          <h3 className="text-sm text-gray-500">Total Bookings</h3>
-          <p className="text-2xl md:text-3xl font-bold">{stats.totalBookings}</p>
-          <span className={`text-sm ${stats.bookingGrowth >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
+        <Card className="p-3 sm:p-4 md:p-6">
+          <h3 className="text-xs sm:text-sm text-gray-500">Total Bookings</h3>
+          <p className="text-xl sm:text-2xl md:text-3xl font-bold mt-1">{stats.totalBookings}</p>
+          <span className={`text-xs sm:text-sm ${stats.bookingGrowth >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
             {stats.bookingGrowth >= 0 ? '+' : ''}{stats.bookingGrowth}% this month
           </span>
         </Card>
 
-        <Card className="p-4 md:p-6">
-          <h3 className="text-sm text-gray-500">Total Vehicles</h3>
-          <p className="text-2xl md:text-3xl font-bold">{stats.totalVehicles}</p>
+        <Card className="p-3 sm:p-4 md:p-6">
+          <h3 className="text-xs sm:text-sm text-gray-500">Total Vehicles</h3>
+          <p className="text-xl sm:text-2xl md:text-3xl font-bold mt-1">{stats.totalVehicles}</p>
         </Card>
       </div>
 
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Recent Bookings</h2>
-        <div className="space-y-2">
+      <div className="space-y-3 sm:space-y-4">
+        <h2 className="text-base sm:text-lg font-semibold">Recent Bookings</h2>
+        <div className="space-y-2 sm:space-y-3">
           {stats.recentBookings.length > 0 ? (
             stats.recentBookings.map((booking) => (
               <div
                 key={booking.id}
-                className="bg-white rounded-lg shadow p-4 flex items-center justify-between"
+                className="bg-white rounded-lg shadow p-3 sm:p-4"
               >
-                <div>
-                  <p className="font-medium">{booking.user.name}</p>
-                  <p className="text-sm text-gray-500">{booking.user.email}</p>
-                  <p className="text-sm text-gray-500">{booking.vehicle.name}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium">
-                    {booking.startDate && format(new Date(booking.startDate), 'MMM dd')} -{' '}
-                    {booking.endDate && format(new Date(booking.endDate), 'MMM dd')}
-                  </p>
-                  <p className="text-sm font-medium">{formatCurrency(booking.amount)}</p>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      booking.status === 'completed'
-                        ? 'bg-green-100 text-green-800'
-                        : booking.status === 'cancelled'
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-blue-100 text-blue-800'
-                    }`}
-                  >
-                    {booking.status}
-                  </span>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                  <div className="space-y-1">
+                    <p className="font-medium text-sm sm:text-base">{booking.user.name}</p>
+                    <p className="text-xs sm:text-sm text-gray-500">{booking.user.email}</p>
+                    <p className="text-xs sm:text-sm text-gray-500">{booking.vehicle.name}</p>
+                  </div>
+                  <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:gap-1 border-t sm:border-t-0 pt-2 sm:pt-0">
+                    <p className="text-xs sm:text-sm font-medium order-1 sm:order-none">
+                      {booking.startDate && format(new Date(booking.startDate), 'MMM dd')} -{' '}
+                      {booking.endDate && format(new Date(booking.endDate), 'MMM dd')}
+                    </p>
+                    <p className="text-sm font-medium order-2 sm:order-none">{formatCurrency(booking.amount)}</p>
+                    <span
+                      className={`text-[10px] sm:text-xs px-2 py-1 rounded-full order-3 sm:order-none ${
+                        booking.status === 'completed'
+                          ? 'bg-green-100 text-green-800'
+                          : booking.status === 'cancelled'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-blue-100 text-blue-800'
+                      }`}
+                    >
+                      {booking.status}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))
           ) : (
-            <div className="bg-gray-50 rounded-lg p-4 text-center text-gray-500">
+            <div className="bg-gray-50 rounded-lg p-4 text-center text-sm sm:text-base text-gray-500">
               No recent bookings found
             </div>
           )}

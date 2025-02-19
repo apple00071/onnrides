@@ -23,13 +23,13 @@ function MainContent({ children }: { children: React.ReactNode }) {
   
   return (
     <motion.main
-      className="min-h-screen bg-gray-100 transition-all duration-300 md:pl-[300px]"
+      className="min-h-screen bg-gray-100 transition-all duration-300 lg:pl-[300px]"
       animate={{
         paddingLeft: animate ? (open ? "300px" : "60px") : "300px",
         paddingTop: "0px",
       }}
     >
-      <div className="p-4 md:p-8">
+      <div className="p-3 sm:p-4 lg:p-8">
         {children}
       </div>
     </motion.main>
@@ -44,17 +44,23 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <div className="min-h-screen bg-gray-100">
         {/* Mobile Menu Button */}
-        <div className="fixed top-4 left-4 z-50 md:hidden">
+        <div className="fixed top-3 left-3 z-50 lg:hidden">
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 bg-white rounded-lg shadow-md"
+            className="p-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors"
+            aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? (
-              <FaTimes className="h-6 w-6 text-gray-600" />
+              <FaTimes className="h-5 w-5 text-gray-600" />
             ) : (
-              <FaBars className="h-6 w-6 text-gray-600" />
+              <FaBars className="h-5 w-5 text-gray-600" />
             )}
           </button>
+        </div>
+
+        {/* Mobile Header */}
+        <div className="fixed top-0 left-0 right-0 h-14 bg-white shadow-sm z-40 flex items-center justify-center lg:hidden">
+          <h1 className="text-lg font-semibold text-[#f26e24]">ONNRIDES ADMIN</h1>
         </div>
 
         {/* Mobile Sidebar Overlay */}
@@ -65,7 +71,7 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+              className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
             />
           )}
         </AnimatePresence>
@@ -73,22 +79,50 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
         {/* Sidebar */}
         <div className={`fixed inset-y-0 left-0 transform ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:translate-x-0 transition-transform duration-300 ease-in-out z-50 md:z-30`}>
-          <Sidebar>
-            <SidebarBody>
-              {menuItems.map((item) => (
-                <SidebarLink
-                  key={item.href}
-                  link={item}
-                  className={pathname === item.href ? 'text-[#f26e24]' : 'text-gray-600'}
-                  props={{
-                    href: item.href,
-                    onClick: () => setIsMobileMenuOpen(false)
-                  }}
-                />
-              ))}
-            </SidebarBody>
-          </Sidebar>
+        } lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 lg:z-30 w-[280px] bg-white shadow-lg`}>
+          <div className="flex flex-col h-full">
+            {/* Logo */}
+            <div className="h-14 flex items-center px-4 border-b border-gray-200">
+              <span className="text-xl font-semibold text-[#f26e24]">ONNRIDES ADMIN</span>
+            </div>
+
+            {/* Navigation */}
+            <div className="flex-1 overflow-y-auto py-4">
+              <Sidebar>
+                <SidebarBody>
+                  {menuItems.map((item) => (
+                    <SidebarLink
+                      key={item.href}
+                      link={item}
+                      className={`flex items-center px-4 py-3 text-sm font-medium transition-colors ${
+                        pathname === item.href 
+                          ? 'text-[#f26e24] bg-orange-50' 
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-[#f26e24]'
+                      }`}
+                      props={{
+                        href: item.href,
+                        onClick: () => setIsMobileMenuOpen(false)
+                      }}
+                    />
+                  ))}
+                </SidebarBody>
+              </Sidebar>
+            </div>
+
+            {/* Mobile Footer */}
+            <div className="border-t border-gray-200 p-4 lg:hidden">
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  // Add your logout logic here
+                }}
+                className="flex items-center w-full px-4 py-2 text-sm font-medium text-gray-600 hover:text-[#f26e24] hover:bg-orange-50 rounded-md transition-colors"
+              >
+                <FaTrash className="h-5 w-5 mr-3" />
+                Sign Out
+              </button>
+            </div>
+          </div>
         </div>
 
         <MainContent>
