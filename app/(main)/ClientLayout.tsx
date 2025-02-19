@@ -44,14 +44,6 @@ export default function ClientLayout({
               {children}
             </main>
             <Footer />
-            <ClientOnly>
-              <Toaster
-                position="top-center"
-                toastOptions={{
-                  duration: 5000,
-                }}
-              />
-            </ClientOnly>
           </>
         )}
       </ThemeProvider>
