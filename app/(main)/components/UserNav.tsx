@@ -63,27 +63,27 @@ export default function UserNav({ user }: UserNavProps) {
               {getInitials(user.name || '')}
             </AvatarFallback>
           </Avatar>
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-goodtimes text-gray-700">
             {user.name || 'User'}
           </span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+        <DropdownMenuLabel className="font-goodtimes">My Account</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/profile" className="flex items-center cursor-pointer">
+          <Link href="/profile" className="flex items-center cursor-pointer font-goodtimes">
             <span>Profile</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/bookings" className="flex items-center cursor-pointer">
+          <Link href="/bookings" className="flex items-center cursor-pointer font-goodtimes">
             <span>My Rides</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem 
-          className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+          className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer font-goodtimes"
           onClick={handleSignOut}
         >
           <span>Sign Out</span>

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import UserNav from './UserNav';
@@ -16,7 +17,16 @@ export default function Navbar() {
       <header className="sticky top-0 z-50 w-full border-b bg-white">
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
-            <span className="text-2xl font-bold text-[#f26e24]">ONNRIDES</span>
+            <div className="relative h-10 w-40">
+              <Image
+                src="/logo.png"
+                alt="OnnRides"
+                fill
+                className="object-contain"
+                priority
+                sizes="(max-width: 768px) 160px, 120px"
+              />
+            </div>
           </Link>
         </div>
       </header>
@@ -28,18 +38,27 @@ export default function Navbar() {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center space-x-4">
           <Link href="/" className="flex items-center space-x-2">
-            <span className="text-2xl font-bold text-[#f26e24]">ONNRIDES</span>
+            <div className="relative h-10 w-40">
+              <Image
+                src="/logo.png"
+                alt="OnnRides"
+                fill
+                className="object-contain"
+                priority
+                sizes="(max-width: 768px) 160px, 120px"
+              />
+            </div>
           </Link>
           <nav className="hidden md:flex items-center space-x-6">
             <Link
               href="/about"
-              className="text-sm font-medium text-gray-500 hover:text-[#f26e24]"
+              className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24]"
             >
               About
             </Link>
             <Link
               href="/contact"
-              className="text-sm font-medium text-gray-500 hover:text-[#f26e24]"
+              className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24]"
             >
               Contact Us
             </Link>
@@ -55,13 +74,13 @@ export default function Navbar() {
             <>
               <Link
                 href="/auth/signin"
-                className="text-sm font-medium text-gray-500 hover:text-[#f26e24]"
+                className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24]"
               >
                 Sign In
               </Link>
               <Link
                 href="/auth/signup"
-                className="bg-[#f26e24] text-white hover:bg-[#e05d13] px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                className="bg-[#f26e24] text-white hover:bg-[#e05d13] px-4 py-2 rounded-md text-sm font-goodtimes transition-colors"
               >
                 Sign Up
               </Link>

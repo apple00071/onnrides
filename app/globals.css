@@ -5,16 +5,17 @@
 
 /* Font face declaration */
 @font-face {
-  font-family: 'Goodtimes';
-  src: url('/fonts/goodtimes.woff2') format('woff2'),
-       url('/fonts/goodtimes.woff') format('woff');
+  font-family: 'Good Times';
+  src: url('/fonts/Good Times Rg.woff2') format('woff2'),
+       url('/fonts/Good Times Rg.woff') format('woff'),
+       url('/fonts/Good Times Rg.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
 }
 
 .font-goodtimes {
-  font-family: 'Goodtimes', sans-serif;
+  font-family: 'Good Times', sans-serif;
 }
 
 @layer base {

@@ -214,7 +214,7 @@ export function VehicleCard({
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       {/* Vehicle Name */}
-      <h3 className="text-xl font-semibold p-4">{vehicle.name}</h3>
+      <h3 className="text-xl font-goodtimes p-4">{vehicle.name}</h3>
 
       {/* Vehicle Image */}
       <div className="relative h-48">
@@ -283,7 +283,7 @@ export function VehicleCard({
         <div className="flex items-center justify-between mt-4">
           <div>
             <div className="flex items-baseline gap-1">
-              <span className="text-lg font-bold">₹{price.toFixed(2)}</span>
+              <span className="text-lg text-gray-900">{formatCurrency(vehicle.price_per_hour)}</span>
             </div>
           </div>
           <Button

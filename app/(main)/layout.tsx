@@ -5,8 +5,8 @@ import ClientLayout from './ClientLayout';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'OnnRides',
-  description: 'Book your ride with OnnRides',
+  title: 'OnnRides - Vehicle Rental Service',
+  description: 'Your trusted partner for vehicle rentals.',
 };
 
 export default function RootLayout({
@@ -23,8 +23,15 @@ export default function RootLayout({
           name="format-detection"
           content="telephone=no, date=no, email=no, address=no"
         />
+        <link 
+          rel="preload" 
+          href="/fonts/Good Times Rg.woff2" 
+          as="font" 
+          type="font/woff2" 
+          crossOrigin="anonymous"
+        />
       </head>
-      <body className={`${inter.className} min-h-screen`} suppressHydrationWarning>
+      <body className={`${inter.className} min-h-screen bg-background`} suppressHydrationWarning>
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

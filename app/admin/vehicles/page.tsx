@@ -20,6 +20,7 @@ import { useRouter } from 'next/navigation';
 import { Vehicle } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
+import { PageHeader, PageHeaderActions } from '@/components/ui/page-header';
 
 // Helper function to format locations
 function formatLocations(location: string | string[] | undefined): string[] {
@@ -180,17 +181,18 @@ export default function VehiclesPage() {
   } else {
     content = (
       <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Vehicles Management</h1>
-          <Button
-            type="button"
-            onClick={handleAddClick}
-            className="inline-flex items-center"
-          >
-            <FaPlus className="w-4 h-4 mr-2" />
-            Add Vehicle
-          </Button>
-        </div>
+        <PageHeader title="Vehicles Management">
+          <PageHeaderActions>
+            <Button
+              type="button"
+              onClick={handleAddClick}
+              className="inline-flex items-center font-goodtimes"
+            >
+              <FaPlus className="w-4 h-4 mr-2" />
+              Add Vehicle
+            </Button>
+          </PageHeaderActions>
+        </PageHeader>
 
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <Table>
@@ -229,7 +231,11 @@ export default function VehiclesPage() {
                       )
                     )}
                   </TableCell>
-                  <TableCell>{vehicle.name}</TableCell>
+                  <TableCell>
+                    <span className="text-base text-gray-900">
+                      {vehicle.name}
+                    </span>
+                  </TableCell>
                   <TableCell>{vehicle.type}</TableCell>
                   <TableCell>{formatCurrency(vehicle.price_per_hour)}</TableCell>
                   <TableCell>
@@ -262,6 +268,7 @@ export default function VehiclesPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(vehicle)}
+                        className="font-goodtimes"
                       >
                         Edit
                       </Button>
@@ -269,6 +276,7 @@ export default function VehiclesPage() {
                         variant="destructive"
                         size="sm"
                         onClick={() => handleDelete(vehicle.id)}
+                        className="font-goodtimes"
                       >
                         Delete
                       </Button>
