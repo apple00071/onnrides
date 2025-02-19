@@ -51,7 +51,7 @@ export default function VehiclesPage() {
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState('relevance');
+  const [sortBy, setSortBy] = useState('price-low-high');
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [vehicleType, setVehicleType] = useState<'car' | 'bike'>('car');
   const [previousType, setPreviousType] = useState<'car' | 'bike'>('car');
@@ -352,33 +352,28 @@ export default function VehiclesPage() {
   return (
     <div className="container mx-auto px-4 py-8 pb-20 md:pb-8">
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <h1 className="text-3xl font-goodtimes text-gray-900">Available Vehicles</h1>
-          <div className="flex items-center gap-4">
-            <div className="flex justify-center mb-8">
-              <div className="inline-flex rounded-lg border border-gray-200 p-1 bg-white shadow-sm">
-                <button
-                  onClick={() => setVehicleType('car')}
-                  className={`px-8 py-2 text-sm font-medium rounded-md transition-colors ${
-                    vehicleType === 'car'
-                      ? 'bg-orange-500 text-white'
-                      : 'text-gray-500 hover:text-orange-500'
-                  }`}
-                >
-                  Cars
-                </button>
-                <button
-                  onClick={() => setVehicleType('bike')}
-                  className={`px-8 py-2 text-sm font-medium rounded-md transition-colors ${
-                    vehicleType === 'bike'
-                      ? 'bg-orange-500 text-white'
-                      : 'text-gray-500 hover:text-orange-500'
-                  }`}
-                >
-                  Bikes
-                </button>
-              </div>
-            </div>
+        <div className="flex justify-center">
+          <div className="inline-flex rounded-lg border border-gray-200 p-1 bg-white shadow-sm">
+            <button
+              onClick={() => setVehicleType('car')}
+              className={`px-8 py-2 text-sm font-medium rounded-md transition-colors ${
+                vehicleType === 'car'
+                  ? 'bg-orange-500 text-white'
+                  : 'text-gray-500 hover:text-orange-500'
+              }`}
+            >
+              Cars
+            </button>
+            <button
+              onClick={() => setVehicleType('bike')}
+              className={`px-8 py-2 text-sm font-medium rounded-md transition-colors ${
+                vehicleType === 'bike'
+                  ? 'bg-orange-500 text-white'
+                  : 'text-gray-500 hover:text-orange-500'
+              }`}
+            >
+              Bikes
+            </button>
           </div>
         </div>
 

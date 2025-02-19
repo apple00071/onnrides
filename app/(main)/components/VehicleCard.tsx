@@ -146,7 +146,7 @@ export function VehicleCard({
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
       <div className="p-6">
         <div className="flex flex-col space-y-1.5">
-          <h3 className="text-2xl font-semibold leading-none tracking-tight">
+          <h3 className="text-sm font-semibold leading-none tracking-tight">
             {vehicle.name}
           </h3>
         </div>
