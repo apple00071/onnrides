@@ -102,6 +102,7 @@ interface Vehicle {
   price_15days: number;
   price_30days: number;
   min_booking_hours: number;
+  price_per_hour: number;
 }
 
 export function calculateBookingPrice(
@@ -115,11 +116,11 @@ export function calculateBookingPrice(
   }
 
   const durationInHours = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60));
-  const perHourRate = Number(vehicle.price_per_day); // Get per-hour rate from vehicle data
-  const startDay = startDate.getDay(); // 0 = Sunday, 1 = Monday, ...
+  const perHourRate = vehicle.price_per_hour; // Use the hourly rate directly
+  const startDay = startDate.getDay(); // 0 = Sunday, 6 = Saturday
   
-  // Check if it's a weekday (Mon-Wed) or weekend (Thu-Sun)
-  const isWeekend = startDay >= 4 || startDay === 0; // Thursday to Sunday
+  // Check if it's a weekend (Saturday or Sunday)
+  const isWeekend = startDay === 0 || startDay === 6;
   
   // Calculate billable hours (minimum 24 hours for weekend, 12 hours for weekday)
   const minimumHours = isWeekend ? 24 : 12;

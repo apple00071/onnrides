@@ -156,7 +156,7 @@ export function VehicleCard({
       
       // Check if booking is for weekend
       const dayOfWeek = pickupDateTime.getDay();
-      const isWeekend = dayOfWeek === 6 || dayOfWeek === 0;
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Saturday or Sunday
       
       // Use vehicle's specific price per hour
       const basePrice = vehicle.price_per_hour;
