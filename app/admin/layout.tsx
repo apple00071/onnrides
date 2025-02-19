@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { FaHome, FaCar, FaUsers, FaBookmark, FaBars, FaTimes, FaTrash, FaEnvelope, FaWhatsapp, FaQrcode } from 'react-icons/fa';
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarProvider } from '@/components/admin/Sidebar';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { ReactNode } from 'react';
 
 const menuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="h-5 w-5" /> },
@@ -26,7 +27,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
       className="min-h-screen bg-gray-100 transition-all duration-300 lg:pl-[300px]"
       animate={{
         paddingLeft: animate ? (open ? "300px" : "60px") : "300px",
-        paddingTop: "0px",
+        paddingTop: "56px",
       }}
     >
       <div className="p-3 sm:p-4 lg:p-8">
@@ -43,11 +44,11 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-gray-100">
-        {/* Mobile Menu Button */}
-        <div className="fixed top-3 left-3 z-50 lg:hidden">
+        {/* Mobile Header */}
+        <div className="fixed top-0 left-0 right-0 h-14 bg-white shadow-sm z-40 flex items-center justify-between px-4 lg:hidden">
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors"
+            className="p-2 hover:bg-gray-50 rounded-lg transition-colors"
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? (
@@ -56,11 +57,8 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
               <FaBars className="h-5 w-5 text-gray-600" />
             )}
           </button>
-        </div>
-
-        {/* Mobile Header */}
-        <div className="fixed top-0 left-0 right-0 h-14 bg-white shadow-sm z-40 flex items-center justify-center lg:hidden">
           <h1 className="text-lg font-semibold text-[#f26e24]">ONNRIDES ADMIN</h1>
+          <div className="w-10" />
         </div>
 
         {/* Mobile Sidebar Overlay */}
@@ -81,8 +79,8 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 lg:z-30 w-[280px] bg-white shadow-lg`}>
           <div className="flex flex-col h-full">
-            {/* Logo */}
-            <div className="h-14 flex items-center px-4 border-b border-gray-200">
+            {/* Logo - Hidden on mobile when menu is closed */}
+            <div className="h-14 flex items-center px-4 border-b border-gray-200 lg:flex">
               <span className="text-xl font-semibold text-[#f26e24]">ONNRIDES ADMIN</span>
             </div>
 
@@ -93,14 +91,17 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
                   {menuItems.map((item) => (
                     <SidebarLink
                       key={item.href}
-                      link={item}
+                      link={{
+                        href: item.href,
+                        label: item.label,
+                        icon: item.icon
+                      }}
                       className={`flex items-center px-4 py-3 text-sm font-medium transition-colors ${
                         pathname === item.href 
                           ? 'text-[#f26e24] bg-orange-50' 
                           : 'text-gray-600 hover:bg-gray-50 hover:text-[#f26e24]'
                       }`}
                       props={{
-                        href: item.href,
                         onClick: () => setIsMobileMenuOpen(false)
                       }}
                     />
