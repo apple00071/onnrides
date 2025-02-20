@@ -6,16 +6,30 @@ interface VehicleData {
   updated_at: Date;
 }
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
-
-  // Get all vehicles for dynamic routes
-  const vehicles = await prisma.vehicles.findMany({
+async function getActiveVehicles(): Promise<VehicleData[]> {
+  return prisma.vehicles.findMany({
     select: {
       id: true,
       updated_at: true,
     },
+    where: {
+      AND: [
+        { status: 'active' },
+        { is_available: true }
+      ]
+    },
+    orderBy: {
+      updated_at: 'desc',
+    },
+    take: 1000,
   });
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
+
+  // Get all vehicles for dynamic routes
+  const vehicles = await getActiveVehicles();
 
   // Static routes with their priorities
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -94,7 +108,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   // Dynamic routes for vehicles
-  const vehicleRoutes: MetadataRoute.Sitemap = vehicles.map((vehicle) => ({
+  const vehicleRoutes: MetadataRoute.Sitemap = vehicles.map((vehicle: VehicleData) => ({
     url: `${baseUrl}/vehicles/${vehicle.id}`,
     lastModified: vehicle.updated_at,
     changeFrequency: 'daily',
