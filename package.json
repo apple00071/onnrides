@@ -50,7 +50,6 @@
     "argon2": "^0.31.2",
     "autoprefixer": "10.4.17",
     "bcrypt": "^5.1.1",
-    "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.8.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -114,6 +113,7 @@
     "@types/uuid": "^9.0.7",
     "@types/winston": "^2.4.4",
     "@types/ws": "^8.5.14",
+    "bcryptjs": "^3.0.2",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "eslint": "^8",
@@ -131,5 +131,8 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "5.3.3"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   }
 }

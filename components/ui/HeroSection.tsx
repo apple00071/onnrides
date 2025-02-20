@@ -103,103 +103,101 @@ export default function HeroSection() {
   };
 
   return (
-    <div className="relative min-h-[80vh] flex flex-col items-center justify-center text-center px-4">
+    <div className="relative h-[100vh] w-full">
       {/* Background Image */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0">
         <Image
-          src="/images/7xm.xyz418925.png"
+          src="/hero.png"
           alt="Hero Background"
           fill
-          className="object-cover"
+          className="object-cover w-full h-full"
           priority
           quality={100}
+          sizes="100vw"
         />
-        {/* Dark overlay for better text readability */}
-        <div className="absolute inset-0 bg-black/40" />
       </div>
 
       {/* Content */}
-      <div className="relative z-10">
-        <h1 className="text-4xl md:text-6xl font-bold mb-4 text-white">
-          MAKE IT A DECEMBER TO<br />REMEMBER
-        </h1>
-        <div className="w-full max-w-3xl mt-8">
-          <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6 md:p-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pickup
-                </label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <input
-                      type="date"
-                      min={new Date().toISOString().split('T')[0]}
-                      value={pickupDate}
-                      onChange={(e) => {
-                        logger.debug('Pickup date changed:', e.target.value);
-                        setPickupDate(e.target.value);
-                      }}
-                      className="w-full p-2 border rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
-                      required
-                    />
+      <div className="absolute inset-0 flex flex-col items-start justify-center translate-y-[20%] z-10">
+        <div className="relative z-10 w-full max-w-7xl mx-auto">
+          <div className="w-[400px] ml-[5%]">
+            <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Pickup
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <input
+                        type="date"
+                        min={new Date().toISOString().split('T')[0]}
+                        value={pickupDate}
+                        onChange={(e) => {
+                          logger.debug('Pickup date changed:', e.target.value);
+                          setPickupDate(e.target.value);
+                        }}
+                        className="w-full p-2 border rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <TimePicker
+                        value={pickupTime}
+                        onChange={(time) => {
+                          logger.debug('Pickup time changed:', time);
+                          setPickupTime(time);
+                        }}
+                        minTime={pickupDate === new Date().toISOString().split('T')[0] ? 
+                          new Date().getHours().toString().padStart(2, '0') + ':00' : 
+                          undefined}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <TimePicker
-                      value={pickupTime}
-                      onChange={(time) => {
-                        logger.debug('Pickup time changed:', time);
-                        setPickupTime(time);
-                      }}
-                      minTime={pickupDate === new Date().toISOString().split('T')[0] ? 
-                        new Date().getHours().toString().padStart(2, '0') + ':00' : 
-                        undefined}
-                    />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Dropoff
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <input
+                        type="date"
+                        min={pickupDate || new Date().toISOString().split('T')[0]}
+                        value={dropoffDate}
+                        onChange={(e) => {
+                          logger.debug('Dropoff date changed:', e.target.value);
+                          setDropoffDate(e.target.value);
+                        }}
+                        className="w-full p-2 border rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <TimePicker
+                        value={dropoffTime}
+                        onChange={(time) => {
+                          logger.debug('Dropoff time changed:', time);
+                          setDropoffTime(time);
+                        }}
+                        minTime={dropoffDate === pickupDate ? pickupTime : undefined}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Dropoff
-                </label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <input
-                      type="date"
-                      min={pickupDate || new Date().toISOString().split('T')[0]}
-                      value={dropoffDate}
-                      onChange={(e) => {
-                        logger.debug('Dropoff date changed:', e.target.value);
-                        setDropoffDate(e.target.value);
-                      }}
-                      className="w-full p-2 border rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <TimePicker
-                      value={dropoffTime}
-                      onChange={(time) => {
-                        logger.debug('Dropoff time changed:', time);
-                        setDropoffTime(time);
-                      }}
-                      minTime={dropoffDate === pickupDate ? pickupTime : undefined}
-                    />
-                  </div>
-                </div>
-              </div>
+              <button
+                onClick={handleSearch}
+                disabled={isLoading}
+                className={`w-full mt-6 bg-[#f26e24] text-white py-3 rounded-lg transition-colors ${
+                  isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#e05e1c]'
+                }`}
+              >
+                {isLoading ? 'Searching...' : 'Search'}
+              </button>
             </div>
-
-            <button
-              onClick={handleSearch}
-              disabled={isLoading}
-              className={`w-full mt-6 bg-[#f26e24] text-white py-3 rounded-lg transition-colors ${
-                isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#e05e1c]'
-              }`}
-            >
-              {isLoading ? 'Searching...' : 'Search'}
-            </button>
           </div>
         </div>
       </div>

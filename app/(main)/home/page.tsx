@@ -48,103 +48,98 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="relative h-screen bg-[#f8fafc]">
-        {/* City Illustration */}
-        <div className="absolute inset-0 w-full h-full">
-          <Image
-            src="/images/7xm.xyz418925.png"
-            alt="Hyderabad Landmarks"
-            fill
-            className="object-cover object-center"
-            priority
-          />
+      <section className="relative h-[100vh] w-full overflow-hidden">
+        {/* Background gradient */}
+        <div className="absolute inset-0 bg-gradient-to-r from-white to-[#f26e24]"></div>
+
+        {/* Left Side Content */}
+        <div className="absolute left-0 top-0 h-full w-[40%]">
+          <div className="relative h-full flex items-center justify-center">
+            <Image
+              src="/images/charminar-illustration.png"
+              alt="Charminar Illustration"
+              width={800}
+              height={1000}
+              className="object-contain h-[90%] w-auto"
+              priority
+            />
+          </div>
         </div>
 
-        {/* Content Container */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-          {/* Main heading */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900">
-              Explore Hyderabad Your Way
-            </h1>
-          </div>
-
-          {/* Search Form */}
-          <div className="w-full max-w-3xl px-4">
-            <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-xl p-6 md:p-8">
-              <h2 className="text-2xl md:text-3xl font-semibold text-center mb-8">Find Your Perfect Ride</h2>
-              <form onSubmit={handleSearch}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="flex items-center text-gray-700 text-lg mb-3">
-                      <FaCalendar className="text-[#f26e24] mr-2" />
-                      Pickup Date & Time
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="date"
-                        value={pickupDate}
-                        onChange={(e) => setPickupDate(e.target.value)}
-                        min={new Date().toISOString().split('T')[0]}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent transition-all"
-                        placeholder="dd-mm-yyyy"
-                        required
-                      />
-                      <select
-                        value={pickupTime}
-                        onChange={(e) => setPickupTime(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent transition-all"
-                        required
-                      >
-                        <option value="">Select time</option>
-                        {timeOptions.map(({ value, label }) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="flex items-center text-gray-700 text-lg mb-3">
-                      <FaClock className="text-[#f26e24] mr-2" />
-                      Drop-off Date & Time
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="date"
-                        value={dropoffDate}
-                        onChange={(e) => setDropoffDate(e.target.value)}
-                        min={pickupDate || new Date().toISOString().split('T')[0]}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent transition-all"
-                        placeholder="dd-mm-yyyy"
-                        required
-                      />
-                      <select
-                        value={dropoffTime}
-                        onChange={(e) => setDropoffTime(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent transition-all"
-                        required
-                      >
-                        <option value="">Select time</option>
-                        {timeOptions.map(({ value, label }) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-8 text-center">
-                  <button
-                    type="submit"
-                    className="bg-[#f26e24] text-white px-12 py-3 rounded-lg text-lg font-medium hover:bg-[#e05d13] transition-colors focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-offset-2"
+        {/* Search Form */}
+        <div className="absolute left-[20%] top-[40%] w-[800px]">
+          <div className="bg-blue-100/80 backdrop-blur-sm rounded-lg p-8">
+            <div className="grid grid-cols-2 gap-8">
+              <div>
+                <label className="block text-gray-600 mb-2 font-medium">Pickup</label>
+                <div className="flex gap-4">
+                  <input
+                    type="date"
+                    value={pickupDate}
+                    onChange={(e) => setPickupDate(e.target.value)}
+                    className="w-[250px] p-2.5 border rounded bg-white/90 text-gray-700"
+                    placeholder="dd-mm-yyyy"
+                  />
+                  <select
+                    value={pickupTime}
+                    onChange={(e) => setPickupTime(e.target.value)}
+                    className="w-[150px] p-2.5 border rounded bg-white/90 text-gray-700"
                   >
-                    Search
-                  </button>
+                    <option value="">Select time</option>
+                    {timeOptions.map(({ value, label }) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
                 </div>
-              </form>
+              </div>
+              <div>
+                <label className="block text-gray-600 mb-2 font-medium">Dropoff</label>
+                <div className="flex gap-4">
+                  <input
+                    type="date"
+                    value={dropoffDate}
+                    onChange={(e) => setDropoffDate(e.target.value)}
+                    className="w-[250px] p-2.5 border rounded bg-white/90 text-gray-700"
+                    placeholder="dd-mm-yyyy"
+                  />
+                  <select
+                    value={dropoffTime}
+                    onChange={(e) => setDropoffTime(e.target.value)}
+                    className="w-[150px] p-2.5 border rounded bg-white/90 text-gray-700"
+                  >
+                    <option value="">Select time</option>
+                    {timeOptions.map(({ value, label }) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handleSearch}
+              className="w-full mt-8 bg-[#f26e24] text-white py-3 rounded text-base font-medium hover:bg-[#e05d13] transition-colors"
+            >
+              Search
+            </button>
+          </div>
+        </div>
+
+        {/* Right Side Content */}
+        <div className="absolute right-0 top-0 h-full w-[60%] bg-[#f26e24]">
+          <div className="h-full flex flex-col justify-between">
+            <div className="text-white pt-32 pl-12">
+              <h1 className="text-5xl md:text-6xl font-bold">
+                Discover The Wonders<br />of Hyderabad
+              </h1>
+            </div>
+            <div className="relative w-full h-[400px]">
+              <Image
+                src="/images/vehicles.png"
+                alt="Vehicles"
+                fill
+                className="object-contain object-right-bottom"
+                priority
+              />
             </div>
           </div>
         </div>

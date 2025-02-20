@@ -1,27 +1,23 @@
--- Check if admin exists
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@onnrides.com') THEN
-        -- Create admin user with bcrypt hashed password 'admin123'
-        INSERT INTO users (
-            id,
-            email,
-            name,
-            password_hash,
-            role,
-            created_at,
-            updated_at
-        ) VALUES (
-            'cuid_' || substr(md5(random()::text), 1, 24),
-            'admin@onnrides.com',
-            'Admin',
-            '$2a$10$YEqFIQU3uN.4LGQEGz1kLOCxVkgfwZ.U0TUPyPrz0Oz.3u.Z0ZUXW',
-            'admin',
-            NOW(),
-            NOW()
-        );
-        RAISE NOTICE 'Admin user created successfully';
-    ELSE
-        RAISE NOTICE 'Admin user already exists';
-    END IF;
-END $$; 
+-- Delete existing admin user first to ensure clean state
+DELETE FROM users WHERE email = 'admin@onnrides.com';
+
+-- Insert admin user with known working bcrypt hash for 'admin123'
+INSERT INTO users (
+    id,
+    name,
+    email,
+    password_hash,
+    role,
+    phone,
+    created_at,
+    updated_at
+) VALUES (
+    'admin_' || extract(epoch from now())::text,
+    'Admin',
+    'admin@onnrides.com',
+    '$2a$12$k8Y6J6C0vHKHvKD7GD/Tl.YHWxXFyxXNNJZKoFxWrHvwJC0.YL2Vy',
+    'admin',
+    '1234567890',
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+); 
