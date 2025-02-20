@@ -110,7 +110,7 @@ export default function HeroSection() {
           src="/hero.png"
           alt="Hero Background"
           fill
-          className="object-cover w-full h-full"
+          className="object-cover w-full h-full brightness-[0.85]"
           priority
           quality={100}
           sizes="100vw"
@@ -119,12 +119,12 @@ export default function HeroSection() {
 
       {/* Content */}
       <div className="absolute inset-0 flex flex-col items-start justify-center translate-y-[20%] z-10">
-        <div className="relative z-10 w-full max-w-7xl mx-auto">
-          <div className="w-[400px] ml-[5%]">
-            <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6">
-              <div className="grid grid-cols-1 gap-4">
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 md:px-0">
+          <div className="w-[280px] sm:w-[350px] md:w-[400px] ml-[5%]">
+            <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 md:p-6">
+              <div className="grid grid-cols-1 gap-3 md:gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Pickup
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -137,7 +137,7 @@ export default function HeroSection() {
                           logger.debug('Pickup date changed:', e.target.value);
                           setPickupDate(e.target.value);
                         }}
-                        className="w-full p-2 border rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
+                        className="w-full p-2 text-sm border rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                         required
                       />
                     </div>
@@ -157,7 +157,7 @@ export default function HeroSection() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Dropoff
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -170,7 +170,7 @@ export default function HeroSection() {
                           logger.debug('Dropoff date changed:', e.target.value);
                           setDropoffDate(e.target.value);
                         }}
-                        className="w-full p-2 border rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
+                        className="w-full p-2 text-sm border rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                         required
                       />
                     </div>
@@ -191,8 +191,8 @@ export default function HeroSection() {
               <button
                 onClick={handleSearch}
                 disabled={isLoading}
-                className={`w-full mt-6 bg-[#f26e24] text-white py-3 rounded-lg transition-colors ${
-                  isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#e05e1c]'
+                className={`w-full mt-4 md:mt-6 bg-[#f26e24] text-white py-2.5 md:py-3 rounded-lg transition-colors text-sm md:text-base font-medium ${
+                  isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#e05e1c] active:bg-[#d05510]'
                 }`}
               >
                 {isLoading ? 'Searching...' : 'Search'}
