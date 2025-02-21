@@ -151,7 +151,7 @@ export default function HeroSection() {
       </div>
 
       {/* Mobile Search Form */}
-      <div className="sm:hidden w-full px-4 -mt-40">
+      <div className="sm:hidden w-full px-4 -mt-36">
         <div className="bg-white rounded-xl shadow-lg p-4">
           <SearchFormContent
             pickupDate={pickupDate}
@@ -204,30 +204,37 @@ function SearchFormContent({
             Pickup
           </label>
           <div className="grid grid-cols-2 gap-2">
-            <div>
+            <div className="relative">
               <input
                 type="date"
-                min={new Date().toISOString().split('T')[0]}
                 value={pickupDate}
-                onChange={(e) => {
-                  logger.debug('Pickup date changed:', e.target.value);
-                  setPickupDate(e.target.value);
-                }}
-                className="w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
+                onChange={(e) => setPickupDate(e.target.value)}
+                className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
+                style={{ colorScheme: 'light' }}
                 required
               />
             </div>
-            <div>
-              <TimePicker
+            <div className="relative">
+              <select
                 value={pickupTime}
-                onChange={(time) => {
-                  logger.debug('Pickup time changed:', time);
-                  setPickupTime(time);
-                }}
-                minTime={pickupDate === new Date().toISOString().split('T')[0] ? 
-                  new Date().getHours().toString().padStart(2, '0') + ':00' : 
-                  undefined}
-              />
+                onChange={(e) => setPickupTime(e.target.value)}
+                className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
+                style={{ colorScheme: 'light' }}
+                required
+              >
+                <option value="">Select time</option>
+                {[...Array(24)].map((_, i) => {
+                  const hour = i;
+                  const period = hour >= 12 ? 'PM' : 'AM';
+                  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                  const timeStr = `${hour.toString().padStart(2, '0')}:00`;
+                  return (
+                    <option key={timeStr} value={timeStr}>
+                      {`${hour12}:00 ${period}`}
+                    </option>
+                  );
+                })}
+              </select>
             </div>
           </div>
         </div>
@@ -246,19 +253,29 @@ function SearchFormContent({
                   logger.debug('Dropoff date changed:', e.target.value);
                   setDropoffDate(e.target.value);
                 }}
-                className="w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
+                className="w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent appearance-none"
                 required
               />
             </div>
             <div>
-              <TimePicker
+              <select
                 value={dropoffTime}
-                onChange={(time) => {
-                  logger.debug('Dropoff time changed:', time);
-                  setDropoffTime(time);
-                }}
-                minTime={dropoffDate === pickupDate ? pickupTime : undefined}
-              />
+                onChange={(e) => setDropoffTime(e.target.value)}
+                className="w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent touch-manipulation"
+                required
+              >
+                <option value="">Select time</option>
+                {Array.from({ length: 24 }, (_, i) => {
+                  const hour = i.toString().padStart(2, '0');
+                  const period = i >= 12 ? 'PM' : 'AM';
+                  const hour12 = i === 0 ? 12 : i > 12 ? i - 12 : i;
+                  return (
+                    <option key={hour} value={`${hour}:00`}>
+                      {`${hour12}:00 ${period}`}
+                    </option>
+                  );
+                })}
+              </select>
             </div>
           </div>
         </div>
