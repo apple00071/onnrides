@@ -146,18 +146,22 @@ export function VehicleCard({
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
       <div className="p-6">
         <div className="flex flex-col space-y-1.5">
-          <h3 className="text-xl font-sans font-medium p-4">
+          <h3 className="text-xl font-sans font-medium">
             {vehicle.name}
           </h3>
         </div>
       </div>
-      <div className="relative h-[200px] w-full">
-        <Image
-          src={vehicle.images[0] || '/placeholder-vehicle.jpg'}
-          alt={vehicle.name}
-          fill
-          className="object-cover"
-        />
+      <div className="h-[200px] relative w-full bg-gray-100 flex items-center justify-center">
+        <div className="relative w-[80%] h-[80%]">
+          <Image
+            src={vehicle.images[0] || '/placeholder-vehicle.jpg'}
+            alt={vehicle.name}
+            fill
+            className="object-contain"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            priority
+          />
+        </div>
       </div>
       <div className="p-6">
         <div className="flex items-center justify-between">

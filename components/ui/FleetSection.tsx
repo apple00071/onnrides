@@ -40,13 +40,16 @@ export default function FleetSection() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {fleetCategories.map((category, index) => (
             <div key={index} className="bg-white rounded-lg shadow-sm overflow-hidden group">
-              <div className="relative h-48">
-                <Image
-                  src={category.image}
-                  alt={category.title}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                />
+              <div className="h-[200px] relative w-full bg-gray-100 flex items-center justify-center">
+                <div className="relative w-[80%] h-[80%]">
+                  <Image
+                    src={category.image}
+                    alt={category.title}
+                    fill
+                    className="object-contain"
+                    priority
+                  />
+                </div>
               </div>
               <div className="p-6">
                 <h3 className="text-sm font-semibold mb-2">{category.title}</h3>

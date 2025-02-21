@@ -105,14 +105,14 @@ export default function Navbar() {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center">
           <Link href="/" className="flex items-center">
-            <div className="relative h-7 md:h-9 w-24 md:w-32">
+            <div className="relative h-9 md:h-9 w-32 md:w-32">
               <Image
                 src="/logo.png"
                 alt="OnnRides"
                 fill
                 className="object-contain"
                 priority
-                sizes="(max-width: 768px) 96px, 128px"
+                sizes="(max-width: 768px) 128px, 128px"
               />
             </div>
           </Link>
