@@ -107,7 +107,7 @@ export default function HeroSection() {
       {/* Background Image */}
       <div className="absolute inset-0">
         <picture>
-          <source media="(max-width: 640px)" srcSet="/hero-mobile.png" />
+          <source media="(max-width: 640px)" srcSet="@hero-mobile.png" />
           <Image
             src="/hero.png"
             alt="Hero Background"
