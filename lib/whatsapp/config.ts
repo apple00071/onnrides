@@ -239,17 +239,25 @@ Your booking for ${vehicleDetails} has been cancelled.
 We hope to serve you again soon!`,
 
   PAYMENT_CONFIRMATION: (userName: string, amount: string, bookingId: string) => `
-Hello ${userName}!
-Your payment of Rs. ${amount} for booking ID: ${bookingId} has been received. 
-Thank you for your payment!`,
+Hello ${userName}! 👋
+
+Your payment of ₹${amount} for booking ID: ${bookingId} has been received.
+Thank you for choosing OnnRides! 🙏
+
+Need help? Contact us at:
+📞 +91 8247494622
+📧 contact@onnrides.com`,
 
   PAYMENT_FAILED: (userName: string, amount: string, bookingId: string, orderId: string) => `
-Hello ${userName}!
-We noticed that your payment of Rs. ${amount} for booking ID: ${bookingId} was not successful.
+Hello ${userName}! ⚠️
+
+We noticed that your payment of ₹${amount} for booking ID: ${bookingId} was not successful.
+
 Order ID: ${orderId}
 
-Please try again or contact our support if you need assistance.
-Support: support@onnrides.com`,
+Please try again or contact us if you need assistance:
+📞 +91 8247494622
+📧 contact@onnrides.com`,
 
   BOOKING_REMINDER: (userName: string, vehicleDetails: string, bookingDate: string) => `
 Hello ${userName}!

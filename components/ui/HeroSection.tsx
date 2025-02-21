@@ -196,6 +196,128 @@ function SearchFormContent({
   handleSearch,
   isLoading
 }: SearchFormContentProps) {
+
+  // Get minimum date (today)
+  const getMinDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
+  // Handle date change
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, isPickup: boolean) => {
+    const selectedDate = e.target.value;
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+
+    if (selectedDate < today) {
+      toast.error('Cannot select a past date');
+      e.target.value = today;
+      if (isPickup) {
+        setPickupDate(today);
+      } else {
+        setDropoffDate(today);
+      }
+      return;
+    }
+
+    if (isPickup) {
+      setPickupDate(selectedDate);
+      // Only update dropoff date if it's before the new pickup date
+      if (dropoffDate && dropoffDate < selectedDate) {
+        setDropoffDate(selectedDate);
+        toast.success('Drop-off date adjusted to match pickup date');
+      }
+    } else {
+      if (selectedDate < pickupDate) {
+        toast.error('Drop-off date cannot be before pickup date');
+        e.target.value = pickupDate;
+        setDropoffDate(pickupDate);
+      } else {
+        setDropoffDate(selectedDate);
+      }
+    }
+  };
+
+  // Handle time change
+  const handleTimeChange = (e: React.ChangeEvent<HTMLSelectElement>, isPickup: boolean) => {
+    const selectedTime = e.target.value;
+    const selectedDate = isPickup ? pickupDate : dropoffDate;
+    const now = new Date();
+    const selectedDateTime = new Date(`${selectedDate}T${selectedTime}`);
+    now.setSeconds(0);
+    now.setMilliseconds(0);
+
+    // For same-day bookings, ensure time is in the future
+    if (selectedDate === now.toISOString().split('T')[0]) {
+      const currentHour = now.getHours();
+      const selectedHour = parseInt(selectedTime.split(':')[0]);
+
+      if (selectedHour <= currentHour) {
+        toast.error('Please select a future time');
+        e.target.value = '';
+        if (isPickup) {
+          setPickupTime('');
+        } else {
+          setDropoffTime('');
+        }
+        return;
+      }
+    }
+
+    if (isPickup) {
+      setPickupTime(selectedTime);
+      // Only adjust dropoff time if it's on the same day and earlier than pickup
+      if (dropoffDate === pickupDate && dropoffTime && dropoffTime <= selectedTime) {
+        const nextHour = (parseInt(selectedTime.split(':')[0]) + 1).toString().padStart(2, '0') + ':00';
+        if (nextHour <= '23:00') {
+          setDropoffTime(nextHour);
+          toast.success('Drop-off time adjusted to ensure minimum 1-hour rental');
+        } else {
+          // If next hour would be past midnight, increment the dropoff date
+          const nextDay = new Date(pickupDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          setDropoffDate(nextDay.toISOString().split('T')[0]);
+          setDropoffTime('00:00');
+          toast.success('Drop-off moved to next day due to time selection');
+        }
+      }
+    } else {
+      if (pickupDate === dropoffDate && selectedTime <= pickupTime) {
+        toast.error('Drop-off time must be after pickup time');
+        e.target.value = '';
+        setDropoffTime('');
+      } else {
+        setDropoffTime(selectedTime);
+      }
+    }
+  };
+
+  // Generate time options for the current date
+  const getTimeOptions = (isPickup: boolean) => {
+    const options = [];
+    const now = new Date();
+    const selectedDate = isPickup ? pickupDate : dropoffDate;
+    const isToday = selectedDate === now.toISOString().split('T')[0];
+    const currentHour = now.getHours();
+
+    for (let i = 0; i < 24; i++) {
+      // Skip past hours for today
+      if (isToday && i <= currentHour) continue;
+
+      // For dropoff, skip hours before pickup time on the same day
+      if (!isPickup && selectedDate === pickupDate && pickupTime && i <= parseInt(pickupTime.split(':')[0])) continue;
+
+      const hour = i.toString().padStart(2, '0');
+      const period = i >= 12 ? 'PM' : 'AM';
+      const hour12 = i === 0 ? 12 : i > 12 ? i - 12 : i;
+      options.push({
+        value: `${hour}:00`,
+        label: `${hour12}:00 ${period}`
+      });
+    }
+    return options;
+  };
+
   return (
     <>
       <div className="grid grid-cols-1 gap-4">
@@ -208,7 +330,8 @@ function SearchFormContent({
               <input
                 type="date"
                 value={pickupDate}
-                onChange={(e) => setPickupDate(e.target.value)}
+                min={getMinDate()}
+                onChange={(e) => handleDateChange(e, true)}
                 className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                 style={{ colorScheme: 'light' }}
                 required
@@ -217,23 +340,15 @@ function SearchFormContent({
             <div className="relative">
               <select
                 value={pickupTime}
-                onChange={(e) => setPickupTime(e.target.value)}
+                onChange={(e) => handleTimeChange(e, true)}
                 className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                 style={{ colorScheme: 'light' }}
                 required
               >
                 <option value="">Select time</option>
-                {[...Array(24)].map((_, i) => {
-                  const hour = i;
-                  const period = hour >= 12 ? 'PM' : 'AM';
-                  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-                  const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-                  return (
-                    <option key={timeStr} value={timeStr}>
-                      {`${hour12}:00 ${period}`}
-                    </option>
-                  );
-                })}
+                {getTimeOptions(true).map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -247,12 +362,9 @@ function SearchFormContent({
             <div>
               <input
                 type="date"
-                min={pickupDate || new Date().toISOString().split('T')[0]}
+                min={pickupDate || getMinDate()}
                 value={dropoffDate}
-                onChange={(e) => {
-                  logger.debug('Dropoff date changed:', e.target.value);
-                  setDropoffDate(e.target.value);
-                }}
+                onChange={(e) => handleDateChange(e, false)}
                 className="w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent appearance-none"
                 required
               />
@@ -260,21 +372,14 @@ function SearchFormContent({
             <div>
               <select
                 value={dropoffTime}
-                onChange={(e) => setDropoffTime(e.target.value)}
-                className="w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent touch-manipulation"
+                onChange={(e) => handleTimeChange(e, false)}
+                className="w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                 required
               >
                 <option value="">Select time</option>
-                {Array.from({ length: 24 }, (_, i) => {
-                  const hour = i.toString().padStart(2, '0');
-                  const period = i >= 12 ? 'PM' : 'AM';
-                  const hour12 = i === 0 ? 12 : i > 12 ? i - 12 : i;
-                  return (
-                    <option key={hour} value={`${hour}:00`}>
-                      {`${hour12}:00 ${period}`}
-                    </option>
-                  );
-                })}
+                {getTimeOptions(false).map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
               </select>
             </div>
           </div>

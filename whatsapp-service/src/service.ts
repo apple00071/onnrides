@@ -239,7 +239,7 @@ export class WhatsAppService {
         bookingId: string
     ): Promise<boolean> {
         try {
-            const message = `Hello ${userName}!\nYour payment of Rs. ${amount} for booking ID: ${bookingId} has been received.\nThank you for your payment!`;
+            const message = `Hello ${userName}!\nYour payment of ₹${amount} for booking ID: ${bookingId} has been received.\nThank you for choosing OnnRides! 🙏`;
             await this.sendMessage(phone, message, bookingId);
             return true;
         } catch (error) {

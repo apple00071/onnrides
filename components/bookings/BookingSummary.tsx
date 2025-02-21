@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { TermsAndConditionsModal } from './TermsAndConditionsModal';
 import logger from '@/lib/logger';
+import { formatCurrency } from '@/lib/utils';
 
 interface BookingSummaryProps {
   booking: {
@@ -69,7 +70,7 @@ export function BookingSummary({ booking, onProceedToPayment }: BookingSummaryPr
 
   // Format amount to 2 decimal places
   const formatAmount = (amount: number) => {
-    return Number(amount).toFixed(2);
+    return formatCurrency(amount);
   };
 
   // Format date and time
@@ -102,7 +103,7 @@ export function BookingSummary({ booking, onProceedToPayment }: BookingSummaryPr
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-lg sm:text-xl font-semibold">{booking.vehicle.name}</h2>
+            <h2 className="text-lg sm:text-xl font-sans font-medium">{booking.vehicle.name}</h2>
             
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
@@ -155,19 +156,19 @@ export function BookingSummary({ booking, onProceedToPayment }: BookingSummaryPr
             <div className="space-y-3 border-t pt-3">
               <div className="flex justify-between text-sm sm:text-base">
                 <span>Base Price</span>
-                <span className="text-gray-900">{formatAmount(booking.base_price || booking.total_price * 0.81)}</span>
+                <span className="text-gray-900">{formatCurrency(booking.base_price || booking.total_price * 0.81)}</span>
               </div>
               <div className="flex justify-between text-sm sm:text-base">
                 <span>GST (18%)</span>
-                <span className="text-gray-900">{formatAmount(booking.gst || booking.total_price * 0.15)}</span>
+                <span className="text-gray-900">{formatCurrency(booking.gst || booking.total_price * 0.15)}</span>
               </div>
               <div className="flex justify-between text-sm sm:text-base">
                 <span>Service Fee (5%)</span>
-                <span className="text-gray-900">{formatAmount(booking.service_fee || booking.total_price * 0.04)}</span>
+                <span className="text-gray-900">{formatCurrency(booking.service_fee || booking.total_price * 0.04)}</span>
               </div>
               <div className="flex justify-between pt-2 border-t text-base sm:text-lg">
                 <span>Total Amount</span>
-                <span className="text-gray-900">{formatAmount(booking.total_price)}</span>
+                <span className="text-gray-900">{formatCurrency(booking.total_price)}</span>
               </div>
               <p className="text-xs text-gray-500 text-right">Inclusive of all taxes</p>
             </div>

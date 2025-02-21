@@ -6,11 +6,76 @@ import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import UserNav from './UserNav';
 import { useState } from 'react';
+import { toast } from 'react-hot-toast';
 
 export default function Navbar() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Date and time validation helper
+  const validateDateTime = (date: string, time: string) => {
+    const selectedDateTime = new Date(`${date}T${time}`);
+    const now = new Date();
+    now.setSeconds(0);
+    now.setMilliseconds(0);
+
+    if (selectedDateTime < now) {
+      toast.error('Selected time must be in the future');
+      return false;
+    }
+    return true;
+  };
+
+  // Handle date change
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, setDate: (date: string) => void) => {
+    const selectedDate = e.target.value;
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+
+    if (selectedDate < today) {
+      toast.error('Cannot select a past date');
+      e.target.value = today;
+      setDate(today);
+    } else {
+      setDate(selectedDate);
+    }
+  };
+
+  // Handle time change
+  const handleTimeChange = (e: React.ChangeEvent<HTMLSelectElement>, date: string, setTime: (time: string) => void) => {
+    const selectedTime = e.target.value;
+    if (validateDateTime(date, selectedTime)) {
+      setTime(selectedTime);
+    } else {
+      // Reset to current hour if invalid
+      const now = new Date();
+      const currentHour = now.getHours().toString().padStart(2, '0') + ':00';
+      e.target.value = currentHour;
+      setTime(currentHour);
+    }
+  };
+
+  // Get minimum date (today)
+  const getMinDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
+  // Get available time options
+  const getTimeOptions = () => {
+    const options = [];
+    for (let i = 0; i < 24; i++) {
+      const hour = i.toString().padStart(2, '0');
+      const period = i >= 12 ? 'PM' : 'AM';
+      const hour12 = i === 0 ? 12 : i > 12 ? i - 12 : i;
+      options.push({
+        value: `${hour}:00`,
+        label: `${hour12}:00 ${period}`
+      });
+    }
+    return options;
+  };
 
   // Don't show navbar on auth pages
   const isAuthPage = pathname?.startsWith('/auth/');
@@ -19,14 +84,14 @@ export default function Navbar() {
       <header className="sticky top-0 z-50 w-full border-b bg-white">
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center">
-            <div className="relative h-7 w-24">
+            <div className="relative h-7 md:h-9 w-24 md:w-32">
               <Image
                 src="/logo.png"
                 alt="OnnRides"
                 fill
                 className="object-contain"
                 priority
-                sizes="96px"
+                sizes="(max-width: 768px) 96px, 128px"
               />
             </div>
           </Link>
@@ -40,14 +105,14 @@ export default function Navbar() {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center">
           <Link href="/" className="flex items-center">
-            <div className="relative h-7 w-24">
+            <div className="relative h-7 md:h-9 w-24 md:w-32">
               <Image
                 src="/logo.png"
                 alt="OnnRides"
                 fill
                 className="object-contain"
                 priority
-                sizes="96px"
+                sizes="(max-width: 768px) 96px, 128px"
               />
             </div>
           </Link>

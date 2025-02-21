@@ -146,7 +146,7 @@ export function VehicleCard({
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
       <div className="p-6">
         <div className="flex flex-col space-y-1.5">
-          <h3 className="font-semibold leading-none tracking-tight text-gray-900" style={{ fontSize: '14px' }}>
+          <h3 className="text-xl font-sans font-medium p-4">
             {vehicle.name}
           </h3>
         </div>

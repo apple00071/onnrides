@@ -45,8 +45,8 @@ export default function ForgotPasswordPage() {
           <Image
             src="/logo.png"
             alt="OnnRides Logo"
-            width={150}
-            height={150}
+            width={128}
+            height={36}
             className="mb-8"
           />
         </div>
