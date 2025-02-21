@@ -151,7 +151,7 @@ export default function HeroSection() {
       </div>
 
       {/* Mobile Search Form */}
-      <div className="sm:hidden w-full px-4 -mt-48">
+      <div className="sm:hidden w-full px-4 -mt-40">
         <div className="bg-white rounded-xl shadow-lg p-4">
           <SearchFormContent
             pickupDate={pickupDate}
