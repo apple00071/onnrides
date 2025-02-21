@@ -106,15 +106,18 @@ export default function HeroSection() {
     <div className="relative h-[100vh] w-full">
       {/* Background Image */}
       <div className="absolute inset-0">
-        <Image
-          src="/hero.png"
-          alt="Hero Background"
-          fill
-          className="object-cover w-full h-full brightness-[0.85]"
-          priority
-          quality={100}
-          sizes="100vw"
-        />
+        <picture>
+          <source media="(max-width: 640px)" srcSet="/hero-mobile.png" />
+          <Image
+            src="/hero.png"
+            alt="Hero Background"
+            fill
+            className="object-cover w-full h-full brightness-[0.85]"
+            priority
+            quality={100}
+            sizes="(max-width: 640px) 640px, 100vw"
+          />
+        </picture>
       </div>
 
       {/* Content */}
