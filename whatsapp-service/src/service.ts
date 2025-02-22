@@ -1,5 +1,4 @@
-import { Client } from 'whatsapp-web.js';
-import { initializeWhatsAppClient } from './config';
+import { sendWhatsAppMessage } from './ultramsg';
 import logger from './logger';
 import Database from 'better-sqlite3';
 import path from 'path';
@@ -24,8 +23,6 @@ interface InitializationStatus {
 
 export class WhatsAppService {
     private static instance: WhatsAppService;
-    private client: Client | null = null;
-    private initializationError: Error | null = null;
     private db: Database.Database;
 
     private constructor() {
@@ -35,7 +32,6 @@ export class WhatsAppService {
         
         // Create tables if they don't exist
         this.initializeDatabase();
-        this.initializeClient();
     }
 
     private initializeDatabase() {
@@ -63,35 +59,11 @@ export class WhatsAppService {
         `);
     }
 
-    private async initializeClient() {
-        try {
-            this.client = await initializeWhatsAppClient();
-            if (!this.client) {
-                throw new Error('Failed to initialize WhatsApp client');
-            }
-        } catch (error) {
-            this.initializationError = error instanceof Error ? error : new Error('Unknown initialization error');
-            logger.error('WhatsApp client initialization failed:', error);
-        }
-    }
-
     public static getInstance(): WhatsAppService {
         if (!WhatsAppService.instance) {
             WhatsAppService.instance = new WhatsAppService();
         }
         return WhatsAppService.instance;
-    }
-
-    public getInitializationStatus(): InitializationStatus {
-        return {
-            isInitialized: !!this.client?.info,
-            error: this.initializationError || undefined
-        };
-    }
-
-    private validatePhoneNumber(phoneNumber: string): string {
-        const cleanNumber = phoneNumber.replace(/\D/g, '');
-        return cleanNumber.startsWith('91') ? cleanNumber : `91${cleanNumber}`;
     }
 
     private generateId(): string {
@@ -154,11 +126,7 @@ export class WhatsAppService {
         }
     }
 
-    public async sendMessage(to: string, message: string, bookingId?: string): Promise<void> {
-        if (!this.client?.info) {
-            throw new Error('WhatsApp client not initialized');
-        }
-
+    public async sendMessage(to: string, message: string, bookingId?: string): Promise<boolean> {
         let logId: string | undefined;
 
         try {
@@ -171,22 +139,23 @@ export class WhatsAppService {
                 message_type: 'text'
             });
 
-            const formattedNumber = this.validatePhoneNumber(to);
-            const chat = await this.client.getChatById(formattedNumber + '@c.us');
-            const result = await chat.sendMessage(message);
+            // Send message using UltraMsg
+            const success = await sendWhatsAppMessage(to, message);
             
-            await this.updateMessageLog(logId, {
-                status: 'success',
-                chat_id: result.id._serialized
-            });
-
-            logger.info('WhatsApp message sent successfully', {
-                to: formattedNumber,
-                messageId: result.id._serialized,
-                bookingId
-            });
+            if (success) {
+                await this.updateMessageLog(logId, {
+                    status: 'success'
+                });
+                return true;
+            } else {
+                await this.updateMessageLog(logId, {
+                    status: 'failed',
+                    error: 'Failed to send message'
+                });
+                return false;
+            }
         } catch (error) {
-            logger.error('Failed to send WhatsApp message:', error);
+            logger.error('Error sending WhatsApp message:', error);
             
             if (logId) {
                 await this.updateMessageLog(logId, {
@@ -195,7 +164,7 @@ export class WhatsAppService {
                 });
             }
             
-            throw error;
+            return false;
         }
     }
 
@@ -203,13 +172,14 @@ export class WhatsAppService {
         phone: string,
         userName: string,
         vehicleDetails: string,
-        bookingDate: string,
+        location: string,
+        pickupDateTime: string,
+        dropoffDateTime: string,
         bookingId?: string
     ): Promise<boolean> {
         try {
-            const message = `Hello ${userName}!\nYour booking has been confirmed for ${vehicleDetails} on ${bookingDate}.\nThank you for choosing our service!`;
-            await this.sendMessage(phone, message, bookingId);
-            return true;
+            const message = `Hello ${userName}! 👋\n\nYour booking has been confirmed ✅\n\nVehicle: ${vehicleDetails}\n📍 Location: ${location}\n\n📅 Pickup: ${pickupDateTime}\n📅 Drop-off: ${dropoffDateTime}\n\nThank you for choosing OnnRides! 🙏\n\nNeed help? Contact us:\n📞 +91 83090 31203\n📧 contact@onnrides.com`;
+            return await this.sendMessage(phone, message, bookingId);
         } catch (error) {
             logger.error('Failed to send booking confirmation:', error);
             return false;
@@ -220,12 +190,12 @@ export class WhatsAppService {
         phone: string,
         userName: string,
         vehicleDetails: string,
+        location: string,
         bookingId?: string
     ): Promise<boolean> {
         try {
-            const message = `Hello ${userName}!\nYour booking for ${vehicleDetails} has been cancelled.\nWe hope to serve you again soon!`;
-            await this.sendMessage(phone, message, bookingId);
-            return true;
+            const message = `Hello ${userName}! ⚠️\n\nYour booking for ${vehicleDetails} at ${location} has been cancelled.\n\nWe hope to serve you again soon!\n\nNeed assistance?\n📞 +91 83090 31203\n📧 contact@onnrides.com`;
+            return await this.sendMessage(phone, message, bookingId);
         } catch (error) {
             logger.error('Failed to send booking cancellation:', error);
             return false;
@@ -239,11 +209,28 @@ export class WhatsAppService {
         bookingId: string
     ): Promise<boolean> {
         try {
-            const message = `Hello ${userName}!\nYour payment of ₹${amount} for booking ID: ${bookingId} has been received.\nThank you for choosing OnnRides! 🙏`;
-            await this.sendMessage(phone, message, bookingId);
-            return true;
+            const message = `Hello ${userName}! 👋\n\nYour payment of ₹${amount} has been received ✅\nBooking ID: ${bookingId}\n\nThank you for choosing OnnRides! 🙏\n\nNeed help? Contact us:\n📞 +91 83090 31203\n📧 contact@onnrides.com`;
+            return await this.sendMessage(phone, message, bookingId);
         } catch (error) {
             logger.error('Failed to send payment confirmation:', error);
+            return false;
+        }
+    }
+
+    public async sendBookingReminder(
+        phone: string,
+        userName: string,
+        vehicleDetails: string,
+        location: string,
+        pickupDateTime: string,
+        dropoffDateTime: string,
+        bookingId?: string
+    ): Promise<boolean> {
+        try {
+            const message = `Hello ${userName}! 👋\n\nReminder: Your upcoming booking 🔔\n\nVehicle: ${vehicleDetails}\n📍 Location: ${location}\n\n📅 Pickup: ${pickupDateTime}\n📅 Drop-off: ${dropoffDateTime}\n\nWe're looking forward to serving you!\n\nNeed assistance?\n📞 +91 83090 31203\n📧 contact@onnrides.com`;
+            return await this.sendMessage(phone, message, bookingId);
+        } catch (error) {
+            logger.error('Failed to send booking reminder:', error);
             return false;
         }
     }

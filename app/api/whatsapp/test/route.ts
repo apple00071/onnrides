@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { WhatsAppService } from '@/lib/whatsapp/service';
+import { sendWhatsAppMessage } from '../../../../lib/ultramsg/config';
 import logger from '@/lib/logger';
 
 export async function GET(req: Request) {
@@ -20,8 +20,6 @@ export async function GET(req: Request) {
             testPhone,
             hasToken: !!process.env.ULTRAMSG_TOKEN
         });
-
-        const whatsapp = WhatsAppService.getInstance();
         
         // Send a test message with current timestamp
         const timestamp = new Date().toLocaleString();
@@ -31,25 +29,26 @@ export async function GET(req: Request) {
             `Instance ID: ${process.env.ULTRAMSG_INSTANCE_ID}\n` +
             `If you receive this message, the WhatsApp integration is working correctly! 🎉`;
 
-        logger.info('Sending test message:', { message });
-
-        const result = await whatsapp.sendMessage(testPhone, message);
-
-        logger.info('WhatsApp test result:', {
-            success: true,
-            messageId: result.messageId,
-            response: result.response
+        logger.info('Sending test message:', { 
+            message,
+            phone: testPhone,
+            formattedPhone: testPhone.replace(/\D/g, '').startsWith('91') ? testPhone.replace(/\D/g, '') : `91${testPhone.replace(/\D/g, '')}`
         });
+
+        const success = await sendWhatsAppMessage(testPhone, message);
+
+        if (!success) {
+            throw new Error('Failed to send WhatsApp message');
+        }
+
+        logger.info('WhatsApp test result:', { success });
 
         return NextResponse.json({
             success: true,
             message: 'Test message sent successfully',
             timestamp,
             details: {
-                messageId: result.messageId,
-                logId: result.logId,
                 recipient: testPhone,
-                apiResponse: result.response,
                 message
             }
         });
@@ -59,7 +58,12 @@ export async function GET(req: Request) {
             config: {
                 instanceId: process.env.ULTRAMSG_INSTANCE_ID,
                 testPhone: process.env.TEST_PHONE_NUMBER,
-                hasToken: !!process.env.ULTRAMSG_TOKEN
+                hasToken: !!process.env.ULTRAMSG_TOKEN,
+                error: error instanceof Error ? {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                } : error
             }
         });
         
