@@ -3,8 +3,8 @@
   "buildCommand": "next build",
   "outputDirectory": ".next",
   "env": {
-    "ULTRAMSG_TOKEN": "ni5mckcg41f7li91",
-    "ULTRAMSG_INSTANCE_ID": "instance107555"
+    "ULTRAMSG_TOKEN": "kjiva1qf01n0mvkr",
+    "ULTRAMSG_INSTANCE_ID": "instance108219"
   },
   "git": {
     "deploymentEnabled": {
