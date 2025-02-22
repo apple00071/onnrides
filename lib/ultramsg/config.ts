@@ -1,18 +1,19 @@
 import logger from '../logger';
 
-// Debug logging for environment variables and configuration
+// UltraMsg Configuration
+const INSTANCE_ID = 'instance108219';
+const TOKEN = 'kjiva1qf01n0mvkr';
+const API_URL = `https://api.ultramsg.com/${INSTANCE_ID}`;
+
+// Debug logging for configuration
 logger.info('UltraMsg Configuration:', {
   env: process.env.NODE_ENV,
   config: {
-    instance_id: process.env.ULTRAMSG_INSTANCE_ID || 'instance108219',
-    has_token: !!process.env.ULTRAMSG_TOKEN,
-    api_url: `https://api.ultramsg.com/${process.env.ULTRAMSG_INSTANCE_ID || 'instance108219'}`
+    instance_id: INSTANCE_ID,
+    api_url: API_URL,
+    has_token: !!TOKEN
   }
 });
-
-const INSTANCE_ID = process.env.ULTRAMSG_INSTANCE_ID || 'instance108219';
-const TOKEN = process.env.ULTRAMSG_TOKEN || 'kjiva1qf01n0mvkr';
-const API_URL = `https://api.ultramsg.com/${INSTANCE_ID}`;
 
 interface UltraMsgResponse {
   sent: string;
@@ -49,15 +50,9 @@ function formatPhoneNumber(phone: string): string {
 
 export async function sendWhatsAppMessage(to: string, message: string): Promise<boolean> {
   try {
-    if (!INSTANCE_ID || !TOKEN) {
-      logger.error('Missing UltraMsg configuration');
-      throw new Error('UltraMsg configuration is incomplete');
-    }
-
     const phone = formatPhoneNumber(to);
     
     logger.info('Sending WhatsApp message:', {
-      environment: process.env.NODE_ENV,
       url: `${API_URL}/messages/chat`,
       phone,
       message_length: message.length,
