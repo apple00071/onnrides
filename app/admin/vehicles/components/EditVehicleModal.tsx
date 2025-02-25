@@ -16,18 +16,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { VEHICLE_TYPES, VehicleType } from '../../../../lib/schema';
-import { Vehicle } from '@/lib/types';
+import { Vehicle } from '@/app/(main)/vehicles/types';
 
-// Define locations directly in the component for now
+// Define locations
 const LOCATIONS = [
   'Madhapur',
-  'Gachibowli',
-  'Kondapur',
-  'Kukatpally',
-  'Ameerpet',
-  'Hitech City',
-  'Jubilee Hills',
-  'Banjara Hills',
   'Eragadda'
 ];
 
@@ -42,6 +35,9 @@ interface FormData {
   name: string;
   type: VehicleType;
   price_per_hour: number;
+  price_7_days: number;
+  price_15_days: number;
+  price_30_days: number;
   location: string[];
   images: (string | File)[];
   is_available: boolean;
@@ -54,10 +50,14 @@ function convertToVehicle(formData: FormData, existingVehicle: Vehicle, imageUrl
     name: formData.name,
     type: formData.type,
     price_per_hour: formData.price_per_hour,
+    price_7_days: formData.price_7_days > 0 ? formData.price_7_days : undefined,
+    price_15_days: formData.price_15_days > 0 ? formData.price_15_days : undefined,
+    price_30_days: formData.price_30_days > 0 ? formData.price_30_days : undefined,
     location: formData.location,
     images: imageUrls,
     is_available: formData.is_available,
-    updated_at: new Date().toISOString()
+    quantity: existingVehicle.quantity,
+    min_booking_hours: existingVehicle.min_booking_hours
   };
 }
 
@@ -66,9 +66,10 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
     name: vehicle.name,
     type: vehicle.type as VehicleType,
     price_per_hour: vehicle.price_per_hour,
-    location: Array.isArray(vehicle.location) 
-      ? vehicle.location
-      : [vehicle.location],
+    price_7_days: vehicle.price_7_days ?? 0,
+    price_15_days: vehicle.price_15_days ?? 0,
+    price_30_days: vehicle.price_30_days ?? 0,
+    location: Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location],
     images: Array.isArray(vehicle.images) ? vehicle.images : [],
     is_available: vehicle.is_available
   });
@@ -131,14 +132,20 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
       // Combine existing images with new uploaded ones
       const allImages = [...formData.images.filter(img => typeof img === 'string'), ...uploadedImageUrls];
 
+      // Convert empty strings or 0 values to null for special pricing
       const updateData = {
         name: formData.name,
         type: formData.type,
         price_per_hour: Number(formData.price_per_hour),
+        price_7_days: formData.price_7_days > 0 ? Number(formData.price_7_days) : null,
+        price_15_days: formData.price_15_days > 0 ? Number(formData.price_15_days) : null,
+        price_30_days: formData.price_30_days > 0 ? Number(formData.price_30_days) : null,
         location: formData.location,
         images: allImages,
         is_available: formData.is_available
       };
+
+      console.log('Updating vehicle with data:', updateData);
 
       const response = await fetch(`/api/admin/vehicles/${vehicle.id}`, {
         method: 'PUT',
@@ -153,7 +160,9 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
         throw new Error(error.message || 'Failed to update vehicle');
       }
 
-      const updatedVehicle = convertToVehicle(formData, vehicle, allImages);
+      const updatedVehicle = await response.json();
+      console.log('Vehicle updated successfully:', updatedVehicle);
+      
       toast.success('Vehicle updated successfully');
       onSuccess(updatedVehicle);
       onClose();
@@ -167,12 +176,12 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="sticky top-0 bg-white z-10 pb-4 border-b">
           <DialogTitle>Edit Vehicle</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 py-4">
           <div>
             <Label htmlFor="name">Vehicle Name</Label>
             <Input
@@ -205,7 +214,7 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
 
           <div>
             <Label>Locations</Label>
-            <div className="grid grid-cols-2 gap-4 mt-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-2">
               {LOCATIONS.map((location) => (
                 <div key={location} className="flex items-center space-x-2">
                   <Checkbox
@@ -222,6 +231,11 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
                 </div>
               ))}
             </div>
+            {formData.location.length === 0 && (
+              <p className="text-sm text-red-500 mt-1">
+                Please select at least one location
+              </p>
+            )}
           </div>
 
           <div>
@@ -236,6 +250,48 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
                 setFormData({ ...formData, price_per_hour: Number(e.target.value) })}
               required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="price_7_days">7 Days Price</Label>
+            <Input
+              id="price_7_days"
+              name="price_7_days"
+              type="number"
+              min={0}
+              step={0.01}
+              value={formData.price_7_days}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                setFormData({ ...formData, price_7_days: Number(e.target.value) })}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="price_15_days">15 Days Price</Label>
+            <Input
+              id="price_15_days"
+              name="price_15_days"
+              type="number"
+              min={0}
+              step={0.01}
+              value={formData.price_15_days}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                setFormData({ ...formData, price_15_days: Number(e.target.value) })}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="price_30_days">30 Days Price</Label>
+            <Input
+              id="price_30_days"
+              name="price_30_days"
+              type="number"
+              min={0}
+              step={0.01}
+              value={formData.price_30_days}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                setFormData({ ...formData, price_30_days: Number(e.target.value) })}
             />
           </div>
 
@@ -303,16 +359,28 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
               </div>
             )}
           </div>
-
-          <div className="flex justify-end space-x-4">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Updating...' : 'Update Vehicle'}
-            </Button>
-          </div>
         </form>
+
+        <div className="sticky bottom-0 bg-white pt-4 border-t flex justify-end space-x-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={loading || formData.location.length === 0}
+            onClick={(e) => {
+              e.preventDefault();
+              handleSubmit(e);
+            }}
+          >
+            {loading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -105,7 +105,7 @@ export default function HeroSection() {
   return (
     <>
       <div className="relative h-[50vh] sm:h-screen w-full overflow-hidden">
-        {/* Background Image */}
+      {/* Background Image */}
         <div className="absolute inset-0">
           <div className="relative h-[50vh] sm:h-screen w-full sm:hidden flex items-start">
             <Image
@@ -117,14 +117,14 @@ export default function HeroSection() {
               quality={100}
             />
           </div>
-          <Image
+        <Image
             src="/hero.png"
-            alt="Hero Background"
-            fill
+          alt="Hero Background"
+          fill
             className="hidden sm:block object-cover w-full h-full brightness-[0.85]"
-            priority
-            quality={100}
-          />
+          priority
+          quality={100}
+        />
         </div>
 
         {/* Desktop Search Form */}
@@ -321,25 +321,25 @@ function SearchFormContent({
   return (
     <>
       <div className="grid grid-cols-1 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Pickup
-          </label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Pickup
+                </label>
           <div className="grid grid-cols-2 gap-2">
             <div className="relative">
-              <input
-                type="date"
-                value={pickupDate}
+                    <input
+                      type="date"
+                      value={pickupDate}
                 min={getMinDate()}
                 onChange={(e) => handleDateChange(e, true)}
                 className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                 style={{ colorScheme: 'light' }}
-                required
-              />
-            </div>
+                      required
+                    />
+                  </div>
             <div className="relative">
               <select
-                value={pickupTime}
+                      value={pickupTime}
                 onChange={(e) => handleTimeChange(e, true)}
                 className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                 style={{ colorScheme: 'light' }}
@@ -350,28 +350,28 @@ function SearchFormContent({
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
-            </div>
-          </div>
-        </div>
+                  </div>
+                </div>
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Dropoff
-          </label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Dropoff
+                </label>
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <input
-                type="date"
+                  <div>
+                    <input
+                      type="date"
                 min={pickupDate || getMinDate()}
-                value={dropoffDate}
+                      value={dropoffDate}
                 onChange={(e) => handleDateChange(e, false)}
                 className="w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent appearance-none"
-                required
-              />
-            </div>
-            <div>
+                      required
+                    />
+                  </div>
+                  <div>
               <select
-                value={dropoffTime}
+                      value={dropoffTime}
                 onChange={(e) => handleTimeChange(e, false)}
                 className="w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                 required
@@ -381,20 +381,20 @@ function SearchFormContent({
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      <button
-        onClick={handleSearch}
-        disabled={isLoading}
+            <button
+              onClick={handleSearch}
+              disabled={isLoading}
         className={`w-full mt-4 bg-[#f26e24] text-white py-3 rounded text-sm font-medium ${
           isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#e05e1c] active:bg-[#d05510]'
-        }`}
-      >
-        {isLoading ? 'Searching...' : 'Search'}
-      </button>
+              }`}
+            >
+              {isLoading ? 'Searching...' : 'Search'}
+            </button>
     </>
   );
 } 

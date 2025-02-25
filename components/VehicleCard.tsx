@@ -9,25 +9,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn, formatCurrency } from "@/lib/utils";
+import { calculateRentalPrice } from "@/lib/utils/price";
 import { useEffect, useCallback, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { utcToZonedTime } from "date-fns-tz";
+import { Vehicle } from "@/app/(main)/vehicles/types";
 
 interface VehicleCardProps {
-  vehicle: {
-    id: string;
-    name: string;
-    type: string;
-    price_per_hour: number;
-    location: string[];
-    images: string[];
-    available: boolean;
-  };
+  vehicle: Vehicle;
   selectedLocation?: string;
   onLocationSelect?: (location: string) => void;
   pickupDateTime?: string;
   dropoffDateTime?: string;
   className?: string;
+  showBookingButton?: boolean;
+  onSelect?: (vehicle: Vehicle) => void;
+  selected?: boolean;
 }
 
 export function VehicleCard({
@@ -37,6 +34,9 @@ export function VehicleCard({
   pickupDateTime,
   dropoffDateTime,
   className,
+  showBookingButton,
+  onSelect,
+  selected,
 }: VehicleCardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -97,7 +97,39 @@ export function VehicleCard({
     currentParams.set('vehicleId', vehicle.id);
     currentParams.set('vehicleName', vehicle.name);
     currentParams.set('pricePerHour', vehicle.price_per_hour.toString());
+    
+    // Add special pricing if available (ensure values are greater than 0)
+    if (vehicle.price_7_days && vehicle.price_7_days > 0) {
+      currentParams.set('price7Days', vehicle.price_7_days.toString());
+      console.log('Setting 7-day price:', vehicle.price_7_days);
+    }
+    if (vehicle.price_15_days && vehicle.price_15_days > 0) {
+      currentParams.set('price15Days', vehicle.price_15_days.toString());
+      console.log('Setting 15-day price:', vehicle.price_15_days);
+    }
+    if (vehicle.price_30_days && vehicle.price_30_days > 0) {
+      currentParams.set('price30Days', vehicle.price_30_days.toString());
+      console.log('Setting 30-day price:', vehicle.price_30_days);
+    }
+    
     currentParams.set('vehicleImage', vehicle.images[0] || '/placeholder-vehicle.jpg');
+    
+    // Calculate the total price and add debug information
+    const priceDetails = calculatePrice();
+    const durationDays = priceDetails.totalHours / 24;
+    
+    console.log('Booking duration:', {
+      totalHours: priceDetails.totalHours,
+      durationDays,
+      price: priceDetails.totalAmount,
+      specialPricing: {
+        has7DayPrice: Boolean(vehicle.price_7_days),
+        has15DayPrice: Boolean(vehicle.price_15_days),
+        has30DayPrice: Boolean(vehicle.price_30_days)
+      }
+    });
+    
+    currentParams.set('totalAmount', priceDetails.totalAmount.toString());
     
     // Redirect directly to booking summary page
     router.push(`/booking-summary?${currentParams.toString()}`);
@@ -133,43 +165,65 @@ export function VehicleCard({
   // Calculate price based on duration and day of week
   const calculatePrice = () => {
     try {
-      const params = new URLSearchParams(window.location.search);
-      const pickupDate = params.get('pickupDate');
-      const pickupTime = params.get('pickupTime');
-      const dropoffDate = params.get('dropoffDate');
-      const dropoffTime = params.get('dropoffTime');
-      
+      const searchParams = new URLSearchParams(window.location.search);
+      const pickupDate = searchParams.get('pickupDate');
+      const pickupTime = searchParams.get('pickupTime');
+      const dropoffDate = searchParams.get('dropoffDate');
+      const dropoffTime = searchParams.get('dropoffTime');
+
       if (!pickupDate || !pickupTime || !dropoffDate || !dropoffTime) {
+        console.log('Missing date/time parameters');
         return {
           baseAmount: vehicle.price_per_hour,
           totalAmount: vehicle.price_per_hour,
-          totalHours: 0,
-          durationHours: 0,
+          totalHours: 1,
+          durationHours: 1,
           isWeekend: false
         };
       }
 
-      // Create Date objects for pickup and dropoff
-      const pickupDateTime = new Date(`${pickupDate}T${pickupTime}:00`);
-      const dropoffDateTime = new Date(`${dropoffDate}T${dropoffTime}:00`);
-      
-      // Calculate duration in hours
-      const durationInMs = dropoffDateTime.getTime() - pickupDateTime.getTime();
-      const durationHours = Math.ceil(durationInMs / (1000 * 60 * 60));
-      
-      // Check if booking is for weekend
-      const dayOfWeek = pickupDateTime.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Saturday or Sunday
-      
-      // Calculate minimum required hours
-      const minimumHours = isWeekend ? 24 : 12;
-      
-      // Calculate total billable hours
-      const totalHours = Math.max(minimumHours, durationHours);
+      const pickup = new Date(`${pickupDate}T${pickupTime}`);
+      const dropoff = new Date(`${dropoffDate}T${dropoffTime}`);
+      const durationHours = Math.ceil((dropoff.getTime() - pickup.getTime()) / (1000 * 60 * 60));
+      const isWeekend = pickup.getDay() === 0 || pickup.getDay() === 6;
+
+      // Calculate minimum hours based on weekend/weekday
+      const minHours = isWeekend ? 24 : vehicle.min_booking_hours || 4;
+      const totalHours = Math.max(durationHours, minHours);
+
+      console.log('Price calculation details:', {
+        vehicle: {
+          name: vehicle.name,
+          price_per_hour: vehicle.price_per_hour,
+          price_7_days: vehicle.price_7_days,
+          price_15_days: vehicle.price_15_days,
+          price_30_days: vehicle.price_30_days
+        },
+        duration: {
+          pickup: pickup.toISOString(),
+          dropoff: dropoff.toISOString(),
+          durationHours,
+          totalHours,
+          durationDays: totalHours / 24,
+          isWeekend
+        }
+      });
+
+      // Calculate base amount using the utility function
+      const baseAmount = calculateRentalPrice(vehicle, totalHours);
+      const totalAmount = baseAmount;
+
+      console.log('Final price:', {
+        baseAmount,
+        totalAmount,
+        totalHours,
+        durationHours,
+        isWeekend
+      });
 
       return {
-        baseAmount: vehicle.price_per_hour,
-        totalAmount: vehicle.price_per_hour * totalHours,
+        baseAmount,
+        totalAmount,
         totalHours,
         durationHours,
         isWeekend
@@ -179,8 +233,8 @@ export function VehicleCard({
       return {
         baseAmount: vehicle.price_per_hour,
         totalAmount: vehicle.price_per_hour,
-        totalHours: 0,
-        durationHours: 0,
+        totalHours: 1,
+        durationHours: 1,
         isWeekend: false
       };
     }
@@ -258,15 +312,15 @@ export function VehicleCard({
           ) : (
             // Multiple locations dropdown
             <Select value={selectedLocation} onValueChange={handleLocationSelect}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger>
                 <SelectValue placeholder="Select location" />
               </SelectTrigger>
               <SelectContent>
-                {vehicle.location.map((loc) => (
+                {Array.isArray(vehicle.location) ? vehicle.location.map((loc) => (
                   <SelectItem key={loc} value={loc}>
                     {loc}
                   </SelectItem>
-                ))}
+                )) : null}
               </SelectContent>
             </Select>
           )}

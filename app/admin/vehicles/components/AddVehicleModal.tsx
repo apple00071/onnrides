@@ -30,6 +30,9 @@ interface FormData {
   location: string[];
   quantity: number;
   price_per_hour: number;
+  price_7_days: number;
+  price_15_days: number;
+  price_30_days: number;
   images: File[];
 }
 
@@ -45,6 +48,9 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
     location: [] as string[],
     quantity: 1,
     price_per_hour: 0,
+    price_7_days: 0,
+    price_15_days: 0,
+    price_30_days: 0,
     images: [] as File[],
   } satisfies FormData;
 
@@ -134,6 +140,9 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
         name: formData.name,
         type: formData.type,
         price_per_hour: Number(formData.price_per_hour),
+        price_7_days: Number(formData.price_7_days),
+        price_15_days: Number(formData.price_15_days),
+        price_30_days: Number(formData.price_30_days),
         location: formData.location,
         quantity: formData.quantity,
         images: uploadedImageUrls,
@@ -176,12 +185,12 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="sticky top-0 bg-white z-10 pb-4 border-b">
           <DialogTitle>Add New Vehicle</DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 py-4">
           <div>
             <Label htmlFor="name">Vehicle Name</Label>
             <Input
@@ -255,6 +264,50 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
             />
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="price_7_days">7 Days Price</Label>
+              <Input
+                id="price_7_days"
+                name="price_7_days"
+                type="number"
+                min={0}
+                step={0.01}
+                value={formData.price_7_days}
+                onChange={(e) => setFormData({ ...formData, price_7_days: Number(e.target.value) })}
+              />
+              <p className="text-sm text-gray-500 mt-1">Optional: Set special price for 7 days</p>
+            </div>
+
+            <div>
+              <Label htmlFor="price_15_days">15 Days Price</Label>
+              <Input
+                id="price_15_days"
+                name="price_15_days"
+                type="number"
+                min={0}
+                step={0.01}
+                value={formData.price_15_days}
+                onChange={(e) => setFormData({ ...formData, price_15_days: Number(e.target.value) })}
+              />
+              <p className="text-sm text-gray-500 mt-1">Optional: Set special price for 15 days</p>
+            </div>
+
+            <div>
+              <Label htmlFor="price_30_days">30 Days Price</Label>
+              <Input
+                id="price_30_days"
+                name="price_30_days"
+                type="number"
+                min={0}
+                step={0.01}
+                value={formData.price_30_days}
+                onChange={(e) => setFormData({ ...formData, price_30_days: Number(e.target.value) })}
+              />
+              <p className="text-sm text-gray-500 mt-1">Optional: Set special price for 30 days</p>
+            </div>
+          </div>
+
           <div>
             <Label htmlFor="images">Vehicle Images</Label>
             <Input
@@ -289,7 +342,7 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
             )}
           </div>
 
-          <div className="flex justify-end space-x-4">
+          <div className="sticky bottom-0 bg-white pt-4 border-t flex justify-end space-x-4">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>

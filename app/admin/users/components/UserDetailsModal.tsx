@@ -419,214 +419,210 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-4xl translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg">
-          <div className="max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 bg-white px-6 py-4 border-b">
-              <h2 className="text-xl font-semibold">User Details</h2>
-            </div>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-6">
+          <DialogHeader className="sticky top-0 bg-white z-10 pb-4 border-b">
+            <DialogTitle>User Details</DialogTitle>
+          </DialogHeader>
 
-            {/* Content */}
-            <div className="p-6 space-y-6">
-              {/* User Info Section */}
-              <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                <div className="p-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-500">Name</h3>
-                      <p className="mt-1">{user.name || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-500">Email</h3>
-                      <p className="mt-1">{user.email}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-500">Phone</h3>
-                      <p className="mt-1">{user.phone || 'Not provided'}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-500">Role</h3>
-                      <p className="mt-1">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {user.role}
-                        </span>
-                      </p>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-500">Documents</h3>
-                      <p className="mt-1">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          {user.documents?.approved || 0}/{user.documents?.total || 0} Approved
-                        </span>
-                      </p>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-500">Joined</h3>
-                      <p className="mt-1">{formatDate(user.created_at)}</p>
-                    </div>
+          <div className="py-4">
+            {/* User Info Section */}
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+              <div className="p-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Name</h3>
+                    <p className="mt-1">{user.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Email</h3>
+                    <p className="mt-1">{user.email}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Phone</h3>
+                    <p className="mt-1">{user.phone || 'Not provided'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Role</h3>
+                    <p className="mt-1">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {user.role}
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Documents</h3>
+                    <p className="mt-1">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        {user.documents?.approved || 0}/{user.documents?.total || 0} Approved
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Joined</h3>
+                    <p className="mt-1">{formatDate(user.created_at)}</p>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Documents Section */}
-              <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                <div className="p-6 pb-4 border-b">
-                  <h3 className="text-lg font-semibold">Documents</h3>
-                </div>
-                <div className="p-6">
-                  {documents.length === 0 ? (
-                    <p className="text-gray-500">No documents found</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {documents.map((doc) => (
-                        <div key={doc.id} className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium capitalize">{doc.type}</p>
-                            <p className="text-sm text-gray-500">{formatDate(doc.created_at)}</p>
-                            {doc.rejection_reason && (
-                              <p className="text-sm text-red-500 mt-1">Reason: {doc.rejection_reason}</p>
+            {/* Documents Section */}
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+              <div className="p-6 pb-4 border-b">
+                <h3 className="text-lg font-semibold">Documents</h3>
+              </div>
+              <div className="p-6">
+                {documents.length === 0 ? (
+                  <p className="text-gray-500">No documents found</p>
+                ) : (
+                  <div className="space-y-4">
+                    {documents.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium capitalize">{doc.type}</p>
+                          <p className="text-sm text-gray-500">{formatDate(doc.created_at)}</p>
+                          {doc.rejection_reason && (
+                            <p className="text-sm text-red-500 mt-1">Reason: {doc.rejection_reason}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => {
+                              setSelectedDocument(doc);
+                              setIsDocumentViewerOpen(true);
+                            }}
+                            className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800"
+                          >
+                            <FaEye className="w-4 h-4 mr-1" />
+                            View
+                          </button>
+                          {doc.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleDocumentStatus(doc.id, 'approved')}
+                                className="p-2 text-green-600 hover:text-green-800"
+                                disabled={loading}
+                              >
+                                <FaCheck className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDocumentStatus(doc.id, 'rejected')}
+                                className="p-2 text-red-600 hover:text-red-800"
+                                disabled={loading}
+                              >
+                                <FaTimes className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            doc.status === 'approved'
+                              ? 'bg-green-100 text-green-800'
+                              : doc.status === 'rejected'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {doc.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bookings Section */}
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+              <div className="p-6 pb-4 border-b">
+                <h3 className="text-lg font-semibold">Bookings</h3>
+              </div>
+              <div className="p-6">
+                {bookings.length === 0 ? (
+                  <p className="text-gray-500">No bookings found</p>
+                ) : (
+                  <div className="space-y-4">
+                    {bookings.map((booking) => (
+                      <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0">
+                        <div>
+                          <div className="flex items-center space-x-4">
+                            {booking.vehicle?.images[0] && (
+                              <div className="relative w-16 h-16">
+                                <Image
+                                  src={booking.vehicle.images[0]}
+                                  alt={booking.vehicle.name}
+                                  fill
+                                  className="object-cover rounded-md"
+                                />
+                              </div>
                             )}
+                            <div>
+                              <p className="font-medium">{booking.vehicle?.name}</p>
+                              <p className="text-sm text-gray-500">{booking.vehicle?.type}</p>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="mt-2 space-y-1">
+                            <p className="text-sm">
+                              <span className="text-gray-500">From:</span> {formatDate(booking.start_date)}
+                            </p>
+                            <p className="text-sm">
+                              <span className="text-gray-500">To:</span> {formatDate(booking.end_date)}
+                            </p>
+                            <p className="text-sm">
+                              <span className="text-gray-500">Total:</span> ₹{booking.total_price}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end space-y-2">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            booking.status === 'completed'
+                              ? 'bg-green-100 text-green-800'
+                              : booking.status === 'cancelled'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {booking.status}
+                          </span>
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            booking.payment_status === 'completed'
+                              ? 'bg-green-100 text-green-800'
+                              : booking.payment_status === 'failed'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            Payment: {booking.payment_status}
+                          </span>
+                          {booking.status === 'confirmed' && (
                             <button
                               onClick={() => {
-                                setSelectedDocument(doc);
-                                setIsDocumentViewerOpen(true);
+                                setSelectedBooking(booking);
+                                setIsCancelModalOpen(true);
                               }}
-                              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800"
+                              className="inline-flex items-center px-2 py-1 text-sm font-medium text-red-600 hover:text-red-800"
+                              title="Cancel Booking"
                             >
-                              <FaEye className="w-4 h-4 mr-1" />
-                              View
+                              <FaBan className="w-4 h-4 mr-1" />
+                              Cancel
                             </button>
-                            {doc.status === 'pending' && (
-                              <>
-                                <button
-                                  onClick={() => handleDocumentStatus(doc.id, 'approved')}
-                                  className="p-2 text-green-600 hover:text-green-800"
-                                  disabled={loading}
-                                >
-                                  <FaCheck className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDocumentStatus(doc.id, 'rejected')}
-                                  className="p-2 text-red-600 hover:text-red-800"
-                                  disabled={loading}
-                                >
-                                  <FaTimes className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              doc.status === 'approved'
-                                ? 'bg-green-100 text-green-800'
-                                : doc.status === 'rejected'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {doc.status}
-                            </span>
-                          </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+            </div>
 
-              {/* Bookings Section */}
-              <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                <div className="p-6 pb-4 border-b">
-                  <h3 className="text-lg font-semibold">Bookings</h3>
-                </div>
-                <div className="p-6">
-                  {bookings.length === 0 ? (
-                    <p className="text-gray-500">No bookings found</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {bookings.map((booking) => (
-                        <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0">
-                          <div>
-                            <div className="flex items-center space-x-4">
-                              {booking.vehicle?.images[0] && (
-                                <div className="relative w-16 h-16">
-                                  <Image
-                                    src={booking.vehicle.images[0]}
-                                    alt={booking.vehicle.name}
-                                    fill
-                                    className="object-cover rounded-md"
-                                  />
-                                </div>
-                              )}
-                              <div>
-                                <p className="font-medium">{booking.vehicle?.name}</p>
-                                <p className="text-sm text-gray-500">{booking.vehicle?.type}</p>
-                              </div>
-                            </div>
-                            <div className="mt-2 space-y-1">
-                              <p className="text-sm">
-                                <span className="text-gray-500">From:</span> {formatDate(booking.start_date)}
-                              </p>
-                              <p className="text-sm">
-                                <span className="text-gray-500">To:</span> {formatDate(booking.end_date)}
-                              </p>
-                              <p className="text-sm">
-                                <span className="text-gray-500">Total:</span> ₹{booking.total_price}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end space-y-2">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              booking.status === 'completed'
-                                ? 'bg-green-100 text-green-800'
-                                : booking.status === 'cancelled'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {booking.status}
-                            </span>
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              booking.payment_status === 'completed'
-                                ? 'bg-green-100 text-green-800'
-                                : booking.payment_status === 'failed'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              Payment: {booking.payment_status}
-                            </span>
-                            {booking.status === 'confirmed' && (
-                              <button
-                                onClick={() => {
-                                  setSelectedBooking(booking);
-                                  setIsCancelModalOpen(true);
-                                }}
-                                className="inline-flex items-center px-2 py-1 text-sm font-medium text-red-600 hover:text-red-800"
-                                title="Cancel Booking"
-                              >
-                                <FaBan className="w-4 h-4 mr-1" />
-                                Cancel
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Documents Status */}
-              <div className="mt-4">
-                <h3 className="text-lg font-medium">Documents Status</h3>
-                <p className="text-sm text-gray-500">
-                  {user.documents ? (
-                    `${user.documents.approved}/${user.documents.total} documents approved`
-                  ) : (
-                    'No documents uploaded'
-                  )}
-                </p>
-              </div>
+            {/* Documents Status */}
+            <div className="mt-4">
+              <h3 className="text-lg font-medium">Documents Status</h3>
+              <p className="text-sm text-gray-500">
+                {user.documents ? (
+                  `${user.documents.approved}/${user.documents.total} documents approved`
+                ) : (
+                  'No documents uploaded'
+                )}
+              </p>
             </div>
           </div>
         </DialogContent>

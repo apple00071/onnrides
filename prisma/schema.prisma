@@ -124,6 +124,9 @@ model vehicles {
   location          String
   quantity          Int
   price_per_hour    Float      @db.Real
+  price_7_days      Float?     @db.Real
+  price_15_days     Float?     @db.Real
+  price_30_days     Float?     @db.Real
   min_booking_hours Int
   is_available      Boolean?   @default(true)
   images            String

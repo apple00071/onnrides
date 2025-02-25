@@ -82,9 +82,13 @@ export async function PUT(
       .set({
         name: data.name,
         type: data.type,
-        price_per_hour: data.price_per_hour,
+        price_per_hour: Number(data.price_per_hour),
+        price_7_days: data.price_7_days === null ? null : Number(data.price_7_days),
+        price_15_days: data.price_15_days === null ? null : Number(data.price_15_days),
+        price_30_days: data.price_30_days === null ? null : Number(data.price_30_days),
         location: locationData,
         images: data.images ? JSON.stringify(data.images) : '[]',
+        is_available: Boolean(data.is_available),
         updated_at: new Date()
       })
       .where('id', '=', params.vehicleId)
@@ -93,8 +97,12 @@ export async function PUT(
         'name',
         'type',
         'price_per_hour',
+        'price_7_days',
+        'price_15_days',
+        'price_30_days',
         'location',
         'images',
+        'is_available',
         'updated_at'
       ])
       .execute();

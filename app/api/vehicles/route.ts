@@ -233,6 +233,9 @@ interface VehicleRow {
   type: string;
   status: string;
   price_per_hour: number;
+  price_7_days: number | null;
+  price_15_days: number | null;
+  price_30_days: number | null;
   location: string;  // PostgreSQL returns this as a string
   images: string;    // PostgreSQL returns this as a string
   quantity: number;
@@ -261,8 +264,28 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const startTime = `${pickupDate} ${pickupTime}`;
     const endTime = `${dropoffDate} ${dropoffTime}`;
 
+    // Base query with all necessary fields including special pricing
+    const baseQuery = `
+      SELECT 
+        v.id,
+        v.name,
+        v.type,
+        v.status,
+        v.price_per_hour,
+        v.price_7_days,
+        v.price_15_days,
+        v.price_30_days,
+        v.location,
+        v.images,
+        v.quantity,
+        v.min_booking_hours,
+        v.is_available,
+        v.created_at,
+        v.updated_at
+    `;
+
     // Get vehicles with their available locations
-    const result = await query(`
+    const vehicles = await query<VehicleRow>(`
       WITH booked_locations AS (
         SELECT DISTINCT
           b.vehicle_id,
@@ -284,66 +307,89 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         v.type,
         v.status,
         v.price_per_hour,
-        v.min_booking_hours,
-        v.quantity,
+        v.price_7_days,
+        v.price_15_days,
+        v.price_30_days,
+        v.location,
         v.images,
+        v.quantity,
+        v.min_booking_hours,
         v.is_available,
         v.created_at,
         v.updated_at,
-        (
-          SELECT jsonb_agg(loc)
-          FROM jsonb_array_elements_text(v.location::jsonb) loc
-          WHERE NOT EXISTS (
-            SELECT 1 
-            FROM booked_locations bl 
-            WHERE bl.vehicle_id = v.id 
-            AND bl.pickup_location = loc::text
-          )
-        ) as available_locations
+        ARRAY_AGG(bl.pickup_location) FILTER (WHERE bl.pickup_location IS NOT NULL) as booked_locations
       FROM vehicles v
+      LEFT JOIN booked_locations bl ON v.id = bl.vehicle_id
       WHERE ($1::text IS NULL OR v.type = $1)
-      AND v.status = 'active'
-      AND v.is_available = true
-    `, [type, startTime, endTime]);
+        AND v.status = 'active'
+        AND v.is_available = true
+      GROUP BY 
+        v.id,
+        v.name,
+        v.type,
+        v.status,
+        v.price_per_hour,
+        v.price_7_days,
+        v.price_15_days,
+        v.price_30_days,
+        v.location,
+        v.images,
+        v.quantity,
+        v.min_booking_hours,
+        v.is_available,
+        v.created_at,
+        v.updated_at
+    `, [type || null, startTime, endTime]);
 
     // Process vehicles
-    const vehicles = result.rows
+    const processedVehicles = vehicles.rows
       .map(vehicle => {
-        const availableLocations = vehicle.available_locations || [];
-        
-        // Log for debugging
-        logger.info('Processing vehicle locations:', {
-          vehicleId: vehicle.id,
-          vehicleName: vehicle.name,
-          allLocations: vehicle.location,
-          availableLocations,
-          hasAvailableLocations: availableLocations.length > 0
-        });
-        
-        // Skip vehicles with no available locations
-        if (availableLocations.length === 0) {
+        try {
+          // Parse location from JSON string
+          const locationArray = JSON.parse(vehicle.location || '[]');
+          const availableLocations = Array.isArray(locationArray) ? locationArray : [];
+          
+          // Log for debugging
+          logger.info('Processing vehicle locations:', {
+            vehicleId: vehicle.id,
+            vehicleName: vehicle.name,
+            allLocations: locationArray,
+            availableLocations,
+            hasAvailableLocations: availableLocations.length > 0
+          });
+          
+          // Skip vehicles with no available locations
+          if (availableLocations.length === 0) {
+            return null;
+          }
+
+          return {
+            ...vehicle,
+            location: availableLocations,
+            available: true,
+            images: JSON.parse(vehicle.images || '[]')
+          };
+        } catch (error) {
+          logger.error('Error processing vehicle:', {
+            vehicleId: vehicle.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            location: vehicle.location
+          });
           return null;
         }
-
-        return {
-          ...vehicle,
-          location: availableLocations,
-          available: true,
-          images: JSON.parse(vehicle.images || '[]')
-        };
       })
       .filter(Boolean); // Remove null vehicles
 
     logger.info('Filtered vehicles:', {
-      totalVehicles: result.rows.length,
-      availableVehicles: vehicles.length,
+      totalVehicles: vehicles.rows.length,
+      availableVehicles: processedVehicles.length,
       requestedTimeRange: {
         start: startTime,
         end: endTime
       }
     });
 
-    return NextResponse.json({ vehicles });
+    return NextResponse.json({ vehicles: processedVehicles });
   } catch (error) {
     console.error('Error fetching vehicles:', error);
     return NextResponse.json({ error: 'Failed to fetch vehicles', vehicles: [] }, { status: 500 });

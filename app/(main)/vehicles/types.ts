@@ -3,6 +3,9 @@ export interface Vehicle {
   name: string;
   type: string;
   price_per_hour: number;
+  price_7_days?: number | null;
+  price_15_days?: number | null;
+  price_30_days?: number | null;
   location: string[];
   images: string[];
   quantity: number;

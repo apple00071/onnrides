@@ -120,6 +120,9 @@ export async function POST(request: NextRequest) {
           location: locationJson,
           quantity: Number(data.quantity) || 1,
           price_per_hour: Number(data.price_per_hour),
+          price_7_days: data.price_7_days ? Number(data.price_7_days) : null,
+          price_15_days: data.price_15_days ? Number(data.price_15_days) : null,
+          price_30_days: data.price_30_days ? Number(data.price_30_days) : null,
           min_booking_hours: Number(data.min_booking_hours) || 1,
           images: JSON.stringify(data.images || []),
           status: data.status || 'active',
@@ -134,6 +137,9 @@ export async function POST(request: NextRequest) {
           'location',
           'quantity',
           'price_per_hour',
+          'price_7_days',
+          'price_15_days',
+          'price_30_days',
           'min_booking_hours',
           'images',
           'status',
@@ -188,6 +194,22 @@ export async function PUT(request: NextRequest) {
 
     const data = await request.json();
     const { id, ...updateData } = data;
+
+    // Process numeric fields
+    if (updateData.price_per_hour) {
+      updateData.price_per_hour = Number(updateData.price_per_hour);
+    }
+    if (updateData.quantity) {
+      updateData.quantity = Number(updateData.quantity);
+    }
+    if (updateData.min_booking_hours) {
+      updateData.min_booking_hours = Number(updateData.min_booking_hours);
+    }
+    
+    // Handle special pricing fields
+    updateData.price_7_days = updateData.price_7_days ? Number(updateData.price_7_days) : null;
+    updateData.price_15_days = updateData.price_15_days ? Number(updateData.price_15_days) : null;
+    updateData.price_30_days = updateData.price_30_days ? Number(updateData.price_30_days) : null;
 
     // Ensure location is properly formatted
     if (updateData.location) {

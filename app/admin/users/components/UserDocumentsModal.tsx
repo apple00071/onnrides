@@ -126,12 +126,12 @@ export default function UserDocumentsModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="sticky top-0 bg-white z-10 pb-4 border-b">
             <DialogTitle>User Documents</DialogTitle>
           </DialogHeader>
 
-          <div className="mt-4">
+          <div className="mt-4 py-4">
             {documents.length === 0 ? (
               <p className="text-center text-gray-500 py-4">No documents uploaded yet</p>
             ) : (
@@ -242,7 +242,7 @@ export default function UserDocumentsModal({
       {/* Document Preview Dialog */}
       {showPreview && (
         <Dialog modal open={!!showPreview} onOpenChange={() => setShowPreview(null)}>
-          <DialogContent className="max-w-5xl p-0 overflow-hidden">
+          <DialogContent className="max-w-5xl max-h-[90vh] p-0 overflow-hidden">
             <DocumentPreview
               fileUrl={showPreview.url}
               fileName={formatDocumentType(showPreview.document_type || showPreview.type)}

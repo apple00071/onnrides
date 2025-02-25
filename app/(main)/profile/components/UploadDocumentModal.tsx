@@ -111,8 +111,8 @@ export default function UploadDocumentModal({ isOpen, onClose, onUploadSuccess }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="sticky top-0 bg-white z-10 pb-4 border-b">
           <DialogTitle>Upload Document</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -195,7 +195,7 @@ export default function UploadDocumentModal({ isOpen, onClose, onUploadSuccess }
             </div>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0 bg-white pt-4 border-t">
           <Button
             type="button"
             variant="outline"

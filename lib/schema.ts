@@ -70,6 +70,9 @@ interface VehiclesTable {
   location: string;
   quantity: number;
   price_per_hour: number;
+  price_7_days: number | null;
+  price_15_days: number | null;
+  price_30_days: number | null;
   min_booking_hours: number;
   is_available: Generated<boolean>;
   images: string;
