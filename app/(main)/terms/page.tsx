@@ -1,3 +1,5 @@
+'use client';
+
 export default function TermsPage() {
   return (
     <main className="container mx-auto px-4 py-8 mt-16 max-w-4xl">
