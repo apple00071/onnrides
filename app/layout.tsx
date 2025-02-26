@@ -9,6 +9,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { ScriptLoader } from '@/components/ScriptLoader';
+import { NotificationBar } from '@/components/ui/NotificationBar';
 import JsonLd from './components/JsonLd';
 
 export const dynamic = 'force-dynamic';
@@ -188,6 +189,7 @@ export default async function RootLayout({
       <body className={inter.className}>
         <Providers session={session}>
           <AuthProvider>
+            <NotificationBar />
             <Toaster
               position="bottom-center"
               toastOptions={{

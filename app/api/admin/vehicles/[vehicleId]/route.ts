@@ -45,50 +45,46 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const data = await request.json();
+    logger.info('Updating vehicle with data:', data);
 
-    // Validate required fields
-    if (!data.name || !data.type || !data.price_per_hour || !data.location) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
+    // Process numeric fields
+    const updateData: Record<string, any> = {
+      name: data.name,
+      type: data.type,
+      price_per_hour: Number(data.price_per_hour),
+      price_7_days: data.price_7_days ? Number(data.price_7_days) : null,
+      price_15_days: data.price_15_days ? Number(data.price_15_days) : null,
+      price_30_days: data.price_30_days ? Number(data.price_30_days) : null,
+      is_available: data.is_available
+    };
 
-    // Format location data
-    let locationData: string;
-    if (Array.isArray(data.location)) {
-      locationData = JSON.stringify(data.location.map((loc: string) => loc.trim()).filter(Boolean));
-    } else if (typeof data.location === 'string') {
-      try {
-        const parsed = JSON.parse(data.location);
-        locationData = JSON.stringify(Array.isArray(parsed) ? parsed : [data.location]);
-      } catch (e) {
-        locationData = JSON.stringify([data.location]);
+    // Ensure location is properly formatted
+    if (data.location) {
+      let location = data.location;
+      if (typeof location === 'string') {
+        location = [location];
+      } else if (Array.isArray(location)) {
+        location = location.map(loc => loc.trim()).filter(Boolean);
+      } else if (typeof location === 'object' && location.name) {
+        location = Array.isArray(location.name) ? location.name : [location.name];
       }
-    } else {
-      locationData = JSON.stringify([String(data.location)]);
+      updateData.location = JSON.stringify(location);
     }
 
-    // Update vehicle using the db instance
-    const [vehicle] = await db
+    // Convert images to JSON if present
+    if (data.images) {
+      updateData.images = JSON.stringify(data.images);
+    }
+
+    // Update the vehicle
+    const [updatedVehicle] = await db
       .updateTable('vehicles')
       .set({
-        name: data.name,
-        type: data.type,
-        price_per_hour: Number(data.price_per_hour),
-        price_7_days: data.price_7_days === null ? null : Number(data.price_7_days),
-        price_15_days: data.price_15_days === null ? null : Number(data.price_15_days),
-        price_30_days: data.price_30_days === null ? null : Number(data.price_30_days),
-        location: locationData,
-        images: data.images ? JSON.stringify(data.images) : '[]',
-        is_available: Boolean(data.is_available),
+        ...updateData,
         updated_at: new Date()
       })
       .where('id', '=', params.vehicleId)
@@ -96,35 +92,41 @@ export async function PUT(
         'id',
         'name',
         'type',
+        'location',
+        'quantity',
         'price_per_hour',
         'price_7_days',
         'price_15_days',
         'price_30_days',
-        'location',
+        'min_booking_hours',
         'images',
+        'status',
         'is_available',
+        'created_at',
         'updated_at'
       ])
       .execute();
 
-    if (!vehicle) {
+    if (!updatedVehicle) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }
       );
     }
 
-    // Parse the location back to an array for the response
+    // Format the response
     const formattedVehicle = {
-      ...vehicle,
-      location: JSON.parse(vehicle.location),
-      images: JSON.parse(vehicle.images)
+      ...updatedVehicle,
+      location: JSON.parse(updatedVehicle.location),
+      images: JSON.parse(updatedVehicle.images)
     };
 
-    revalidatePath('/vehicles');
-    revalidatePath('/admin/vehicles');
-
-    return NextResponse.json(formattedVehicle);
+    return NextResponse.json({
+      success: true,
+      data: {
+        vehicle: formattedVehicle
+      }
+    });
   } catch (error) {
     logger.error('Error updating vehicle:', error);
     return NextResponse.json(

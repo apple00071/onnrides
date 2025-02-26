@@ -66,9 +66,9 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
     name: vehicle.name,
     type: vehicle.type as VehicleType,
     price_per_hour: vehicle.price_per_hour,
-    price_7_days: vehicle.price_7_days ?? 0,
-    price_15_days: vehicle.price_15_days ?? 0,
-    price_30_days: vehicle.price_30_days ?? 0,
+    price_7_days: vehicle.price_7_days || 0,
+    price_15_days: vehicle.price_15_days || 0,
+    price_30_days: vehicle.price_30_days || 0,
     location: Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location],
     images: Array.isArray(vehicle.images) ? vehicle.images : [],
     is_available: vehicle.is_available
@@ -132,14 +132,15 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
       // Combine existing images with new uploaded ones
       const allImages = [...formData.images.filter(img => typeof img === 'string'), ...uploadedImageUrls];
 
-      // Convert empty strings or 0 values to null for special pricing
+      // Prepare update data with special pricing
       const updateData = {
+        id: vehicle.id,
         name: formData.name,
         type: formData.type,
         price_per_hour: Number(formData.price_per_hour),
-        price_7_days: formData.price_7_days > 0 ? Number(formData.price_7_days) : null,
-        price_15_days: formData.price_15_days > 0 ? Number(formData.price_15_days) : null,
-        price_30_days: formData.price_30_days > 0 ? Number(formData.price_30_days) : null,
+        price_7_days: formData.price_7_days || null,
+        price_15_days: formData.price_15_days || null,
+        price_30_days: formData.price_30_days || null,
         location: formData.location,
         images: allImages,
         is_available: formData.is_available
@@ -164,7 +165,7 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
       console.log('Vehicle updated successfully:', updatedVehicle);
       
       toast.success('Vehicle updated successfully');
-      onSuccess(updatedVehicle);
+      onSuccess(updatedVehicle.data.vehicle);
       onClose();
     } catch (error) {
       logger.error('Error updating vehicle:', error);
