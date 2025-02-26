@@ -187,10 +187,6 @@ export function VehicleCard({
       const durationHours = Math.ceil((dropoff.getTime() - pickup.getTime()) / (1000 * 60 * 60));
       const isWeekend = pickup.getDay() === 0 || pickup.getDay() === 6;
 
-      // Calculate minimum hours based on weekend/weekday
-      const minHours = isWeekend ? 24 : vehicle.min_booking_hours || 4;
-      const totalHours = Math.max(durationHours, minHours);
-
       console.log('Price calculation details:', {
         vehicle: {
           name: vehicle.name,
@@ -203,35 +199,34 @@ export function VehicleCard({
           pickup: pickup.toISOString(),
           dropoff: dropoff.toISOString(),
           durationHours,
-          totalHours,
-          durationDays: totalHours / 24,
           isWeekend
         }
       });
 
-      // Calculate base amount using the utility function
-      const baseAmount = calculateRentalPrice(vehicle, totalHours);
-      const totalAmount = baseAmount;
+      // Calculate total amount using the utility function with weekend/weekday logic
+      const totalAmount = calculateRentalPrice(vehicle, durationHours, isWeekend);
+      
+      // Calculate display hours based on weekend/weekday minimum
+      const displayHours = isWeekend ? 
+        Math.max(24, durationHours) : // Weekend minimum 24 hours
+        durationHours <= 12 ? 12 : durationHours; // Weekday minimum 12 hours
 
       console.log('Final price:', {
-        baseAmount,
         totalAmount,
-        totalHours,
+        displayHours,
         durationHours,
         isWeekend
       });
 
       return {
-        baseAmount,
         totalAmount,
-        totalHours,
+        totalHours: displayHours,
         durationHours,
         isWeekend
       };
     } catch (error) {
       console.error('Error calculating price:', error);
       return {
-        baseAmount: vehicle.price_per_hour,
         totalAmount: vehicle.price_per_hour,
         totalHours: 1,
         durationHours: 1,
@@ -327,10 +322,10 @@ export function VehicleCard({
         </div>
 
         {/* Price and Book Section */}
-        <div className="flex items-center justify-between mt-4">
-          <div className="text-lg text-gray-900 font-bold">
-            {formatCurrency(priceDetails.totalHours > 0 ? priceDetails.totalAmount : priceDetails.baseAmount)}
-          </div>
+        <div className="flex items-center justify-between">
+          <p className="text-2xl font-semibold">
+            ₹{priceDetails.totalAmount}
+          </p>
           <Button
             onClick={handleBookNow}
             className="bg-[#f26e24] hover:bg-[#e05d13] text-white px-8"

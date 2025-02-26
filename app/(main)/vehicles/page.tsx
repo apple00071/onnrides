@@ -53,8 +53,8 @@ export default function VehiclesPage() {
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('price-low-high');
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  const [vehicleType, setVehicleType] = useState<'car' | 'bike'>('car');
-  const [previousType, setPreviousType] = useState<'car' | 'bike'>('car');
+  const [vehicleType, setVehicleType] = useState<'car' | 'bike'>('bike');
+  const [previousType, setPreviousType] = useState<'car' | 'bike'>('bike');
   const [searchDuration, setSearchDuration] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<string | undefined>(undefined);
@@ -76,7 +76,7 @@ export default function VehiclesPage() {
     pickupTime: '',
     dropoffDate: '',
     dropoffTime: '',
-    type: 'car',
+    type: 'bike',
     location: null
   });
 
@@ -184,7 +184,7 @@ export default function VehiclesPage() {
     const pickupTime = searchParams.get('pickupTime') || '';
     const dropoffDate = searchParams.get('dropoffDate') || '';
     const dropoffTime = searchParams.get('dropoffTime') || '';
-    const type = (searchParams.get('type') as 'car' | 'bike') || 'car';
+    const type = (searchParams.get('type') as 'car' | 'bike') || 'bike';
 
     // Only update on initial mount
     if (isInitialMount.current) {
@@ -355,16 +355,6 @@ export default function VehiclesPage() {
         <div className="flex justify-center">
           <div className="inline-flex rounded-lg border border-gray-200 p-1 bg-white shadow-sm">
             <button
-              onClick={() => setVehicleType('car')}
-              className={`px-8 py-2 text-sm font-medium rounded-md transition-colors ${
-                vehicleType === 'car'
-                  ? 'bg-orange-500 text-white'
-                  : 'text-gray-500 hover:text-orange-500'
-              }`}
-            >
-              Cars
-            </button>
-            <button
               onClick={() => setVehicleType('bike')}
               className={`px-8 py-2 text-sm font-medium rounded-md transition-colors ${
                 vehicleType === 'bike'
@@ -373,6 +363,16 @@ export default function VehiclesPage() {
               }`}
             >
               Bikes
+            </button>
+            <button
+              onClick={() => setVehicleType('car')}
+              className={`px-8 py-2 text-sm font-medium rounded-md transition-colors ${
+                vehicleType === 'car'
+                  ? 'bg-orange-500 text-white'
+                  : 'text-gray-500 hover:text-orange-500'
+              }`}
+            >
+              Cars
             </button>
           </div>
         </div>

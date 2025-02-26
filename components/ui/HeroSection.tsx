@@ -87,7 +87,7 @@ export default function HeroSection() {
       searchParams.append('pickupTime', pickupTime);
       searchParams.append('dropoffDate', dropoffDate);
       searchParams.append('dropoffTime', dropoffTime);
-      searchParams.append('type', 'car');
+      searchParams.append('type', 'bike');
 
       const searchUrl = `/vehicles?${searchParams.toString()}`;
       logger.debug('Navigation URL:', searchUrl);
@@ -321,10 +321,13 @@ function SearchFormContent({
   return (
     <>
       <div className="grid grid-cols-1 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pickup
-                </label>
+        <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+          Find your perfect ride
+        </h2>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Pickup
+          </label>
           <div className="grid grid-cols-2 gap-2">
             <div className="relative">
                     <div className="relative w-full">
