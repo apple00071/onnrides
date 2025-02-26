@@ -1,6 +1,4 @@
 import { Metadata } from 'next';
-import Footer from '@/app/(main)/components/Footer';
-import Navbar from '@/app/(main)/components/Navbar';
 
 export const metadata: Metadata = {
   title: 'Terms and Conditions | OnnRides',
@@ -12,11 +10,5 @@ export default function TermsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-      <Navbar />
-      {children}
-      <Footer />
-    </>
-  );
+  return children;
 } 
