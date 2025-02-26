@@ -12,9 +12,9 @@ export function NotificationBar() {
   return (
     <div className="bg-[#f26e24] text-white">
       <div className="max-w-7xl mx-auto py-2 px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-center sm:justify-between flex-wrap gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-2 sm:gap-4">
           {/* Phone Numbers */}
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
               <Phone className="h-4 w-4" />
               <a 
@@ -24,7 +24,7 @@ export function NotificationBar() {
                 {phoneNumbers[0]}
               </a>
             </div>
-            <div className="hidden sm:flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <Phone className="h-4 w-4" />
               <a 
                 href={`tel:${phoneNumbers[1].replace(/\s+/g, '')}`}

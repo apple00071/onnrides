@@ -239,22 +239,20 @@ function SearchFormContent({
   };
 
   // Handle time change
-  const handleTimeChange = (e: React.ChangeEvent<HTMLSelectElement>, isPickup: boolean) => {
-    const selectedTime = e.target.value;
+  const handleTimeChange = (time: string, isPickup: boolean) => {
     const selectedDate = isPickup ? pickupDate : dropoffDate;
     const now = new Date();
-    const selectedDateTime = new Date(`${selectedDate}T${selectedTime}`);
+    const selectedDateTime = new Date(`${selectedDate}T${time}`);
     now.setSeconds(0);
     now.setMilliseconds(0);
 
     // For same-day bookings, ensure time is in the future
     if (selectedDate === now.toISOString().split('T')[0]) {
       const currentHour = now.getHours();
-      const selectedHour = parseInt(selectedTime.split(':')[0]);
+      const selectedHour = parseInt(time.split(':')[0]);
 
       if (selectedHour <= currentHour) {
         toast.error('Please select a future time');
-        e.target.value = '';
         if (isPickup) {
           setPickupTime('');
         } else {
@@ -265,10 +263,10 @@ function SearchFormContent({
     }
 
     if (isPickup) {
-      setPickupTime(selectedTime);
+      setPickupTime(time);
       // Only adjust dropoff time if it's on the same day and earlier than pickup
-      if (dropoffDate === pickupDate && dropoffTime && dropoffTime <= selectedTime) {
-        const nextHour = (parseInt(selectedTime.split(':')[0]) + 1).toString().padStart(2, '0') + ':00';
+      if (dropoffDate === pickupDate && dropoffTime && dropoffTime <= time) {
+        const nextHour = (parseInt(time.split(':')[0]) + 1).toString().padStart(2, '0') + ':00';
         if (nextHour <= '23:00') {
           setDropoffTime(nextHour);
           toast.success('Drop-off time adjusted to ensure minimum 1-hour rental');
@@ -282,12 +280,11 @@ function SearchFormContent({
         }
       }
     } else {
-      if (pickupDate === dropoffDate && selectedTime <= pickupTime) {
+      if (pickupDate === dropoffDate && time <= pickupTime) {
         toast.error('Drop-off time must be after pickup time');
-        e.target.value = '';
         setDropoffTime('');
       } else {
-        setDropoffTime(selectedTime);
+        setDropoffTime(time);
       }
     }
   };
@@ -319,82 +316,60 @@ function SearchFormContent({
   };
 
   return (
-    <>
-      <div className="grid grid-cols-1 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pickup
-                </label>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="relative">
-                    <input
-                      type="date"
-                      value={pickupDate}
-                min={getMinDate()}
-                onChange={(e) => handleDateChange(e, true)}
-                className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
-                style={{ colorScheme: 'light' }}
-                      required
-                    />
-                  </div>
-            <div className="relative">
-              <select
-                      value={pickupTime}
-                onChange={(e) => handleTimeChange(e, true)}
-                className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
-                style={{ colorScheme: 'light' }}
-                required
-              >
-                <option value="">Select time</option>
-                {getTimeOptions(true).map(({ value, label }) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-                  </div>
-                </div>
-              </div>
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
+          Pickup Date & Time
+        </label>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <input
+              type="date"
+              value={pickupDate}
+              min={getMinDate()}
+              onChange={(e) => handleDateChange(e, true)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24]"
+              required
+            />
+            <FaCalendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
+          <TimePicker
+            value={pickupTime}
+            onChange={(time) => handleTimeChange(time, true)}
+          />
+        </div>
+      </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Dropoff
-                </label>
-          <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <input
-                      type="date"
-                min={pickupDate || getMinDate()}
-                      value={dropoffDate}
-                onChange={(e) => handleDateChange(e, false)}
-                className="w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent appearance-none"
-                      required
-                    />
-                  </div>
-                  <div>
-              <select
-                      value={dropoffTime}
-                onChange={(e) => handleTimeChange(e, false)}
-                className="w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
-                required
-              >
-                <option value="">Select time</option>
-                {getTimeOptions(false).map(({ value, label }) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-                  </div>
-                </div>
-              </div>
-            </div>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
+          Drop-off Date & Time
+        </label>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <input
+              type="date"
+              value={dropoffDate}
+              min={pickupDate || getMinDate()}
+              onChange={(e) => handleDateChange(e, false)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24]"
+              required
+            />
+            <FaCalendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
+          <TimePicker
+            value={dropoffTime}
+            onChange={(time) => handleTimeChange(time, false)}
+          />
+        </div>
+      </div>
 
-            <button
-              onClick={handleSearch}
-              disabled={isLoading}
-        className={`w-full mt-4 bg-[#f26e24] text-white py-3 rounded text-sm font-medium ${
-          isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#e05e1c] active:bg-[#d05510]'
-              }`}
-            >
-              {isLoading ? 'Searching...' : 'Search'}
-            </button>
-    </>
+      <button
+        onClick={handleSearch}
+        disabled={isLoading}
+        className="w-full bg-[#f26e24] text-white py-2 px-4 rounded-md hover:bg-[#e05d13] focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        {isLoading ? 'Searching...' : 'Search Vehicles'}
+      </button>
+    </div>
   );
 } 
