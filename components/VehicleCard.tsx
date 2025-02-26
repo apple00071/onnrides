@@ -42,34 +42,21 @@ export function VehicleCard({
   const searchParams = useSearchParams();
   const timeZone = 'Asia/Kolkata'; // UTC+5:30
 
-  // Local state for selected location
-  const [selectedLocation, setSelectedLocation] = useState(initialSelectedLocation);
-
-  // Update local state when prop changes
-  useEffect(() => {
-    setSelectedLocation(initialSelectedLocation);
-  }, [initialSelectedLocation]);
-
-  // Auto-select location if there's only one
-  useEffect(() => {
-    if (vehicle.location.length === 1 && !selectedLocation) {
-      const location = vehicle.location[0];
-      setSelectedLocation(location);
-      if (onLocationSelect) {
-        onLocationSelect(location);
-      }
-    }
-  }, [vehicle.location, selectedLocation, onLocationSelect]);
+  // Local state for selected location - independent for each card
+  const [selectedLocation, setSelectedLocation] = useState<string | undefined>(
+    vehicle.location.length === 1 ? vehicle.location[0] : undefined
+  );
 
   const handleLocationSelect = useCallback((location: string) => {
-    // Update local state
     setSelectedLocation(location);
+  }, []);
 
-    // Call parent handler if provided
-    if (onLocationSelect) {
-      onLocationSelect(location);
+  // Remove the effect that syncs with parent location
+  useEffect(() => {
+    if (vehicle.location.length === 1) {
+      setSelectedLocation(vehicle.location[0]);
     }
-  }, [onLocationSelect]);
+  }, [vehicle.location]);
 
   const handleBookNow = () => {
     if (!selectedLocation) {
@@ -305,17 +292,20 @@ export function VehicleCard({
               {vehicle.location[0]}
             </div>
           ) : (
-            // Multiple locations dropdown
-            <Select value={selectedLocation} onValueChange={handleLocationSelect}>
+            // Multiple locations dropdown - independent for each card
+            <Select 
+              value={selectedLocation} 
+              onValueChange={handleLocationSelect}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select location" />
               </SelectTrigger>
               <SelectContent>
-                {Array.isArray(vehicle.location) ? vehicle.location.map((loc) => (
+                {vehicle.location.map((loc) => (
                   <SelectItem key={loc} value={loc}>
                     {loc}
                   </SelectItem>
-                )) : null}
+                ))}
               </SelectContent>
             </Select>
           )}

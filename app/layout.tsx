@@ -11,6 +11,7 @@ import { AuthProvider } from '@/providers/AuthProvider';
 import { ScriptLoader } from '@/components/ScriptLoader';
 import { NotificationBar } from '@/components/ui/NotificationBar';
 import JsonLd from './components/JsonLd';
+import { headers } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,6 +94,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const session = await getServerSession(authOptions);
+  const pathname = headers().get('x-pathname') || '/';
+  const isAdminPage = pathname.startsWith('/admin');
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
 
   const structuredData = {
@@ -189,7 +192,7 @@ export default async function RootLayout({
       <body className={inter.className}>
         <Providers session={session}>
           <AuthProvider>
-            <NotificationBar />
+            {!isAdminPage && <NotificationBar />}
             <Toaster
               position="bottom-center"
               toastOptions={{
