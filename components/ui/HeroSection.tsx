@@ -327,21 +327,36 @@ function SearchFormContent({
                 </label>
           <div className="grid grid-cols-2 gap-2">
             <div className="relative">
-                    <input
-                      type="date"
-                      value={pickupDate}
-                min={getMinDate()}
-                onChange={(e) => handleDateChange(e, true)}
-                className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
-                style={{ colorScheme: 'light' }}
-                      required
-                    />
+                    <div className="relative w-full">
+                      <input
+                        type="text"
+                        readOnly
+                        value={pickupDate ? new Date(pickupDate).toLocaleDateString() : ''}
+                        placeholder="Select date"
+                        className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-500 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent cursor-pointer"
+                        onClick={() => (document.getElementById('pickup-date') as HTMLInputElement)?.showPicker()}
+                      />
+                      <input
+                        type="date"
+                        id="pickup-date"
+                        value={pickupDate}
+                        min={getMinDate()}
+                        onChange={(e) => handleDateChange(e, true)}
+                        className="sr-only"
+                        tabIndex={-1}
+                      />
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
             <div className="relative">
               <select
                       value={pickupTime}
                 onChange={(e) => handleTimeChange(e, true)}
-                className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
+                className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-500 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                 style={{ colorScheme: 'light' }}
                 required
               >
@@ -360,20 +375,36 @@ function SearchFormContent({
                 </label>
           <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <input
-                      type="date"
-                min={pickupDate || getMinDate()}
-                      value={dropoffDate}
-                onChange={(e) => handleDateChange(e, false)}
-                className="w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent appearance-none"
-                      required
-                    />
+                    <div className="relative w-full">
+                      <input
+                        type="text"
+                        readOnly
+                        value={dropoffDate ? new Date(dropoffDate).toLocaleDateString() : ''}
+                        placeholder="Select date"
+                        className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-500 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent cursor-pointer"
+                        onClick={() => (document.getElementById('dropoff-date') as HTMLInputElement)?.showPicker()}
+                      />
+                      <input
+                        type="date"
+                        id="dropoff-date"
+                        value={dropoffDate}
+                        min={pickupDate || getMinDate()}
+                        onChange={(e) => handleDateChange(e, false)}
+                        className="sr-only"
+                        tabIndex={-1}
+                      />
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                        <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                   <div>
               <select
                       value={dropoffTime}
                 onChange={(e) => handleTimeChange(e, false)}
-                className="w-full p-2.5 text-sm border border-gray-300 rounded text-gray-900 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
+                className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-500 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                 required
               >
                 <option value="">Select time</option>
