@@ -9,26 +9,29 @@ datasource db {
 }
 
 model bookings {
-  id               String   @id
-  user_id          String
-  vehicle_id       String
-  start_date       DateTime @db.Timestamp(6)
-  end_date         DateTime @db.Timestamp(6)
-  total_hours      Float    @db.Real
-  total_price      Float    @db.Real
-  status           String   @default("pending")
-  payment_status   String   @default("pending")
-  payment_details  String?
-  created_at       DateTime @default(now()) @db.Timestamp(6)
-  updated_at       DateTime @default(now()) @db.Timestamp(6)
-  pickup_location  String?
-  dropoff_location String?
-  users            users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "bookings_user_id_users_id_fk")
-  vehicles         vehicles @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "bookings_vehicle_id_vehicles_id_fk")
+  id                String   @id
+  user_id           String
+  vehicle_id        String
+  start_date        DateTime @db.Timestamp(6)
+  end_date          DateTime @db.Timestamp(6)
+  total_hours       Float    @db.Real
+  total_price       Float    @db.Real
+  status            String   @default("pending")
+  payment_status    String   @default("pending")
+  payment_details   String?
+  created_at        DateTime @default(now()) @db.Timestamp(6)
+  updated_at        DateTime @default(now()) @db.Timestamp(6)
+  pickup_location   String?
+  dropoff_location  String?
+  payment_intent_id String?
+  booking_id        String?
+  users             users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "bookings_user_id_users_id_fk")
+  vehicles          vehicles @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "bookings_vehicle_id_vehicles_id_fk")
 
   @@index([user_id, status], map: "idx_booking_user_status")
   @@index([vehicle_id, start_date, end_date], map: "idx_booking_vehicle_dates")
   @@index([payment_status], map: "idx_booking_payment_status")
+  @@index([payment_intent_id], map: "idx_bookings_payment_intent_id")
 }
 
 model document_submissions {
@@ -124,20 +127,56 @@ model vehicles {
   location          String
   quantity          Int
   price_per_hour    Float      @db.Real
-  price_7_days      Float?     @db.Real
-  price_15_days     Float?     @db.Real
-  price_30_days     Float?     @db.Real
   min_booking_hours Int
   is_available      Boolean?   @default(true)
   images            String
   status            String     @default("active")
   created_at        DateTime   @default(now()) @db.Timestamp(6)
   updated_at        DateTime   @default(now()) @db.Timestamp(6)
+  price_15_days     Float?     @db.Real
+  price_30_days     Float?     @db.Real
+  price_7_days      Float?     @db.Real
   bookings          bookings[]
 
   @@index([status, is_available], map: "idx_vehicle_status_availability")
   @@index([location, type], map: "idx_vehicle_location_type")
   @@index([updated_at], map: "idx_vehicle_updated_at")
+}
+
+enum discount_type {
+  percentage
+  fixed
+}
+
+model coupons {
+  id                  String        @id @default(uuid())
+  code                String        @unique
+  description         String?
+  discount_type       discount_type
+  discount_value      Float
+  min_booking_amount  Float?
+  max_discount_amount Float?
+  start_date         DateTime?     @db.Timestamp(6)
+  end_date           DateTime?     @db.Timestamp(6)
+  usage_limit        Int?
+  times_used         Int          @default(0)
+  is_active          Boolean      @default(true)
+  created_at         DateTime     @default(now()) @db.Timestamp(6)
+  updated_at         DateTime     @updatedAt @db.Timestamp(6)
+}
+
+model email_logs {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipient       String
+  subject         String
+  message_content String
+  status          String
+  error           String?
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([recipient], map: "idx_email_logs_recipient")
+  @@index([status], map: "idx_email_logs_status")
 }
 
 enum vehicle_status {

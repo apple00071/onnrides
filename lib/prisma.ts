@@ -2,30 +2,47 @@ import { PrismaClient } from '@prisma/client';
 import { withAccelerate } from '@prisma/extension-accelerate';
 
 declare global {
-  var cachedPrisma: PrismaClient;
+  var cachedPrisma: ReturnType<typeof prismaClientWithExtensions>;
 }
 
-let prisma: PrismaClient;
-
-if (process.env.NODE_ENV === 'production') {
-  prisma = new PrismaClient({
-    log: ['error'],
+const prismaClientWithExtensions = () => {
+  const client = new PrismaClient({
+    log: process.env.NODE_ENV === 'production' ? ['error'] : ['error', 'warn'],
     datasources: {
       db: {
         url: process.env.DATABASE_URL,
       },
     },
-  }).$extends(withAccelerate());
+  });
+
+  // Handle connection errors through logging
+  client.$use(async (params, next) => {
+    try {
+      return await next(params);
+    } catch (error) {
+      console.error('Prisma Client Error:', error);
+      throw error;
+    }
+  });
+
+  // Ensure connection is established
+  client.$connect()
+    .then(() => console.log('Database connection established'))
+    .catch((err) => {
+      console.error('Failed to connect to the database:', err);
+      process.exit(1);
+    });
+
+  return client.$extends(withAccelerate());
+};
+
+let prisma: ReturnType<typeof prismaClientWithExtensions>;
+
+if (process.env.NODE_ENV === 'production') {
+  prisma = prismaClientWithExtensions();
 } else {
   if (!global.cachedPrisma) {
-    global.cachedPrisma = new PrismaClient({
-      log: ['error', 'warn'],
-      datasources: {
-        db: {
-          url: process.env.DATABASE_URL,
-        },
-      },
-    }).$extends(withAccelerate());
+    global.cachedPrisma = prismaClientWithExtensions();
   }
   prisma = global.cachedPrisma;
 }

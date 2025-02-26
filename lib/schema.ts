@@ -129,5 +129,7 @@ export type NewDocument = Insertable<DocumentsTable>;
 export type WhatsAppLog = Selectable<WhatsAppLogsTable>;
 export type NewWhatsAppLog = Insertable<WhatsAppLogsTable>;
 
+export type DiscountType = 'percentage' | 'fixed';
+
 // Export the Database interface
 export type { Database }; 

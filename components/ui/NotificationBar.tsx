@@ -1,8 +1,16 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { Phone, MessageCircle } from 'lucide-react';
 
 export function NotificationBar() {
+  const pathname = usePathname();
+  
+  // Hide notification bar on admin routes
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
+
   const phoneNumbers = [
     '+91 83090 31203',
     '+91 79934 99752'
