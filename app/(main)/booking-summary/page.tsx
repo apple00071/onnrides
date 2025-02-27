@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { calculateDuration, formatCurrency } from '@/lib/utils';
+import { calculateRentalPrice } from '@/lib/utils/price';
 import { toast } from 'react-hot-toast';
 import { useSession } from 'next-auth/react';
 import { Loader2 } from 'lucide-react';
@@ -121,7 +122,7 @@ export default function BookingSummaryPage() {
     };
 
     setBookingDetails(details);
-  }, [searchParams, router]);
+  }, [searchParams]);
 
   useEffect(() => {
     // Check for pending payment in localStorage
@@ -150,7 +151,7 @@ export default function BookingSummaryPage() {
   const handleProceedToPayment = async () => {
     try {
       if (!session?.user) {
-        showNotification('Please sign in to continue');
+        toast.error('Please sign in to continue');
         return;
       }
 
@@ -165,11 +166,19 @@ export default function BookingSummaryPage() {
       const dropoffDateTime = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`);
       const duration = calculateDuration(pickupDateTime, dropoffDateTime);
       
-      // Calculate base price with minimum duration rules
+      // Calculate base price with minimum duration rules and special pricing
       const isWeekend = pickupDateTime.getDay() === 0 || pickupDateTime.getDay() === 6;
-      const minimumHours = isWeekend ? 24 : 12;
-      const effectiveDuration = Math.max(duration, minimumHours);
-      const basePrice = effectiveDuration * bookingDetails.pricePerHour;
+      
+      // Create a pricing object with the pricing details
+      const pricing = {
+        price_per_hour: bookingDetails.pricePerHour,
+        price_7_days: Number(searchParams.get('price7Days')) || 0,
+        price_15_days: Number(searchParams.get('price15Days')) || 0,
+        price_30_days: Number(searchParams.get('price30Days')) || 0
+      };
+      
+      // Calculate total price using the special pricing logic
+      const basePrice = calculateRentalPrice(pricing, duration, isWeekend);
       
       // Calculate additional charges
       const gst = basePrice * 0.18;
@@ -196,153 +205,17 @@ export default function BookingSummaryPage() {
         })
       });
 
-      const responseText = await createBookingResponse.text();
-
       if (!createBookingResponse.ok) {
-        let errorData;
-        try {
-          errorData = JSON.parse(responseText);
-        } catch (e) {
-          throw new Error('Invalid response from server');
-        }
-        throw new Error(errorData.details || errorData.error || 'Failed to create booking');
+        throw new Error('Failed to create booking');
       }
 
-      const response = JSON.parse(responseText);
+      const data = await createBookingResponse.json();
 
-      if (!response.success || !response.data) {
-        throw new Error('Invalid response from server');
-      }
-
-      const { data } = response;
-      
-      // Store order info
-      const orderInfo = {
-        order_id: data.orderId,
-        booking_id: data.bookingId,
-        amount: data.amount,
-        timestamp: new Date().toISOString()
-      };
-      localStorage.setItem('pendingPayment', JSON.stringify(orderInfo));
-
-      // Initialize Razorpay payment
-      if (!(window as any).Razorpay) {
-        throw new Error('Payment system is not available');
-      }
-
-      const razorpay = new (window as any).Razorpay({
-        key: data.key,
-        amount: data.amount,
-        currency: data.currency,
-        name: "OnnRides",
-        description: "Vehicle Rental Payment",
-        order_id: data.orderId,
-        handler: async function (response: any) {
-          try {
-            // Store payment details in case verification fails
-            const paymentDetails = {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              booking_id: data.bookingId,
-              amount: data.amount,
-              timestamp: new Date().toISOString()
-            };
-            localStorage.setItem('pendingPayment', JSON.stringify(paymentDetails));
-
-            // Verify payment
-            const verifyResponse = await fetch('/api/payments/verify', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                booking_id: data.bookingId,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature
-              }),
-            });
-
-            const verifyData = await verifyResponse.json();
-
-            if (!verifyResponse.ok || !verifyData.success) {
-              throw new Error(verifyData.error || 'Payment verification failed');
-            }
-
-            // Clear pending payment from localStorage
-            localStorage.removeItem('pendingPayment');
-            
-            showNotification('Payment successful!', 'success');
-            
-            // Use the redirect URL from the response if available
-            const redirectUrl = verifyData.data?.redirect_url || `/bookings?success=true&booking_id=${data.bookingId}`;
-            router.push(redirectUrl);
-            setIsLoading(false); // Reset loading state after successful redirect
-          } catch (error) {
-            console.error('Payment verification error:', error);
-            setIsLoading(false); // Reset loading state on error
-            
-            // Show error with support team contact message
-            showNotification(
-              'Payment Verification Failed',
-              'error',
-              {
-                description: (
-                  <div className="flex flex-col gap-4">
-                    <div className="text-red-800">
-                      <p className="font-medium">Your payment may have been processed but verification failed.</p>
-                      <p className="mt-1">Please contact our support team with the following details:</p>
-                      <ul className="mt-2 list-disc list-inside text-sm">
-                        <li>Order ID: {response.razorpay_order_id}</li>
-                        <li>Payment ID: {response.razorpay_payment_id}</li>
-                        <li>Booking ID: {data.bookingId}</li>
-                      </ul>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <button
-                        onClick={() => {
-                          const supportInfo = `Order ID: ${response.razorpay_order_id}\nPayment ID: ${response.razorpay_payment_id}\nBooking ID: ${data.bookingId}`;
-                          navigator.clipboard.writeText(supportInfo);
-                          toast.success('Payment details copied to clipboard');
-                        }}
-                        className="bg-gray-100 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors text-sm"
-                      >
-                        Copy Payment Details
-                      </button>
-                      <a
-                        href={`mailto:support@onnrides.com?subject=Payment%20Verification%20Failed&body=Order%20ID:%20${response.razorpay_order_id}%0APayment%20ID:%20${response.razorpay_payment_id}%0ABooking%20ID:%20${data.bookingId}`}
-                        className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition-colors text-center"
-                      >
-                        Contact Support
-                      </a>
-                    </div>
-                  </div>
-                ),
-                duration: 0 // Keep the notification until user dismisses it
-              }
-            );
-          }
-        },
-        prefill: {
-          name: session.user.name || '',
-          email: session.user.email || '',
-          contact: (session.user as any)?.phone || ''
-        },
-        theme: {
-          color: "#f97316"
-        },
-        modal: {
-          ondismiss: function() {
-            setIsLoading(false); // Reset loading state when modal is dismissed
-          }
-        }
-      });
-
-      razorpay.open();
+      // Redirect to payment page
+      router.push(`/payment?booking_id=${data.bookingId}`);
     } catch (error) {
       logger.error('Error processing booking:', error);
-      showNotification(error instanceof Error ? error.message : 'Failed to process booking');
+      toast.error('Failed to process booking');
     } finally {
       setIsLoading(false);
     }
@@ -360,11 +233,19 @@ export default function BookingSummaryPage() {
   const dropoffDateTime = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`);
   const duration = calculateDuration(pickupDateTime, dropoffDateTime);
   
-  // Calculate base price with minimum duration rules
+  // Calculate base price with minimum duration rules and special pricing
   const isWeekend = pickupDateTime.getDay() === 0 || pickupDateTime.getDay() === 6;
-  const minimumHours = isWeekend ? 24 : 12;
-  const effectiveDuration = Math.max(duration, minimumHours);
-  const basePrice = effectiveDuration * bookingDetails.pricePerHour;
+  
+  // Create a pricing object with the pricing details
+  const pricing = {
+    price_per_hour: bookingDetails.pricePerHour,
+    price_7_days: Number(searchParams.get('price7Days')) || 0,
+    price_15_days: Number(searchParams.get('price15Days')) || 0,
+    price_30_days: Number(searchParams.get('price30Days')) || 0
+  };
+  
+  // Calculate total price using the special pricing logic
+  const basePrice = calculateRentalPrice(pricing, duration, isWeekend);
   
   // Calculate additional charges
   const gst = basePrice * 0.18;
@@ -379,7 +260,7 @@ export default function BookingSummaryPage() {
     },
     start_date: `${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`,
     end_date: `${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`,
-    duration: effectiveDuration,
+    duration: duration,
     total_price: totalPrice,
     base_price: basePrice,
     gst: gst,
@@ -404,4 +285,4 @@ export default function BookingSummaryPage() {
       />
     </div>
   );
-} 
+}
