@@ -6,68 +6,138 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 import { FaCalendar, FaClock } from 'react-icons/fa';
-import { TimePicker } from './time-picker';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
+import { cn } from "@/lib/utils";
+
+// Add custom styles for the date picker
+const datePickerStyles = `
+  .react-datepicker {
+    font-family: inherit;
+    border-radius: 0.75rem;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+  .react-datepicker__header {
+    background-color: white;
+    border-top-left-radius: 0.75rem;
+    border-top-right-radius: 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+    padding-top: 0.5rem;
+  }
+  .react-datepicker__current-month {
+    color: #374151;
+    font-weight: 600;
+    font-size: 1rem;
+  }
+  .react-datepicker__day-name {
+    color: #6B7280;
+    font-weight: 500;
+  }
+  .react-datepicker__day--selected,
+  .react-datepicker__day--keyboard-selected {
+    background-color: #f26e24 !important;
+    color: white !important;
+  }
+  .react-datepicker__day:hover {
+    background-color: #ffeee6 !important;
+  }
+  .react-datepicker__navigation-icon::before {
+    border-color: #6B7280;
+  }
+  .react-datepicker__navigation:hover *::before {
+    border-color: #f26e24;
+  }
+  .react-datepicker__input-container {
+    position: relative;
+  }
+  .react-datepicker__input-container::after {
+    content: '';
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.2em;
+    height: 1.2em;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    opacity: 0.75;
+  }
+  .react-datepicker__input-container input {
+    padding-right: 2.5rem;
+    font-size: 0.875rem;
+    color: #6B7280;
+    border-radius: 0.75rem;
+  }
+
+  /* Add styles for the time select dropdown */
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 1.2em;
+    padding-right: 2.5rem;
+    opacity: 0.75;
+  }
+
+  select::-ms-expand {
+    display: none;
+  }
+
+  select option:checked {
+    background-color: #f26e24;
+    color: white;
+  }
+
+  select option:hover {
+    background-color: #ffeee6;
+  }
+`;
 
 export default function HeroSection() {
   const router = useRouter();
-  const [pickupDate, setPickupDate] = useState('');
-  const [pickupTime, setPickupTime] = useState('');
-  const [dropoffDate, setDropoffDate] = useState('');
-  const [dropoffTime, setDropoffTime] = useState('');
+  const [pickupDate, setPickupDate] = useState<Date | null>(null);
+  const [pickupTime, setPickupTime] = useState<string>('');
+  const [dropoffDate, setDropoffDate] = useState<Date | null>(null);
+  const [dropoffTime, setDropoffTime] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSearch = async () => {
     try {
-      // Log initial state
-      logger.debug('Current state:', {
-        pickupDate,
-        pickupTime,
-        dropoffDate,
-        dropoffTime
-      });
-
       // Validate inputs with better error messages
       if (!pickupDate) {
-        toast.error('Please select a pickup date');
+        toast.error('Please select pickup date');
         return;
       }
       if (!pickupTime) {
-        toast.error('Please select a pickup time');
+        toast.error('Please select pickup time');
         return;
       }
       if (!dropoffDate) {
-        toast.error('Please select a drop-off date');
+        toast.error('Please select drop-off date');
         return;
       }
       if (!dropoffTime) {
-        toast.error('Please select a drop-off time');
+        toast.error('Please select drop-off time');
         return;
       }
 
-      // Parse dates for validation
-      const pickupDateTime = new Date(`${pickupDate}T${pickupTime}`);
-      const dropoffDateTime = new Date(`${dropoffDate}T${dropoffTime}`);
       const now = new Date();
-
-      logger.debug('Parsed dates:', {
-        pickupDateTime: pickupDateTime.toISOString(),
-        dropoffDateTime: dropoffDateTime.toISOString(),
-        now: now.toISOString()
-      });
-
-      if (isNaN(pickupDateTime.getTime())) {
-        toast.error('Invalid pickup date/time format');
-        return;
-      }
-
-      if (isNaN(dropoffDateTime.getTime())) {
-        toast.error('Invalid drop-off date/time format');
-        return;
-      }
-
-      // Set time of now to the start of the current minute for more accurate comparison
       now.setSeconds(0);
       now.setMilliseconds(0);
+
+      const pickupDateTime = new Date(pickupDate);
+      const [pickupHours, pickupMinutes] = pickupTime.split(':').map(Number);
+      pickupDateTime.setHours(pickupHours, pickupMinutes, 0, 0);
+
+      const dropoffDateTime = new Date(dropoffDate);
+      const [dropoffHours, dropoffMinutes] = dropoffTime.split(':').map(Number);
+      dropoffDateTime.setHours(dropoffHours, dropoffMinutes, 0, 0);
 
       if (pickupDateTime < now) {
         toast.error('Pickup time must be in the future');
@@ -81,18 +151,23 @@ export default function HeroSection() {
 
       setIsLoading(true);
 
+      // Format dates for URL
+      const formatDateForUrl = (date: Date) => {
+        const dateStr = date.toISOString().split('T')[0];
+        return dateStr;
+      };
+
       // Create the search URL with all required parameters
       const searchParams = new URLSearchParams();
-      searchParams.append('pickupDate', pickupDate);
+      searchParams.append('pickupDate', formatDateForUrl(pickupDate));
       searchParams.append('pickupTime', pickupTime);
-      searchParams.append('dropoffDate', dropoffDate);
+      searchParams.append('dropoffDate', formatDateForUrl(dropoffDate));
       searchParams.append('dropoffTime', dropoffTime);
       searchParams.append('type', 'bike');
 
       const searchUrl = `/vehicles?${searchParams.toString()}`;
       logger.debug('Navigation URL:', searchUrl);
 
-      // Use push instead of replace to maintain history
       router.push(searchUrl);
     } catch (error) {
       logger.error('Search error:', error);
@@ -104,8 +179,9 @@ export default function HeroSection() {
 
   return (
     <>
+      <style>{datePickerStyles}</style>
       <div className="relative h-[50vh] sm:h-screen w-full overflow-hidden">
-      {/* Background Image */}
+        {/* Background Image */}
         <div className="absolute inset-0">
           <div className="relative h-[50vh] sm:h-screen w-full sm:hidden flex items-start">
             <Image
@@ -117,14 +193,14 @@ export default function HeroSection() {
               quality={100}
             />
           </div>
-        <Image
+          <Image
             src="/hero.png"
-          alt="Hero Background"
-          fill
+            alt="Hero Background"
+            fill
             className="hidden sm:block object-cover w-full h-full brightness-[0.85]"
-          priority
-          quality={100}
-        />
+            priority
+            quality={100}
+          />
         </div>
 
         {/* Desktop Search Form */}
@@ -172,12 +248,12 @@ export default function HeroSection() {
 }
 
 interface SearchFormContentProps {
-  pickupDate: string;
-  setPickupDate: (date: string) => void;
+  pickupDate: Date | null;
+  setPickupDate: (date: Date | null) => void;
   pickupTime: string;
   setPickupTime: (time: string) => void;
-  dropoffDate: string;
-  setDropoffDate: (date: string) => void;
+  dropoffDate: Date | null;
+  setDropoffDate: (date: Date | null) => void;
   dropoffTime: string;
   setDropoffTime: (time: string) => void;
   handleSearch: () => void;
@@ -196,140 +272,54 @@ function SearchFormContent({
   handleSearch,
   isLoading
 }: SearchFormContentProps) {
+  const minDate = new Date();
+  minDate.setHours(0, 0, 0, 0);
 
-  // Get minimum date (today)
-  const getMinDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+  const handlePickupDateChange = (date: Date | null) => {
+    setPickupDate(date);
+    if (date && dropoffDate && dropoffDate < date) {
+      setDropoffDate(date);
+      toast.success('Drop-off date adjusted to match pickup date');
+    }
   };
 
-  // Handle date change
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>, isPickup: boolean) => {
-    const selectedDate = e.target.value;
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-
-    if (selectedDate < today) {
-      toast.error('Cannot select a past date');
-      e.target.value = today;
-      if (isPickup) {
-        setPickupDate(today);
-      } else {
-        setDropoffDate(today);
-      }
+  const handleDropoffDateChange = (date: Date | null) => {
+    if (date && pickupDate && date < pickupDate) {
+      toast.error('Drop-off date cannot be before pickup date');
       return;
     }
-
-    if (isPickup) {
-      setPickupDate(selectedDate);
-      // Only update dropoff date if it's before the new pickup date
-      if (dropoffDate && dropoffDate < selectedDate) {
-        setDropoffDate(selectedDate);
-        toast.success('Drop-off date adjusted to match pickup date');
-      }
-    } else {
-      if (selectedDate < pickupDate) {
-        toast.error('Drop-off date cannot be before pickup date');
-        e.target.value = pickupDate;
-        setDropoffDate(pickupDate);
-      } else {
-        setDropoffDate(selectedDate);
-      }
-    }
+    setDropoffDate(date);
   };
 
-  // Handle time change
-  const handleTimeChange = (e: React.ChangeEvent<HTMLSelectElement>, isPickup: boolean) => {
-    const selectedTime = e.target.value;
-    const selectedDate = isPickup ? pickupDate : dropoffDate;
-    const now = new Date();
-    const selectedDateTime = new Date(`${selectedDate}T${selectedTime}`);
-    now.setSeconds(0);
-    now.setMilliseconds(0);
-
-    // For same-day bookings, ensure time is in the future
-    if (selectedDate === now.toISOString().split('T')[0]) {
-      const currentHour = now.getHours();
-      const selectedHour = parseInt(selectedTime.split(':')[0]);
-
-      if (selectedHour <= currentHour) {
-        toast.error('Please select a future time');
-        e.target.value = '';
-        if (isPickup) {
-          setPickupTime('');
-        } else {
-          setDropoffTime('');
-        }
-        return;
-      }
-    }
-
-    if (isPickup) {
-      setPickupTime(selectedTime);
-      // Only adjust dropoff time if it's on the same day and earlier than pickup
-      if (dropoffDate === pickupDate && dropoffTime && dropoffTime <= selectedTime) {
-        const nextHour = (parseInt(selectedTime.split(':')[0]) + 1).toString().padStart(2, '0') + ':00';
-        if (nextHour <= '23:00') {
-          setDropoffTime(nextHour);
-          toast.success('Drop-off time adjusted to ensure minimum 1-hour rental');
-        } else {
-          // If next hour would be past midnight, increment the dropoff date
-          const nextDay = new Date(pickupDate);
-          nextDay.setDate(nextDay.getDate() + 1);
-          setDropoffDate(nextDay.toISOString().split('T')[0]);
-          setDropoffTime('00:00');
-          toast.success('Drop-off moved to next day due to time selection');
-        }
-      }
-    } else {
-      if (pickupDate === dropoffDate && selectedTime <= pickupTime) {
-        toast.error('Drop-off time must be after pickup time');
-        e.target.value = '';
-        setDropoffTime('');
-      } else {
-        setDropoffTime(selectedTime);
-      }
-    }
-  };
-
-  // Generate time options for the current date
   const getTimeOptions = (isPickup: boolean) => {
     const options = [];
     const now = new Date();
     const selectedDate = isPickup ? pickupDate : dropoffDate;
-    const isToday = selectedDate === now.toISOString().split('T')[0];
+    const isToday = selectedDate?.toDateString() === now.toDateString();
     const currentHour = now.getHours();
 
-    for (let i = 0; i < 24; i++) {
-      // Skip past hours for today
-      if (isToday && i <= currentHour) continue;
+    for (let hour = 0; hour < 24; hour++) {
+      // Skip past times for today
+      if (isToday && hour < currentHour) {
+        continue;
+      }
 
-      // For dropoff, skip hours before pickup time on the same day
-      if (!isPickup && selectedDate === pickupDate && pickupTime && i <= parseInt(pickupTime.split(':')[0])) continue;
+      // For dropoff, skip times before pickup time on the same day
+      if (!isPickup && selectedDate?.toDateString() === pickupDate?.toDateString() && pickupTime) {
+        const [pickupHour] = pickupTime.split(':').map(Number);
+        if (hour <= pickupHour) {
+          continue;
+        }
+      }
 
-      const hour = i.toString().padStart(2, '0');
-      const period = i >= 12 ? 'PM' : 'AM';
-      const hour12 = i === 0 ? 12 : i > 12 ? i - 12 : i;
-      options.push({
-        value: `${hour}:00`,
-        label: `${hour12}:00 ${period}`
-      });
+      const timeValue = `${hour.toString().padStart(2, '0')}:00`;
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      const label = `${hour12}:00 ${period}`;
+      
+      options.push({ value: timeValue, label });
     }
     return options;
-  };
-
-  // Format date for display
-  const formatDateForDisplay = (date: string) => {
-    if (!date) return '';
-    try {
-      return new Date(date).toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    } catch (error) {
-      return '';
-    }
   };
 
   return (
@@ -345,38 +335,27 @@ function SearchFormContent({
         </label>
         <div className="grid grid-cols-2 gap-2">
           <div className="relative">
-            <input
-              type="text"
-              readOnly
-              value={formatDateForDisplay(pickupDate)}
-              placeholder="Select date"
-              className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-700 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent cursor-pointer"
-              onClick={(e) => {
-                const dateInput = e.currentTarget.nextElementSibling as HTMLInputElement;
-                if (dateInput) dateInput.showPicker();
-              }}
+            <DatePicker
+              selected={pickupDate}
+              onChange={handlePickupDateChange}
+              dateFormat="dd/MM/yyyy"
+              minDate={minDate}
+              placeholderText="Select date"
+              className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] cursor-pointer outline-none transition-colors"
             />
-            <input
-              type="date"
-              value={pickupDate}
-              min={getMinDate()}
-              onChange={(e) => handleDateChange(e, true)}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            />
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-              <FaCalendar className="h-4 w-4 text-gray-400" />
-            </div>
           </div>
-          <select
-            value={pickupTime}
-            onChange={(e) => handleTimeChange(e, true)}
-            className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-700 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
-          >
-            <option value="">Select time</option>
-            {getTimeOptions(true).map(({ value, label }) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={pickupTime}
+              onChange={(e) => setPickupTime(e.target.value)}
+              className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] appearance-none cursor-pointer outline-none transition-colors"
+            >
+              <option value="">Select time</option>
+              {getTimeOptions(true).map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -387,38 +366,27 @@ function SearchFormContent({
         </label>
         <div className="grid grid-cols-2 gap-2">
           <div className="relative">
-            <input
-              type="text"
-              readOnly
-              value={formatDateForDisplay(dropoffDate)}
-              placeholder="Select date"
-              className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-700 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent cursor-pointer"
-              onClick={(e) => {
-                const dateInput = e.currentTarget.nextElementSibling as HTMLInputElement;
-                if (dateInput) dateInput.showPicker();
-              }}
+            <DatePicker
+              selected={dropoffDate}
+              onChange={handleDropoffDateChange}
+              dateFormat="dd/MM/yyyy"
+              minDate={pickupDate || minDate}
+              placeholderText="Select date"
+              className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] cursor-pointer outline-none transition-colors"
             />
-            <input
-              type="date"
-              value={dropoffDate}
-              min={pickupDate || getMinDate()}
-              onChange={(e) => handleDateChange(e, false)}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            />
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-              <FaCalendar className="h-4 w-4 text-gray-400" />
-            </div>
           </div>
-          <select
-            value={dropoffTime}
-            onChange={(e) => handleTimeChange(e, false)}
-            className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-700 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
-          >
-            <option value="">Select time</option>
-            {getTimeOptions(false).map(({ value, label }) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={dropoffTime}
+              onChange={(e) => setDropoffTime(e.target.value)}
+              className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] appearance-none cursor-pointer outline-none transition-colors"
+            >
+              <option value="">Select time</option>
+              {getTimeOptions(false).map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
