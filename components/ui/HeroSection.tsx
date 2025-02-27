@@ -342,6 +342,7 @@ function SearchFormContent({
               minDate={minDate}
               placeholderText="Select date"
               className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] cursor-pointer outline-none transition-colors"
+              readOnly={true}
             />
           </div>
           <div className="relative">
@@ -373,6 +374,7 @@ function SearchFormContent({
               minDate={pickupDate || minDate}
               placeholderText="Select date"
               className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] cursor-pointer outline-none transition-colors"
+              readOnly={true}
             />
           </div>
           <div className="relative">
