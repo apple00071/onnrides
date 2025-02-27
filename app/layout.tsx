@@ -188,6 +188,7 @@ export default async function RootLayout({
         />
         <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
         <JsonLd data={structuredData} />
+        <meta name="facebook-domain-verification" content="xcd398j05srb3zhzzr6qjzdjc1cy14" />
       </head>
       <body className={inter.className}>
         <Providers session={session}>
