@@ -3,6 +3,7 @@ import logger from '@/lib/logger';
 // Meta WhatsApp API Configuration
 const WHATSAPP_API_VERSION = 'v17.0';
 const BASE_URL = `https://graph.facebook.com/${WHATSAPP_API_VERSION}`;
+const WEBHOOK_URL = 'https://onnrides.in/api/webhook/whatsapp';
 
 interface WhatsAppConfig {
   phoneNumberId: string;
