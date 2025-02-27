@@ -324,10 +324,10 @@ function SearchFormContent({
         <h2 className="text-2xl font-semibold text-gray-900 mb-2">
           Find your perfect ride
         </h2>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Pickup
-          </label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Pickup
+                </label>
           <div className="grid grid-cols-2 gap-2">
             <div className="relative">
                     <div className="relative w-full">
@@ -339,10 +339,10 @@ function SearchFormContent({
                         className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-500 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent cursor-pointer"
                         onClick={() => (document.getElementById('pickup-date') as HTMLInputElement)?.showPicker()}
                       />
-                      <input
-                        type="date"
+                    <input
+                      type="date"
                         id="pickup-date"
-                        value={pickupDate}
+                      value={pickupDate}
                         min={getMinDate()}
                         onChange={(e) => handleDateChange(e, true)}
                         className="sr-only"
@@ -387,10 +387,10 @@ function SearchFormContent({
                         className="block w-full p-2.5 text-sm border border-gray-300 rounded text-gray-500 bg-white focus:ring-2 focus:ring-[#f26e24] focus:border-transparent cursor-pointer"
                         onClick={() => (document.getElementById('dropoff-date') as HTMLInputElement)?.showPicker()}
                       />
-                      <input
-                        type="date"
+                    <input
+                      type="date"
                         id="dropoff-date"
-                        value={dropoffDate}
+                      value={dropoffDate}
                         min={pickupDate || getMinDate()}
                         onChange={(e) => handleDateChange(e, false)}
                         className="sr-only"

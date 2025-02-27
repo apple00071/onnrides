@@ -20,20 +20,18 @@ function formatMessage(level: LogLevel, message: string, metadata?: any): string
 }
 
 const logger = {
-  info: (message: string, metadata?: any) => {
-    if (!isProduction || !isBrowser) {
-      console.log(formatMessage('info', message, metadata));
-    }
+  info: (message: string, data?: any) => {
+    console.log(`[INFO] ${message}`, data ? data : '');
   },
-  error: (message: string, metadata?: any) => {
-    console.error(formatMessage('error', message, metadata));
+  error: (message: string, error?: any) => {
+    console.error(`[ERROR] ${message}`, error ? error : '');
   },
-  warn: (message: string, metadata?: any) => {
-    console.warn(formatMessage('warn', message, metadata));
+  warn: (message: string, data?: any) => {
+    console.warn(`[WARN] ${message}`, data ? data : '');
   },
-  debug: (message: string, metadata?: any) => {
-    if (!isProduction) {
-      console.debug(formatMessage('debug', message, metadata));
+  debug: (message: string, data?: any) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(`[DEBUG] ${message}`, data ? data : '');
     }
   }
 };
