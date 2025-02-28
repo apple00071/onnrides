@@ -20,7 +20,7 @@ let maintenanceModeCache = {
   lastChecked: 0
 };
 
-async function isMaintenanceMode(): Promise<boolean> {
+async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
   const now = Date.now();
   // Check cache if it's less than 1 minute old
   if (now - maintenanceModeCache.lastChecked < 60000) {
@@ -28,7 +28,14 @@ async function isMaintenanceMode(): Promise<boolean> {
   }
 
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/settings/maintenance`);
+    // Use the request URL to construct the API URL
+    const protocol = request.headers.get('x-forwarded-proto') || 'http';
+    const host = request.headers.get('host') || 'localhost:3000';
+    const baseUrl = `${protocol}://${host}`;
+    
+    const response = await fetch(`${baseUrl}/api/settings/maintenance`);
+    if (!response.ok) throw new Error('Failed to fetch maintenance status');
+    
     const data = await response.json();
     
     // Update cache
@@ -49,11 +56,11 @@ export async function middleware(request: NextRequest) {
 
   // Skip maintenance check for allowed paths
   if (maintenanceAllowedPaths.some(path => pathname.startsWith(path))) {
-    return new NextResponse(null, { status: 200 });
+    return new NextResponse(null);
   }
 
   // Check if we're in maintenance mode
-  const maintenanceModeEnabled = await isMaintenanceMode();
+  const maintenanceModeEnabled = await isMaintenanceMode(request);
 
   if (maintenanceModeEnabled) {
     // Check if user is admin
@@ -67,7 +74,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Allow the request to continue
-  return new NextResponse(null, { status: 200 });
+  return new NextResponse(null);
 }
 
 export const config = {
