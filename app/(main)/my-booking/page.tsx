@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import logger from '@/lib/logger';
+import { formatDateTimeIST } from '@/lib/utils/timezone';
 
 interface Booking {
   id: string;
@@ -38,13 +39,17 @@ export default function MyBooking() {
     try {
       const response = await fetch('/api/user/current-booking');
       if (!response.ok) {
-        throw new Error('Failed to fetch current booking');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch current booking');
       }
       const data = await response.json();
       setCurrentBooking(data.booking);
     } catch (error) {
       logger.error('Error fetching current booking:', error);
-      toast.error('Failed to load current booking details.');
+      // Only show error toast if it's not a network error (to avoid spamming the user during retries)
+      if (error instanceof Error && !error.message.includes('fetch')) {
+        toast.error('Unable to load current booking. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }
@@ -55,14 +60,20 @@ export default function MyBooking() {
       setHistoryLoading(true);
       const response = await fetch(`/api/user/bookings?page=${page}&limit=10`);
       if (!response.ok) {
-        throw new Error('Failed to fetch booking history');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch booking history');
       }
       const data = await response.json();
       setBookingHistory(data.bookings);
       setPagination(data.pagination);
     } catch (error) {
       logger.error('Error fetching booking history:', error);
-      toast.error('Failed to load booking history.');
+      // Only show error toast for non-network errors
+      if (error instanceof Error && !error.message.includes('fetch')) {
+        toast.error('Unable to load booking history. Please try again later.');
+      }
+      setBookingHistory([]);
+      setPagination({ total: 0, page: 1, limit: 10, totalPages: 0 });
     } finally {
       setHistoryLoading(false);
     }
@@ -74,8 +85,23 @@ export default function MyBooking() {
       fetchCurrentBooking();
       fetchBookingHistory();
 
-      // Set up polling for current booking
-      const intervalId = setInterval(fetchCurrentBooking, 10000);
+      // Set up polling for current booking with exponential backoff
+      let retryCount = 0;
+      const maxRetries = 5;
+      const baseDelay = 10000; // 10 seconds
+
+      const intervalId = setInterval(() => {
+        if (retryCount >= maxRetries) {
+          clearInterval(intervalId);
+          return;
+        }
+        fetchCurrentBooking().catch(() => {
+          retryCount++;
+          if (retryCount >= maxRetries) {
+            clearInterval(intervalId);
+          }
+        });
+      }, baseDelay * Math.pow(2, retryCount));
 
       // Cleanup interval on unmount
       return () => clearInterval(intervalId);
@@ -85,19 +111,10 @@ export default function MyBooking() {
     }
   }, [user]);
 
-  // Format date to IST
   const formatDate = (dateString: string) => {
     try {
-      const date = new Date(dateString);
-      return date.toLocaleString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
+      if (!dateString) return 'N/A';
+      return formatDateTimeIST(dateString);
     } catch (error) {
       logger.error('Error formatting date:', { dateString, error });
       return 'Invalid date';
