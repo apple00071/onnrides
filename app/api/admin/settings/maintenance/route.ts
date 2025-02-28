@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { db } from '@/lib/db';
 import logger from '@/lib/logger';
+import { Settings } from '@/lib/schema';
 
 export async function GET() {
   try {
@@ -10,8 +12,15 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const maintenanceMode = process.env.MAINTENANCE_MODE === 'true';
-    return NextResponse.json({ maintenanceMode });
+    const setting = await db
+      .selectFrom('settings')
+      .selectAll()
+      .where('key', '=', 'maintenance_mode')
+      .executeTakeFirst();
+
+    return NextResponse.json({ 
+      maintenanceMode: setting?.value === 'true' 
+    });
   } catch (error) {
     logger.error('Error fetching maintenance mode status:', error);
     return NextResponse.json(
@@ -30,8 +39,15 @@ export async function POST(request: NextRequest) {
 
     const { maintenanceMode } = await request.json();
 
-    // Update the environment variable
-    process.env.MAINTENANCE_MODE = String(maintenanceMode);
+    // Update the maintenance mode in database
+    await db
+      .updateTable('settings')
+      .set({
+        value: String(maintenanceMode),
+        updated_at: new Date()
+      } as Partial<Settings>)
+      .where('key', '=', 'maintenance_mode')
+      .execute();
 
     return NextResponse.json({
       success: true,

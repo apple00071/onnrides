@@ -38,6 +38,15 @@ interface WhatsAppLogsTable {
   updated_at: Generated<Date>;
 }
 
+// Settings table interface
+interface SettingsTable {
+  id: string;
+  key: string;
+  value: string;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 // Database interface
 interface Database {
   users: UsersTable;
@@ -45,6 +54,7 @@ interface Database {
   bookings: BookingsTable;
   documents: DocumentsTable;
   whatsapp_logs: WhatsAppLogsTable;
+  settings: SettingsTable;
 }
 
 // Users table interface
@@ -130,6 +140,9 @@ export type WhatsAppLog = Selectable<WhatsAppLogsTable>;
 export type NewWhatsAppLog = Insertable<WhatsAppLogsTable>;
 
 export type DiscountType = 'percentage' | 'fixed';
+
+export type Settings = Selectable<SettingsTable>;
+export type NewSettings = Insertable<SettingsTable>;
 
 // Export the Database interface
 export type { Database }; 

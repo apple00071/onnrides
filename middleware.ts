@@ -1,77 +1,93 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { db } from '@/lib/db';
 import { getToken } from 'next-auth/jwt';
+import logger from '@/lib/logger';
 
 // Define paths that should be accessible during maintenance mode
 const maintenanceAllowedPaths = [
   '/maintenance',
   '/admin',
   '/api/admin',
+  '/auth/signin',
+  '/api/auth',
   '/_next',
   '/favicon.ico',
-  '/logo.png',
-  '/auth/signin',  // Allow sign-in during maintenance
+  '/logo.png'
 ];
 
-export async function middleware(request: NextRequest) {
-  // Get the pathname
-  const url = new URL(request.url);
-  const pathname = url.pathname;
+// Cache the maintenance mode status for 1 minute
+let maintenanceModeCache = {
+  value: false,
+  lastChecked: 0
+};
 
-  // Check maintenance mode first, before any other checks
-  const isMaintenanceMode = process.env.MAINTENANCE_MODE === 'true';
-  
-  if (isMaintenanceMode) {
-    // Check if current path is allowed during maintenance
+async function isMaintenanceMode(): Promise<boolean> {
+  const now = Date.now();
+  // Check cache if it's less than 1 minute old
+  if (now - maintenanceModeCache.lastChecked < 60000) {
+    return maintenanceModeCache.value;
+  }
+
+  try {
+    const setting = await db
+      .selectFrom('settings')
+      .selectAll()
+      .where('key', '=', 'maintenance_mode')
+      .executeTakeFirst();
+
+    const isMaintenanceMode = setting?.value === 'true';
+    
+    // Update cache
+    maintenanceModeCache = {
+      value: isMaintenanceMode,
+      lastChecked: now
+    };
+
+    return isMaintenanceMode;
+  } catch (error) {
+    logger.error('Error checking maintenance mode:', error);
+    return false;
+  }
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = new URL(request.url);
+
+  // Check if we're in maintenance mode
+  const maintenanceModeEnabled = await isMaintenanceMode();
+
+  if (maintenanceModeEnabled) {
+    // Check if the path is allowed during maintenance
     const isAllowedPath = maintenanceAllowedPaths.some(path => 
       pathname.startsWith(path)
     );
 
-    // If path is not allowed during maintenance, check if user is admin
     if (!isAllowedPath) {
+      // Check if user is admin
       const token = await getToken({ req: request });
       const isAdmin = token?.role === 'admin';
 
-      // If not admin, redirect to maintenance page
       if (!isAdmin) {
+        // Redirect to maintenance page
         return NextResponse.redirect(new URL('/maintenance', request.url));
       }
     }
   }
 
-  // Continue with normal auth checks
-  const token = await getToken({ req: request });
-
-  // Handle admin routes
-  if (pathname.startsWith('/admin')) {
-    if (!token || token.role !== 'admin') {
-      return NextResponse.redirect(new URL('/auth/signin', request.url));
-    }
-  }
-
-  // Handle protected API routes
-  if (pathname.startsWith('/api/user') || pathname.startsWith('/api/bookings')) {
-    if (!token) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Authentication required' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-  }
-
   // Allow the request to continue
-  return NextResponse.rewrite(url);
+  return NextResponse.json(undefined, { status: 200 });
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all paths except:
-     * 1. /api/admin/* (admin API routes)
-     * 2. /_next/* (static files)
-     * 3. /favicon.ico, /logo.png (static files)
-     * 4. /maintenance (maintenance page)
+     * Match all request paths except:
+     * 1. /maintenance path
+     * 2. /_next (Next.js internals)
+     * 3. /static (static files)
+     * 4. /favicon.ico, /logo.png (static files)
      */
-    '/((?!api/admin|_next|favicon.ico|logo.png|maintenance).*)',
+    '/((?!maintenance|_next|static|favicon.ico|logo.png).*)',
   ],
 };  
