@@ -13,6 +13,7 @@ import JsonLd from './components/JsonLd';
 import { headers } from 'next/headers';
 import ClientLayout from './ClientLayout';
 import RazorpayProvider from './providers/RazorpayProvider';
+import ClientOnly from './(main)/providers/ClientOnly';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,7 +113,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const session = await getServerSession(authOptions);
-  const pathname = headers().get('x-pathname') || '/';
+  const headersList = headers();
+  const pathname = headersList.get('x-pathname') || '/';
   const isMaintenancePath = pathname.startsWith('/maintenance');
   const isAdminPath = pathname.startsWith('/admin');
   const isApiPath = pathname.startsWith('/api');
@@ -127,7 +129,6 @@ export default async function RootLayout({
     }
   }
 
-  const headersList = headers();
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
 
   const structuredData = {
@@ -210,7 +211,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
+      <head suppressHydrationWarning>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta
@@ -232,43 +233,45 @@ export default async function RootLayout({
         <RazorpayProvider>
           <Providers session={session}>
             <AuthProvider>
-              {!isAdminPath && <NotificationBar />}
-              <Toaster
-                position="bottom-center"
-                toastOptions={{
-                  duration: 5000,
-                  style: {
-                    background: '#363636',
-                    color: '#fff',
+              <ClientOnly>
+                {!isAdminPath && <NotificationBar />}
+                <Toaster
+                  position="bottom-center"
+                  toastOptions={{
+                    duration: 5000,
+                    style: {
+                      background: '#363636',
+                      color: '#fff',
+                      maxWidth: '500px',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                    },
+                    success: {
+                      duration: 4000,
+                      iconTheme: {
+                        primary: '#22c55e',
+                        secondary: '#fff',
+                      },
+                    },
+                    error: {
+                      duration: 6000,
+                      iconTheme: {
+                        primary: '#ef4444',
+                        secondary: '#fff',
+                      },
+                    },
+                  }}
+                  gutter={8}
+                  containerStyle={{
+                    bottom: 40,
+                    inset: '0px',
                     maxWidth: '500px',
-                    padding: '12px 24px',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                  },
-                  success: {
-                    duration: 4000,
-                    iconTheme: {
-                      primary: '#22c55e',
-                      secondary: '#fff',
-                    },
-                  },
-                  error: {
-                    duration: 6000,
-                    iconTheme: {
-                      primary: '#ef4444',
-                      secondary: '#fff',
-                    },
-                  },
-                }}
-                gutter={8}
-                containerStyle={{
-                  bottom: 40,
-                  inset: '0px',
-                  maxWidth: '500px',
-                  margin: '0 auto',
-                }}
-                reverseOrder={false}
-              />
+                    margin: '0 auto',
+                  }}
+                  reverseOrder={false}
+                />
+              </ClientOnly>
               <ClientLayout>{children}</ClientLayout>
               <ScriptLoader />
             </AuthProvider>

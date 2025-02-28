@@ -12,7 +12,20 @@ export default function ClientLayout({
 
   useEffect(() => {
     // Scroll to top on route change
-    window.scrollTo(0, 0);
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+    }
+
+    // Cleanup function
+    return () => {
+      // Remove any lingering portals or event listeners
+      const portals = document.querySelectorAll('[data-portal-root]');
+      portals.forEach(portal => {
+        if (portal.parentNode) {
+          portal.parentNode.removeChild(portal);
+        }
+      });
+    };
   }, [pathname]);
 
   return <>{children}</>;

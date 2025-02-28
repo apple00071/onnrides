@@ -154,19 +154,48 @@ export async function DELETE(
     // First check for any active bookings
     const activeBookings = await db
       .selectFrom('bookings')
-      .select(['id'])
+      .select(['id', 'status', 'start_date', 'end_date'])
       .where('vehicle_id', '=', vehicleId)
       .where('status', 'in', ['pending', 'confirmed'])
       .execute();
 
     if (activeBookings.length > 0) {
+      logger.warn('Attempted to delete vehicle with active bookings:', {
+        vehicleId,
+        activeBookings: activeBookings.length
+      });
+      
+      // Return detailed information about the active bookings
       return NextResponse.json(
         {
           success: false,
-          message: 'Cannot delete vehicle with active bookings. Please cancel or complete all active bookings first.'
+          error: 'Cannot delete vehicle with active bookings',
+          details: {
+            message: 'Vehicle has active or pending bookings. Please cancel or complete all bookings first.',
+            activeBookings: activeBookings.map(booking => ({
+              id: booking.id,
+              status: booking.status,
+              startDate: booking.start_date,
+              endDate: booking.end_date
+            }))
+          }
         },
         { status: 400 }
       );
+    }
+
+    // Check if vehicle exists before attempting to update
+    const existingVehicle = await db
+      .selectFrom('vehicles')
+      .select(['id', 'status'])
+      .where('id', '=', vehicleId)
+      .executeTakeFirst();
+
+    if (!existingVehicle) {
+      return NextResponse.json({
+        success: false,
+        error: 'Vehicle not found'
+      }, { status: 404 });
     }
 
     // Instead of deleting, update the vehicle status to 'retired'
@@ -181,6 +210,11 @@ export async function DELETE(
       .returning(['id', 'name', 'status', 'is_available'])
       .execute();
 
+    logger.info('Vehicle retired successfully:', {
+      vehicleId,
+      newStatus: updatedVehicle.status
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Vehicle retired successfully',
@@ -192,7 +226,8 @@ export async function DELETE(
     return NextResponse.json(
       {
         success: false,
-        message: error instanceof Error ? error.message : 'Failed to retire vehicle'
+        error: error instanceof Error ? error.message : 'Failed to retire vehicle',
+        details: process.env.NODE_ENV === 'development' ? error : undefined
       },
       { status: 500 }
     );
