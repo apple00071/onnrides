@@ -3,7 +3,8 @@
 import logger from '@/lib/logger';
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
-import { format, isValid, parseISO, addMinutes } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { Eye, History, Loader2 } from 'lucide-react';
-import { format as formatTZ } from 'date-fns-tz';
+import { utcToZonedTime } from 'date-fns-tz';
 
 interface Booking {
   id: string;
@@ -51,25 +52,20 @@ const formatDateTime = (date: string | Date) => {
   try {
     if (!date) return 'Date not available';
     
-    // If it's already a Date object, use it directly
-    const dateObj = date instanceof Date ? date : new Date(date);
+    // Parse the date string or use the Date object
+    const parsedDate = typeof date === 'string' ? parseISO(date) : date;
     
     // Check if date is valid
-    if (isNaN(dateObj.getTime())) {
+    if (!isValid(parsedDate)) {
       logger.error('Invalid date value:', date);
       return 'Invalid date';
     }
     
-    // Convert directly to IST without adding offset since the dates are already in UTC
-    return dateObj.toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
+    // Convert to IST timezone
+    const istDate = utcToZonedTime(parsedDate, 'Asia/Kolkata');
+    
+    // Format the date
+    return format(istDate, 'dd MMM yyyy, hh:mm a');
   } catch (error) {
     logger.error('Error formatting date:', { date, error });
     return 'Invalid date';

@@ -168,10 +168,10 @@ export class EmailService {
   private async logEmail(recipient: string, subject: string, message: string, status: string, bookingId?: string | null): Promise<string> {
     try {
       const result = await query(
-        `INSERT INTO email_logs (recipient, subject, message_content, booking_id, status)
+        `INSERT INTO email_logs (recipient, subject, message_content, status, booking_id)
          VALUES ($1, $2, $3, $4, $5)
-         RETURNING id`,
-        [recipient, subject, message, bookingId, status]
+         RETURNING id::text`,
+        [recipient, subject, message, status, bookingId]
       );
       return result.rows[0].id;
     } catch (error) {
@@ -182,14 +182,29 @@ export class EmailService {
 
   private async updateEmailLog(id: string, updates: { status: string; message_id?: string; error?: string }) {
     try {
-      await query(
-        `UPDATE email_logs 
-         SET status = $1, message_id = $2, error = $3, updated_at = NOW()
-         WHERE id = $4`,
-        [updates.status, updates.message_id, updates.error, id]
-      );
+      const params = [updates.status];
+      let sql = 'UPDATE email_logs SET status = $1';
+      let paramCount = 1;
+
+      if (updates.message_id) {
+        paramCount++;
+        sql += `, message_id = $${paramCount}`;
+        params.push(updates.message_id);
+      }
+
+      if (updates.error) {
+        paramCount++;
+        sql += `, error = $${paramCount}`;
+        params.push(updates.error);
+      }
+
+      sql += ', updated_at = CURRENT_TIMESTAMP WHERE id = $' + (paramCount + 1);
+      params.push(id);
+
+      await query(sql, params);
     } catch (error) {
       logger.error('Failed to update email log:', error);
+      throw error;
     }
   }
 

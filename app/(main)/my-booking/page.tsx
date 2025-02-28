@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import logger from '@/lib/logger';
-import { formatDateTimeIST } from '@/lib/utils/timezone';
+import { format, parseISO } from 'date-fns';
+import { utcToZonedTime } from 'date-fns-tz';
 
 interface Booking {
   id: string;
@@ -124,7 +125,12 @@ export default function MyBooking() {
   const formatDate = (dateString: string) => {
     try {
       if (!dateString) return 'N/A';
-      return formatDateTimeIST(dateString);
+      
+      // Parse the date and convert to IST
+      const date = utcToZonedTime(parseISO(dateString), 'Asia/Kolkata');
+      
+      // Format the date in 12-hour format with AM/PM
+      return format(date, 'dd MMM yyyy, hh:mm a');
     } catch (error) {
       logger.error('Error formatting date:', { dateString, error });
       return 'Invalid date';
@@ -164,8 +170,8 @@ export default function MyBooking() {
                 <div className="space-y-2">
                   <p><span className="font-medium">Pickup:</span> {formatDate(currentBooking.pickup_datetime)}</p>
                   <p><span className="font-medium">Dropoff:</span> {formatDate(currentBooking.dropoff_datetime)}</p>
-                  <p><span className="font-medium">From:</span> {currentBooking.pickup_location}</p>
-                  <p><span className="font-medium">To:</span> {currentBooking.drop_location}</p>
+                  <p><span className="font-medium">From:</span> <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{currentBooking.pickup_location}</span></p>
+                  <p><span className="font-medium">To:</span> <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{currentBooking.drop_location}</span></p>
                 </div>
               </div>
               <div>

@@ -4,6 +4,8 @@ import logger from '@/lib/logger';
 import { authOptions } from '@/lib/auth/config';
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { EmailService } from '@/lib/email/service';
+import { WhatsAppService } from '@/lib/whatsapp/service';
 
 interface BookingRow {
   id: string;
@@ -17,6 +19,7 @@ interface BookingRow {
   status: string;
   payment_status: string | null;
   created_at: string;
+  updated_at: string;
   vehicle_location: string | null;
   user_name: string | null;
   user_email: string | null;
@@ -106,7 +109,8 @@ export async function GET(request: NextRequest) {
         b.total_price,
         b.status,
         b.payment_status,
-        b.created_at,
+        b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
+        b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at,
         b.booking_id,
         v.name as vehicle_name,
         v.location as vehicle_location,
@@ -124,7 +128,25 @@ export async function GET(request: NextRequest) {
     const result = await query(sqlQuery, [ITEMS_PER_PAGE, offset]);
 
     // Transform the result
-    const bookings = result.rows.map((booking: BookingRow) => ({
+    const bookings = result.rows.map((row: Record<string, any>): BookingRow => ({
+      id: row.id,
+      booking_id: row.booking_id,
+      user_id: row.user_id,
+      vehicle_id: row.vehicle_id,
+      start_date: row.start_date,
+      end_date: row.end_date,
+      total_hours: row.total_hours,
+      total_price: row.total_price,
+      status: row.status,
+      payment_status: row.payment_status,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      vehicle_location: row.vehicle_location,
+      user_name: row.user_name,
+      user_email: row.user_email,
+      user_phone: row.user_phone,
+      vehicle_name: row.vehicle_name
+    })).map((booking: BookingRow) => ({
       id: booking.id,
       booking_id: booking.booking_id || `OR${booking.id.slice(0, 3)}`,
       user_id: booking.user_id,
@@ -136,6 +158,7 @@ export async function GET(request: NextRequest) {
       status: booking.status,
       payment_status: booking.payment_status || 'pending',
       created_at: booking.created_at,
+      updated_at: booking.updated_at,
       location: booking.vehicle_location || '',
       user: {
         name: booking.user_name || 'Unknown',
@@ -216,6 +239,32 @@ export async function PUT(request: NextRequest) {
         });
     }
 
+    // Get booking details before updating
+    const bookingResult = await query(`
+      SELECT 
+        b.*,
+        u.email as user_email,
+        u.name as user_name,
+        u.phone as user_phone,
+        v.name as vehicle_name
+      FROM bookings b
+      LEFT JOIN users u ON u.id = b.user_id
+      LEFT JOIN vehicles v ON v.id = b.vehicle_id
+      WHERE b.id = $1
+    `, [bookingId]);
+
+    if (bookingResult.rows.length === 0) {
+      return new Response(JSON.stringify({ 
+        success: false,
+        message: 'Booking not found' 
+      }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const booking = bookingResult.rows[0];
+
     // Update booking status
     const result = await query(`
       UPDATE bookings
@@ -226,35 +275,73 @@ export async function PUT(request: NextRequest) {
       RETURNING *
     `, [status, bookingId]);
 
-    if (result.rows.length === 0) {
-      return new Response(JSON.stringify({ 
-        success: false,
-        message: 'Booking not found' 
-      }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+    // Send email notification
+    try {
+      const emailService = EmailService.getInstance();
+      const whatsappService = WhatsAppService.getInstance();
 
-    const updatedBooking = result.rows[0];
-    logger.info('Booking updated:', { 
-      bookingId, 
-      action, 
-      newStatus: status 
-    });
+      // Send email
+      await emailService.sendEmail(
+        booking.user_email,
+        'Booking Cancellation - OnnRides',
+        `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #f26e24;">Booking Cancelled</h1>
+          <p>Dear ${booking.user_name},</p>
+          <p>Your booking has been cancelled by the administrator.</p>
+          
+          <h2>Booking Details:</h2>
+          <ul>
+            <li>Booking ID: ${booking.id}</li>
+            <li>Vehicle: ${booking.vehicle_name}</li>
+            <li>Start Date: ${new Date(booking.start_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</li>
+            <li>End Date: ${new Date(booking.end_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</li>
+          </ul>
+          
+          <p>If you have any questions, please contact our support team:</p>
+          <ul>
+            <li>Email: support@onnrides.com</li>
+            <li>Phone: +91 8247494622</li>
+          </ul>
+        </div>
+        `,
+        booking.id.toString()
+      );
+
+      // Send WhatsApp notification
+      if (booking.user_phone) {
+        await whatsappService.sendBookingCancellation(
+          booking.user_phone,
+          booking.user_name,
+          booking.vehicle_name,
+          booking.booking_id || booking.id.toString()
+        );
+      }
+
+      logger.info('Cancellation notifications sent successfully', {
+        bookingId: booking.id,
+        userEmail: booking.user_email,
+        userPhone: booking.user_phone
+      });
+    } catch (error) {
+      logger.error('Failed to send cancellation notifications:', error);
+      // Don't throw error here, we still want to return the cancelled booking
+    }
 
     return new Response(JSON.stringify({ 
       success: true,
-      booking: updatedBooking 
+      data: result.rows[0]
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
+
   } catch (error) {
-    logger.error('Error updating booking:', error);
+    logger.error('Error in PUT /api/admin/bookings:', error);
     return new Response(JSON.stringify({ 
       success: false,
-      message: 'Failed to update booking' 
+      error: 'Failed to update booking',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

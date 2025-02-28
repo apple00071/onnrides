@@ -8,6 +8,21 @@ import logger from '@/lib/logger';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+// Helper function to format location
+function formatLocation(location: string | string[] | null): string {
+  if (!location) return '';
+  try {
+    if (typeof location === 'string') {
+      // Try to parse if it's a JSON string
+      const parsed = JSON.parse(location);
+      return Array.isArray(parsed) ? parsed[0] : location;
+    }
+    return Array.isArray(location) ? location[0] : location;
+  } catch {
+    return typeof location === 'string' ? location : '';
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -19,7 +34,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get the user's current booking with vehicle information
-    // Optimize the query to reduce data fetched and improve performance
+    // Ensure proper timezone handling for dates
     const result = await query(`
       WITH current_booking AS (
         SELECT 
@@ -32,11 +47,12 @@ export async function GET(request: NextRequest) {
           b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as pickup_datetime,
           b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as dropoff_datetime,
           b.dropoff_location,
+          b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
           ROW_NUMBER() OVER (ORDER BY b.start_date ASC) as rn
         FROM bookings b
         WHERE b.user_id = $1 
           AND b.status NOT IN ('completed', 'cancelled')
-          AND b.end_date > CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'
+          AND b.end_date > CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
       )
       SELECT 
         cb.*,
@@ -61,17 +77,20 @@ export async function GET(request: NextRequest) {
       vehicle_name: booking.vehicle_name,
       pickup_datetime: booking.pickup_datetime,
       dropoff_datetime: booking.dropoff_datetime,
-      pickup_location: booking.vehicle_location,
-      drop_location: booking.dropoff_location || booking.vehicle_location,
+      pickup_location: formatLocation(booking.vehicle_location),
+      drop_location: formatLocation(booking.dropoff_location) || formatLocation(booking.vehicle_location),
       total_amount: parseFloat(booking.total_price || 0),
       status: booking.status,
-      payment_status: booking.payment_status || 'pending'
+      payment_status: booking.payment_status || 'pending',
+      created_at: booking.created_at
     };
 
     logger.info('Current booking fetched successfully', {
       bookingId: booking.id,
       status: booking.status,
-      paymentStatus: booking.payment_status
+      paymentStatus: booking.payment_status,
+      pickupTime: booking.pickup_datetime,
+      dropoffTime: booking.dropoff_datetime
     });
 
     return NextResponse.json({ booking: formattedBooking });

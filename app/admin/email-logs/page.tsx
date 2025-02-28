@@ -118,7 +118,9 @@ export default function EmailLogsPage() {
                     {log.status === 'success' ? (
                       <CheckCircle2 className="h-5 w-5 text-green-500" />
                     ) : (
-                      <XCircle className="h-5 w-5 text-red-500" title={log.error} />
+                      <div title={log.error}>
+                        <XCircle className="h-5 w-5 text-red-500" aria-label={log.error || 'Error sending email'} />
+                      </div>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
