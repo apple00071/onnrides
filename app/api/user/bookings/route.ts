@@ -18,70 +18,84 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return new NextResponse(JSON.stringify({ error: 'Authentication required' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
+    // Get URL parameters
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '10');
+    const offset = (page - 1) * limit;
+
+    // Get total count for pagination
+    const countResult = await query(`
+      SELECT COUNT(*) 
+      FROM bookings 
+      WHERE user_id = $1
+    `, [session.user.id]);
+
+    const totalBookings = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalBookings / limit);
+
+    // Get the user's booking history with vehicle information
     const result = await query(`
       SELECT 
-        b.id,
-        b.status,
-        b.start_date,
-        b.end_date,
-        b.total_price,
-        b.payment_status,
-        b.created_at,
-        b.updated_at,
-        v.id as vehicle_id,
+        b.*,
         v.name as vehicle_name,
         v.type as vehicle_type,
         v.location as vehicle_location,
-        v.images as vehicle_images,
-        v.price_per_hour as vehicle_price_per_hour
-      FROM bookings b 
-      JOIN vehicles v ON b.vehicle_id = v.id 
+        b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as pickup_datetime,
+        b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as dropoff_datetime,
+        b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
+        b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at
+      FROM bookings b
+      LEFT JOIN vehicles v ON b.vehicle_id = v.id
       WHERE b.user_id = $1
       ORDER BY b.created_at DESC
-    `, [session.user.id]);
+      LIMIT $2 OFFSET $3
+    `, [session.user.id, limit, offset]);
 
-    // Transform the data to match the Booking interface
-    const bookings = result.rows.map(row => ({
-      id: row.id,
-      status: row.status,
-      start_date: row.start_date,
-      end_date: row.end_date,
-      total_price: row.total_price,
-      payment_status: row.payment_status,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      vehicle: {
-        id: row.vehicle_id,
-        name: row.vehicle_name,
-        type: row.vehicle_type,
-        location: row.vehicle_location,
-        images: row.vehicle_images,
-        price_per_hour: row.vehicle_price_per_hour
-      }
+    // Format the bookings
+    const bookings = result.rows.map(booking => ({
+      id: booking.id,
+      booking_id: booking.booking_id,
+      vehicle_name: booking.vehicle_name,
+      pickup_datetime: booking.pickup_datetime,
+      dropoff_datetime: booking.dropoff_datetime,
+      pickup_location: booking.vehicle_location,
+      drop_location: booking.dropoff_location || booking.vehicle_location,
+      total_amount: parseFloat(booking.total_price || 0),
+      status: booking.status,
+      payment_status: booking.payment_status || 'pending',
+      created_at: booking.created_at
     }));
 
-    return new NextResponse(JSON.stringify({ 
-      success: true,
-      data: bookings 
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
+    logger.info('Booking history fetched successfully', {
+      userId: session.user.id,
+      page,
+      limit,
+      totalBookings
     });
+
+    return NextResponse.json({
+      bookings,
+      pagination: {
+        total: totalBookings,
+        page,
+        limit,
+        totalPages
+      }
+    });
+
   } catch (error) {
-    logger.error('Error fetching user bookings:', error);
-    return new NextResponse(JSON.stringify({ 
-      success: false,
-      error: 'Failed to fetch bookings' 
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    logger.error('Error fetching booking history:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch booking history' },
+      { status: 500 }
+    );
   }
 }
 

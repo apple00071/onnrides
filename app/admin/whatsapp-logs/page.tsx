@@ -119,7 +119,16 @@ export default function WhatsAppLogsPage() {
                                 {logs.map((log) => (
                                     <tr key={log.id} className="border-b">
                                         <td className="py-2 px-4">
-                                            {format(new Date(log.created_at), 'MMM d, yyyy HH:mm:ss')}
+                                            {new Date(log.created_at).toLocaleString('en-IN', {
+                                                timeZone: 'Asia/Kolkata',
+                                                day: '2-digit',
+                                                month: 'short',
+                                                year: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                second: '2-digit',
+                                                hour12: true
+                                            })}
                                         </td>
                                         <td className="py-2 px-4">{log.recipient}</td>
                                         <td className="py-2 px-4 max-w-md truncate">

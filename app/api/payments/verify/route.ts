@@ -201,28 +201,32 @@ export async function POST(request: NextRequest) {
         `UPDATE bookings 
          SET status = 'confirmed',
              payment_status = 'completed',
-             payment_details = COALESCE(payment_details::jsonb, '{}'::jsonb) || 
-                             jsonb_build_object(
-                               'payment_capture', $1::jsonb,
-                               'razorpay_payment_id', $3,
-                               'razorpay_order_id', $4,
-                               'payment_status', 'completed',
-                               'payment_completed_at', NOW(),
-                               'amount_paid', $5,
-                               'currency', $6
-                             ),
+             payment_details = jsonb_build_object(
+               'payment_capture', $1::jsonb,
+               'razorpay_payment_id', $2::text,
+               'razorpay_order_id', $3::text,
+               'payment_status', 'completed',
+               'payment_completed_at', CURRENT_TIMESTAMP,
+               'amount_paid', $4::numeric,
+               'currency', $5::text
+             ),
              updated_at = CURRENT_TIMESTAMP
-         WHERE booking_id = $2
+         WHERE booking_id = $6::text
          RETURNING id, booking_id, status, payment_status, payment_details`,
         [
-          JSON.stringify(captureResponse), 
-          booking_id,
+          JSON.stringify(captureResponse),
           razorpay_payment_id,
           razorpay_order_id,
           Number(captureAmount) / 100,
-          order.currency
+          order.currency,
+          booking_id
         ]
       );
+
+      if (!updateResult.rows.length) {
+        logger.error('Failed to update booking status', { booking_id });
+        throw new Error('Failed to update booking status');
+      }
 
       const updatedBooking = updateResult.rows[0];
       

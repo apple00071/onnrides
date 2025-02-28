@@ -7,6 +7,7 @@ import logger from '@/lib/logger';
 
 interface Booking {
   id: string;
+  booking_id: string;
   vehicle_name: string;
   pickup_datetime: string;
   dropoff_datetime: string;
@@ -15,89 +16,209 @@ interface Booking {
   total_amount: number;
   status: string;
   payment_status: string;
+  created_at: string;
+}
+
+interface PaginationData {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export default function MyBooking() {
-  const [booking, setBooking] = useState<Booking | null>(null);
+  const [currentBooking, setCurrentBooking] = useState<Booking | null>(null);
+  const [bookingHistory, setBookingHistory] = useState<Booking[]>([]);
+  const [pagination, setPagination] = useState<PaginationData>({ total: 0, page: 1, limit: 10, totalPages: 0 });
   const [loading, setLoading] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const { user } = useAuth();
 
-  useEffect(() => {
-    const fetchBooking = async () => {
-      try {
-        const response = await fetch('/api/user/current-booking');
-        if (!response.ok) {
-          throw new Error('Failed to fetch booking');
-        }
-        const data = await response.json();
-        setBooking(data.booking);
-      } catch (error) {
-        logger.error('Error fetching booking:', error);
-        toast.error('Failed to load booking details. Please try again.');
-      } finally {
-        setLoading(false);
+  const fetchCurrentBooking = async () => {
+    try {
+      const response = await fetch('/api/user/current-booking');
+      if (!response.ok) {
+        throw new Error('Failed to fetch current booking');
       }
-    };
+      const data = await response.json();
+      setCurrentBooking(data.booking);
+    } catch (error) {
+      logger.error('Error fetching current booking:', error);
+      toast.error('Failed to load current booking details.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const fetchBookingHistory = async (page = 1) => {
+    try {
+      setHistoryLoading(true);
+      const response = await fetch(`/api/user/bookings?page=${page}&limit=10`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch booking history');
+      }
+      const data = await response.json();
+      setBookingHistory(data.bookings);
+      setPagination(data.pagination);
+    } catch (error) {
+      logger.error('Error fetching booking history:', error);
+      toast.error('Failed to load booking history.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (user) {
-      fetchBooking();
+      // Initial fetches
+      fetchCurrentBooking();
+      fetchBookingHistory();
+
+      // Set up polling for current booking
+      const intervalId = setInterval(fetchCurrentBooking, 10000);
+
+      // Cleanup interval on unmount
+      return () => clearInterval(intervalId);
     } else {
       setLoading(false);
+      setHistoryLoading(false);
     }
   }, [user]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
+  // Format date to IST
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      logger.error('Error formatting date:', { dateString, error });
+      return 'Invalid date';
+    }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchBookingHistory(newPage);
+    }
+  };
 
   if (!user) {
     return (
       <div className="p-4">
         <div className="text-center py-12">
-          <p className="text-gray-600 mb-4">Please log in to view your booking.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!booking) {
-    return (
-      <div className="p-4">
-        <h1 className="text-2xl font-bold mb-4">My Booking</h1>
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <p className="text-gray-600">You don&apos;t have any active bookings.</p>
+          <p className="text-gray-600 mb-4">Please log in to view your bookings.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">My Booking</h1>
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h2 className="text-xl font-semibold mb-4">{booking.vehicle_name}</h2>
-            <div className="space-y-2">
-              <p><span className="font-medium">Pickup:</span> {new Date(booking.pickup_datetime).toLocaleString()}</p>
-              <p><span className="font-medium">Dropoff:</span> {new Date(booking.dropoff_datetime).toLocaleString()}</p>
-              <p><span className="font-medium">From:</span> {booking.pickup_location}</p>
-              <p><span className="font-medium">To:</span> {booking.drop_location}</p>
+    <div className="p-4 space-y-8">
+      {/* Current Booking Section */}
+      <section>
+        <h1 className="text-2xl font-bold mb-4">Current Booking</h1>
+        {loading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
+          </div>
+        ) : currentBooking ? (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-4">{currentBooking.vehicle_name}</h2>
+                <div className="space-y-2">
+                  <p><span className="font-medium">Pickup:</span> {formatDate(currentBooking.pickup_datetime)}</p>
+                  <p><span className="font-medium">Dropoff:</span> {formatDate(currentBooking.dropoff_datetime)}</p>
+                  <p><span className="font-medium">From:</span> {currentBooking.pickup_location}</p>
+                  <p><span className="font-medium">To:</span> {currentBooking.drop_location}</p>
+                </div>
+              </div>
+              <div>
+                <div className="space-y-2">
+                  <p><span className="font-medium">Booking ID:</span> {currentBooking.booking_id}</p>
+                  <p><span className="font-medium">Status:</span> <span className="capitalize">{currentBooking.status}</span></p>
+                  <p><span className="font-medium">Payment Status:</span> <span className="capitalize">{currentBooking.payment_status}</span></p>
+                  <p><span className="font-medium">Total Amount:</span> ₹{currentBooking.total_amount}</p>
+                </div>
+              </div>
             </div>
           </div>
-          <div>
-            <div className="space-y-2">
-              <p><span className="font-medium">Status:</span> <span className="capitalize">{booking.status}</span></p>
-              <p><span className="font-medium">Payment Status:</span> <span className="capitalize">{booking.payment_status}</span></p>
-              <p><span className="font-medium">Total Amount:</span> ₹{booking.total_amount}</p>
-            </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <p className="text-gray-600">You don&apos;t have any active bookings.</p>
           </div>
-        </div>
-      </div>
+        )}
+      </section>
+
+      {/* Booking History Section */}
+      <section>
+        <h2 className="text-2xl font-bold mb-4">Booking History</h2>
+        {historyLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
+          </div>
+        ) : bookingHistory.length > 0 ? (
+          <>
+            <div className="space-y-4">
+              {bookingHistory.map((booking) => (
+                <div key={booking.id} className="bg-white rounded-lg shadow-md p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">{booking.vehicle_name}</h3>
+                      <div className="space-y-2">
+                        <p><span className="font-medium">Booking ID:</span> {booking.booking_id}</p>
+                        <p><span className="font-medium">Pickup:</span> {formatDate(booking.pickup_datetime)}</p>
+                        <p><span className="font-medium">Dropoff:</span> {formatDate(booking.dropoff_datetime)}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p><span className="font-medium">Status:</span> <span className="capitalize">{booking.status}</span></p>
+                      <p><span className="font-medium">Payment Status:</span> <span className="capitalize">{booking.payment_status}</span></p>
+                      <p><span className="font-medium">Total Amount:</span> ₹{booking.total_amount}</p>
+                      <p><span className="font-medium">Booked on:</span> {formatDate(booking.created_at)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {pagination.totalPages > 1 && (
+              <div className="flex justify-center items-center space-x-4 mt-6">
+                <button
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                  disabled={pagination.page === 1}
+                  className="px-4 py-2 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Previous
+                </button>
+                <span className="text-gray-600">
+                  Page {pagination.page} of {pagination.totalPages}
+                </span>
+                <button
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                  disabled={pagination.page === pagination.totalPages}
+                  className="px-4 py-2 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <p className="text-gray-600">No booking history found.</p>
+          </div>
+        )}
+      </section>
     </div>
   );
 } 

@@ -56,13 +56,22 @@ const formatDateTime = (date: string | Date) => {
     
     // Check if date is valid
     if (isNaN(dateObj.getTime())) {
-      console.error('Invalid date value:', date);
+      logger.error('Invalid date value:', date);
       return 'Invalid date';
     }
     
-    return format(dateObj, 'MMM dd, yyyy hh:mm a');
+    // Convert directly to IST without adding offset since the dates are already in UTC
+    return dateObj.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
   } catch (error) {
-    console.error('Error formatting date:', { date, error });
+    logger.error('Error formatting date:', { date, error });
     return 'Invalid date';
   }
 };

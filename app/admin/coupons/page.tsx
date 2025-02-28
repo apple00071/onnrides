@@ -74,10 +74,12 @@ export default function CouponsPage() {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
+    const date = new Date(dateString);
+    return date.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
       month: 'short',
-      day: 'numeric'
+      year: 'numeric'
     });
   };
 

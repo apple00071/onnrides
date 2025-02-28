@@ -100,114 +100,102 @@ try {
 // GET /api/bookings - List user's bookings
 export async function GET(request: NextRequest) {
   try {
-    logger.info('GET /api/bookings - Fetching user bookings');
-
     const session = await getServerSession(authOptions);
-    logger.info('Session check:', {
-      hasSession: !!session,
-      user: session?.user ? {
-        id: session.user.id,
-        email: session.user.email
-      } : null
-    });
-
     if (!session?.user) {
-      logger.error('Unauthorized access attempt');
-      return NextResponse.json({ 
-        success: false,
-        error: 'Authentication required',
-        details: 'User session not found'
-      }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
+    // Get URL parameters
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '10');
+    const offset = (page - 1) * limit;
+
+    // Get total count for pagination
+    const countResult = await query(`
+      SELECT COUNT(*) 
+      FROM bookings 
+      WHERE user_id = $1
+    `, [session.user.id]);
+
+    const totalBookings = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalBookings / limit);
+
+    // Get all bookings with vehicle information
     const result = await query(`
       SELECT 
         b.*,
         v.name as vehicle_name,
-        v.location as vehicle_location,
         v.type as vehicle_type,
+        v.location as vehicle_location,
         v.images as vehicle_images,
         v.price_per_hour as vehicle_price_per_hour,
-        b.start_date AT TIME ZONE 'Asia/Kolkata' as start_date,
-        b.end_date AT TIME ZONE 'Asia/Kolkata' as end_date,
-        b.created_at AT TIME ZONE 'Asia/Kolkata' as created_at,
-        b.updated_at AT TIME ZONE 'Asia/Kolkata' as updated_at,
-        b.booking_id
+        b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as pickup_datetime,
+        b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as dropoff_datetime,
+        b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
+        b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at
       FROM bookings b
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.user_id = $1 
-        AND b.start_date >= CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'
-      ORDER BY b.start_date ASC
-    `, [session.user.id]);
-    
-    logger.info('Database query completed', {
-      rowCount: result.rows.length
+      WHERE b.user_id = $1
+      ORDER BY 
+        CASE 
+          WHEN b.status = 'confirmed' AND b.payment_status = 'completed' AND b.end_date > CURRENT_TIMESTAMP THEN 1
+          WHEN b.status = 'pending' THEN 2
+          ELSE 3
+        END,
+        b.created_at DESC
+      LIMIT $2 OFFSET $3
+    `, [session.user.id, limit, offset]);
+
+    // Format the bookings
+    const bookings = result.rows.map(booking => ({
+      id: booking.id,
+      booking_id: booking.booking_id,
+      status: booking.status,
+      start_date: booking.pickup_datetime,
+      end_date: booking.dropoff_datetime,
+      total_price: parseFloat(booking.total_price || 0),
+      payment_status: booking.payment_status || 'pending',
+      created_at: booking.created_at,
+      updated_at: booking.updated_at,
+      vehicle: {
+        id: booking.vehicle_id,
+        name: booking.vehicle_name,
+        type: booking.vehicle_type,
+        location: booking.vehicle_location,
+        images: booking.vehicle_images,
+        price_per_hour: booking.vehicle_price_per_hour
+      }
+    }));
+
+    logger.info('Bookings fetched successfully', {
+      userId: session.user.id,
+      page,
+      limit,
+      totalBookings,
+      bookingsCount: bookings.length
     });
-    
-    // Log raw data for debugging
-    if (result.rows.length > 0) {
-      logger.info('First booking raw data:', {
-        firstBooking: JSON.stringify(result.rows[0], null, 2)
-      });
-    }
-    
-    const bookings = result.rows.map(booking => {
-      // Format dates in IST
-      const formatToIST = (date: Date | string) => {
-        const d = new Date(date);
-        return d.toLocaleString('en-IN', {
-          timeZone: 'Asia/Kolkata',
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
-        });
-      };
-      
-      return {
-        id: booking.id,
-        booking_id: booking.booking_id || `OR${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
-        status: booking.status,
-        start_date: formatToIST(booking.start_date),
-        end_date: formatToIST(booking.end_date),
-        total_price: parseFloat(booking.total_price),
-        payment_status: booking.payment_status,
-        created_at: formatToIST(booking.created_at),
-        updated_at: formatToIST(booking.updated_at),
-        vehicle: {
-          id: booking.vehicle_id,
-          name: booking.vehicle_name,
-          type: booking.vehicle_type,
-          location: booking.vehicle_location,
-          images: booking.vehicle_images,
-          price_per_hour: parseFloat(booking.vehicle_price_per_hour || 0)
-        }
-      };
-    });
-    
-    // Log transformed data for debugging
-    if (bookings.length > 0) {
-      logger.info('First booking transformed data:', {
-        firstBooking: JSON.stringify(bookings[0], null, 2)
-      });
-    }
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       success: true,
-      data: bookings
+      data: bookings,
+      pagination: {
+        total: totalBookings,
+        page,
+        limit,
+        totalPages
+      }
     });
+
   } catch (error) {
-    logger.error('Error fetching bookings:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
-    return NextResponse.json({ 
-      success: false,
-      error: 'Failed to fetch bookings',
-      details: error instanceof Error ? error.message : 'Unknown error occurred'
-    }, { status: 500 });
+    logger.error('Error fetching bookings:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch bookings' },
+      { status: 500 }
+    );
   }
 }
 

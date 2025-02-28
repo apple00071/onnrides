@@ -26,6 +26,13 @@ interface Booking {
   booking_id: string;
 }
 
+interface PaginationData {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 declare global {
   interface Window {
     Razorpay: any;
@@ -38,23 +45,28 @@ export default function BookingsPage() {
   const bookingNumber = searchParams.get('booking_number');
   
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [pagination, setPagination] = useState<PaginationData>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 0
+  });
   const [loading, setLoading] = useState(true);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Helper function to safely format dates
-  const formatDate = (dateString: string, formatStr: string) => {
+  const formatDate = (dateString: string) => {
     try {
-      if (!dateString) {
-        logger.error('Empty date string received');
-        return 'Date not available';
-      }
-      const date = parseISO(dateString);
-      if (!isValid(date)) {
-        logger.error('Invalid date:', { dateString });
-        return 'Invalid date';
-      }
-      return format(date, formatStr);
+      const date = new Date(dateString);
+      return date.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
     } catch (error) {
       logger.error('Error formatting date:', { dateString, error });
       return 'Invalid date';
@@ -77,6 +89,38 @@ export default function BookingsPage() {
     }
   };
 
+  const fetchBookings = async (page = 1) => {
+    try {
+      setLoading(true);
+      setError(null);
+      logger.info('Fetching bookings for page:', page);
+
+      const response = await fetch(`/api/bookings?page=${page}&limit=10`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookings');
+      }
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch bookings');
+      }
+
+      setBookings(data.data);
+      setPagination(data.pagination);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch bookings';
+      logger.error('Error in fetchBookings:', {
+        error,
+        message: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Show success message if booking was just completed
     if (success && bookingNumber) {
@@ -85,177 +129,12 @@ export default function BookingsPage() {
   }, [success, bookingNumber]);
 
   useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        logger.info('Starting to fetch bookings...');
-
-        const response = await fetch('/api/bookings');
-        const responseText = await response.text();
-        logger.info('Raw API response:', { 
-          status: response.status,
-          statusText: response.statusText,
-          responseText
-        });
-
-        let data;
-        try {
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          logger.error('Failed to parse API response:', {
-            error: parseError,
-            responseText
-          });
-          throw new Error('Invalid response from server');
-        }
-
-        logger.info('Parsed API response:', {
-          success: data.success,
-          hasData: !!data.data,
-          dataLength: data.data?.length,
-          firstBooking: data.data?.[0] ? {
-            id: data.data[0].id,
-            status: data.data[0].status,
-            dates: {
-              start: data.data[0].start_date,
-              end: data.data[0].end_date
-            }
-          } : null
-        });
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch bookings');
-        }
-
-        if (!data.success) {
-          throw new Error(data.error || 'Failed to fetch bookings');
-        }
-
-        if (!Array.isArray(data.data)) {
-          logger.error('Invalid data format:', { data });
-          throw new Error('Invalid data format received');
-        }
-
-        setBookings(data.data);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch bookings';
-        logger.error('Error in fetchBookings:', {
-          error,
-          message: errorMessage,
-          stack: error instanceof Error ? error.stack : undefined
-        });
-        setError(errorMessage);
-        toast.error(errorMessage);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchBookings();
   }, []);
 
-  // Log component state changes
-  useEffect(() => {
-    logger.info('Bookings state updated:', {
-      loading,
-      error,
-      bookingsCount: bookings.length,
-      hasBookings: bookings.length > 0,
-      firstBooking: bookings[0] ? {
-        id: bookings[0].id,
-        status: bookings[0].status
-      } : null
-    });
-  }, [bookings, loading, error]);
-
-  const handleMakePayment = async (booking: Booking) => {
-    if (isProcessingPayment) {
-      return;
-    }
-
-    if (!booking || !booking.id) {
-      toast.error('Invalid booking information');
-      return;
-    }
-
-    try {
-      setIsProcessingPayment(true);
-      logger.debug('Initiating payment for booking:', booking.id);
-
-      // Check if Razorpay is loaded
-      if (typeof window.Razorpay === 'undefined') {
-        throw new Error('Payment system is not loaded yet. Please refresh the page.');
-      }
-
-      // Create order
-      const response = await fetch('/api/payments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ bookingId: booking.id }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to create payment order');
-      }
-
-      const data = await response.json();
-      logger.debug('Payment order created:', data);
-
-      // Initialize Razorpay
-      const options = {
-        key: data.key,
-        amount: data.amount,
-        currency: data.currency,
-        name: data.name,
-        description: data.description,
-        order_id: data.order_id,
-        prefill: data.prefill,
-        theme: data.theme,
-        handler: async function (response: any) {
-          try {
-            logger.debug('Payment successful, verifying...', response);
-            const verifyResponse = await fetch('/api/payments/verify', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                bookingId: booking.id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            });
-
-            if (!verifyResponse.ok) {
-              throw new Error('Payment verification failed');
-            }
-
-            toast.success('Payment successful!');
-            window.location.href = `/bookings?success=true&booking_number=${booking.id}`;
-          } catch (error) {
-            logger.error('Payment verification error:', error);
-            toast.error('Payment verification failed');
-          }
-        },
-        modal: {
-          ondismiss: function() {
-            setIsProcessingPayment(false);
-          }
-        }
-      };
-
-      logger.debug('Initializing Razorpay with options:', { ...options, key: '***' });
-      const razorpay = new window.Razorpay(options);
-      razorpay.open();
-    } catch (error) {
-      logger.error('Payment initiation error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to initiate payment');
-      setIsProcessingPayment(false);
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchBookings(newPage);
     }
   };
 
@@ -277,15 +156,31 @@ export default function BookingsPage() {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Bookings</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button 
-            onClick={() => window.location.reload()}
+            onClick={() => fetchBookings(pagination.page)}
             className="text-sm text-blue-600 hover:text-blue-800"
           >
-            Try refreshing the page
+            Try again
           </button>
         </div>
       </div>
     );
   }
+
+  const currentBookings = bookings.filter(booking => 
+    booking.status === 'confirmed' && 
+    booking.payment_status === 'completed' && 
+    new Date(booking.end_date) > new Date()
+  );
+
+  const pendingBookings = bookings.filter(booking => 
+    booking.status === 'pending' || 
+    (booking.status === 'confirmed' && booking.payment_status === 'pending')
+  );
+
+  const pastBookings = bookings.filter(booking => 
+    (booking.status === 'completed' || new Date(booking.end_date) <= new Date()) ||
+    booking.status === 'cancelled'
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -296,104 +191,164 @@ export default function BookingsPage() {
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <p className="text-gray-500">No bookings found</p>
             <button 
-              onClick={() => window.location.reload()}
+              onClick={() => fetchBookings(1)}
               className="mt-4 text-sm text-blue-600 hover:text-blue-800"
             >
-              Refresh page
+              Refresh
             </button>
           </div>
         ) : (
-          <div className="grid gap-6">
-            {bookings.map((booking) => {
-              // Log each booking being rendered
-              logger.debug('Rendering booking:', {
-                id: booking.id,
-                status: booking.status,
-                dates: {
-                  start: booking.start_date,
-                  end: booking.end_date
-                }
-              });
-
-              return (
-                <div
-                  key={booking.id}
-                  className="bg-white rounded-lg shadow overflow-hidden"
-                >
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-lg font-semibold text-gray-900">
-                        {booking.vehicle?.name || 'Vehicle name not available'}
-                        <span className="ml-2 text-sm text-gray-500">
-                          {booking.booking_id ? `#${booking.booking_id}` : ''}
-                        </span>
-                      </h2>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          booking.status === 'cancelled'
-                            ? 'bg-red-100 text-red-800'
-                            : booking.payment_status === 'completed'
-                            ? 'bg-green-100 text-green-800'
-                            : booking.payment_status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {booking.status === 'cancelled'
-                            ? 'Cancelled'
-                            : booking.payment_status === 'completed'
-                            ? 'Confirmed'
-                            : booking.payment_status === 'pending'
-                            ? 'Payment Pending'
-                            : booking.status}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Pickup</p>
-                        <div>
-                          <p className="font-medium">
-                            {formatDate(booking.start_date, 'MMM d, yyyy')}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {formatDate(booking.start_date, 'hh:mm a')}
-                          </p>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {parseLocation(booking.vehicle?.location)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Drop-off</p>
-                        <div>
-                          <p className="font-medium">
-                            {formatDate(booking.end_date, 'MMM d, yyyy')}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {formatDate(booking.end_date, 'hh:mm a')}
-                          </p>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {parseLocation(booking.vehicle?.location)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-4 border-t">
-                      <div>
-                        <p className="text-sm text-gray-500">Total Amount</p>
-                        <p className="text-lg font-semibold">
-                          ₹{(booking.total_price || 0).toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+          <div className="space-y-8">
+            {/* Current Bookings */}
+            {currentBookings.length > 0 && (
+              <section>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Current Bookings</h2>
+                <div className="grid gap-6">
+                  {currentBookings.map(booking => (
+                    <BookingCard 
+                      key={booking.id} 
+                      booking={booking}
+                      formatDate={formatDate}
+                      parseLocation={parseLocation}
+                    />
+                  ))}
                 </div>
-              );
-            })}
+              </section>
+            )}
+
+            {/* Pending Bookings */}
+            {pendingBookings.length > 0 && (
+              <section>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Pending Bookings</h2>
+                <div className="grid gap-6">
+                  {pendingBookings.map(booking => (
+                    <BookingCard 
+                      key={booking.id} 
+                      booking={booking}
+                      formatDate={formatDate}
+                      parseLocation={parseLocation}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Past Bookings */}
+            {pastBookings.length > 0 && (
+              <section>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Past Bookings</h2>
+                <div className="grid gap-6">
+                  {pastBookings.map(booking => (
+                    <BookingCard 
+                      key={booking.id} 
+                      booking={booking}
+                      formatDate={formatDate}
+                      parseLocation={parseLocation}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Pagination */}
+            {pagination.totalPages > 1 && (
+              <div className="flex justify-center items-center space-x-4 mt-8">
+                <button
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                  disabled={pagination.page === 1}
+                  className="px-4 py-2 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Previous
+                </button>
+                <span className="text-gray-600">
+                  Page {pagination.page} of {pagination.totalPages}
+                </span>
+                <button
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                  disabled={pagination.page === pagination.totalPages}
+                  className="px-4 py-2 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// BookingCard component
+function BookingCard({ 
+  booking, 
+  formatDate, 
+  parseLocation
+}: { 
+  booking: Booking;
+  formatDate: (date: string) => string;
+  parseLocation: (location: string | string[]) => string;
+}) {
+  return (
+    <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {booking.vehicle?.name || 'Vehicle name not available'}
+            <span className="ml-2 text-sm text-gray-500">
+              {booking.booking_id ? `#${booking.booking_id}` : ''}
+            </span>
+          </h3>
+          <div className="flex items-center gap-2">
+            <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+              booking.status === 'cancelled'
+                ? 'bg-red-100 text-red-800'
+                : booking.payment_status === 'completed'
+                ? 'bg-green-100 text-green-800'
+                : booking.payment_status === 'pending'
+                ? 'bg-yellow-100 text-yellow-800'
+                : 'bg-gray-100 text-gray-800'
+            }`}>
+              {booking.status === 'cancelled'
+                ? 'Cancelled'
+                : booking.payment_status === 'completed'
+                ? 'Confirmed'
+                : booking.payment_status === 'pending'
+                ? 'Payment Pending'
+                : booking.status}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <p className="text-sm text-gray-500">Pickup</p>
+            <div>
+              <p className="font-medium">{formatDate(booking.start_date)}</p>
+              <p className="text-sm text-gray-600 mt-1">
+                {parseLocation(booking.vehicle?.location)}
+              </p>
+            </div>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Drop-off</p>
+            <div>
+              <p className="font-medium">{formatDate(booking.end_date)}</p>
+              <p className="text-sm text-gray-600 mt-1">
+                {parseLocation(booking.vehicle?.location)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-4 border-t mt-4">
+          <div>
+            <p className="text-sm text-gray-500">Total Amount</p>
+            <p className="text-lg font-semibold">
+              ₹{(booking.total_price || 0).toFixed(2)}
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
