@@ -63,12 +63,12 @@ export class EmailService {
     try {
       // Create transporter with Gmail SMTP configuration
       this.transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
         port: parseInt(process.env.SMTP_PORT || '465'),
         secure: true,
         auth: {
           user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASSWORD,
+          pass: process.env.SMTP_PASS,
         },
         tls: {
           rejectUnauthorized: false
@@ -78,13 +78,26 @@ export class EmailService {
       // Verify connection configuration
       await this.transporter.verify();
       this.initialized = true;
-      logger.info('Email service initialized successfully with Gmail SMTP');
+      logger.info('Email service initialized successfully with Gmail SMTP', {
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT,
+        user: process.env.SMTP_USER?.substring(0, 5) + '...',
+        from: process.env.SMTP_FROM
+      });
 
       // Initialize database table
       await this.initializeDatabase();
     } catch (error) {
       this.initialized = false;
-      logger.error('Email service initialization failed:', error);
+      logger.error('Email service initialization failed:', {
+        error,
+        smtp: {
+          host: process.env.SMTP_HOST,
+          port: process.env.SMTP_PORT,
+          user: process.env.SMTP_USER?.substring(0, 5) + '...',
+          from: process.env.SMTP_FROM
+        }
+      });
       throw error;
     }
   }
