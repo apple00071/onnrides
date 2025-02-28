@@ -1,6 +1,8 @@
 import Image from 'next/image';
 import { Phone } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function MaintenancePage() {
   const phoneNumbers = [
     '+91 83090 31203',

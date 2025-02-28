@@ -265,11 +265,11 @@ export async function POST(request: NextRequest): Promise<Response> {
       }
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
+        return NextResponse.json({
+          success: true,
+          data: {
         bookingId: newBooking.id,
-        orderId: order.id,
+            orderId: order.id,
         amount: advancePayment
       }
     });

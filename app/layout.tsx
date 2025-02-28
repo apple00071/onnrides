@@ -1,20 +1,18 @@
 import '@/lib/polyfills';
-import logger from '@/lib/logger';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
 import { Providers } from './providers';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth/config';
-import { AuthProvider } from '@/providers/AuthProvider';
+import { authOptions } from '@/lib/auth';
+import { AuthProvider } from './providers/AuthProvider';
 import { ScriptLoader } from '@/components/ScriptLoader';
 import { NotificationBar } from '@/components/ui/NotificationBar';
 import JsonLd from './components/JsonLd';
 import { headers } from 'next/headers';
 import ClientLayout from './ClientLayout';
 import RazorpayProvider from './providers/RazorpayProvider';
-import db from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,11 +89,22 @@ export const metadata: Metadata = {
   },
 };
 
-// Initialize database connection
-db.initializeDatabase()
-  .catch(error => {
-    logger.error('Failed to initialize database connection:', error);
-  });
+async function checkMaintenanceMode(): Promise<boolean> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/maintenance/check`, {
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      console.error('Failed to check maintenance mode:', response.statusText);
+      return false;
+    }
+    const data = await response.json();
+    return Boolean(data.maintenance);
+  } catch (error) {
+    console.error('Error checking maintenance mode:', error);
+    return false;
+  }
+}
 
 export default async function RootLayout({
   children,
@@ -104,7 +113,21 @@ export default async function RootLayout({
 }) {
   const session = await getServerSession(authOptions);
   const pathname = headers().get('x-pathname') || '/';
-  const isAdminPage = pathname.startsWith('/admin');
+  const isMaintenancePath = pathname.startsWith('/maintenance');
+  const isAdminPath = pathname.startsWith('/admin');
+  const isApiPath = pathname.startsWith('/api');
+  const isNextPath = pathname.startsWith('/_next');
+
+  // Skip maintenance check for certain paths
+  if (!isMaintenancePath && !isAdminPath && !isApiPath && !isNextPath) {
+    const isMaintenanceMode = await checkMaintenanceMode();
+    if (isMaintenanceMode) {
+      const { redirect } = await import('next/navigation');
+      redirect('/maintenance');
+    }
+  }
+
+  const headersList = headers();
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
 
   const structuredData = {
@@ -209,7 +232,7 @@ export default async function RootLayout({
         <RazorpayProvider>
           <Providers session={session}>
             <AuthProvider>
-              {!isAdminPage && <NotificationBar />}
+              {!isAdminPath && <NotificationBar />}
               <Toaster
                 position="bottom-center"
                 toastOptions={{

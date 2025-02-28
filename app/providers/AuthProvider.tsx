@@ -1,21 +1,22 @@
-import logger from '@/lib/logger';
 'use client';
 
+import logger from '@/lib/logger';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface User {
   id: string;
   email: string;
+  name: string | null;
   role: 'user' | 'admin';
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  error: string | null;
+  setUser: (user: User | null) => void;
   logout: () => Promise<void>;
-  signup: (email: string, password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,83 +24,44 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    checkAuth();
+    const checkUser = async () => {
+      try {
+        const response = await fetch('/api/auth/session');
+        const session = await response.json();
+
+        if (session?.user) {
+          setUser(session.user);
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
+        logger.error('Error checking auth session:', err);
+        setError('Failed to authenticate');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkUser();
   }, []);
-
-  const checkAuth = async () => {
-    try {
-      const response = await fetch('/api/auth/me');
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      }
-    } catch (error) {
-      logger.error('Auth check failed:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const login = async (email: string, password: string) => {
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Login failed');
-      }
-
-      const userData = await response.json();
-      setUser(userData);
-      router.push('/dashboard');
-    } catch (error) {
-      logger.error('Login failed:', error);
-      throw error;
-    }
-  };
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/signout', { method: 'POST' });
       setUser(null);
-      router.push('/login');
-    } catch (error) {
-      logger.error('Logout failed:', error);
-      throw error;
-    }
-  };
-
-  const signup = async (email: string, password: string) => {
-    try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Signup failed');
-      }
-
-      const userData = await response.json();
-      setUser(userData);
-      router.push('/dashboard');
-    } catch (error) {
-      logger.error('Signup failed:', error);
-      throw error;
+      router.push('/');
+    } catch (err) {
+      logger.error('Error signing out:', err);
+      setError('Failed to sign out');
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, signup }}>
+    <AuthContext.Provider value={{ user, loading, error, setUser, logout }}>
       {children}
     </AuthContext.Provider>
   );
