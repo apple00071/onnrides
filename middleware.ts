@@ -2,38 +2,55 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-// Define public routes that should bypass middleware
-const publicRoutes = [
-  '/',
-  '/auth/signin',
-  '/auth/signup',
-  '/auth/forgot-password',
-  '/auth/reset-password',
-  '/about',
-  '/contact',
-  '/vehicles',
-  '/search'
-];
-
-// Define API routes that require authentication
-const protectedApiRoutes = [
-  '/api/user',
-  '/api/bookings',
+// Define paths that should be accessible during maintenance mode
+const maintenanceAllowedPaths = [
+  '/maintenance',
+  '/admin',
+  '/api/admin',
+  '/_next',
+  '/favicon.ico',
+  '/logo.png',
+  '/auth/signin',  // Allow sign-in during maintenance
 ];
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  // Get the pathname
+  const url = new URL(request.url);
+  const pathname = url.pathname;
 
-  // Allow public routes
-  if (publicRoutes.some(route => pathname.startsWith(route))) {
-    return NextResponse.next();
+  // Check maintenance mode first, before any other checks
+  const isMaintenanceMode = process.env.MAINTENANCE_MODE === 'true';
+  
+  if (isMaintenanceMode) {
+    // Check if current path is allowed during maintenance
+    const isAllowedPath = maintenanceAllowedPaths.some(path => 
+      pathname.startsWith(path)
+    );
+
+    // If path is not allowed during maintenance, check if user is admin
+    if (!isAllowedPath) {
+      const token = await getToken({ req: request });
+      const isAdmin = token?.role === 'admin';
+
+      // If not admin, redirect to maintenance page
+      if (!isAdmin) {
+        return NextResponse.redirect(new URL('/maintenance', request.url));
+      }
+    }
   }
 
-  // Check for authentication token
+  // Continue with normal auth checks
   const token = await getToken({ req: request });
 
+  // Handle admin routes
+  if (pathname.startsWith('/admin')) {
+    if (!token || token.role !== 'admin') {
+      return NextResponse.redirect(new URL('/auth/signin', request.url));
+    }
+  }
+
   // Handle protected API routes
-  if (protectedApiRoutes.some(route => pathname.startsWith(route))) {
+  if (pathname.startsWith('/api/user') || pathname.startsWith('/api/bookings')) {
     if (!token) {
       return new NextResponse(
         JSON.stringify({ error: 'Authentication required' }),
@@ -42,30 +59,19 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // For admin routes, check if user has admin role
-  if (pathname.startsWith('/admin')) {
-    if (!token || token.role !== 'admin') {
-      return NextResponse.redirect(new URL('/auth/signin', request.url));
-    }
-  }
-
-  // For authenticated routes, redirect to login if no token
-  if (!token) {
-    const callbackUrl = encodeURIComponent(pathname);
-    return NextResponse.redirect(new URL(`/auth/signin?callbackUrl=${callbackUrl}`, request.url));
-  }
-
-  return NextResponse.next();
+  // Allow the request to continue
+  return NextResponse.rewrite(url);
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * Match all paths except:
+     * 1. /api/admin/* (admin API routes)
+     * 2. /_next/* (static files)
+     * 3. /favicon.ico, /logo.png (static files)
+     * 4. /maintenance (maintenance page)
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!api/admin|_next|favicon.ico|logo.png|maintenance).*)',
   ],
 };  

@@ -5,6 +5,9 @@ import { db, query } from '@/lib/db';
 import logger from '@/lib/logger';
 import type { Vehicle, VehicleStatus } from '@/lib/schema';
 import { revalidatePath } from 'next/cache';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export async function GET(
   request: NextRequest,
@@ -148,31 +151,49 @@ export async function DELETE(
 
     const { vehicleId } = params;
 
-    // Check if vehicle exists
-    const vehicle = await db
-      .selectFrom('vehicles')
-      .selectAll()
-      .where('id', '=', vehicleId)
-      .executeTakeFirst();
+    // First check for any active bookings
+    const activeBookings = await db
+      .selectFrom('bookings')
+      .select(['id'])
+      .where('vehicle_id', '=', vehicleId)
+      .where('status', 'in', ['pending', 'confirmed'])
+      .execute();
 
-    if (!vehicle) {
-      return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
+    if (activeBookings.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Cannot delete vehicle with active bookings. Please cancel or complete all active bookings first.'
+        },
+        { status: 400 }
+      );
     }
 
-    // Delete the vehicle
-    await db
-      .deleteFrom('vehicles')
+    // Instead of deleting, update the vehicle status to 'retired'
+    const [updatedVehicle] = await db
+      .updateTable('vehicles')
+      .set({
+        status: 'retired' as VehicleStatus,
+        is_available: false,
+        updated_at: new Date()
+      })
       .where('id', '=', vehicleId)
+      .returning(['id', 'name', 'status', 'is_available'])
       .execute();
 
     return NextResponse.json({
       success: true,
-      message: 'Vehicle deleted successfully'
+      message: 'Vehicle retired successfully',
+      vehicle: updatedVehicle
     });
+
   } catch (error) {
-    logger.error('Error deleting vehicle:', error);
+    logger.error('Error retiring vehicle:', error);
     return NextResponse.json(
-      { error: 'Failed to delete vehicle' },
+      {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to retire vehicle'
+      },
       { status: 500 }
     );
   }

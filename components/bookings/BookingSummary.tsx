@@ -30,6 +30,10 @@ export function BookingSummary({ booking, onProceedToPayment }: BookingSummaryPr
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [couponCode, setCouponCode] = useState('');
 
+  // Calculate advance payment and remaining amount
+  const advancePayment = booking.total_price * 0.05;
+  const remainingPayment = booking.total_price - advancePayment;
+
   const handleProceed = () => {
     logger.debug('Proceed button clicked', { hasSession: !!session?.user });
     
@@ -171,6 +175,21 @@ export function BookingSummary({ booking, onProceedToPayment }: BookingSummaryPr
                 <span className="text-gray-900">{formatCurrency(booking.total_price)}</span>
               </div>
               <p className="text-xs text-gray-500 text-right">Inclusive of all taxes</p>
+            </div>
+
+            {/* Payment Breakdown */}
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex justify-between text-sm text-[#f26e24] font-medium">
+                <span>Advance Payment (5%)</span>
+                <span>{formatCurrency(advancePayment)}</span>
+              </div>
+              <div className="flex justify-between text-sm mt-1">
+                <span className="text-gray-600">Remaining Payment (Cash)</span>
+                <span>{formatCurrency(remainingPayment)}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                * Pay 5% advance online to confirm your booking. Remaining amount to be paid in cash during pickup.
+              </p>
             </div>
 
             <button

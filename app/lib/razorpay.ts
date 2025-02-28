@@ -45,6 +45,7 @@ export async function createOrder({
       currency,
       receipt,
       notes,
+      payment_capture: false // Disable automatic capture
     });
 
     // Convert string amounts to numbers and ensure correct types

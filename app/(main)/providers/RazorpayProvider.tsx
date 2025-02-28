@@ -1,9 +1,9 @@
 'use client';
 
 import Script from 'next/script';
-import logger from '@/lib/logger';
 import { toast } from 'react-hot-toast';
-import { useEffect, useState } from 'react';
+import logger from '@/lib/logger';
+import { useState, useEffect } from 'react';
 
 declare global {
   interface Window {
@@ -22,124 +22,133 @@ interface PaymentOptions {
     email?: string;
     contact?: string;
   };
+  modal?: {
+    ondismiss?: () => void;
+    escape?: boolean;
+    backdropClose?: boolean;
+    confirm_close?: boolean;
+  };
 }
+
+const MAX_RETRIES = 50;
+const RETRY_INTERVAL = 100;
 
 export const initializeRazorpayPayment = async (options: PaymentOptions) => {
   try {
-    // Simple check for Razorpay
-    if (typeof window.Razorpay === 'undefined') {
-      // Load Razorpay script dynamically if not loaded
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-        script.async = true;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.body.appendChild(script);
-      });
+    // Wait for Razorpay to be available
+    let attempts = 0;
+    while (typeof window.Razorpay === 'undefined' && attempts < MAX_RETRIES) {
+      await new Promise(resolve => setTimeout(resolve, RETRY_INTERVAL));
+      attempts++;
     }
 
-    return new Promise((resolve, reject) => {
-      try {
-        const razorpay = new window.Razorpay({
-          key: options.key,
-          amount: options.amount,
-          currency: options.currency,
-          name: 'OnnRides',
-          description: `Booking ID: ${options.bookingId}`,
-          order_id: options.orderId,
-          prefill: {
-            name: options.prefill?.name || '',
-            email: options.prefill?.email || '',
-            contact: options.prefill?.contact || ''
-          },
-          notes: {
-            booking_id: options.bookingId
-          },
-          handler: async function (response: any) {
-            try {
-              const verifyResponse = await fetch('/api/payments/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                  booking_id: options.bookingId
-                }),
-              });
+    if (typeof window.Razorpay === 'undefined') {
+      throw new Error('Razorpay failed to load');
+    }
 
-              const verifyData = await verifyResponse.json();
-              
-              if (!verifyResponse.ok || !verifyData.success) {
-                throw new Error(verifyData.error || 'Payment verification failed');
-              }
-
-              toast.success('Payment successful!');
-              resolve(verifyData);
-            } catch (error) {
-              logger.error('Payment verification error:', error);
-              toast.error('Payment verification failed. Please contact support.');
-              reject(error);
-            }
-          },
-          modal: {
-            ondismiss: function() {
-              logger.info('Payment modal dismissed');
-              reject(new Error('Payment cancelled'));
-            },
-            confirm_close: true,
-            escape: false
-          },
-          theme: {
-            color: '#f26e24'
-          }
-        });
-
-        razorpay.on('payment.failed', function (response: any) {
-          logger.error('Payment failed:', response.error);
-          toast.error('Payment failed. Please try again.');
-          reject(new Error('Payment failed'));
-        });
-
-        razorpay.open();
-      } catch (error) {
-        logger.error('Error initializing Razorpay:', error);
-        reject(error);
-      }
+    logger.debug('Initializing Razorpay payment with options:', {
+      key: options.key,
+      amount: options.amount,
+      orderId: options.orderId,
+      bookingId: options.bookingId
     });
+
+    const rzp = new window.Razorpay({
+      key: options.key,
+      amount: options.amount.toString(),
+      currency: options.currency,
+      order_id: options.orderId,
+      name: 'OnnRides',
+      description: `Advance Payment (5%) for Booking ID: ${options.bookingId}`,
+      image: '/logo.png',
+      prefill: options.prefill,
+      notes: { 
+        booking_id: options.bookingId,
+        payment_type: 'advance_payment',
+        payment_percentage: '5'
+      },
+      theme: {
+        color: '#f26e24'
+      },
+      modal: options.modal || {
+        ondismiss: function() {
+          logger.debug('Payment modal dismissed');
+        },
+        escape: true,
+        backdropClose: false,
+        confirm_close: true
+      },
+      handler: async function (response: any) {
+        try {
+          logger.debug('Payment successful, verifying...', response);
+          
+          const verificationResponse = await fetch('/api/payments/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+              booking_id: options.bookingId,
+            }),
+          });
+
+          const result = await verificationResponse.json();
+          
+          if (result.success) {
+            logger.debug('Payment verified successfully');
+            window.location.href = '/bookings';
+          } else {
+            logger.error('Payment verification failed:', result);
+            window.location.href = `/payment-status?status=failed&bookingId=${options.bookingId}`;
+          }
+        } catch (error) {
+          logger.error('Error during payment verification:', error);
+          window.location.href = `/payment-status?status=failed&bookingId=${options.bookingId}`;
+        }
+      },
+    });
+
+    rzp.on('payment.failed', function (response: any) {
+      logger.error('Payment failed:', response.error);
+      window.location.href = `/payment-status?status=failed&bookingId=${options.bookingId}`;
+    });
+
+    logger.debug('Opening Razorpay modal');
+    rzp.open();
   } catch (error) {
-    logger.error('Payment initialization error:', error);
-    toast.error('Failed to start payment. Please try again.');
-    throw error;
+    logger.error('Error initializing Razorpay payment:', error);
+    toast.error('Failed to initialize payment. Please try again.');
+    window.location.href = `/payment-status?status=failed&bookingId=${options.bookingId}`;
   }
 };
 
-function RazorpayScript() {
-  const [scriptLoaded, setScriptLoaded] = useState(false);
+export default function RazorpayProvider({ children }: { children: React.ReactNode }) {
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
 
   useEffect(() => {
-    // Load Razorpay script on mount
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => {
-      logger.info('Razorpay script loaded successfully');
-      setScriptLoaded(true);
-    };
-    script.onerror = (e) => {
-      logger.error('Error loading Razorpay script:', e);
-      toast.error('Failed to load payment system. Please refresh the page.');
-    };
-    document.body.appendChild(script);
-
-    return () => {
-      // Cleanup script on unmount
-      document.body.removeChild(script);
-    };
+    if (typeof window.Razorpay !== 'undefined') {
+      setIsScriptLoaded(true);
+    }
   }, []);
 
-  return null;
-}
-
-export default RazorpayScript; 
+  return (
+    <>
+      <Script
+        src="https://checkout.razorpay.com/v1/checkout.js"
+        strategy="lazyOnload"
+        onLoad={() => {
+          logger.debug('Razorpay script loaded successfully');
+          setIsScriptLoaded(true);
+        }}
+        onError={(e) => {
+          logger.error('Failed to load Razorpay script:', e);
+          toast.error('Failed to load payment system. Please refresh the page.');
+        }}
+      />
+      {children}
+    </>
+  );
+} 

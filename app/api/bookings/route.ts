@@ -12,6 +12,9 @@ import { createOrder } from '@/lib/razorpay';
 import { generateBookingId } from '@/lib/bookingIdGenerator';
 import { EmailService } from '@/lib/email/service';
 import { WhatsAppService } from '@/lib/whatsapp/service';
+import { toUTC } from '@/lib/utils/timezone';
+import prisma from '@/lib/prisma';
+import { RazorpayOrder } from '@/lib/razorpay';
 
 // Define standard support contact info
 const SUPPORT_EMAIL = 'contact@onnrides.com';
@@ -32,13 +35,13 @@ interface CreateBookingBody {
   vehicleId: string;
   pickupDate: string;
   dropoffDate: string;
+  location: string;
+  totalPrice: number;
   customerDetails: {
     name: string;
     email: string;
     phone: string;
   };
-  totalPrice: number;
-  location?: string;
 }
 
 // Initialize Razorpay
@@ -196,514 +199,85 @@ export async function GET(request: NextRequest) {
 // POST /api/bookings - Create booking
 export async function POST(request: NextRequest): Promise<Response> {
   try {
-    // First, ensure the payment_intent_id column exists
-    try {
-      await query(`
-        DO $$ 
-        BEGIN
-          BEGIN
-            ALTER TABLE bookings ADD COLUMN payment_intent_id TEXT;
-          EXCEPTION
-            WHEN duplicate_column THEN 
-              -- Column already exists, do nothing
-          END;
-        END $$;
-      `);
-      
-      // Create index if it doesn't exist
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_bookings_payment_intent_id 
-        ON bookings(payment_intent_id);
-      `);
-    } catch (alterError) {
-      logger.error('Error ensuring payment_intent_id column exists:', alterError);
-      // Continue anyway, as the column might already exist
-    }
-
-    // First, ensure the booking_id column exists
-    try {
-      await query(`
-        DO $$ 
-        BEGIN
-          BEGIN
-            ALTER TABLE bookings ADD COLUMN booking_id TEXT;
-          EXCEPTION
-            WHEN duplicate_column THEN 
-              -- Column already exists, do nothing
-          END;
-        END $$;
-      `);
-    } catch (alterError) {
-      logger.error('Error ensuring booking_id column exists:', alterError);
-    }
-
-    // Log request method and URL
-    logger.info('Received booking request:', {
-      method: request.method,
-      url: request.url
-    });
-
-    // Check if Razorpay is initialized
-    if (!razorpay) {
-      const error = new Error('Razorpay not initialized');
-      logger.error('Payment service unavailable:', {
-        error,
-        keyIdExists: !!RAZORPAY_KEY_ID,
-        keySecretExists: !!RAZORPAY_KEY_SECRET,
-        razorpayInstance: !!razorpay
-      });
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Payment service unavailable',
-          details: RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET 
-            ? 'Failed to initialize payment service'
-            : 'Payment service credentials are missing'
-        },
-        { status: 503 }
-      );
-    }
-
-    // Get user session
     const session = await getServerSession(authOptions);
-    logger.info('Session check:', {
-      hasSession: !!session,
-      user: session?.user ? {
-        id: session.user.id,
-        email: session.user.email
-      } : null
-    });
-
-    if (!session?.user?.id) {
-      logger.error('Authentication failed:', { 
-        session,
-        user: session?.user,
-        userId: session?.user?.id
-      });
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Authentication required',
-          details: 'User session not found or invalid'
-        },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Parse and validate request body
-    let data: CreateBookingBody;
-    try {
-      const rawBody = await request.text();
-      logger.info('Raw request body:', { body: rawBody });
-      data = JSON.parse(rawBody) as CreateBookingBody;
+    const data = await request.json();
+    const {
+      vehicleId,
+      pickupDate,
+      dropoffDate,
+      location,
+      totalPrice,
+      advancePayment,
+      basePrice,
+      gst,
+      serviceFee,
+      customerDetails
+    } = data;
 
-      // Validate required fields with detailed error messages
-      const missingFields = [];
-      if (!data.vehicleId) missingFields.push('vehicleId');
-      if (!data.pickupDate) missingFields.push('pickupDate');
-      if (!data.dropoffDate) missingFields.push('dropoffDate');
-      if (!data.totalPrice) missingFields.push('totalPrice');
-      if (!data.customerDetails) missingFields.push('customerDetails');
-
-      if (missingFields.length > 0) {
-        logger.error('Missing required fields:', { missingFields });
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: 'Missing required fields',
-            details: `The following fields are required: ${missingFields.join(', ')}`
-          },
-          { status: 400 }
-        );
-      }
-
-      // Log parsed data for debugging
-      logger.info('Parsed request data:', {
-        vehicleId: data.vehicleId,
-        pickupDate: data.pickupDate,
-        dropoffDate: data.dropoffDate,
-        totalPrice: data.totalPrice,
-        customerDetails: data.customerDetails,
-        location: data.location
-      });
-
-    } catch (e) {
-      logger.error('Failed to parse request body:', e);
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Invalid request body',
-          details: e instanceof Error ? e.message : 'Failed to parse JSON'
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate dates
-    const pickupDate = new Date(data.pickupDate);
-    const dropoffDate = new Date(data.dropoffDate);
-
-    logger.info('Validating dates:', {
-      pickupDate: {
-        raw: data.pickupDate,
-        parsed: pickupDate,
-        timestamp: pickupDate.getTime()
-      },
-      dropoffDate: {
-        raw: data.dropoffDate,
-        parsed: dropoffDate,
-        timestamp: dropoffDate.getTime()
-      }
-    });
-
-    if (isNaN(pickupDate.getTime()) || isNaN(dropoffDate.getTime())) {
-      logger.error('Invalid dates:', {
-        pickupDate: data.pickupDate,
-        dropoffDate: data.dropoffDate,
-        pickupValid: !isNaN(pickupDate.getTime()),
-        dropoffValid: !isNaN(dropoffDate.getTime())
-      });
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid dates',
-          details: 'Pickup or dropoff date is invalid'
-        },
-        { status: 400 }
-      );
-    }
-
-    // Compare full timestamps to ensure dropoff is after pickup
-    if (dropoffDate.getTime() <= pickupDate.getTime()) {
-      logger.error('Invalid date range:', {
-        pickupDate: pickupDate.toISOString(),
-        dropoffDate: dropoffDate.toISOString(),
-        comparison: {
-          asTimestamp: dropoffDate.getTime() <= pickupDate.getTime(),
-          pickupTime: pickupDate.toLocaleTimeString(),
-          dropoffTime: dropoffDate.toLocaleTimeString()
-        }
-      });
-      return NextResponse.json(
-        { 
-          success: false,
-          error: 'Invalid date range',
-          details: `Dropoff time (${dropoffDate.toLocaleString()}) must be after pickup time (${pickupDate.toLocaleString()})`
-        },
-        { status: 400 }
-      );
-    }
-
-    // Check for overlapping bookings
-    logger.info('Checking for overlapping bookings:', {
-      vehicleId: data.vehicleId,
-      requestedPickup: pickupDate.toISOString(),
-      requestedDropoff: dropoffDate.toISOString()
-    });
-
-    const overlapCheckResult = await query(`
-      WITH booking_counts AS (
-        SELECT 
-          COUNT(*) as concurrent_bookings,
-          v.quantity
-        FROM bookings b
-        JOIN vehicles v ON b.vehicle_id = v.id
-        WHERE b.vehicle_id = $1 
-          AND b.pickup_location = $2
-          AND b.status NOT IN ('cancelled', 'failed')
-          AND b.payment_status NOT IN ('failed', 'pending')
-          AND (
-            ($3::timestamp BETWEEN b.start_date AND b.end_date)
-            OR ($4::timestamp BETWEEN b.start_date AND b.end_date)
-            OR (b.start_date BETWEEN $3::timestamp AND $4::timestamp)
-            OR (b.end_date BETWEEN $3::timestamp AND $4::timestamp)
-          )
-        GROUP BY v.quantity
-      )
-      SELECT * FROM booking_counts
-      WHERE concurrent_bookings >= quantity
-    `, [data.vehicleId, data.location, pickupDate.toISOString(), dropoffDate.toISOString()]);
-
-    if (overlapCheckResult && overlapCheckResult.rowCount !== null && overlapCheckResult.rowCount > 0) {
-      logger.error('Overlapping booking found:', {
-        vehicleId: data.vehicleId,
-        location: data.location,
-        requestedPickup: pickupDate,
-        requestedDropoff: dropoffDate,
-        concurrent_bookings: overlapCheckResult.rows[0].concurrent_bookings,
-        vehicle_quantity: overlapCheckResult.rows[0].quantity
-      });
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Vehicle unavailable',
-          details: 'This vehicle is already fully booked at this location for the selected time period'
-        },
-        { status: 409 }
-      );
-    }
-
-    // Generate booking ID
-    const bookingId = await generateBookingId();
-    logger.info('Generated booking ID:', { bookingId });
+    // Convert IST dates to UTC for database storage
+    const pickupDateUTC = toUTC(pickupDate);
+    const dropoffDateUTC = toUTC(dropoffDate);
 
     // Calculate duration in hours
-    const durationInHours = Math.ceil((dropoffDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60));
-    logger.info('Calculated duration:', { durationInHours });
+    const durationInHours = Math.ceil(
+      (dropoffDateUTC.getTime() - pickupDateUTC.getTime()) / (1000 * 60 * 60)
+    );
 
-    // Create Razorpay order
-    try {
-      // Use the original amount directly
-      const amountInRupees = parseFloat(data.totalPrice.toString());
-      const amountInPaise = Math.round(amountInRupees * 100);
-      
-      if (isNaN(amountInPaise)) {
-        throw new Error(`Invalid amount: ${data.totalPrice}`);
+    // Create booking in database
+    const newBooking = await prisma.bookings.create({
+      data: {
+        id: randomUUID(),
+        user_id: session.user.id,
+        vehicle_id: vehicleId,
+        start_date: pickupDateUTC,
+        end_date: dropoffDateUTC,
+        total_hours: durationInHours,
+        total_price: totalPrice,
+        status: 'pending',
+        payment_status: 'pending',
+        payment_details: JSON.stringify({
+          base_price: basePrice,
+          gst: gst,
+          service_fee: serviceFee,
+          advance_payment: advancePayment
+        }),
+        pickup_location: location
       }
-
-      logger.info('Processing payment amount:', {
-        amountInRupees,
-        amountInPaise,
-        formattedAmount: new Intl.NumberFormat('en-IN', {
-          style: 'currency',
-          currency: 'INR'
-        }).format(amountInRupees)
-      });
-
-      const orderOptions = {
-        amount: amountInPaise,
-        currency: "INR",
-        receipt: `OR${bookingId.substring(0, 8)}`,
-        notes: {
-          booking_id: bookingId,
-          user_id: session.user.id,
-          vehicle_id: data.vehicleId,
-          pickup_date: data.pickupDate,
-          dropoff_date: data.dropoffDate,
-          amount_in_rupees: amountInRupees
-        },
-        payment_capture: 1
-      };
-
-      logger.info('Creating Razorpay order with options:', {
-        ...orderOptions,
-        key_id: RAZORPAY_KEY_ID?.substring(0, 6) + '...',
-        key_secret_exists: !!RAZORPAY_KEY_SECRET,
-        razorpay_initialized: !!razorpay,
-        orders_api_exists: !!razorpay?.orders
-      });
-
-      // Create the order using direct API call
-      let order;
-      try {
-        const response = await fetch('https://api.razorpay.com/v1/orders', {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Basic ' + Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64'),
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(orderOptions)
-        });
-
-        const responseText = await response.text();
-        logger.info('Razorpay API response:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          body: responseText
-        });
-
-        if (!response.ok) {
-          throw new Error(`Razorpay API error: ${response.status} ${response.statusText} - ${responseText}`);
-        }
-
-        try {
-          order = JSON.parse(responseText);
-        } catch (parseError) {
-          logger.error('Failed to parse Razorpay response:', {
-            error: parseError,
-            responseText
-          });
-          throw new Error('Invalid JSON response from Razorpay');
-        }
-
-        if (!order || !order.id) {
-          logger.error('Invalid order response:', { order });
-          throw new Error('Invalid order response from Razorpay');
-        }
-
-        logger.info('Razorpay order created successfully:', {
-          orderId: order.id,
-          amount: order.amount,
-          currency: order.currency,
-          receipt: order.receipt,
-          status: order.status
-        });
-      } catch (orderError: any) {
-        logger.error('Failed to create Razorpay order:', {
-          error: orderError,
-          message: orderError.message,
-          stack: orderError.stack,
-          orderOptions: {
-            ...orderOptions,
-            key_id: RAZORPAY_KEY_ID?.substring(0, 6) + '...'
-          }
-        });
-        throw new Error(`Failed to create Razorpay order: ${orderError.message}`);
-      }
-      
-      // Create the booking in database
-      let bookingResult;
-      try {
-        bookingResult = await query(`
-          INSERT INTO bookings (
-            id,
-            booking_id,
-            user_id,
-            vehicle_id,
-            start_date,
-            end_date,
-            total_hours,
-            total_price,
-            status,
-            payment_status,
-            payment_intent_id,
-            pickup_location,
-            created_at,
-            updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
-          RETURNING *
-        `, [
-          randomUUID(),
-          bookingId,
-          session.user.id,
-          data.vehicleId,
-          pickupDate.toISOString(),
-          dropoffDate.toISOString(),
-          durationInHours,
-          amountInRupees,
-          'pending',
-          'pending',
-          order.id,
-          data.location,
-        ]);
-
-        const booking = bookingResult.rows[0];
-        logger.info('Successfully created booking:', booking);
-
-        return NextResponse.json({
-          success: true,
-          data: {
-            key: RAZORPAY_KEY_ID,
-            amount: order.amount,
-            currency: order.currency,
-            orderId: order.id,
-            bookingId: booking.id,
-            prefill: {
-              name: data.customerDetails.name,
-              email: data.customerDetails.email,
-              contact: data.customerDetails.phone
-            }
-          },
-          message: 'Booking created successfully'
-        });
-      } catch (dbError) {
-        logger.error('Database error creating booking:', {
-          error: dbError,
-          message: dbError instanceof Error ? dbError.message : 'Unknown database error',
-          query: {
-            bookingId,
-            userId: session.user.id,
-            vehicleId: data.vehicleId,
-            startTime: pickupDate.toISOString(),
-            endTime: dropoffDate.toISOString(),
-            totalHours: durationInHours,
-            totalAmount: amountInRupees,
-            orderId: order.id
-          }
-        });
-        throw new Error(`Database error: ${dbError instanceof Error ? dbError.message : 'Failed to create booking record'}`);
-      }
-    } catch (error) {
-      logger.error('Error in booking creation:', {
-        error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        name: error instanceof Error ? error.name : undefined
-      });
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to create booking',
-          details: error instanceof Error ? error.message : 'Unknown error occurred',
-          errorType: error instanceof Error ? error.name : 'Unknown',
-          timestamp: new Date().toISOString()
-        },
-        { status: 500 }
-      );
-    }
-  } catch (error) {
-    logger.error('Error creating booking:', {
-      error,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      name: error instanceof Error ? error.name : undefined,
-      cause: error instanceof Error ? error.cause : undefined
     });
 
-    // Check for Razorpay specific errors
-    if (error instanceof Error && error.message.includes('Razorpay')) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to create payment order',
-          details: error.message
-        },
-        { status: 500 }
-      );
-    }
+    // Create Razorpay order
+    const order = await createOrder({
+      amount: advancePayment,
+      currency: 'INR',
+      receipt: newBooking.id,
+      notes: {
+        bookingId: newBooking.id,
+        vehicleId: vehicleId,
+        pickupDate: pickupDate, // Keep IST date in notes for reference
+        dropoffDate: dropoffDate,
+        customerName: customerDetails.name,
+        customerEmail: customerDetails.email,
+        customerPhone: customerDetails.phone
+      }
+    });
 
-    // Check for specific database errors
-    if (error instanceof Error) {
-      if (error.message.includes('violates foreign key constraint')) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Invalid reference',
-            details: 'The vehicle ID or user ID is invalid'
-          },
-          { status: 400 }
-        );
+    return NextResponse.json({
+      success: true,
+      data: {
+        bookingId: newBooking.id,
+        orderId: order.id,
+        amount: advancePayment
       }
-      if (error.message.includes('duplicate key')) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Duplicate booking',
-            details: 'A booking with this ID already exists'
-          },
-          { status: 409 }
-        );
-      }
-      if (error.message.includes('invalid input syntax')) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Invalid input',
-            details: 'One or more fields have invalid values'
-          },
-          { status: 400 }
-        );
-      }
-    }
+    });
 
+  } catch (error) {
+    logger.error('Error creating booking:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to create booking',
-        details: error instanceof Error ? error.message : 'Unknown error occurred'
-      },
+      { error: 'Failed to create booking' },
       { status: 500 }
     );
   }

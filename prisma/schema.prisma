@@ -143,26 +143,24 @@ model vehicles {
   @@index([updated_at], map: "idx_vehicle_updated_at")
 }
 
-enum discount_type {
-  percentage
-  fixed
-}
-
 model coupons {
-  id                  String        @id @default(uuid())
-  code                String        @unique
+  id                  String    @id @default(uuid())
+  code                String    @unique
   description         String?
-  discount_type       discount_type
-  discount_value      Float
-  min_booking_amount  Float?
-  max_discount_amount Float?
-  start_date         DateTime?     @db.Timestamp(6)
-  end_date           DateTime?     @db.Timestamp(6)
-  usage_limit        Int?
-  times_used         Int          @default(0)
-  is_active          Boolean      @default(true)
-  created_at         DateTime     @default(now()) @db.Timestamp(6)
-  updated_at         DateTime     @updatedAt @db.Timestamp(6)
+  discount_type       String
+  discount_value      Decimal   @db.Decimal(10, 2)
+  min_booking_amount  Decimal?  @db.Decimal(10, 2)
+  max_discount_amount Decimal?  @db.Decimal(10, 2)
+  start_date          DateTime? @db.Timestamp(6)
+  end_date            DateTime? @db.Timestamp(6)
+  usage_limit         Int?
+  times_used          Int?      @default(0)
+  is_active           Boolean?  @default(true)
+  created_at          DateTime? @default(now()) @db.Timestamp(6)
+  updated_at          DateTime? @default(now()) @updatedAt @db.Timestamp(6)
+
+  @@index([code], map: "idx_coupons_code")
+  @@index([is_active], map: "idx_coupons_is_active")
 }
 
 model email_logs {

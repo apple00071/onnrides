@@ -11,8 +11,8 @@ import {
 import { cn, formatCurrency } from "@/lib/utils";
 import { calculateRentalPrice } from "@/lib/utils/price";
 import { useEffect, useCallback, useState } from "react";
-import { format, parseISO } from "date-fns";
-import { utcToZonedTime } from "date-fns-tz";
+import { format } from "date-fns";
+import { toIST, formatDateTimeIST, formatDateIST, formatTimeIST } from "@/lib/utils/timezone";
 import { Vehicle } from "@/app/(main)/vehicles/types";
 
 interface VehicleCardProps {
@@ -123,22 +123,19 @@ export function VehicleCard({
   };
 
   // Format date and time in IST
-  const formatDateTime = (dateStr: string, timeStr: string) => {
+  const formatDateTime = (dateTimeStr: string) => {
     try {
-      // Convert time from 24-hour format to ISO format
-      const [hours, minutes] = timeStr.split(':');
-      const formattedTime = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`;
-      
-      // Combine date and time
-      const dateTimeStr = `${dateStr}T${formattedTime}`;
-      
-      // Parse the ISO date string
-      const date = parseISO(dateTimeStr);
-      const istDate = utcToZonedTime(date, timeZone);
-      
+      // Parse and convert to IST
+      const date = new Date(dateTimeStr);
+      if (!isNaN(date.getTime())) {
+        return {
+          time: formatTimeIST(date),
+          date: formatDateIST(date)
+        };
+      }
       return {
-        time: format(istDate, 'hh:mm a'),
-        date: format(istDate, 'dd MMM yyyy')
+        time: '',
+        date: ''
       };
     } catch (error) {
       console.error('Error formatting date:', error);
@@ -148,6 +145,10 @@ export function VehicleCard({
       };
     }
   };
+
+  // Get formatted pickup and dropoff times
+  const pickupFormatted = pickupDateTime ? formatDateTime(pickupDateTime) : { date: '', time: '' };
+  const dropoffFormatted = dropoffDateTime ? formatDateTime(dropoffDateTime) : { date: '', time: '' };
 
   // Calculate price based on duration and day of week
   const calculatePrice = () => {
@@ -235,8 +236,8 @@ export function VehicleCard({
 
       if (pickupDate && pickupTime && dropoffDate && dropoffTime) {
         return {
-          pickup: formatDateTime(pickupDate, pickupTime),
-          dropoff: formatDateTime(dropoffDate, dropoffTime)
+          pickup: formatDateTime(pickupDate + 'T' + pickupTime),
+          dropoff: formatDateTime(dropoffDate + 'T' + dropoffTime)
         };
       }
       return null;
@@ -249,7 +250,11 @@ export function VehicleCard({
   const dateTime = getDateTimeFromParams();
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className={cn(
+      "bg-white rounded-lg shadow-sm overflow-hidden group",
+      className,
+      selected && "ring-2 ring-orange-500"
+    )}>
       {/* Vehicle Name */}
       <h3 className="text-xl font-sans font-medium p-4">{vehicle.name}</h3>
 
@@ -266,18 +271,19 @@ export function VehicleCard({
       </div>
 
       <div className="p-4">
-        {dateTime && (
+        {/* Display formatted dates */}
+        {pickupDateTime && dropoffDateTime && (
           <div className="mb-4 space-y-2">
             <div className="flex justify-between text-sm">
               <div>
                 <p className="text-gray-600">Pickup</p>
-                <p>{dateTime.pickup.time}</p>
-                <p>{dateTime.pickup.date}</p>
+                <p>{pickupFormatted.time}</p>
+                <p>{pickupFormatted.date}</p>
               </div>
               <div className="text-right">
                 <p className="text-gray-600">Drop-off</p>
-                <p>{dateTime.dropoff.time}</p>
-                <p>{dateTime.dropoff.date}</p>
+                <p>{dropoffFormatted.time}</p>
+                <p>{dropoffFormatted.date}</p>
               </div>
             </div>
           </div>

@@ -125,12 +125,21 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         id: razorpayOrder.id,
+        key: RAZORPAY_KEY_ID,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
-        key: RAZORPAY_KEY_ID,
-        receipt: razorpayOrder.receipt,
-        status: razorpayOrder.status,
-        created_at: razorpayOrder.created_at
+        name: 'OnnRides',
+        description: `Booking ID: ${bookingId}`,
+        prefill: {
+          name: session.user.name || '',
+          email: session.user.email || '',
+        },
+        notes: {
+          booking_id: bookingId
+        },
+        theme: {
+          color: '#f26e24'
+        }
       }
     });
 

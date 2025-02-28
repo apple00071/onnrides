@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { calculateBookingPrice, formatCurrency } from '@/lib/utils';
+import { toIST, formatDateTimeIST } from '@/lib/utils/timezone';
 import {
   Table,
   TableBody,
@@ -336,14 +337,10 @@ export default function VehiclesPage() {
     if (!date || !time) return '';
     try {
       const datetime = new Date(`${date}T${time}`);
-      return datetime.toLocaleString('en-US', {
-        month: 'short',
-        day: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
+      if (!isNaN(datetime.getTime())) {
+        return formatDateTimeIST(datetime);
+      }
+      return '';
     } catch (error) {
       return '';
     }
@@ -510,8 +507,8 @@ export default function VehiclesPage() {
                       }}
                       selectedLocation={currentLocation}
                       onLocationSelect={handleLocationSelect}
-                      pickupDateTime={urlParams.pickupTime ?? undefined}
-                      dropoffDateTime={urlParams.dropoffTime ?? undefined}
+                      pickupDateTime={`${urlParams.pickupDate}T${urlParams.pickupTime}`}
+                      dropoffDateTime={`${urlParams.dropoffDate}T${urlParams.dropoffTime}`}
                     />
                   );
                 })}

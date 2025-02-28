@@ -1,6 +1,7 @@
 import { Inter } from 'next/font/google';
 import type { Metadata } from 'next';
 import ClientLayout from './ClientLayout';
+import RazorpayProvider from './providers/RazorpayProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -32,7 +33,9 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} min-h-screen bg-background`} suppressHydrationWarning>
-        <ClientLayout>{children}</ClientLayout>
+        <RazorpayProvider>
+          <ClientLayout>{children}</ClientLayout>
+        </RazorpayProvider>
       </body>
     </html>
   );

@@ -11,6 +11,8 @@ import { useSession } from 'next-auth/react';
 import { Loader2 } from 'lucide-react';
 import { BookingSummary } from '@/components/bookings/BookingSummary';
 import logger from '@/lib/logger';
+import { initializeRazorpayPayment } from '@/app/(main)/providers/RazorpayProvider';
+import { toIST, formatISOWithTZ, isWeekendIST } from '@/lib/utils/timezone';
 
 interface BookingSummaryDetails {
   vehicleId: string;
@@ -89,6 +91,8 @@ function showNotification(message: string, type: 'success' | 'error' = 'error', 
   }
 }
 
+const IST_TIMEZONE = 'Asia/Kolkata';
+
 export default function BookingSummaryPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -149,6 +153,7 @@ export default function BookingSummaryPage() {
   }, []);
 
   const handleProceedToPayment = async () => {
+    setIsLoading(true);
     try {
       if (!session?.user) {
         toast.error('Please sign in to continue');
@@ -160,14 +165,18 @@ export default function BookingSummaryPage() {
         return;
       }
 
-      setIsLoading(true);
+      // Convert local datetime to IST
+      const pickupDateTime = toIST(
+        new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`)
+      );
+      const dropoffDateTime = toIST(
+        new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`)
+      );
 
-      const pickupDateTime = new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`);
-      const dropoffDateTime = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`);
       const duration = calculateDuration(pickupDateTime, dropoffDateTime);
       
-      // Calculate base price with minimum duration rules and special pricing
-      const isWeekend = pickupDateTime.getDay() === 0 || pickupDateTime.getDay() === 6;
+      // Check if pickup date is a weekend in IST
+      const isWeekend = isWeekendIST(pickupDateTime);
       
       // Create a pricing object with the pricing details
       const pricing = {
@@ -185,37 +194,78 @@ export default function BookingSummaryPage() {
       const serviceFee = basePrice * 0.05;
       const totalPrice = basePrice + gst + serviceFee;
 
+      // Calculate advance payment (5% of total)
+      const advancePayment = Math.round(totalPrice * 0.05);
+
+      // Format dates in ISO format with IST timezone
+      const pickupDateIST = formatISOWithTZ(pickupDateTime);
+      const dropoffDateIST = formatISOWithTZ(dropoffDateTime);
+
       // Create booking
-      const createBookingResponse = await fetch('/api/bookings', {
+      const bookingResponse = await fetch('/api/bookings', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           vehicleId: bookingDetails.vehicleId,
-          pickupDate: `${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`,
-          dropoffDate: `${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`,
+          pickupDate: pickupDateIST,
+          dropoffDate: dropoffDateIST,
           location: bookingDetails.location,
+          totalPrice: totalPrice,
+          advancePayment: advancePayment,
+          basePrice: basePrice,
+          gst: gst,
+          serviceFee: serviceFee,
           customerDetails: {
             name: session.user.name || 'Guest',
             email: session.user.email || '',
             phone: (session.user as any)?.phone || ''
-          },
-          totalPrice
-        })
+          }
+        }),
       });
 
-      if (!createBookingResponse.ok) {
-        throw new Error('Failed to create booking');
+      if (!bookingResponse.ok) {
+        const error = await bookingResponse.json();
+        throw new Error(error.message || 'Failed to create booking');
       }
 
-      const data = await createBookingResponse.json();
+      const bookingResult = await bookingResponse.json();
+      logger.info('Booking response:', bookingResult);
 
-      // Redirect to payment page
-      router.push(`/payment?booking_id=${data.bookingId}`);
+      // Extract payment data from the response
+      const paymentData = bookingResult.data || bookingResult;
+      
+      if (!paymentData.orderId || !paymentData.bookingId) {
+        logger.error('Invalid payment data:', paymentData);
+        throw new Error('Invalid payment data received');
+      }
+
+      // Initialize Razorpay payment directly with advance payment amount
+      await initializeRazorpayPayment({
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
+        amount: Math.round(advancePayment * 100), // Convert advance payment to paise
+        currency: 'INR',
+        orderId: paymentData.orderId,
+        bookingId: paymentData.bookingId,
+        prefill: {
+          name: session.user.name || undefined,
+          email: session.user.email || undefined,
+          contact: (session.user as any)?.phone || undefined
+        },
+        modal: {
+          ondismiss: function() {
+            logger.debug('Payment modal dismissed');
+            setIsLoading(false);
+            toast.error('Payment cancelled. You can try again when ready.');
+          },
+          escape: true,
+          backdropClose: false,
+          confirm_close: true
+        }
+      });
+
     } catch (error) {
-      logger.error('Error processing booking:', error);
-      toast.error('Failed to process booking');
+      logger.error('Payment error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to process payment');
     } finally {
       setIsLoading(false);
     }

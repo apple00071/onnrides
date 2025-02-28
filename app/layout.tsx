@@ -12,6 +12,9 @@ import { ScriptLoader } from '@/components/ScriptLoader';
 import { NotificationBar } from '@/components/ui/NotificationBar';
 import JsonLd from './components/JsonLd';
 import { headers } from 'next/headers';
+import ClientLayout from './ClientLayout';
+import RazorpayProvider from './providers/RazorpayProvider';
+import db from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,6 +90,12 @@ export const metadata: Metadata = {
     canonical: process.env.NEXT_PUBLIC_APP_URL,
   },
 };
+
+// Initialize database connection
+db.initializeDatabase()
+  .catch(error => {
+    logger.error('Failed to initialize database connection:', error);
+  });
 
 export default async function RootLayout({
   children,
@@ -177,11 +186,17 @@ export default async function RootLayout({
   };
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+          name="format-detection"
+          content="telephone=no, date=no, email=no, address=no"
+        />
         <link 
           rel="preload" 
-          href="/fonts/goodtimes.woff2" 
+          href="/fonts/Good Times Rg.woff2" 
           as="font" 
           type="font/woff2" 
           crossOrigin="anonymous"
@@ -190,50 +205,52 @@ export default async function RootLayout({
         <JsonLd data={structuredData} />
         <meta name="facebook-domain-verification" content="xcd398j05srb3zhzzr6qjzdjc1cy14" />
       </head>
-      <body className={inter.className}>
-        <Providers session={session}>
-          <AuthProvider>
-            {!isAdminPage && <NotificationBar />}
-            <Toaster
-              position="bottom-center"
-              toastOptions={{
-                duration: 5000,
-                style: {
-                  background: '#363636',
-                  color: '#fff',
+      <body className={`${inter.className} min-h-screen bg-background`} suppressHydrationWarning>
+        <RazorpayProvider>
+          <Providers session={session}>
+            <AuthProvider>
+              {!isAdminPage && <NotificationBar />}
+              <Toaster
+                position="bottom-center"
+                toastOptions={{
+                  duration: 5000,
+                  style: {
+                    background: '#363636',
+                    color: '#fff',
+                    maxWidth: '500px',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                  },
+                  success: {
+                    duration: 4000,
+                    iconTheme: {
+                      primary: '#22c55e',
+                      secondary: '#fff',
+                    },
+                  },
+                  error: {
+                    duration: 6000,
+                    iconTheme: {
+                      primary: '#ef4444',
+                      secondary: '#fff',
+                    },
+                  },
+                }}
+                gutter={8}
+                containerStyle={{
+                  bottom: 40,
+                  inset: '0px',
                   maxWidth: '500px',
-                  padding: '12px 24px',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                },
-                success: {
-                  duration: 4000,
-                  iconTheme: {
-                    primary: '#22c55e',
-                    secondary: '#fff',
-                  },
-                },
-                error: {
-                  duration: 6000,
-                  iconTheme: {
-                    primary: '#ef4444',
-                    secondary: '#fff',
-                  },
-                },
-              }}
-              gutter={8}
-              containerStyle={{
-                bottom: 40,
-                inset: '0px',
-                maxWidth: '500px',
-                margin: '0 auto',
-              }}
-              reverseOrder={false}
-            />
-            {children}
-            <ScriptLoader />
-          </AuthProvider>
-        </Providers>
+                  margin: '0 auto',
+                }}
+                reverseOrder={false}
+              />
+              <ClientLayout>{children}</ClientLayout>
+              <ScriptLoader />
+            </AuthProvider>
+          </Providers>
+        </RazorpayProvider>
       </body>
     </html>
   );
