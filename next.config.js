@@ -91,6 +91,7 @@ const nextConfig = {
         'qrcode-terminal': false,
         'fs': false,
         'puppeteer': false,
+        'pg-native': false,
       };
     }
 

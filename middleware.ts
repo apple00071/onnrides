@@ -1,6 +1,4 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { db } from '@/lib/db';
+import { NextResponse, NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import logger from '@/lib/logger';
 
@@ -13,7 +11,8 @@ const maintenanceAllowedPaths = [
   '/api/auth',
   '/_next',
   '/favicon.ico',
-  '/logo.png'
+  '/logo.png',
+  '/api/settings/maintenance'  // Allow access to maintenance check endpoint
 ];
 
 // Cache the maintenance mode status for 1 minute
@@ -30,21 +29,16 @@ async function isMaintenanceMode(): Promise<boolean> {
   }
 
   try {
-    const setting = await db
-      .selectFrom('settings')
-      .selectAll()
-      .where('key', '=', 'maintenance_mode')
-      .executeTakeFirst();
-
-    const isMaintenanceMode = setting?.value === 'true';
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/settings/maintenance`);
+    const data = await response.json();
     
     // Update cache
     maintenanceModeCache = {
-      value: isMaintenanceMode,
+      value: data.maintenanceMode,
       lastChecked: now
     };
 
-    return isMaintenanceMode;
+    return data.maintenanceMode;
   } catch (error) {
     logger.error('Error checking maintenance mode:', error);
     return false;
@@ -54,29 +48,27 @@ async function isMaintenanceMode(): Promise<boolean> {
 export async function middleware(request: NextRequest) {
   const { pathname } = new URL(request.url);
 
+  // Skip maintenance check for allowed paths
+  if (maintenanceAllowedPaths.some(path => pathname.startsWith(path))) {
+    return new NextResponse(null, { status: 200 });
+  }
+
   // Check if we're in maintenance mode
   const maintenanceModeEnabled = await isMaintenanceMode();
 
   if (maintenanceModeEnabled) {
-    // Check if the path is allowed during maintenance
-    const isAllowedPath = maintenanceAllowedPaths.some(path => 
-      pathname.startsWith(path)
-    );
+    // Check if user is admin
+    const token = await getToken({ req: request });
+    const isAdmin = token?.role === 'admin';
 
-    if (!isAllowedPath) {
-      // Check if user is admin
-      const token = await getToken({ req: request });
-      const isAdmin = token?.role === 'admin';
-
-      if (!isAdmin) {
-        // Redirect to maintenance page
-        return NextResponse.redirect(new URL('/maintenance', request.url));
-      }
+    if (!isAdmin) {
+      // Redirect to maintenance page
+      return NextResponse.redirect(new URL('/maintenance', request.url));
     }
   }
 
   // Allow the request to continue
-  return NextResponse.json(undefined, { status: 200 });
+  return new NextResponse(null, { status: 200 });
 }
 
 export const config = {
