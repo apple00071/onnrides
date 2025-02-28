@@ -9,27 +9,29 @@ if (!connectionString) {
   throw new Error('DATABASE_URL environment variable is not set');
 }
 
-// Neon specific pool configuration optimized for serverless
+// Create a connection pool
 const pool = new Pool({
   connectionString,
-  ssl: true,
-  max: 1, // Use a single connection in the pool
-  min: 0,
-  idleTimeoutMillis: 15000, // Close idle connections after 15 seconds
-  connectionTimeoutMillis: 10000, // Connection timeout 10 seconds
-  allowExitOnIdle: true,
-  application_name: 'onnrides',
-  keepAlive: false, // Disable keepalive for serverless
+  ssl: process.env.NODE_ENV === 'production' ? {
+    rejectUnauthorized: false
+  } : undefined,
+  // Connection pool configuration
+  max: Number(process.env.PG_POOL_MAX) || 20,
+  idleTimeoutMillis: Number(process.env.PG_POOL_IDLE_TIMEOUT) || 30000,
+  connectionTimeoutMillis: Number(process.env.PG_POOL_CONNECTION_TIMEOUT) || 10000,
 });
 
 // Handle pool errors
-pool.on('error', (err: Error) => {
-  logger.error('Unexpected database pool error:', err);
+pool.on('error', (err) => {
+  logger.error('Unexpected error on idle client', err);
+  process.exit(-1);
 });
 
-// Log when a connection is acquired
-pool.on('connect', () => {
-  logger.debug('New database connection established');
+// Handle pool connection errors
+pool.on('connect', (client) => {
+  client.on('error', (err) => {
+    logger.error('Database client error:', err);
+  });
 });
 
 // Initialize database connection
@@ -38,12 +40,12 @@ export async function initializeDatabase(): Promise<void> {
     const client = await pool.connect();
     try {
       await client.query('SELECT NOW()');
-      logger.info('Database initialized successfully');
+      logger.info('Database connection established');
     } finally {
       client.release();
     }
   } catch (error) {
-    logger.error('Failed to initialize database:', error);
+    logger.error('Error initializing database:', error);
     throw error;
   }
 }
@@ -60,8 +62,8 @@ export async function query<T extends Record<string, any>>(
   text: string,
   params: any[] = []
 ): Promise<QueryResult<T>> {
+  const start = Date.now();
   try {
-    const start = Date.now();
     const result = await pool.query<T>(text, params);
     const duration = Date.now() - start;
     logger.debug('Executed query', { text, duration, rows: result.rowCount });
@@ -72,9 +74,11 @@ export async function query<T extends Record<string, any>>(
   }
 }
 
+// Export pool for direct access if needed
+export { pool };
+
 // Export functions for direct pool access if needed
 export default {
   query,
-  pool,
   initializeDatabase,
 }; 

@@ -1,6 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
-import logger from '@/lib/logger';
 
 // Define paths that should be accessible during maintenance mode
 const maintenanceAllowedPaths = [
@@ -40,7 +39,7 @@ async function isMaintenanceMode(): Promise<boolean> {
 
     return data.maintenanceMode;
   } catch (error) {
-    logger.error('Error checking maintenance mode:', error);
+    // Fail safe: if we can't check maintenance mode, assume it's false
     return false;
   }
 }
