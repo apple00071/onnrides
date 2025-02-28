@@ -251,7 +251,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     // Create Razorpay order
     const order = await createOrder({
-      amount: advancePayment,
+      amount: Math.round(advancePayment * 100), // Convert to paise (1 INR = 100 paise)
       currency: 'INR',
       receipt: newBooking.id,
       notes: {

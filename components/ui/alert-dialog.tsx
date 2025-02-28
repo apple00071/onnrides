@@ -2,15 +2,34 @@
 
 import * as React from "react"
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
-
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+import { PortalContext } from "@/app/(main)/providers/ClientOnly"
 
 const AlertDialog = AlertDialogPrimitive.Root
 
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger
 
-const AlertDialogPortal = AlertDialogPrimitive.Portal
+const AlertDialogPortal = ({ children, ...props }: AlertDialogPrimitive.AlertDialogPortalProps) => {
+  const portalId = React.useId();
+  const portalContext = React.useContext(PortalContext);
+
+  React.useEffect(() => {
+    portalContext.registerPortal(portalId);
+    return () => {
+      portalContext.unregisterPortal(portalId);
+    };
+  }, [portalId, portalContext]);
+
+  return (
+    <AlertDialogPrimitive.Portal {...props}>
+      <div id={portalId} data-portal-root>
+        {children}
+      </div>
+    </AlertDialogPrimitive.Portal>
+  );
+};
+AlertDialogPortal.displayName = AlertDialogPrimitive.Portal.displayName
 
 const AlertDialogOverlay = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Overlay>,

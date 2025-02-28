@@ -2,12 +2,32 @@ import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { PortalContext } from "@/app/(main)/providers/ClientOnly"
 
 const Dialog = DialogPrimitive.Root
 
 const DialogTrigger = DialogPrimitive.Trigger
 
-const DialogPortal = DialogPrimitive.Portal
+const DialogPortal = ({ children, ...props }: DialogPrimitive.DialogPortalProps) => {
+  const portalId = React.useId();
+  const portalContext = React.useContext(PortalContext);
+
+  React.useEffect(() => {
+    portalContext.registerPortal(portalId);
+    return () => {
+      portalContext.unregisterPortal(portalId);
+    };
+  }, [portalId, portalContext]);
+
+  return (
+    <DialogPrimitive.Portal {...props}>
+      <div id={portalId} data-portal-root>
+        {children}
+      </div>
+    </DialogPrimitive.Portal>
+  );
+};
+DialogPortal.displayName = DialogPrimitive.Portal.displayName
 
 const DialogClose = DialogPrimitive.Close
 

@@ -151,30 +151,36 @@ export async function DELETE(
 
     const { vehicleId } = params;
 
-    // First check for any active bookings
+    // Check for any active or pending bookings
     const activeBookings = await db
       .selectFrom('bookings')
-      .select(['id', 'status', 'start_date', 'end_date'])
+      .select(['id', 'status', 'start_date', 'end_date', 'payment_status'])
       .where('vehicle_id', '=', vehicleId)
       .where('status', 'in', ['pending', 'confirmed'])
+      .where('payment_status', 'in', ['pending', 'paid'])
       .execute();
 
     if (activeBookings.length > 0) {
-      logger.warn('Attempted to delete vehicle with active bookings:', {
+      logger.warn('Attempted to delete vehicle with active/pending bookings:', {
         vehicleId,
-        activeBookings: activeBookings.length
+        activeBookings: activeBookings.map(b => ({
+          id: b.id,
+          status: b.status,
+          paymentStatus: b.payment_status
+        }))
       });
       
-      // Return detailed information about the active bookings
+      // Return detailed information about the active/pending bookings
       return NextResponse.json(
         {
           success: false,
-          error: 'Cannot delete vehicle with active bookings',
+          error: 'Cannot delete vehicle with active or pending bookings',
           details: {
-            message: 'Vehicle has active or pending bookings. Please cancel or complete all bookings first.',
+            message: 'Vehicle has active or pending bookings that need to be handled first.',
             activeBookings: activeBookings.map(booking => ({
               id: booking.id,
               status: booking.status,
+              paymentStatus: booking.payment_status,
               startDate: booking.start_date,
               endDate: booking.end_date
             }))

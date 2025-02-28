@@ -10,33 +10,16 @@ export const metadata: Metadata = {
   description: 'Your trusted partner for vehicle rentals.',
 };
 
-export default function RootLayout({
+export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta
-          name="format-detection"
-          content="telephone=no, date=no, email=no, address=no"
-        />
-        <link 
-          rel="preload" 
-          href="/fonts/Good Times Rg.woff2" 
-          as="font" 
-          type="font/woff2" 
-          crossOrigin="anonymous"
-        />
-      </head>
-      <body className={`${inter.className} min-h-screen bg-background`} suppressHydrationWarning>
-        <RazorpayProvider>
-          <ClientLayout>{children}</ClientLayout>
-        </RazorpayProvider>
-      </body>
-    </html>
+    <div className={`${inter.className} min-h-screen bg-background`}>
+      <RazorpayProvider>
+        <ClientLayout>{children}</ClientLayout>
+      </RazorpayProvider>
+    </div>
   );
 } 
