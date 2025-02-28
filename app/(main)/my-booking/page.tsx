@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import logger from '@/lib/logger';
@@ -33,7 +33,12 @@ export default function MyBooking() {
   const [pagination, setPagination] = useState<PaginationData>({ total: 0, page: 1, limit: 10, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const pollingTimeoutRef = useRef<NodeJS.Timeout>();
+  const retryCountRef = useRef(0);
+  const maxRetries = 5;
+  const baseDelay = 10000; // 10 seconds
 
   const fetchCurrentBooking = async () => {
     try {
@@ -44,16 +49,34 @@ export default function MyBooking() {
       }
       const data = await response.json();
       setCurrentBooking(data.booking);
+      retryCountRef.current = 0; // Reset retry count on successful fetch
     } catch (error) {
       logger.error('Error fetching current booking:', error);
       // Only show error toast if it's not a network error (to avoid spamming the user during retries)
       if (error instanceof Error && !error.message.includes('fetch')) {
         toast.error('Unable to load current booking. Please try again later.');
       }
+      retryCountRef.current++;
     } finally {
       setLoading(false);
     }
   };
+
+  const startPolling = useCallback(() => {
+    // Clear any existing polling
+    if (pollingTimeoutRef.current) {
+      clearTimeout(pollingTimeoutRef.current);
+    }
+
+    // Only continue polling if we haven't exceeded max retries
+    if (retryCountRef.current < maxRetries) {
+      const delay = baseDelay * Math.pow(2, retryCountRef.current);
+      pollingTimeoutRef.current = setTimeout(() => {
+        fetchCurrentBooking();
+        startPolling(); // Schedule next poll
+      }, delay);
+    }
+  }, []);
 
   const fetchBookingHistory = async (page = 1) => {
     try {
@@ -84,32 +107,19 @@ export default function MyBooking() {
       // Initial fetches
       fetchCurrentBooking();
       fetchBookingHistory();
+      startPolling();
 
-      // Set up polling for current booking with exponential backoff
-      let retryCount = 0;
-      const maxRetries = 5;
-      const baseDelay = 10000; // 10 seconds
-
-      const intervalId = setInterval(() => {
-        if (retryCount >= maxRetries) {
-          clearInterval(intervalId);
-          return;
+      // Cleanup polling on unmount
+      return () => {
+        if (pollingTimeoutRef.current) {
+          clearTimeout(pollingTimeoutRef.current);
         }
-        fetchCurrentBooking().catch(() => {
-          retryCount++;
-          if (retryCount >= maxRetries) {
-            clearInterval(intervalId);
-          }
-        });
-      }, baseDelay * Math.pow(2, retryCount));
-
-      // Cleanup interval on unmount
-      return () => clearInterval(intervalId);
+      };
     } else {
       setLoading(false);
       setHistoryLoading(false);
     }
-  }, [user]);
+  }, [user, startPolling]);
 
   const formatDate = (dateString: string) => {
     try {

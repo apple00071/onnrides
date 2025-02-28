@@ -53,76 +53,45 @@ export class EmailService {
   private initializationPromise: Promise<void>;
 
   private constructor() {
-    this.initializationPromise = this.initialize().catch(error => {
-      logger.error('Failed to initialize email service:', error);
-      throw error;
-    });
+    this.initializationPromise = this.initialize();
   }
 
   private async initialize() {
     try {
-      // Create transporter with Gmail SMTP configuration
+      // Validate required environment variables
+      const requiredVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'];
+      const missingVars = requiredVars.filter(varName => !process.env[varName]);
+      
+      if (missingVars.length > 0) {
+        throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+      }
+
+      // Create transporter with secure configuration
       this.transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.SMTP_PORT || '465'),
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT),
         secure: true,
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
         },
         tls: {
-          rejectUnauthorized: false
+          rejectUnauthorized: true
         }
       });
 
-      // Verify connection configuration
+      // Verify connection
       await this.transporter.verify();
-      this.initialized = true;
-      logger.info('Email service initialized successfully with Gmail SMTP', {
+      
+      logger.info('Email service initialized successfully', {
         host: process.env.SMTP_HOST,
         port: process.env.SMTP_PORT,
-        user: process.env.SMTP_USER?.substring(0, 5) + '...',
-        from: process.env.SMTP_FROM
+        user: process.env.SMTP_USER?.substring(0, 3) + '...'
       });
 
-      // Initialize database table
-      await this.initializeDatabase();
+      this.initialized = true;
     } catch (error) {
-      this.initialized = false;
-      logger.error('Email service initialization failed:', {
-        error,
-        smtp: {
-          host: process.env.SMTP_HOST,
-          port: process.env.SMTP_PORT,
-          user: process.env.SMTP_USER?.substring(0, 5) + '...',
-          from: process.env.SMTP_FROM
-        }
-      });
-      throw error;
-    }
-  }
-
-  private async initializeDatabase() {
-    try {
-      await query(`
-        CREATE TABLE IF NOT EXISTS email_logs (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          recipient TEXT NOT NULL,
-          subject TEXT NOT NULL,
-          message_content TEXT NOT NULL,
-          status TEXT NOT NULL,
-          error TEXT,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await query(`
-        CREATE INDEX IF NOT EXISTS idx_email_logs_status ON email_logs(status);
-        CREATE INDEX IF NOT EXISTS idx_email_logs_recipient ON email_logs(recipient);
-      `);
-    } catch (error) {
-      logger.error('Error initializing email database:', error);
+      logger.error('Failed to initialize email service:', error);
       throw error;
     }
   }
@@ -134,13 +103,75 @@ export class EmailService {
     return EmailService.instance;
   }
 
-  private async logEmail(recipient: string, subject: string, message: string, status: string, error?: string): Promise<string> {
+  private async waitForInitialization(): Promise<void> {
+    if (!this.initialized) {
+      await this.initializationPromise;
+    }
+  }
+
+  async sendEmail(to: string, subject: string, html: string, bookingId?: string | null): Promise<{ messageId: string; logId: string }> {
+    try {
+      await this.waitForInitialization();
+
+      // Validate email address
+      if (!to || !to.includes('@')) {
+        throw new Error('Invalid recipient email address');
+      }
+
+      const mailOptions = {
+        from: process.env.SMTP_FROM,
+        to,
+        subject,
+        html
+      };
+
+      // Log the attempt
+      const logId = await this.logEmail(to, subject, html, 'pending', bookingId);
+
+      try {
+        const info = await this.transporter.sendMail(mailOptions);
+        
+        // Update log with success
+        await this.updateEmailLog(logId, {
+          status: 'success',
+          message_id: info.messageId
+        });
+
+        logger.info('Email sent successfully', {
+          to,
+          subject,
+          messageId: info.messageId,
+          bookingId
+        });
+
+        return { messageId: info.messageId, logId };
+      } catch (error) {
+        // Update log with failure
+        await this.updateEmailLog(logId, {
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+
+        throw error;
+      }
+    } catch (error) {
+      logger.error('Failed to send email:', {
+        error,
+        to,
+        subject,
+        bookingId
+      });
+      throw error;
+    }
+  }
+
+  private async logEmail(recipient: string, subject: string, message: string, status: string, bookingId?: string | null): Promise<string> {
     try {
       const result = await query(
-        `INSERT INTO email_logs (recipient, subject, message_content, status, error)
+        `INSERT INTO email_logs (recipient, subject, message_content, booking_id, status)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id`,
-        [recipient, subject, message, status, error]
+        [recipient, subject, message, bookingId, status]
       );
       return result.rows[0].id;
     } catch (error) {
@@ -149,80 +180,16 @@ export class EmailService {
     }
   }
 
-  async sendEmail(to: string, subject: string, html: string) {
+  private async updateEmailLog(id: string, updates: { status: string; message_id?: string; error?: string }) {
     try {
-      // Wait for initialization to complete
-      await this.initializationPromise;
-
-      if (!this.initialized) {
-        throw new Error('Email service not properly initialized');
-      }
-
-      let logId: string | undefined;
-
-      try {
-        // Log the pending email
-        logId = await this.logEmail(to, subject, html, 'pending');
-
-        logger.info('Sending email:', {
-          to,
-          subject,
-          logId,
-          smtpConfig: {
-            host: process.env.SMTP_HOST,
-            port: process.env.SMTP_PORT,
-            user: process.env.SMTP_USER?.substring(0, 5) + '...',
-            from: process.env.SMTP_FROM
-          }
-        });
-
-        const result = await this.transporter.sendMail({
-          from: process.env.SMTP_FROM,
-          to,
-          subject,
-          html,
-          headers: {
-            'X-Log-ID': logId
-          }
-        });
-
-        // Update log with success
-        await query(
-          `UPDATE email_logs 
-           SET status = 'success', updated_at = CURRENT_TIMESTAMP
-           WHERE id = $1`,
-          [logId]
-        );
-
-        logger.info('Email sent successfully:', { 
-          logId, 
-          messageId: result.messageId,
-          response: result.response
-        });
-        
-        return { success: true, messageId: result.messageId, logId };
-      } catch (error) {
-        logger.error('Failed to send email:', {
-          error,
-          to,
-          subject,
-          logId
-        });
-
-        if (logId) {
-          await query(
-            `UPDATE email_logs 
-             SET status = 'failed', error = $2, updated_at = CURRENT_TIMESTAMP
-             WHERE id = $1`,
-            [logId, error instanceof Error ? error.message : 'Unknown error']
-          );
-        }
-
-        throw error;
-      }
+      await query(
+        `UPDATE email_logs 
+         SET status = $1, message_id = $2, error = $3, updated_at = NOW()
+         WHERE id = $4`,
+        [updates.status, updates.message_id, updates.error, id]
+      );
     } catch (error) {
-      logger.error('Email service error:', error);
-      throw error;
+      logger.error('Failed to update email log:', error);
     }
   }
 

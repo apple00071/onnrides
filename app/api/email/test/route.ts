@@ -3,10 +3,11 @@ import { EmailService } from '@/lib/email/service';
 import logger from '@/lib/logger';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
     try {
-        // Check all required environment variables
+        // Check required environment variables
         const requiredEnvVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'];
         const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 
@@ -22,61 +23,64 @@ export async function GET(req: Request) {
             );
         }
 
-        const testEmail = process.env.SUPPORT_EMAIL;
-        if (!testEmail) {
-            return NextResponse.json(
-                {
-                    error: 'SUPPORT_EMAIL environment variable is not set',
-                    success: false
-                },
-                { status: 400 }
-            );
-        }
-
-        const email = EmailService.getInstance();
+        const testEmail = process.env.SUPPORT_EMAIL || 'support@onnrides.com';
+        const emailService = EmailService.getInstance();
         
-        // Send a test email with current timestamp
+        // Send a test email with current timestamp and configuration details
         const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-        const result = await email.sendEmail(
-            testEmail,
-            'OnnRides Email Test',
-            `
+        const emailContent = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h1 style="color: #f26e24; text-align: center;">🔔 Onnrides Email Test</h1>
+                <h1 style="color: #f26e24;">OnnRides Email Test</h1>
                 <p>This is a test email sent at: ${timestamp}</p>
-                <p>Your email address: ${testEmail}</p>
-                <p>If you receive this email, the email integration is working correctly! 🎉</p>
-                <hr>
-                <p><strong>Email Configuration:</strong></p>
+                
+                <h2>Email Configuration:</h2>
                 <ul>
                     <li>SMTP Host: ${process.env.SMTP_HOST}</li>
                     <li>SMTP Port: ${process.env.SMTP_PORT}</li>
+                    <li>SMTP User: ${process.env.SMTP_USER?.substring(0, 3)}...</li>
                     <li>From: ${process.env.SMTP_FROM}</li>
-                    <li>Environment: ${process.env.NODE_ENV}</li>
                 </ul>
+                
+                <p>If you receive this email, the email integration is working correctly! 🎉</p>
             </div>
-            `
+        `;
+
+        const { messageId, logId } = await emailService.sendEmail(
+            testEmail,
+            'OnnRides Email Test',
+            emailContent
         );
 
+        const responseContent = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                ${emailContent}
+                <p style="color: #666; font-size: 12px; margin-top: 20px;">
+                    Message ID: ${messageId}<br>
+                    Log ID: ${logId}
+                </p>
+            </div>
+        `;
+
         logger.info('Test email sent successfully', {
+            messageId,
+            logId,
             recipient: testEmail,
-            messageId: result.messageId,
             timestamp
         });
 
         return NextResponse.json({
             success: true,
             message: 'Test email sent successfully',
-            timestamp,
             details: {
-                messageId: result.messageId,
-                logId: result.logId,
+                messageId,
+                logId,
                 recipient: testEmail,
+                timestamp,
                 config: {
                     host: process.env.SMTP_HOST,
                     port: process.env.SMTP_PORT,
-                    from: process.env.SMTP_FROM,
-                    user: process.env.SMTP_USER?.substring(0, 5) + '...'
+                    user: process.env.SMTP_USER?.substring(0, 3) + '...',
+                    from: process.env.SMTP_FROM
                 }
             }
         });
@@ -86,7 +90,7 @@ export async function GET(req: Request) {
             config: {
                 host: process.env.SMTP_HOST,
                 port: process.env.SMTP_PORT,
-                user: process.env.SMTP_USER?.substring(0, 5) + '...',
+                user: process.env.SMTP_USER?.substring(0, 3) + '...',
                 from: process.env.SMTP_FROM
             }
         });
