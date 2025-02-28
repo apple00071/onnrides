@@ -5,13 +5,19 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import UserNav from './UserNav';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { User, LogOut, Home, Phone, Info, Car, UserCircle } from 'lucide-react';
 
 export default function Navbar() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Close menu when route changes
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [pathname]);
 
   // Date and time validation helper
   const validateDateTime = (date: string, time: string) => {
@@ -101,132 +107,217 @@ export default function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white">
-      <div className="container flex h-16 items-center justify-between">
-        <div className="flex items-center">
-          <Link href="/" className="flex items-center">
-            <div className="relative h-9 md:h-9 w-32 md:w-32">
-              <Image
-                src="/logo.png"
-                alt="OnnRides"
-                fill
-                className="object-contain"
-                priority
-                sizes="(max-width: 768px) 128px, 128px"
-              />
-            </div>
-          </Link>
-          <nav className="hidden md:flex items-center space-x-6 ml-8">
-            <Link
-              href="/about"
-              className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24]"
-            >
-              About
+    <>
+      <header className="sticky top-0 z-50 w-full border-b bg-white">
+        <div className="container flex h-16 items-center justify-between">
+          <div className="flex items-center">
+            <Link href="/" className="flex items-center">
+              <div className="relative h-9 md:h-9 w-32 md:w-32">
+                <Image
+                  src="/logo.png"
+                  alt="OnnRides"
+                  fill
+                  className="object-contain"
+                  priority
+                  sizes="(max-width: 768px) 128px, 128px"
+                />
+              </div>
             </Link>
-            <Link
-              href="/contact"
-              className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24]"
-            >
-              Contact Us
-            </Link>
-          </nav>
-        </div>
-
-        {/* Desktop Menu */}
-        <div className="hidden md:flex items-center space-x-4">
-          {status === 'loading' ? (
-            <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
-          ) : session?.user ? (
-            <UserNav user={session.user} />
-          ) : (
-            <>
+            <nav className="hidden md:flex items-center space-x-6 ml-8">
               <Link
-                href="/auth/signin"
+                href="/about"
                 className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24]"
               >
-                Sign In
+                About
               </Link>
               <Link
-                href="/auth/signup"
-                className="bg-[#f26e24] text-white hover:bg-[#e05d13] px-4 py-2 rounded-md text-sm font-goodtimes transition-colors"
+                href="/contact"
+                className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24]"
               >
-                Sign Up
+                Contact Us
               </Link>
-            </>
-          )}
+            </nav>
+          </div>
+
+          {/* Desktop Menu */}
+          <div className="hidden md:flex items-center space-x-4">
+            {status === 'loading' ? (
+              <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
+            ) : session?.user ? (
+              <UserNav user={session.user} />
+            ) : (
+              <>
+                <Link
+                  href="/auth/signin"
+                  className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24]"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  className="bg-[#f26e24] text-white hover:bg-[#e05d13] px-4 py-2 rounded-md text-sm font-goodtimes transition-colors"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="md:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+          >
+            <span className="sr-only">Open menu</span>
+            {isMenuOpen ? (
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            )}
+          </button>
         </div>
+      </header>
 
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="md:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
-        >
-          <span className="sr-only">Open menu</span>
-          {isMenuOpen ? (
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+      {/* Mobile Sidebar */}
+      <div
+        className={`fixed inset-0 z-50 transform ${
+          isMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        } transition-transform duration-300 ease-in-out md:hidden`}
+      >
+        {/* Overlay */}
+        <div
+          className={`fixed inset-0 bg-black bg-opacity-50 transition-opacity ${
+            isMenuOpen ? 'opacity-100' : 'opacity-0'
+          }`}
+          onClick={() => setIsMenuOpen(false)}
+        />
+
+        {/* Sidebar */}
+        <div className="relative w-4/5 max-w-sm bg-white h-full shadow-xl flex flex-col">
+          {/* User Info Section */}
+          {session?.user ? (
+            <div className="p-4 border-b bg-gray-50">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-[#f26e24] flex items-center justify-center text-white">
+                  <User className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">{session.user.name}</p>
+                  <p className="text-sm text-gray-500">{session.user.email}</p>
+                </div>
+              </div>
+            </div>
           ) : (
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          )}
-        </button>
-      </div>
-
-      {/* Mobile Menu */}
-      <div className={`md:hidden ${isMenuOpen ? 'block' : 'hidden'}`}>
-        <div className="px-2 pt-2 pb-3 space-y-1">
-          <Link
-            href="/about"
-            className="block px-3 py-2 text-base font-goodtimes text-gray-500 hover:text-[#f26e24] hover:bg-gray-50 rounded-md"
-          >
-            About
-          </Link>
-          <Link
-            href="/contact"
-            className="block px-3 py-2 text-base font-goodtimes text-gray-500 hover:text-[#f26e24] hover:bg-gray-50 rounded-md"
-          >
-            Contact Us
-          </Link>
-          {!session?.user && (
-            <>
+            <div className="p-4 border-b">
               <Link
                 href="/auth/signin"
-                className="block px-3 py-2 text-base font-goodtimes text-gray-500 hover:text-[#f26e24] hover:bg-gray-50 rounded-md"
+                className="block w-full text-center bg-[#f26e24] text-white py-2 rounded-md mb-2"
+                onClick={() => setIsMenuOpen(false)}
               >
                 Sign In
               </Link>
               <Link
                 href="/auth/signup"
-                className="block px-3 py-2 text-base font-goodtimes text-white bg-[#f26e24] hover:bg-[#e05d13] rounded-md"
+                className="block w-full text-center border border-[#f26e24] text-[#f26e24] py-2 rounded-md"
+                onClick={() => setIsMenuOpen(false)}
               >
                 Sign Up
               </Link>
-            </>
+            </div>
+          )}
+
+          {/* Navigation Links */}
+          <nav className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-2">
+              <Link
+                href="/"
+                className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Home className="w-5 h-5 text-gray-500" />
+                <span className="font-goodtimes text-gray-700">Home</span>
+              </Link>
+
+              {session?.user && (
+                <>
+                  <Link
+                    href="/profile"
+                    className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <UserCircle className="w-5 h-5 text-gray-500" />
+                    <span className="font-goodtimes text-gray-700">Profile</span>
+                  </Link>
+                  <Link
+                    href="/my-booking"
+                    className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Car className="w-5 h-5 text-gray-500" />
+                    <span className="font-goodtimes text-gray-700">My Rides</span>
+                  </Link>
+                </>
+              )}
+
+              <Link
+                href="/about"
+                className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Info className="w-5 h-5 text-gray-500" />
+                <span className="font-goodtimes text-gray-700">About</span>
+              </Link>
+
+              <Link
+                href="/contact"
+                className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Phone className="w-5 h-5 text-gray-500" />
+                <span className="font-goodtimes text-gray-700">Contact Us</span>
+              </Link>
+            </div>
+          </nav>
+
+          {/* Sign Out Button for logged in users */}
+          {session?.user && (
+            <div className="p-4 border-t">
+              <Link
+                href="/signout"
+                className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 text-red-600"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="font-goodtimes">Sign Out</span>
+              </Link>
+            </div>
           )}
         </div>
       </div>
-    </header>
+    </>
   );
 } 
