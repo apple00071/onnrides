@@ -127,48 +127,97 @@ export default function HeroSection() {
         return;
       }
 
+      // Get current time in IST
       const now = new Date();
-      now.setSeconds(0);
-      now.setMilliseconds(0);
+      const istNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      istNow.setSeconds(0);
+      istNow.setMilliseconds(0);
 
-      const pickupDateTime = new Date(pickupDate);
+      // Create pickup datetime in IST
       const [pickupHours, pickupMinutes] = pickupTime.split(':').map(Number);
-      pickupDateTime.setHours(pickupHours, pickupMinutes, 0, 0);
+      const pickupDateIST = new Date(pickupDate);
+      pickupDateIST.setHours(pickupHours, pickupMinutes, 0, 0);
+      const pickupDateTime = new Date(pickupDateIST.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
 
-      const dropoffDateTime = new Date(dropoffDate);
+      // Create dropoff datetime in IST
       const [dropoffHours, dropoffMinutes] = dropoffTime.split(':').map(Number);
-      dropoffDateTime.setHours(dropoffHours, dropoffMinutes, 0, 0);
+      const dropoffDateIST = new Date(dropoffDate);
+      dropoffDateIST.setHours(dropoffHours, dropoffMinutes, 0, 0);
+      const dropoffDateTime = new Date(dropoffDateIST.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
 
-      if (pickupDateTime < now) {
+      // Debug log times with proper formatting
+      logger.debug('Time comparison:', {
+        currentLocal: now.toLocaleString(),
+        currentIST: istNow.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+        pickupLocal: pickupDateIST.toLocaleString(),
+        pickupIST: pickupDateTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+        dropoffLocal: dropoffDateIST.toLocaleString(),
+        dropoffIST: dropoffDateTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+        timestamps: {
+          current: istNow.getTime(),
+          pickup: pickupDateTime.getTime(),
+          dropoff: dropoffDateTime.getTime()
+        }
+      });
+
+      // Convert all dates to UTC for comparison
+      const currentUTC = istNow.getTime();
+      const pickupUTC = pickupDateTime.getTime();
+      const dropoffUTC = dropoffDateTime.getTime();
+
+      // Compare times using UTC timestamps
+      if (pickupUTC <= currentUTC) {
+        logger.warn('Pickup date is in the past:', {
+          currentTime: istNow.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+          pickupTime: pickupDateTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+        });
         toast.error('Pickup time must be in the future');
         return;
       }
 
-      if (dropoffDateTime <= pickupDateTime) {
+      if (dropoffUTC <= pickupUTC) {
         toast.error('Drop-off time must be after pickup time');
         return;
       }
 
       setIsLoading(true);
 
-      // Format dates for URL
-      const formatDateForUrl = (date: Date) => {
-        const dateStr = date.toISOString().split('T')[0];
-        return dateStr;
-      };
+      try {
+        // Format dates for URL in IST format
+        const formatDateForUrl = (date: Date) => {
+          const d = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        };
 
-      // Create the search URL with all required parameters
-      const searchParams = new URLSearchParams();
-      searchParams.append('pickupDate', formatDateForUrl(pickupDate));
-      searchParams.append('pickupTime', pickupTime);
-      searchParams.append('dropoffDate', formatDateForUrl(dropoffDate));
-      searchParams.append('dropoffTime', dropoffTime);
-      searchParams.append('type', 'bike');
+        // Create URL parameters
+        const params = new URLSearchParams({
+          pickupDate: formatDateForUrl(pickupDateTime),
+          pickupTime: pickupTime,
+          dropoffDate: formatDateForUrl(dropoffDateTime),
+          dropoffTime: dropoffTime,
+          type: 'bike'
+        });
 
-      const searchUrl = `/vehicles?${searchParams.toString()}`;
-      logger.debug('Navigation URL:', searchUrl);
+        // Construct the full URL
+        const searchUrl = `/vehicles?${params.toString()}`;
+        
+        // Debug log the URL
+        logger.debug('Navigation URL:', {
+          url: searchUrl,
+          params: {
+            pickupDate: formatDateForUrl(pickupDateTime),
+            pickupTime,
+            dropoffDate: formatDateForUrl(dropoffDateTime),
+            dropoffTime
+          }
+        });
 
-      router.push(searchUrl);
+        // Use router.push with catch block
+        await router.push(searchUrl);
+      } catch (navigationError) {
+        logger.error('Navigation error:', navigationError);
+        toast.error('Failed to navigate to vehicles page. Please try again.');
+      }
     } catch (error) {
       logger.error('Search error:', error);
       toast.error('An error occurred while searching. Please try again.');
@@ -275,51 +324,104 @@ function SearchFormContent({
   const minDate = new Date();
   minDate.setHours(0, 0, 0, 0);
 
-  const handlePickupDateChange = (date: Date | null) => {
-    setPickupDate(date);
-    if (date && dropoffDate && dropoffDate < date) {
-      setDropoffDate(date);
-      toast.success('Drop-off date adjusted to match pickup date');
-    }
-  };
-
-  const handleDropoffDateChange = (date: Date | null) => {
-    if (date && pickupDate && date < pickupDate) {
-      toast.error('Drop-off date cannot be before pickup date');
-      return;
-    }
-    setDropoffDate(date);
-  };
-
+  // Generate time options in IST
   const getTimeOptions = (isPickup: boolean) => {
-    const options = [];
+    // Get current time in IST using proper timezone conversion
     const now = new Date();
+    const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    
+    // Debug log current time
+    logger.debug('Time Options Debug:', {
+      localTime: now.toLocaleString(),
+      istTime: istTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+      currentHour: istTime.getHours(),
+      currentMinutes: istTime.getMinutes()
+    });
+
+    interface TimeOption {
+      value: string;
+      label: string;
+    }
+    
+    const options: TimeOption[] = [];
     const selectedDate = isPickup ? pickupDate : dropoffDate;
-    const isToday = selectedDate?.toDateString() === now.toDateString();
-    const currentHour = now.getHours();
+    
+    if (!selectedDate) return options;
 
-    for (let hour = 0; hour < 24; hour++) {
-      // Skip past times for today
-      if (isToday && hour < currentHour) {
-        continue;
+    // Convert selected date to IST for comparison
+    const selectedDateIST = new Date(selectedDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const todayIST = new Date(istTime.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    
+    // Reset hours to compare just the dates
+    todayIST.setHours(0, 0, 0, 0);
+    const compareDate = new Date(selectedDateIST);
+    compareDate.setHours(0, 0, 0, 0);
+
+    // Check if the selected date is today
+    const isToday = compareDate.getTime() === todayIST.getTime();
+
+    // For today, start from current hour + 2 hours (or 3 if past half hour)
+    let startHour = 0;
+    if (isToday) {
+      const currentHour = istTime.getHours();
+      const currentMinutes = istTime.getMinutes();
+      
+      // If we're past half hour, start from next hour + 2
+      startHour = currentMinutes >= 30 ? currentHour + 3 : currentHour + 2;
+      
+      // If we're too late in the day, return no options
+      if (startHour >= 24) {
+        return options;
       }
+    }
 
-      // For dropoff, skip times before pickup time on the same day
-      if (!isPickup && selectedDate?.toDateString() === pickupDate?.toDateString() && pickupTime) {
+    // Generate time slots
+    for (let i = startHour; i < 24; i++) {
+      // For dropoff, skip times before or equal to pickup time on the same day
+      if (!isPickup && 
+          selectedDateIST.toDateString() === pickupDate?.toDateString() && 
+          pickupTime) {
         const [pickupHour] = pickupTime.split(':').map(Number);
-        if (hour <= pickupHour) {
-          continue;
-        }
+        if (i <= pickupHour) continue;
       }
 
-      const timeValue = `${hour.toString().padStart(2, '0')}:00`;
-      const period = hour >= 12 ? 'PM' : 'AM';
-      const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      const hour12 = i === 0 ? 12 : i > 12 ? i - 12 : i;
+      const period = i >= 12 ? 'PM' : 'AM';
+      const timeValue = `${i.toString().padStart(2, '0')}:00`;
       const label = `${hour12}:00 ${period}`;
       
       options.push({ value: timeValue, label });
     }
+
     return options;
+  };
+
+  const handlePickupDateChange = (date: Date | null) => {
+    if (date) {
+      // Convert the selected date to IST
+      const istOffset = 5.5 * 60 * 60 * 1000;
+      const dateInIST = new Date(date.getTime());
+      setPickupDate(dateInIST);
+      
+      // Reset dropoff if it's before the new pickup date
+      if (dropoffDate && dropoffDate < dateInIST) {
+        setDropoffDate(null);
+        setDropoffTime('');
+      }
+    } else {
+      setPickupDate(null);
+    }
+  };
+
+  const handleDropoffDateChange = (date: Date | null) => {
+    if (date) {
+      // Convert the selected date to IST
+      const istOffset = 5.5 * 60 * 60 * 1000;
+      const dateInIST = new Date(date.getTime());
+      setDropoffDate(dateInIST);
+    } else {
+      setDropoffDate(null);
+    }
   };
 
   return (

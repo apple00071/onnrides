@@ -55,13 +55,13 @@ export async function createOrder({
   notes = {},
 }: CreateOrderParams): Promise<RazorpayOrder> {
   try {
-    // Validate amount
+    // Validate amount (amount should already be in paise)
     if (typeof amount !== 'number' || amount < 100) { // Minimum amount is 1 INR (100 paise)
-      console.error('Invalid amount provided:', { amount });
+      logger.error('Invalid amount provided:', { amount });
       throw new Error('Invalid amount. Amount must be at least 100 paise (1 INR).');
     }
     
-    console.log('Creating Razorpay order:', { 
+    logger.info('Creating Razorpay order:', { 
       amount,
       currency,
       receipt,
@@ -70,70 +70,42 @@ export async function createOrder({
 
     // Get fresh Razorpay instance
     const razorpay = getRazorpayInstance();
-    console.log('Got Razorpay instance, creating order...');
+    logger.info('Got Razorpay instance, creating order...');
 
-    // Create order
+    // Create order (amount is already in paise)
     const orderData = {
-      amount: Math.round(amount), // Ensure amount is an integer
+      amount: amount, // Remove Math.round to keep exact amount
       currency,
       receipt,
       notes,
     };
-    console.log('Order data:', orderData);
 
-    try {
-      const order = await razorpay.orders.create(orderData);
-      console.log('Raw Razorpay response:', order);
+    const order = await razorpay.orders.create(orderData);
 
-      if (!order || !order.id) {
-        console.error('Invalid order response from Razorpay:', order);
-        throw new Error('Invalid order response from Razorpay');
-      }
+    // Convert string amounts to numbers and ensure correct types
+    const processedOrder: RazorpayOrder = {
+      id: order.id,
+      entity: order.entity,
+      amount: Number(order.amount),
+      amount_paid: Number(order.amount_paid),
+      amount_due: Number(order.amount_due),
+      currency: order.currency,
+      receipt: order.receipt || null,
+      status: order.status as RazorpayOrder['status'],
+      attempts: order.attempts,
+      notes: order.notes || {},
+      created_at: Number(order.created_at),
+    };
 
-      // Convert string amounts to numbers and ensure correct types
-      const processedOrder: RazorpayOrder = {
-        id: order.id,
-        entity: order.entity,
-        amount: Number(order.amount),
-        amount_paid: Number(order.amount_paid),
-        amount_due: Number(order.amount_due),
-        currency: order.currency,
-        receipt: order.receipt || null,
-        status: order.status as RazorpayOrder['status'],
-        attempts: order.attempts,
-        notes: order.notes || {},
-        created_at: Number(order.created_at),
-      };
-
-      console.log('Processed Razorpay order:', processedOrder);
-      return processedOrder;
-    } catch (razorpayError) {
-      // Log the actual Razorpay error
-      console.error('Razorpay API Error:', {
-        error: razorpayError,
-        message: razorpayError instanceof Error ? razorpayError.message : 'Unknown error',
-        details: razorpayError instanceof Error ? (razorpayError as any).description : undefined,
-      });
-      
-      // Throw with more detailed error message
-      throw new Error(
-        `Razorpay API Error: ${
-          razorpayError instanceof Error 
-            ? razorpayError.message + (
-                (razorpayError as any).description 
-                  ? ` - ${(razorpayError as any).description}`
-                  : ''
-              )
-            : 'Unknown error'
-        }`
-      );
-    }
-  } catch (error) {
-    console.error('Error in createOrder:', {
-      error,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    logger.info('Created Razorpay order:', { 
+      orderId: processedOrder.id, 
+      amount: processedOrder.amount, 
+      currency: processedOrder.currency 
     });
+    
+    return processedOrder;
+  } catch (error) {
+    logger.error('Error creating Razorpay order:', error);
     throw error;
   }
 }

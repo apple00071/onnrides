@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/table';
 import { VehicleCard } from "@/components/VehicleCard";
 import { FaFilter, FaSort } from 'react-icons/fa';
+import { redirect } from 'next/navigation';
+import logger from '@/lib/logger';
 
 interface Vehicle {
   id: string;
@@ -80,6 +82,112 @@ export default function VehiclesPage() {
     type: 'bike',
     location: null
   });
+
+  // Parse and validate dates
+  const parseDate = (dateStr: string) => {
+    try {
+      // Parse the date string in YYYY-MM-DD format
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      return date;
+    } catch (error) {
+      logger.error('Error parsing date:', error);
+      return null;
+    }
+  };
+
+  const pickupDate = searchParams.get('pickupDate');
+  const dropoffDate = searchParams.get('dropoffDate');
+  const pickupTime = searchParams.get('pickupTime');
+  const dropoffTime = searchParams.get('dropoffTime');
+
+  // Validate dates
+  if (!pickupDate || !dropoffDate || !pickupTime || !dropoffTime) {
+    return redirect('/');
+  }
+
+  const parsedPickupDate = parseDate(pickupDate);
+  const parsedDropoffDate = parseDate(dropoffDate);
+
+  if (!parsedPickupDate || !parsedDropoffDate) {
+    return redirect('/');
+  }
+
+  // Set hours and minutes for pickup and dropoff dates
+  const [pickupHours, pickupMinutes] = pickupTime.split(':').map(Number);
+  const [dropoffHours, dropoffMinutes] = dropoffTime.split(':').map(Number);
+
+  parsedPickupDate.setHours(pickupHours, pickupMinutes, 0, 0);
+  parsedDropoffDate.setHours(dropoffHours, dropoffMinutes, 0, 0);
+
+  // Get current time in IST
+  const now = new Date();
+  const istNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+
+  // Create pickup datetime in IST
+  const pickupDateIST = new Date(parsedPickupDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  pickupDateIST.setHours(pickupHours, pickupMinutes, 0, 0);
+  const pickupDateTime = new Date(pickupDateIST.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+
+  // Create dropoff datetime in IST
+  const dropoffDateIST = new Date(parsedDropoffDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  dropoffDateIST.setHours(dropoffHours, dropoffMinutes, 0, 0);
+  const dropoffDateTime = new Date(dropoffDateIST.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+
+  // Debug log times with proper formatting
+  logger.debug('Time comparison:', {
+    currentLocal: now.toLocaleString(),
+    currentIST: istNow.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+    pickupLocal: pickupDateIST.toLocaleString(),
+    pickupIST: pickupDateTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+    dropoffLocal: dropoffDateIST.toLocaleString(),
+    dropoffIST: dropoffDateTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+    timestamps: {
+      current: istNow.getTime(),
+      pickup: pickupDateTime.getTime(),
+      dropoff: dropoffDateTime.getTime()
+    }
+  });
+
+  // Convert all dates to UTC for comparison
+  const currentUTC = istNow.getTime();
+  const pickupUTC = pickupDateTime.getTime();
+  const dropoffUTC = dropoffDateTime.getTime();
+
+  // Compare times using UTC timestamps
+  if (pickupUTC <= currentUTC) {
+    logger.warn('Pickup date is in the past:', {
+      currentTime: istNow.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+      pickupTime: pickupDateTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+    });
+    return redirect('/');
+  }
+
+  if (dropoffUTC <= pickupUTC) {
+    logger.warn('Dropoff date is before or equal to pickup date');
+    return redirect('/');
+  }
+
+  // Format dates for display in IST
+  const formatDateForDisplay = (date: Date) => {
+    try {
+      return date.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'Asia/Kolkata'
+      });
+    } catch (error) {
+      logger.error('Error formatting date:', error);
+      return '';
+    }
+  };
+
+  const displayPickupDate = formatDateForDisplay(parsedPickupDate);
+  const displayDropoffDate = formatDateForDisplay(parsedDropoffDate);
 
   // Add duration calculation function
   const calculateDuration = () => {
@@ -334,15 +442,20 @@ export default function VehiclesPage() {
 
   // Format the datetime for display
   const formatDateTime = (date: string | null, time: string | null) => {
-    if (!date || !time) return '';
+    if (!date || !time) return null;
+
     try {
-      const datetime = new Date(`${date}T${time}`);
-      if (!isNaN(datetime.getTime())) {
-        return formatDateTimeIST(datetime);
-      }
-      return '';
+      const [year, month, day] = date.split('-').map(Number);
+      const [hours, minutes] = time.split(':').map(Number);
+      
+      // Create date in local timezone
+      const dateObj = new Date(year, month - 1, day, hours, minutes);
+      
+      // Format in IST
+      return formatDateForDisplay(dateObj);
     } catch (error) {
-      return '';
+      logger.error('Error formatting datetime:', error);
+      return null;
     }
   };
 

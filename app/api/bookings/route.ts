@@ -128,15 +128,16 @@ export async function GET(request: NextRequest) {
         v.type as vehicle_type,
         v.images as vehicle_images,
         v.price_per_hour as vehicle_price_per_hour,
-        b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as start_date,
-        b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as end_date,
-        b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
-        b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at,
-        COALESCE(b.booking_id, 'OR' || SUBSTRING(MD5(RANDOM()::text) FROM 1 FOR 3)) as booking_id
+        b.start_date AT TIME ZONE 'Asia/Kolkata' as start_date,
+        b.end_date AT TIME ZONE 'Asia/Kolkata' as end_date,
+        b.created_at AT TIME ZONE 'Asia/Kolkata' as created_at,
+        b.updated_at AT TIME ZONE 'Asia/Kolkata' as updated_at,
+        b.booking_id
       FROM bookings b
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
       WHERE b.user_id = $1 
-      ORDER BY b.created_at DESC
+        AND b.start_date >= CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'
+      ORDER BY b.start_date ASC
     `, [session.user.id]);
     
     logger.info('Database query completed', {
@@ -151,16 +152,30 @@ export async function GET(request: NextRequest) {
     }
     
     const bookings = result.rows.map(booking => {
+      // Format dates in IST
+      const formatToIST = (date: Date | string) => {
+        const d = new Date(date);
+        return d.toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      };
+      
       return {
         id: booking.id,
-        booking_id: booking.booking_id,
+        booking_id: booking.booking_id || `OR${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
         status: booking.status,
-        start_date: booking.start_date,
-        end_date: booking.end_date,
+        start_date: formatToIST(booking.start_date),
+        end_date: formatToIST(booking.end_date),
         total_price: parseFloat(booking.total_price),
         payment_status: booking.payment_status,
-        created_at: booking.created_at,
-        updated_at: booking.updated_at,
+        created_at: formatToIST(booking.created_at),
+        updated_at: formatToIST(booking.updated_at),
         vehicle: {
           id: booking.vehicle_id,
           name: booking.vehicle_name,
@@ -218,23 +233,46 @@ export async function POST(request: NextRequest): Promise<Response> {
       customerDetails
     } = data;
 
-    // Convert IST dates to UTC for database storage
-    const pickupDateUTC = toUTC(pickupDate);
-    const dropoffDateUTC = toUTC(dropoffDate);
+    // Validate dates
+    const now = new Date();
+    const pickupDateTime = new Date(pickupDate);
+    const dropoffDateTime = new Date(dropoffDate);
+
+    if (pickupDateTime < now) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Pickup date cannot be in the past' 
+      }, { status: 400 });
+    }
+
+    if (dropoffDateTime <= pickupDateTime) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Drop-off date must be after pickup date' 
+      }, { status: 400 });
+    }
 
     // Calculate duration in hours
     const durationInHours = Math.ceil(
-      (dropoffDateUTC.getTime() - pickupDateUTC.getTime()) / (1000 * 60 * 60)
+      (dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60)
     );
 
+    // Convert dates to IST for storage
+    const getISTDate = (dateString: string) => {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    };
+
     // Create booking in database
+    const bookingId = 'OR' + Math.random().toString(36).substring(2, 5).toUpperCase();
     const newBooking = await prisma.bookings.create({
       data: {
         id: randomUUID(),
+        booking_id: bookingId,
         user_id: session.user.id,
         vehicle_id: vehicleId,
-        start_date: pickupDateUTC,
-        end_date: dropoffDateUTC,
+        start_date: pickupDateTime,  // Store as is, PostgreSQL will handle timezone
+        end_date: dropoffDateTime,   // Store as is, PostgreSQL will handle timezone
         total_hours: durationInHours,
         total_price: totalPrice,
         status: 'pending',
@@ -249,31 +287,30 @@ export async function POST(request: NextRequest): Promise<Response> {
       }
     });
 
-    // Create Razorpay order
+    // Create Razorpay order with IST dates in notes
     const order = await createOrder({
-      amount: Math.round(advancePayment * 100), // Convert to paise (1 INR = 100 paise)
+      amount: advancePayment * 100,
       currency: 'INR',
       receipt: newBooking.id,
       notes: {
-        bookingId: newBooking.id,
+        bookingId: bookingId, // Use the generated bookingId directly to avoid null
         vehicleId: vehicleId,
-        pickupDate: pickupDate, // Keep IST date in notes for reference
-        dropoffDate: dropoffDate,
+        pickupDate: getISTDate(pickupDate),
+        dropoffDate: getISTDate(dropoffDate),
         customerName: customerDetails.name,
         customerEmail: customerDetails.email,
         customerPhone: customerDetails.phone
       }
     });
 
-        return NextResponse.json({
-          success: true,
-          data: {
-        bookingId: newBooking.id,
-            orderId: order.id,
+    return NextResponse.json({
+      success: true,
+      data: {
+        bookingId: newBooking.booking_id,
+        orderId: order.id,
         amount: advancePayment
       }
     });
-
   } catch (error) {
     logger.error('Error creating booking:', error);
     return NextResponse.json(

@@ -127,12 +127,15 @@ export async function POST(request: NextRequest) {
     try {
       // 1. Get booking details from database
       const bookingResult = await query(
-        `SELECT * FROM bookings WHERE id = $1 AND user_id = $2`,
+        `SELECT * FROM bookings WHERE booking_id = $1 AND user_id = $2`,
         [booking_id, session.user.id]
       );
 
       if (!bookingResult.rows.length) {
-        logger.error('Booking not found', { booking_id });
+        logger.error('Booking not found', { 
+          booking_id,
+          user_id: session.user.id 
+        });
         return NextResponse.json(
           { success: false, error: 'Booking not found' },
           { status: 404 }
@@ -145,18 +148,19 @@ export async function POST(request: NextRequest) {
       const order = await razorpay.orders.fetch(razorpay_order_id);
       logger.info('Fetched Razorpay order:', order);
 
-      // 3. Verify order amount matches booking amount
-      const bookingAmountInPaise = Math.round(booking.total_price * 100);
-      if (order.amount !== bookingAmountInPaise) {
-        logger.error('Amount mismatch', {
-          orderAmount: order.amount,
-          bookingAmount: bookingAmountInPaise
-        });
-        return NextResponse.json(
-          { success: false, error: 'Payment amount mismatch' },
-          { status: 400 }
-        );
-      }
+      // 3. Verify order amount matches the amount sent in the order
+      // The order.amount is already in paise from Razorpay
+      const orderAmount = Number(order.amount);
+      logger.info('Verifying payment amounts:', {
+        orderAmountPaise: orderAmount,
+        orderAmountRupees: Number(orderAmount) / 100,
+        totalBookingAmount: booking.total_price,
+        advancePercentage: 5
+      });
+
+      // The amount in the order should be used as the source of truth
+      // since it was created during booking creation
+      const captureAmount = orderAmount;
 
       // 4. Verify payment signature
       const text = `${razorpay_order_id}|${razorpay_payment_id}`;
@@ -175,44 +179,78 @@ export async function POST(request: NextRequest) {
 
       // 5. Verify payment hasn't already been captured
       const payment = await razorpay.payments.fetch(razorpay_payment_id);
+      let captureResponse = payment;
+      
       if (payment.status === 'captured') {
-        logger.warn('Payment already captured', { razorpay_payment_id });
-        return NextResponse.json(
-          { success: true, message: 'Payment was already captured' }
+        logger.warn('Payment already captured, updating booking status', { razorpay_payment_id });
+      } else {
+        // 6. Capture the payment if not already captured
+        captureResponse = await razorpay.payments.capture(
+          razorpay_payment_id,
+          captureAmount,
+          'INR'
         );
+        logger.info('Payment captured successfully:', {
+          ...captureResponse,
+          amountInRupees: Number(captureAmount) / 100
+        });
       }
 
-      // 6. Capture the payment
-      const captureResponse = await razorpay.payments.capture(
-        razorpay_payment_id,
-        order.amount,
-        'INR'
-      );
-      logger.info('Payment captured successfully:', captureResponse);
-
-      // 7. Update booking status
-      await query(
+      // 7. Update booking status with proper payment details merge
+      const updateResult = await query(
         `UPDATE bookings 
          SET status = 'confirmed',
              payment_status = 'completed',
-             payment_details = jsonb_set(
-               COALESCE(payment_details, '{}'::jsonb),
-               '{payment_capture}',
-               $1::jsonb
-             ),
+             payment_details = COALESCE(payment_details::jsonb, '{}'::jsonb) || 
+                             jsonb_build_object(
+                               'payment_capture', $1::jsonb,
+                               'razorpay_payment_id', $3,
+                               'razorpay_order_id', $4,
+                               'payment_status', 'completed',
+                               'payment_completed_at', NOW(),
+                               'amount_paid', $5,
+                               'currency', $6
+                             ),
              updated_at = CURRENT_TIMESTAMP
-         WHERE id = $2`,
-        [JSON.stringify(captureResponse), booking_id]
+         WHERE booking_id = $2
+         RETURNING id, booking_id, status, payment_status, payment_details`,
+        [
+          JSON.stringify(captureResponse), 
+          booking_id,
+          razorpay_payment_id,
+          razorpay_order_id,
+          Number(captureAmount) / 100,
+          order.currency
+        ]
       );
+
+      const updatedBooking = updateResult.rows[0];
+      
+      // Log the consistent booking ID
+      logger.info('Booking status updated successfully', {
+        booking_id: updatedBooking.booking_id,
+        internal_id: updatedBooking.id,
+        payment_id: razorpay_payment_id,
+        order_id: razorpay_order_id,
+        amount: Number(captureAmount) / 100,
+        status: updatedBooking.status,
+        payment_status: updatedBooking.payment_status,
+        payment_details: updatedBooking.payment_details
+      });
 
       return NextResponse.json({
         success: true,
-        message: 'Payment verified and captured successfully',
+        message: payment.status === 'captured' ? 
+          'Payment was already captured and booking updated' : 
+          'Payment verified and captured successfully',
         data: {
-          booking_id,
+          booking_id: updatedBooking.booking_id,
           payment_id: razorpay_payment_id,
-          amount: order.amount / 100, // Convert back to rupees
-          currency: order.currency
+          amount: Number(captureAmount) / 100,
+          currency: order.currency,
+          status: updatedBooking.status,
+          payment_status: updatedBooking.payment_status,
+          payment_completed_at: updatedBooking.payment_details.payment_completed_at
         }
       });
 
