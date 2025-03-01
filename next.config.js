@@ -103,6 +103,17 @@ const nextConfig = {
         source: '/signup',
         destination: '/register',
         permanent: true
+      },
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'onnrides.in',
+          },
+        ],
+        destination: 'https://onnrides.com/:path*',
+        permanent: true,
       }
     ]
   },
