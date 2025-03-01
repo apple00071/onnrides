@@ -66,22 +66,16 @@ const prismaClientSingleton = () => {
 
 const prisma = globalThis.cachedPrisma ?? prismaClientSingleton();
 
-// Add disconnect handler for graceful shutdowns
-process.on('beforeExit', async () => {
-  logger.info('Server shutting down, disconnecting Prisma client');
-  await prisma.$disconnect();
-});
-
-// Also handle SIGTERM and SIGINT
-process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received, disconnecting Prisma client');
-  await prisma.$disconnect();
-});
-
-process.on('SIGINT', async () => {
-  logger.info('SIGINT received, disconnecting Prisma client');
-  await prisma.$disconnect();
-});
+// Export a safe disconnect function
+export async function disconnectPrisma(): Promise<void> {
+  try {
+    await prisma.$disconnect();
+    logger.info('Prisma client disconnected successfully');
+  } catch (error: any) {
+    logger.error('Error disconnecting Prisma client:', { error: error.message });
+    throw error;
+  }
+}
 
 if (process.env.NODE_ENV !== 'production') {
   globalThis.cachedPrisma = prisma;

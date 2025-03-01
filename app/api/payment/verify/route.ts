@@ -6,13 +6,14 @@ import { authOptions } from '@/lib/auth';
 import { sendBookingConfirmationEmail } from '@/lib/email';
 import { verifyEmailConfig } from '@/lib/email/config';
 import { formatDateToIST } from '@/lib/utils';
+import { AdminNotificationService } from '@/lib/notifications/admin-notification';
 
 // New route segment config
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 // Define admin notification recipients
-const ADMIN_EMAILS = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : ['contact@onnrides.com', 'onnrides@gmail.com'];
+const ADMIN_EMAILS = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : ['contact@onnrides.com'];
 
 export async function POST(request: NextRequest) {
   try {
@@ -351,6 +352,24 @@ export async function POST(request: NextRequest) {
         payment_reference,
         email_sent: isEmailConfigValid
       });
+
+      // Send notification to admins
+      try {
+        const adminNotificationService = AdminNotificationService.getInstance();
+        await adminNotificationService.sendPaymentNotification({
+          booking_id: bookingId,
+          payment_id: payment_reference,
+          user_name: booking.user_name,
+          amount: booking.total_price,
+          payment_method: booking.payment_method || 'Online',
+          status: 'success',
+          transaction_time: new Date()
+        });
+        
+        logger.info('Admin payment notification sent successfully');
+      } catch (adminNotifyError) {
+        logger.error('Failed to send admin payment notification:', adminNotifyError);
+      }
 
       return NextResponse.json({
         success: true,

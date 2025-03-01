@@ -186,16 +186,19 @@ export async function query(text: string, params?: any[]): Promise<QueryResult> 
   }
 }
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received, closing pool');
-  await pool.end();
-});
-
-process.on('SIGINT', async () => {
-  logger.info('SIGINT received, closing pool');
-  await pool.end();
-});
+// Export a function to safely end the pool
+export async function closePool(): Promise<void> {
+  try {
+    await pool.end();
+    logger.info('Database pool closed successfully');
+  } catch (error: any) {
+    // Don't throw if it's already being closed
+    if (error.message !== 'Called end on pool more than once') {
+      logger.error('Error closing database pool:', error);
+      throw error;
+    }
+  }
+}
 
 // Export pool for direct access if needed
 export { pool };
@@ -204,4 +207,5 @@ export { pool };
 export default {
   query,
   initializeDatabase,
+  closePool,
 }; 

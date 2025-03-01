@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OnnRides Vehicle Rental Platform
 
-## Getting Started
+OnnRides is a modern web application for renting bikes, scooters, and other vehicles in Hyderabad, India. The platform offers hourly, daily, and weekly rental options with multiple pickup/dropoff locations.
 
-First, run the development server:
+## Key Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Vehicle search with real-time availability checking
+- Online booking and payment processing (Razorpay integration)
+- User account management with secure document verification
+- Admin dashboard for fleet and booking management
+- WhatsApp and email notifications for bookings and updates
+
+## Technical Architecture
+
+### Database Connection Management
+
+The application uses both Prisma ORM and direct PostgreSQL queries via the `pg` package. To ensure reliable database access, we've implemented:
+
+#### Connection Pooling
+
+- **Main PostgreSQL Pool**: Configured in `lib/db.ts` with optimal settings for production environments
+- **Prisma Connection**: Singleton pattern implementation in `lib/prisma.ts`
+
+#### Error Handling and Resilience
+
+- **Retry Logic**: All database operations include automatic retry with exponential backoff for transient errors
+- **Connection Validation**: Pool health monitoring with periodic checks
+- **Error Logging**: Comprehensive logging of database errors with context for easier debugging
+
+#### Graceful Shutdown
+
+The application uses a centralized `ShutdownManager` (in `lib/shutdown-manager.ts`) to ensure proper closure of all connections during server shutdown:
+
+1. **Shutdown Phases**:
+   - `web`: Close HTTP server first
+   - `services`: Terminate background services
+   - `databases`: Close database connections last
+   - `final`: Final cleanup operations
+
+2. **Benefits**:
+   - Prevents "Connection already closed" errors
+   - Ensures all queries complete before shutdown
+   - Properly releases system resources
+   - Maintains order of operations for dependent systems
+
+## Development
+
+### Prerequisites
+
+- Node.js (v18+)
+- PostgreSQL database (or Neon serverless PostgreSQL)
+- Razorpay account for payment processing
+- SMTP server for email notifications
+- UltraMsg account for WhatsApp notifications
+
+### Environment Setup
+
+Configure the following environment variables in `.env`:
+
+```
+# Database Configuration
+DATABASE_URL="postgresql://user:password@host:port/database"
+DIRECT_URL="postgresql://user:password@host:port/database"
+
+# PostgreSQL Connection Pool Configuration
+PG_POOL_MAX=20
+PG_POOL_IDLE_TIMEOUT=30000
+PG_POOL_CONNECTION_TIMEOUT=10000
+
+# Other services configuration
+# ...
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Running the Application
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Install dependencies
+npm install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Run database migrations
+npm run migrate
 
-## Learn More
+# Start the development server
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Troubleshooting Database Connections
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+If you encounter database connection errors like `Error { kind: Closed, cause: None }`, try the following:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. **Test Connection**: Run `npm run test:db` to diagnose connection issues
+2. **Check Pool Settings**: Adjust `PG_POOL_*` variables for your environment
+3. **Verify Network**: Ensure network stability between the application and database
+4. **Monitor Connection Count**: Use the database dashboard to check for connection limit issues
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Copyright © 2024 OnnRides. All rights reserved.

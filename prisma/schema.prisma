@@ -190,3 +190,21 @@ enum vehicle_status {
   maintenance
   retired
 }
+
+// Admin Notification Model to track notifications sent to admins
+model AdminNotification {
+  id          String   @id @default(uuid())
+  type        String   // 'booking', 'payment', 'document', 'account', 'system', 'test'
+  title       String
+  recipient   String
+  channel     String   // 'email', 'whatsapp'
+  status      String   // 'delivered', 'failed'
+  error       String?
+  data        String?  // JSON stringified data
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([type, status])
+  @@index([recipient, channel])
+  @@index([created_at])
+}

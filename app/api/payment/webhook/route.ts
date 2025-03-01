@@ -5,6 +5,7 @@ import logger from '@/lib/logger';
 import { verifyEmailConfig } from '@/lib/email/config';
 import { EmailService } from '@/lib/email/service';
 import { formatDateToIST } from '@/lib/utils';
+import { AdminNotificationService } from '@/lib/notifications/admin-notification';
 
 // New route segment config
 export const dynamic = 'force-dynamic';
@@ -186,6 +187,43 @@ export async function POST(request: NextRequest): Promise<Response> {
 
       // Replace the direct email call with the new function
       await sendEmailConfirmation(booking);
+
+      // Send notification to admins
+      try {
+        const adminNotificationService = AdminNotificationService.getInstance();
+        await adminNotificationService.sendPaymentNotification({
+          booking_id: booking.id,
+          payment_id: paymentEntity.id,
+          user_name: booking.user_name,
+          amount: Number(paymentEntity.amount) / 100, // Convert from paise to rupees
+          payment_method: paymentEntity.method || 'Online',
+          status: 'success',
+          transaction_time: new Date()
+        });
+        
+        logger.info('Admin payment webhook notification sent successfully');
+      } catch (adminNotifyError) {
+        logger.error('Failed to send admin webhook payment notification:', adminNotifyError);
+      }
+    } else if (paymentEntity.status === 'failed') {
+      // Notify admins about failed payment
+      try {
+        const adminNotificationService = AdminNotificationService.getInstance();
+        await adminNotificationService.sendNotification({
+          type: 'payment',
+          title: 'Payment Failed',
+          message: `A payment has failed for order ${orderEntity.id}`,
+          data: {
+            razorpay_order_id: orderEntity.id,
+            payment_id: paymentEntity.id,
+            amount: Number(paymentEntity.amount) / 100,
+            error: paymentEntity.error_description || 'Unknown error',
+            timestamp: new Date()
+          }
+        });
+      } catch (adminNotifyError) {
+        logger.error('Failed to send admin failed payment notification from webhook:', adminNotifyError);
+      }
     }
 
     return NextResponse.json({ success: true });
