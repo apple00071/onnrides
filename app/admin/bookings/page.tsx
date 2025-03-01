@@ -20,6 +20,7 @@ import { Eye, History, Loader2 } from 'lucide-react';
 import { utcToZonedTime } from 'date-fns-tz';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
 
 interface Booking {
   id: string;
@@ -47,6 +48,8 @@ interface Booking {
   payment_status: string;
   payment_reference?: string;  // Add payment reference
   payment_details?: any;       // Add payment details
+  formatted_pickup?: string;   // Add formatted pickup date
+  formatted_dropoff?: string;  // Add formatted dropoff date
 }
 
 // Helper function to format dates in IST timezone - now using the standard utility
@@ -266,11 +269,11 @@ export default function BookingsPage() {
                         <div className="flex flex-col gap-2">
                           <div>
                             <span className="font-semibold">Pickup:</span>{' '}
-                            {formatDateTime(booking.pickup_datetime)}
+                            {booking.formatted_pickup || formatDateTime(booking.pickup_datetime)}
                           </div>
                           <div>
                             <span className="font-semibold">Drop-off:</span>{' '}
-                            {formatDateTime(booking.dropoff_datetime)}
+                            {booking.formatted_dropoff || formatDateTime(booking.dropoff_datetime)}
                           </div>
                           <div>
                             <span className="font-semibold">Location:</span>{' '}
@@ -405,11 +408,11 @@ export default function BookingsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-base font-semibold mb-1">Pickup Time</h3>
-                  <p>{formatDateTime(selectedBooking.pickup_datetime)}</p>
+                  <p>{selectedBooking.formatted_pickup || formatDateTime(selectedBooking.pickup_datetime)}</p>
                 </div>
                 <div>
                   <h3 className="text-base font-semibold mb-1">Dropoff Time</h3>
-                  <p>{formatDateTime(selectedBooking.dropoff_datetime)}</p>
+                  <p>{selectedBooking.formatted_dropoff || formatDateTime(selectedBooking.dropoff_datetime)}</p>
                 </div>
               </div>
 
@@ -501,11 +504,11 @@ export default function BookingsPage() {
                       <div className="mt-2 space-y-1 text-sm text-gray-600">
                         <p>
                           <span className="font-medium">Pickup:</span>{' '}
-                          {formatDateTime(booking.start_date || booking.pickup_datetime)}
+                          {booking.formatted_pickup || formatDateTime(booking.start_date || booking.pickup_datetime)}
                         </p>
                         <p>
                           <span className="font-medium">Dropoff:</span>{' '}
-                          {formatDateTime(booking.end_date || booking.dropoff_datetime)}
+                          {booking.formatted_dropoff || formatDateTime(booking.end_date || booking.dropoff_datetime)}
                         </p>
                         <p>
                           <span className="font-medium">Location:</span>{' '}

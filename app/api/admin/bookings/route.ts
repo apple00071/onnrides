@@ -140,29 +140,37 @@ export async function GET(request: NextRequest) {
       user_email: row.user_email,
       user_phone: row.user_phone,
       vehicle_name: row.vehicle_name
-    })).map((booking: BookingRow) => ({
-      id: booking.id,
-      booking_id: booking.booking_id || `OR${booking.id.slice(0, 3)}`,
-      user_id: booking.user_id,
-      vehicle_id: booking.vehicle_id,
-      pickup_datetime: booking.start_date,
-      dropoff_datetime: booking.end_date,
-      total_hours: Number(booking.total_hours || 0),
-      total_price: Number(booking.total_price || 0),
-      status: booking.status,
-      payment_status: booking.payment_status || 'pending',
-      created_at: booking.created_at,
-      updated_at: booking.updated_at,
-      location: booking.vehicle_location || '',
-      user: {
-        name: booking.user_name || 'Unknown',
-        email: booking.user_email || '',
-        phone: booking.user_phone || 'N/A'
-      },
-      vehicle: {
-        name: booking.vehicle_name || 'Unknown'
-      }
-    }));
+    })).map((booking: BookingRow) => {
+      // Use standardized date formatting for consistency across environments
+      const formattedPickupDate = formatDateTimeIST(booking.start_date);
+      const formattedDropoffDate = formatDateTimeIST(booking.end_date);
+      
+      return {
+        id: booking.id,
+        booking_id: booking.booking_id || `OR${booking.id.slice(0, 3)}`,
+        user_id: booking.user_id,
+        vehicle_id: booking.vehicle_id,
+        pickup_datetime: booking.start_date,
+        dropoff_datetime: booking.end_date,
+        formatted_pickup: formattedPickupDate,
+        formatted_dropoff: formattedDropoffDate,
+        total_hours: Number(booking.total_hours || 0),
+        total_price: Number(booking.total_price || 0),
+        status: booking.status,
+        payment_status: booking.payment_status || 'pending',
+        created_at: booking.created_at,
+        updated_at: booking.updated_at,
+        location: booking.vehicle_location || '',
+        user: {
+          name: booking.user_name || 'Unknown',
+          email: booking.user_email || '',
+          phone: booking.user_phone || 'N/A'
+        },
+        vehicle: {
+          name: booking.vehicle_name || 'Unknown'
+        }
+      };
+    });
 
     logger.info('Successfully transformed bookings:', { 
       count: bookings.length,
