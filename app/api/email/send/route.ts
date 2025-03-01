@@ -23,24 +23,18 @@ export async function POST(request: NextRequest) {
         );
         break;
 
-      case 'booking_confirmation':
-        await emailService.sendEmail(
+      case 'booking-confirmation':
+        await emailService.sendBookingConfirmation(
           data.email,
-          'Booking Confirmation - OnnRides',
-          `
-            <h2>Booking Confirmation</h2>
-            <p>Hello ${data.name},</p>
-            <p>Your booking for ${data.vehicleName} has been confirmed.</p>
-            <p>Booking Details:</p>
-            <ul>
-              <li>Booking ID: ${data.bookingId}</li>
-              <li>Start Date: ${data.startDate}</li>
-              <li>End Date: ${data.endDate}</li>
-              <li>Vehicle: ${data.vehicleName}</li>
-            </ul>
-            <p>Thank you for choosing OnnRides!</p>
-          `,
-          data.bookingId
+          {
+            userName: data.name,
+            vehicleName: data.vehicleName,
+            bookingId: data.bookingId,
+            startDate: data.startDate,
+            endDate: data.endDate,
+            amount: data.amount,
+            paymentId: data.paymentId
+          }
         );
         break;
 

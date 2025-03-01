@@ -41,6 +41,7 @@ interface FormData {
   location: string[];
   images: (string | File)[];
   is_available: boolean;
+  quantity: number;
 }
 
 // Helper function to convert form data to Vehicle type
@@ -56,7 +57,7 @@ function convertToVehicle(formData: FormData, existingVehicle: Vehicle, imageUrl
     location: formData.location,
     images: imageUrls,
     is_available: formData.is_available,
-    quantity: existingVehicle.quantity,
+    quantity: formData.quantity,
     min_booking_hours: existingVehicle.min_booking_hours
   };
 }
@@ -71,7 +72,8 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
     price_30_days: vehicle.price_30_days || 0,
     location: Array.isArray(vehicle.location) ? vehicle.location : [vehicle.location],
     images: Array.isArray(vehicle.images) ? vehicle.images : [],
-    is_available: vehicle.is_available
+    is_available: vehicle.is_available,
+    quantity: vehicle.quantity || 1
   });
   const [loading, setLoading] = useState(false);
   const [newImages, setNewImages] = useState<File[]>([]);
@@ -143,7 +145,8 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
         price_30_days: formData.price_30_days || null,
         location: formData.location,
         images: allImages,
-        is_available: formData.is_available
+        is_available: formData.is_available,
+        quantity: formData.quantity
       };
 
       console.log('Updating vehicle with data:', updateData);
@@ -237,6 +240,20 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
                 Please select at least one location
               </p>
             )}
+          </div>
+
+          <div>
+            <Label htmlFor="quantity">Quantity</Label>
+            <Input
+              id="quantity"
+              name="quantity"
+              type="number"
+              min={1}
+              value={formData.quantity}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                setFormData({ ...formData, quantity: Number(e.target.value) })}
+              required
+            />
           </div>
 
           <div>

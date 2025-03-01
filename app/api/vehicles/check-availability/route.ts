@@ -33,14 +33,13 @@ export async function POST(request: NextRequest) {
       SELECT COUNT(*) as count
       FROM bookings
       WHERE vehicle_id = $1
-      AND location = $2
+      AND pickup_location = $2
       AND status NOT IN ('cancelled', 'failed')
+      AND (payment_status IS NULL OR payment_status != 'failed')
       AND (
-        (start_date, end_date) OVERLAPS ($3::timestamp, $4::timestamp)
-        OR $3::timestamp BETWEEN start_date AND end_date
-        OR $4::timestamp BETWEEN start_date AND end_date
-        OR start_date BETWEEN $3::timestamp AND $4::timestamp
-        OR end_date BETWEEN $3::timestamp AND $4::timestamp
+        (start_date - interval '2 hours', end_date + interval '2 hours') OVERLAPS ($3::timestamp, $4::timestamp)
+        OR ($3::timestamp BETWEEN (start_date - interval '2 hours') AND (end_date + interval '2 hours'))
+        OR ($4::timestamp BETWEEN (start_date - interval '2 hours') AND (end_date + interval '2 hours'))
       )
     `, [vehicleId, location, startDate, endDate]);
 

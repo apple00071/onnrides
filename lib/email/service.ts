@@ -167,43 +167,104 @@ export class EmailService {
 
   private async logEmail(recipient: string, subject: string, message: string, status: string, bookingId?: string | null): Promise<string> {
     try {
+      // Validate required fields
+      if (!recipient || !subject || !message || !status) {
+        throw new Error('Missing required fields for email log');
+      }
+
+      // Ensure status is one of the allowed values
+      const validStatuses = ['pending', 'success', 'failed'];
+      if (!validStatuses.includes(status)) {
+        status = 'pending';
+      }
+
+      // First try to get table info
+      try {
+        await query('SELECT 1 FROM email_logs LIMIT 1');
+      } catch (error) {
+        logger.error('Email logs table may not exist:', error);
+        // Try to create the table
+        await query(`
+          CREATE TABLE IF NOT EXISTS email_logs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            recipient TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            message_content TEXT NOT NULL,
+            status TEXT NOT NULL,
+            booking_id TEXT,
+            error TEXT,
+            message_id TEXT,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+      }
+
+      // Try inserting with basic columns first
       const result = await query(
-        `INSERT INTO email_logs (recipient, subject, message_content, status, booking_id)
+        `INSERT INTO email_logs 
+         (recipient, subject, message_content, status, booking_id)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id::text`,
         [recipient, subject, message, status, bookingId]
       );
+
+      if (!result.rows[0]?.id) {
+        throw new Error('Failed to create email log - no ID returned');
+      }
+
       return result.rows[0].id;
     } catch (error) {
-      logger.error('Failed to log email:', error);
+      logger.error('Failed to log email:', {
+        error,
+        recipient,
+        subject,
+        status,
+        bookingId
+      });
       throw error;
     }
   }
 
   private async updateEmailLog(id: string, updates: { status: string; message_id?: string; error?: string }) {
     try {
-      const params = [updates.status];
-      let sql = 'UPDATE email_logs SET status = $1';
-      let paramCount = 1;
-
+      const params: any[] = [];
+      const updates_sql: string[] = [];
+      
+      if (updates.status) {
+        params.push(updates.status);
+        updates_sql.push(`status = $${params.length}`);
+      }
+      
       if (updates.message_id) {
-        paramCount++;
-        sql += `, message_id = $${paramCount}`;
         params.push(updates.message_id);
+        updates_sql.push(`message_id = $${params.length}`);
       }
-
+      
       if (updates.error) {
-        paramCount++;
-        sql += `, error = $${paramCount}`;
         params.push(updates.error);
+        updates_sql.push(`error = $${params.length}`);
       }
-
-      sql += ', updated_at = CURRENT_TIMESTAMP WHERE id = $' + (paramCount + 1);
+      
+      // Add updated_at
+      updates_sql.push('updated_at = CURRENT_TIMESTAMP');
+      
+      // Add the id as the last parameter
       params.push(id);
+      
+      const sql = `
+        UPDATE email_logs 
+        SET ${updates_sql.join(', ')}
+        WHERE id = $${params.length}
+      `;
 
       await query(sql, params);
     } catch (error) {
-      logger.error('Failed to update email log:', error);
+      logger.error('Failed to update email log:', {
+        error,
+        id,
+        updates
+      });
       throw error;
     }
   }
@@ -236,7 +297,7 @@ export class EmailService {
         <li>Phone: +91 8247494622</li>
       </ul>
     `;
-    await this.sendEmail(to, subject, html);
+    await this.sendEmail(to, subject, html, data.bookingId);
   }
 
   public async sendPaymentFailure(

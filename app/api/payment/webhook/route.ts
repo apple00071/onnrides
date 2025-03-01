@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { sendBookingConfirmationEmail } from '@/lib/email/service';
 import { verifyEmailConfig } from '@/lib/email/config';
+import { EmailService } from '@/lib/email/service';
 
 // New route segment config
 export const dynamic = 'force-dynamic';
@@ -163,8 +163,14 @@ export async function POST(request: NextRequest): Promise<Response> {
             body: JSON.stringify({
               type: 'booking-confirmation',
               data: {
-                booking: emailBooking,
-                userEmail: booking.user_email
+                email: booking.user_email,
+                name: booking.user_name || 'User',
+                bookingId: booking.booking_id || booking.id,
+                startDate: new Date(booking.start_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                endDate: new Date(booking.end_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                vehicleName: booking.vehicle_name,
+                amount: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`,
+                paymentId: paymentEntity.id
               }
             })
           });

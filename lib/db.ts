@@ -58,18 +58,35 @@ export const db = new Kysely<Database>({
 });
 
 // Export query function for direct pool access
-export async function query<T extends Record<string, any>>(
-  text: string,
-  params: any[] = []
-): Promise<QueryResult<T>> {
+export async function query(text: string, params?: any[]): Promise<QueryResult> {
   const start = Date.now();
   try {
-    const result = await pool.query<T>(text, params);
+    // Log the query details before execution
+    logger.debug('Executing query:', {
+      text,
+      params,
+      paramTypes: params?.map(p => typeof p)
+    });
+
+    const result = await pool.query(text, params);
+    
     const duration = Date.now() - start;
-    logger.debug('Executed query', { text, duration, rows: result.rowCount });
+    logger.debug('Executed query', {
+      text,
+      duration,
+      rows: result.rowCount,
+      params,
+      firstRow: result.rows[0]
+    });
+    
     return result;
   } catch (error) {
-    logger.error('Database query error:', error);
+    logger.error('Database query error:', {
+      error,
+      query: text,
+      params,
+      duration: Date.now() - start
+    });
     throw error;
   }
 }

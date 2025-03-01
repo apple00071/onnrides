@@ -3,6 +3,7 @@
 import logger from '@/lib/logger';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { SessionProvider } from 'next-auth/react';
 
 interface User {
   id: string;
@@ -61,9 +62,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, setUser, logout }}>
-      {children}
-    </AuthContext.Provider>
+    <SessionProvider>
+      <AuthContext.Provider value={{ user, loading, error, setUser, logout }}>
+        {children}
+      </AuthContext.Provider>
+    </SessionProvider>
   );
 }
 

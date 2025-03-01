@@ -125,23 +125,11 @@ async function getAvailableLocations(
           b.start_date,
           b.end_date,
           b.status,
-          COALESCE(b.pickup_location, 
-            CASE 
-              WHEN jsonb_typeof(b.location::jsonb) = 'array' THEN b.location::jsonb->0
-              WHEN jsonb_typeof(b.location::jsonb) = 'string' THEN b.location::jsonb
-              ELSE NULL
-            END
-          ) as effective_location,
+          b.pickup_location::text as effective_location,
           v.name as vehicle_name,
           v.quantity as vehicle_quantity,
           COUNT(*) OVER (
-            PARTITION BY COALESCE(b.pickup_location, 
-              CASE 
-                WHEN jsonb_typeof(b.location::jsonb) = 'array' THEN b.location::jsonb->0
-                WHEN jsonb_typeof(b.location::jsonb) = 'string' THEN b.location::jsonb
-                ELSE NULL
-              END
-            )
+            PARTITION BY b.pickup_location::text
           ) as concurrent_bookings
         FROM bookings b
         JOIN vehicles v ON b.vehicle_id = v.id
@@ -149,11 +137,11 @@ async function getAvailableLocations(
         AND b.status NOT IN ('cancelled', 'failed')
         AND b.payment_status != 'failed'
         AND (
-          (b.start_date - interval '30 minutes', b.end_date + interval '30 minutes') OVERLAPS ($2::timestamp, $3::timestamp)
-          OR (
-            b.start_date - interval '30 minutes' <= $3::timestamp 
-            AND b.end_date + interval '30 minutes' >= $2::timestamp
-          )
+          (b.start_date - interval '2 hours', b.end_date + interval '2 hours') OVERLAPS ($2::timestamp, $3::timestamp)
+          OR ($2::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
+          OR ($3::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
+          OR (b.start_date - interval '2 hours') BETWEEN $2::timestamp AND $3::timestamp
+          OR (b.end_date + interval '2 hours') BETWEEN $2::timestamp AND $3::timestamp
         )
       )
       SELECT * FROM booking_counts
@@ -285,21 +273,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     `;
 
     // Get vehicles with their available locations
-    const vehicles = await query<VehicleRow>(`
+    const vehicles = await query(`
       WITH booked_locations AS (
-        SELECT DISTINCT
+        SELECT 
           b.vehicle_id,
-          b.pickup_location
+          b.pickup_location,
+          COUNT(*) as booking_count
         FROM bookings b
         WHERE b.status NOT IN ('cancelled', 'failed')
-        AND b.payment_status != 'failed'
+        AND (b.payment_status IS NULL OR b.payment_status != 'failed')
         AND (
-          ($2::timestamp, $3::timestamp) OVERLAPS (b.start_date, b.end_date)
-          OR b.start_date BETWEEN $2::timestamp AND $3::timestamp
-          OR b.end_date BETWEEN $2::timestamp AND $3::timestamp
-          OR ($2::timestamp BETWEEN b.start_date AND b.end_date)
-          OR ($3::timestamp BETWEEN b.start_date AND b.end_date)
+          (b.start_date - interval '2 hours', b.end_date + interval '2 hours') OVERLAPS ($2::timestamp, $3::timestamp)
+          OR ($2::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
+          OR ($3::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
         )
+        GROUP BY b.vehicle_id, b.pickup_location
       )
       SELECT 
         v.id,
@@ -317,7 +305,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         v.is_available,
         v.created_at,
         v.updated_at,
-        ARRAY_AGG(bl.pickup_location) FILTER (WHERE bl.pickup_location IS NOT NULL) as booked_locations
+        ARRAY_AGG(bl.pickup_location) FILTER (WHERE bl.booking_count >= v.quantity) as booked_locations
       FROM vehicles v
       LEFT JOIN booked_locations bl ON v.id = bl.vehicle_id
       WHERE ($1::text IS NULL OR v.type = $1)
@@ -347,13 +335,23 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         try {
           // Parse location from JSON string
           const locationArray = JSON.parse(vehicle.location || '[]');
-          const availableLocations = Array.isArray(locationArray) ? locationArray : [];
+          
+          // Get booked locations (will be null if no bookings)
+          const bookedLocations = vehicle.booked_locations ? 
+            (Array.isArray(vehicle.booked_locations) ? vehicle.booked_locations : []) : 
+            [];
+          
+          // Filter out booked locations
+          const availableLocations = Array.isArray(locationArray) ? 
+            locationArray.filter(loc => !bookedLocations.includes(loc)) : 
+            [];
           
           // Log for debugging
           logger.info('Processing vehicle locations:', {
             vehicleId: vehicle.id,
             vehicleName: vehicle.name,
             allLocations: locationArray,
+            bookedLocations,
             availableLocations,
             hasAvailableLocations: availableLocations.length > 0
           });

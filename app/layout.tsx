@@ -162,16 +162,16 @@ export default async function RootLayout({
         />
       </head>
       <body className={inter.className} suppressHydrationWarning>
-        <ClientOnly>
-          <Providers session={session}>
-            <AuthProvider>
+        <Providers session={session}>
+          <AuthProvider>
+            <ClientOnly>
               <NotificationBar />
               {children}
               <Toaster position="top-center" />
               <ScriptLoader />
-            </AuthProvider>
-          </Providers>
-        </ClientOnly>
+            </ClientOnly>
+          </AuthProvider>
+        </Providers>
         <JsonLd data={structuredData} />
       </body>
     </html>

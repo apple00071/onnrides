@@ -62,7 +62,8 @@ export async function PUT(
       price_7_days: data.price_7_days ? Number(data.price_7_days) : null,
       price_15_days: data.price_15_days ? Number(data.price_15_days) : null,
       price_30_days: data.price_30_days ? Number(data.price_30_days) : null,
-      is_available: data.is_available
+      is_available: data.is_available,
+      quantity: data.quantity ? Number(data.quantity) : 1
     };
 
     // Ensure location is properly formatted

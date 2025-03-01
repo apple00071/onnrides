@@ -142,10 +142,10 @@ export async function POST(request: NextRequest) {
       );
 
       logger.info('Booking lock query result:', {
-        rowCount: bookingLockResult.rowCount,
+        rowCount: bookingLockResult?.rowCount ?? 0,
         bookingId,
         booking_uuid: body.booking_id,
-        hasRows: bookingLockResult.rowCount > 0,
+        hasRows: (bookingLockResult?.rowCount ?? 0) > 0,
         searchCriteria: {
           bookingId,
           booking_uuid: body.booking_id,
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      if (bookingLockResult.rowCount === 0) {
+      if (!bookingLockResult?.rowCount) {
         // Log the actual value we're searching for
         logger.error('Booking not found during lock', { 
           searchValue: bookingId,
@@ -197,9 +197,9 @@ export async function POST(request: NextRequest) {
           [userId, body.booking_id]
         );
 
-        if (debugResult.rowCount > 0) {
+        if ((debugResult?.rowCount ?? 0) > 0) {
           logger.error('Debug - Recent bookings found:', {
-            bookingsCount: debugResult.rowCount,
+            bookingsCount: debugResult?.rowCount ?? 0,
             bookings: debugResult.rows.map(row => ({
               ...row,
               payment_details: row.payment_details ? JSON.stringify(row.payment_details) : null,
@@ -224,7 +224,7 @@ export async function POST(request: NextRequest) {
           [userId]
         );
 
-        if (rawDebugResult.rowCount > 0) {
+        if ((rawDebugResult?.rowCount ?? 0) > 0) {
           logger.error('Raw payment details from recent bookings:', {
             rawBookings: rawDebugResult.rows
           });
@@ -319,8 +319,14 @@ export async function POST(request: NextRequest) {
             body: JSON.stringify({
               type: 'booking-confirmation',
               data: {
-                booking: emailBooking,
-                userEmail: userEmail
+                email: userEmail,
+                name: booking.user_name || 'User',
+                bookingId: booking.booking_id || booking.id,
+                startDate: new Date(booking.start_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                endDate: new Date(booking.end_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                vehicleName: booking.vehicle_name,
+                amount: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`,
+                paymentId: payment_reference
               }
             })
           });
