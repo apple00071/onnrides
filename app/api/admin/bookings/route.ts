@@ -15,6 +15,8 @@ interface BookingRow {
   vehicle_id: string;
   start_date: string;
   end_date: string;
+  formatted_start_date?: string;
+  formatted_end_date?: string;
   total_hours: number | null;
   total_price: number | null;
   status: string;
@@ -93,32 +95,39 @@ export async function GET(request: NextRequest) {
 
     // Main query with pagination
     const sqlQuery = `
-      SELECT 
-        b.id,
-        b.user_id,
-        b.vehicle_id,
-        b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as start_date,
-        b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as end_date,
-        b.total_hours,
-        b.total_price,
-        b.status,
-        b.payment_status,
-        b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
-        b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at,
-        b.booking_id,
-        v.name as vehicle_name,
-        v.location as vehicle_location,
-        u.name as user_name,
-        u.email as user_email,
-        u.phone as user_phone
-      FROM bookings b
-      LEFT JOIN vehicles v ON b.vehicle_id = v.id
-      LEFT JOIN users u ON b.user_id = u.id
-      ORDER BY b.created_at DESC
+      WITH booking_data AS (
+        SELECT 
+          b.id,
+          b.user_id,
+          b.vehicle_id,
+          b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as start_date,
+          b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as end_date,
+          b.total_hours,
+          b.total_price,
+          b.status,
+          b.payment_status,
+          b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
+          b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at,
+          b.booking_id,
+          v.name as vehicle_name,
+          v.location as vehicle_location,
+          u.name as user_name,
+          u.email as user_email,
+          u.phone as user_phone,
+          
+          -- Explicitly format dates as strings in SQL for consistency
+          TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') as formatted_start_date,
+          TO_CHAR(b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') as formatted_end_date
+        FROM bookings b
+        LEFT JOIN vehicles v ON b.vehicle_id = v.id
+        LEFT JOIN users u ON b.user_id = u.id
+      )
+      SELECT * FROM booking_data
+      ORDER BY created_at DESC
       LIMIT $1 OFFSET $2
     `;
 
-    logger.info('Executing paginated SQL query');
+    logger.info('Executing paginated SQL query with explicit IST conversion');
     const result = await query(sqlQuery, [ITEMS_PER_PAGE, offset]);
 
     // Transform the result
@@ -129,6 +138,8 @@ export async function GET(request: NextRequest) {
       vehicle_id: row.vehicle_id,
       start_date: row.start_date,
       end_date: row.end_date,
+      formatted_start_date: row.formatted_start_date,
+      formatted_end_date: row.formatted_end_date,
       total_hours: row.total_hours,
       total_price: row.total_price,
       status: row.status,
@@ -140,7 +151,10 @@ export async function GET(request: NextRequest) {
       user_email: row.user_email,
       user_phone: row.user_phone,
       vehicle_name: row.vehicle_name
-    })).map((booking: BookingRow) => {
+    }));
+
+    // Format the data for the response
+    const formattedBookings = bookings.map(booking => {
       // Use standardized date formatting for consistency across environments
       const formattedPickupDate = formatDateTimeIST(booking.start_date);
       const formattedDropoffDate = formatDateTimeIST(booking.end_date);
@@ -152,8 +166,8 @@ export async function GET(request: NextRequest) {
         vehicle_id: booking.vehicle_id,
         pickup_datetime: booking.start_date,
         dropoff_datetime: booking.end_date,
-        formatted_pickup: formattedPickupDate,
-        formatted_dropoff: formattedDropoffDate,
+        formatted_pickup: booking.formatted_start_date || formattedPickupDate,
+        formatted_dropoff: booking.formatted_end_date || formattedDropoffDate,
         total_hours: Number(booking.total_hours || 0),
         total_price: Number(booking.total_price || 0),
         status: booking.status,
@@ -173,7 +187,7 @@ export async function GET(request: NextRequest) {
     });
 
     logger.info('Successfully transformed bookings:', { 
-      count: bookings.length,
+      count: formattedBookings.length,
       page,
       totalPages 
     });
@@ -181,7 +195,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ 
       success: true,
       data: {
-        bookings,
+        bookings: formattedBookings,
         pagination: {
           currentPage: page,
           totalPages,
