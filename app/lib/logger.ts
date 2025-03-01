@@ -1,3 +1,4 @@
+import logger from '@/lib/logger';
 /* eslint-disable no-console */
 const isDevelopment = process.env.NODE_ENV === 'development';
 const isProduction = process.env.NODE_ENV === 'production';
@@ -36,9 +37,9 @@ const productionLog = (level: LogLevel, ...args: any[]): void => {
       // You could send this to a logging service
       // For now, we'll just do minimal console output in production
       if (level === 'error') {
-        console.error('[Error]', timestamp, ...args);
+        logger.error('[Error]', timestamp, ...args);
       } else if (level === 'warn') {
-        console.warn('[Warning]', timestamp, ...args);
+        logger.warn('[Warning]', timestamp, ...args);
       }
     }
   }
@@ -47,7 +48,7 @@ const productionLog = (level: LogLevel, ...args: any[]): void => {
 export const logger = {
   debug: (...args: any[]): void => {
     if (shouldLog('debug')) {
-      console.log('[Debug]', ...args);
+      logger.debug('[Debug]', ...args);
     }
   },
   log: (...args: any[]): void => {

@@ -6,6 +6,7 @@ import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { EmailService } from '@/lib/email/service';
 import { WhatsAppService } from '@/lib/whatsapp/service';
+import { formatDateToIST } from '@/lib/utils';
 
 interface BookingRow {
   id: string;
@@ -294,8 +295,8 @@ export async function PUT(request: NextRequest) {
           <ul>
             <li>Booking ID: ${booking.id}</li>
             <li>Vehicle: ${booking.vehicle_name}</li>
-            <li>Start Date: ${new Date(booking.start_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</li>
-            <li>End Date: ${new Date(booking.end_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</li>
+            <li>Start Date: ${formatDateToIST(booking.start_date)}</li>
+            <li>End Date: ${formatDateToIST(booking.end_date)}</li>
           </ul>
           
           <p>If you have any questions, please contact our support team:</p>

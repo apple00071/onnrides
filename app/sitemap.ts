@@ -1,119 +1,59 @@
 import { MetadataRoute } from 'next';
-import prisma from '@/lib/prisma';
 
-interface VehicleData {
-  id: string;
-  updated_at: Date;
-}
-
-async function getActiveVehicles(): Promise<VehicleData[]> {
-  return prisma.vehicles.findMany({
-    select: {
-      id: true,
-      updated_at: true,
-    },
-    where: {
-      AND: [
-        { status: 'active' },
-        { is_available: true }
-      ]
-    },
-    orderBy: {
-      updated_at: 'desc',
-    },
-    take: 1000,
-  });
-}
-
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
-
-  // Get all vehicles for dynamic routes
-  const vehicles = await getActiveVehicles();
-
-  // Static routes with their priorities
-  const staticRoutes: MetadataRoute.Sitemap = [
+export default function sitemap(): MetadataRoute.Sitemap {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.onnrides.com';
+  
+  // Define static routes
+  const staticRoutes = [
     {
-      url: baseUrl,
+      url: `${baseUrl}`,
       lastModified: new Date(),
-      changeFrequency: 'daily',
+      changeFrequency: 'daily' as const,
       priority: 1,
     },
     {
       url: `${baseUrl}/vehicles`,
       lastModified: new Date(),
-      changeFrequency: 'daily',
+      changeFrequency: 'daily' as const,
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/locations/hyderabad`,
+      url: `${baseUrl}/bookings`,
       lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/locations/hyderabad/cars`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
+      changeFrequency: 'weekly' as const,
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/locations/hyderabad/bikes`,
+      url: `${baseUrl}/my-booking`,
       lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/locations/secunderabad`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/locations/cyberabad`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/about`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: 'weekly' as const,
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/contact`,
+      url: `${baseUrl}/profile`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/help`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: 'monthly' as const,
       priority: 0.6,
     },
     {
-      url: `${baseUrl}/terms`,
+      url: `${baseUrl}/profile/documents`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: 'monthly' as const,
       priority: 0.5,
     },
     {
-      url: `${baseUrl}/privacy-policy`,
+      url: `${baseUrl}/auth/signin`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
+      changeFrequency: 'yearly' as const,
+      priority: 0.4,
+    },
+    {
+      url: `${baseUrl}/auth/signup`,
+      lastModified: new Date(),
+      changeFrequency: 'yearly' as const,
+      priority: 0.4,
     },
   ];
 
-  // Dynamic routes for vehicles
-  const vehicleRoutes: MetadataRoute.Sitemap = vehicles.map((vehicle: VehicleData) => ({
-    url: `${baseUrl}/vehicles/${vehicle.id}`,
-    lastModified: vehicle.updated_at,
-    changeFrequency: 'daily',
-    priority: 0.8,
-  }));
-
-  return [...staticRoutes, ...vehicleRoutes];
+  return staticRoutes;
 } 

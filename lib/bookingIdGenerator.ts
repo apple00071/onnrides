@@ -1,4 +1,5 @@
 import { query } from './db';
+import logger from '@/lib/logger';
 
 export const generateBookingId = async (): Promise<string> => {
     try {
@@ -26,7 +27,7 @@ export const generateBookingId = async (): Promise<string> => {
         const nextNumber = lastNumber + 1;
         return `OR${nextNumber}`;
     } catch (error) {
-        console.error('Error generating booking ID:', error);
+        logger.error('Error generating booking ID:', error);
         throw new Error('Failed to generate booking ID');
     }
 }; 

@@ -16,7 +16,7 @@ export default function PaymentRecoveryPage() {
       try {
         setPendingPayment(JSON.parse(storedPayment));
       } catch (error) {
-        console.error('Error parsing pending payment:', error);
+        logger.error('Error parsing pending payment:', error);
         localStorage.removeItem('pendingPayment');
         router.push('/');
       }
@@ -53,7 +53,7 @@ export default function PaymentRecoveryPage() {
         throw new Error(data.error || 'Verification failed');
       }
     } catch (error) {
-      console.error('Error verifying payment:', error);
+      logger.error('Error verifying payment:', error);
       toast.error('Failed to verify payment. Please contact support.');
     } finally {
       setIsVerifying(false);

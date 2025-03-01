@@ -12,6 +12,7 @@ import { NotificationBar } from '@/components/ui/NotificationBar';
 import JsonLd from './components/JsonLd';
 import { headers } from 'next/headers';
 import ClientOnly from './(main)/providers/ClientOnly';
+import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,13 +95,13 @@ async function checkMaintenanceMode(): Promise<boolean> {
       cache: 'no-store',
     });
     if (!response.ok) {
-      console.error('Failed to check maintenance mode:', response.statusText);
+      logger.error('Failed to check maintenance mode:', response.statusText);
       return false;
     }
     const data = await response.json();
     return Boolean(data.maintenance);
   } catch (error) {
-    console.error('Error checking maintenance mode:', error);
+    logger.error('Error checking maintenance mode:', error);
     return false;
   }
 }

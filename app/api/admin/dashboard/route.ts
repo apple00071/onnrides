@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import { QueryResult } from 'pg';
+import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -49,7 +50,7 @@ const defaultData = {
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('[Dashboard API] Request received');
+    logger.debug('[Dashboard API] Request received');
 
     // Get and validate session first to fail fast
     const session = await getServerSession(authOptions);
@@ -162,7 +163,7 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error) {
-    console.error('[Dashboard API] Error:', error);
+    logger.error('[Dashboard API] Error:', error);
     
     return new Response(
       JSON.stringify({

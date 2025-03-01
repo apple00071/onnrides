@@ -389,7 +389,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ vehicles: processedVehicles });
   } catch (error) {
-    console.error('Error fetching vehicles:', error);
+    logger.error('Error fetching vehicles:', error);
     return NextResponse.json({ error: 'Failed to fetch vehicles', vehicles: [] }, { status: 500 });
   }
 }

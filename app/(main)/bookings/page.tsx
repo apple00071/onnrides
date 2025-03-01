@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { format, parseISO, isValid } from 'date-fns';
+import { utcToZonedTime } from 'date-fns-tz';
+import { formatDateToIST } from '@/lib/utils';
 
 interface Booking {
   id: string;
@@ -53,41 +55,6 @@ export default function BookingsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Helper function to safely format dates
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    } catch (error) {
-      logger.error('Error formatting date:', { dateString, error });
-      return 'Invalid date';
-    }
-  };
-
-  // Helper function to safely parse location
-  const parseLocation = (location: string | string[]): string => {
-    try {
-      if (!location) {
-        return 'Location not available';
-      }
-      if (typeof location === 'string') {
-        const parsed = JSON.parse(location);
-        return Array.isArray(parsed) ? parsed[0] : location;
-      }
-      return Array.isArray(location) ? location[0] : 'Location not available';
-    } catch {
-      return typeof location === 'string' ? location : 'Location not available';
-    }
-  };
 
   const fetchBookings = async (page = 1) => {
     try {
@@ -181,6 +148,26 @@ export default function BookingsPage() {
     (booking.status === 'completed' || new Date(booking.end_date) <= new Date()) ||
     booking.status === 'cancelled'
   );
+
+  const formatDate = (dateString: string) => {
+    return formatDateToIST(dateString);
+  };
+  
+  // Helper function to safely parse location
+  const parseLocation = (location: string | string[]): string => {
+    try {
+      if (!location) {
+        return 'Location not available';
+      }
+      if (typeof location === 'string') {
+        const parsed = JSON.parse(location);
+        return Array.isArray(parsed) ? parsed[0] : location;
+      }
+      return Array.isArray(location) ? location[0] : 'Location not available';
+    } catch {
+      return typeof location === 'string' ? location : 'Location not available';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">

@@ -15,6 +15,7 @@ import { WhatsAppService } from '@/lib/whatsapp/service';
 import { toUTC } from '@/lib/utils/timezone';
 import prisma from '@/lib/prisma';
 import { RazorpayOrder } from '@/lib/razorpay';
+import { formatDateToIST } from '@/lib/utils';
 
 // Define standard support contact info
 const SUPPORT_EMAIL = 'contact@onnrides.com';
@@ -96,6 +97,9 @@ try {
     keySecretExists: !!RAZORPAY_KEY_SECRET
   });
 }
+
+// Replace any custom date formatting with our standardized function
+const formatDate = (date: Date) => formatDateToIST(date);
 
 // GET /api/bookings - List user's bookings
 export async function GET(request: NextRequest) {
@@ -245,12 +249,6 @@ export async function POST(request: NextRequest): Promise<Response> {
       (dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60)
     );
 
-    // Convert dates to IST for storage
-    const getISTDate = (dateString: string) => {
-      const date = new Date(dateString);
-      return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-    };
-
     // Create booking in database
     const bookingId = 'OR' + Math.random().toString(36).substring(2, 5).toUpperCase();
     const newBooking = await prisma.bookings.create({
@@ -283,8 +281,8 @@ export async function POST(request: NextRequest): Promise<Response> {
       notes: {
         bookingId: bookingId, // Use the generated bookingId directly to avoid null
         vehicleId: vehicleId,
-        pickupDate: getISTDate(pickupDate),
-        dropoffDate: getISTDate(dropoffDate),
+        pickupDate: formatDate(new Date(pickupDate)),
+        dropoffDate: formatDate(new Date(dropoffDate)),
         customerName: customerDetails.name,
         customerEmail: customerDetails.email,
         customerPhone: customerDetails.phone

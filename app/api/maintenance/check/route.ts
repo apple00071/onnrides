@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import logger from '@/lib/logger';
 
 // Cache the maintenance mode status for 60 seconds
 let maintenanceMode: boolean | null = null;
@@ -26,7 +27,7 @@ export async function GET() {
     
     return NextResponse.json({ maintenance: maintenanceMode });
   } catch (error) {
-    console.error('Error checking maintenance mode:', error);
+    logger.error('Error checking maintenance mode:', error);
     return NextResponse.json({ maintenance: false });
   }
 } 

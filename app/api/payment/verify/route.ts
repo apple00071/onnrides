@@ -5,10 +5,14 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { sendBookingConfirmationEmail } from '@/lib/email';
 import { verifyEmailConfig } from '@/lib/email/config';
+import { formatDateToIST } from '@/lib/utils';
 
 // New route segment config
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+// Define admin notification recipients
+const ADMIN_EMAILS = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : ['contact@onnrides.com', 'onnrides@gmail.com'];
 
 export async function POST(request: NextRequest) {
   try {
@@ -302,8 +306,8 @@ export async function POST(request: NextRequest) {
         payment_reference,
         payment_status: 'completed',
         status: 'confirmed',
-        startDate: booking.start_date,
-        endDate: booking.end_date,
+        startDate: formatDateToIST(booking.start_date),
+        endDate: formatDateToIST(booking.end_date),
         pickupLocation: booking.pickup_location,
         totalPrice: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`
       };
@@ -322,8 +326,8 @@ export async function POST(request: NextRequest) {
                 email: userEmail,
                 name: booking.user_name || 'User',
                 bookingId: booking.booking_id || booking.id,
-                startDate: new Date(booking.start_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-                endDate: new Date(booking.end_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                startDate: formatDateToIST(booking.start_date),
+                endDate: formatDateToIST(booking.end_date),
                 vehicleName: booking.vehicle_name,
                 amount: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`,
                 paymentId: payment_reference

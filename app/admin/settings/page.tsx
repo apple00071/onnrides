@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import logger from '@/lib/logger';
 
 export default function SettingsPage() {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
@@ -17,7 +18,7 @@ export default function SettingsPage() {
         const data = await response.json();
         setIsMaintenanceMode(data.maintenanceMode);
       } catch (error) {
-        console.error('Error fetching maintenance status:', error);
+        logger.error('Error fetching maintenance status:', error);
       }
     };
 
@@ -46,7 +47,7 @@ export default function SettingsPage() {
         `Maintenance mode ${!isMaintenanceMode ? 'enabled' : 'disabled'} successfully`
       );
     } catch (error) {
-      console.error('Error updating maintenance mode:', error);
+      logger.error('Error updating maintenance mode:', error);
       toast.error('Failed to update maintenance mode');
     } finally {
       setIsLoading(false);

@@ -146,7 +146,7 @@ export default function BookingSummaryPage() {
           localStorage.removeItem('pendingPayment');
         }
       } catch (error) {
-        console.error('Error parsing pending payment:', error);
+        logger.error('Error parsing pending payment:', error);
         localStorage.removeItem('pendingPayment');
       }
     }

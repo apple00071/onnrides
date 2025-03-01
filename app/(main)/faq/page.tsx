@@ -1,105 +1,107 @@
-'use client';
+import { Metadata } from 'next';
+import Link from 'next/link';
 
-import { useState } from 'react';
-import { ChevronDownIcon } from '@heroicons/react/24/outline';
+export const metadata: Metadata = {
+  title: 'Frequently Asked Questions | OnnRides - Bike Rental in Hyderabad',
+  description: 'Find answers to frequently asked questions about bike and vehicle rentals in Hyderabad with OnnRides. Learn about booking process, documents required, and payment options.',
+  keywords: 'bike rental FAQ, Hyderabad vehicle rental questions, OnnRides help, bike rental requirements, scooter rental documents, vehicle rental payment options',
+};
 
-interface FAQItem {
-  question: string;
-  answer: string;
-}
+// FAQ data structure
+const faqs = [
+  {
+    question: "What documents do I need to rent a vehicle?",
+    answer: "To rent a vehicle from OnnRides, you need a valid government-issued photo ID (Aadhar Card, Passport, etc.), a valid driving license for the vehicle category you wish to rent, and an original address proof. For certain vehicles, we may require an additional security deposit."
+  },
+  {
+    question: "How do I book a bike or scooter?",
+    answer: "Booking a vehicle with OnnRides is simple. Browse our available vehicles, select your pickup and drop-off dates and times, choose your preferred vehicle, and complete the payment process. You'll receive a confirmation email with your booking details."
+  },
+  {
+    question: "What is the minimum rental duration?",
+    answer: "The minimum rental duration is 4 hours for most vehicles. Some premium vehicles may have a minimum rental period of 24 hours."
+  },
+  {
+    question: "Do I need to pay a security deposit?",
+    answer: "Yes, a refundable security deposit is required for all rentals. The amount varies based on the vehicle type and rental duration. The deposit is fully refunded after the vehicle is returned in good condition."
+  },
+  {
+    question: "Can I extend my rental period?",
+    answer: "Yes, you can extend your rental period by contacting our customer support team at least 3 hours before your scheduled return time. Extension is subject to availability and additional charges will apply based on the extended duration."
+  },
+  {
+    question: "What happens if I return the vehicle late?",
+    answer: "Late returns are charged at a higher hourly rate. If you anticipate being late, please contact our customer support team as soon as possible to minimize additional charges."
+  },
+  {
+    question: "How does the fuel policy work?",
+    answer: "We provide vehicles with a full tank of fuel, and we expect them to be returned with a full tank. If the vehicle is returned with less fuel, the difference will be charged based on current fuel prices plus a service fee."
+  },
+  {
+    question: "What if the vehicle breaks down?",
+    answer: "In case of breakdown, contact our 24/7 customer support immediately. We will provide assistance or a replacement vehicle depending on your location and the nature of the breakdown."
+  },
+  {
+    question: "Do you offer doorstep delivery?",
+    answer: "Yes, we offer doorstep delivery and pickup services within Hyderabad city limits for a nominal fee. The service is free for rentals exceeding certain duration or value thresholds."
+  },
+  {
+    question: "What are your operating hours?",
+    answer: "Our main rental stations in Madhapur and Erragadda are open from 8:00 AM to 8:00 PM every day. For after-hours pickup or drop-off, please contact our customer support to make special arrangements."
+  }
+];
 
 export default function FAQPage() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-
-  const faqs: FAQItem[] = [
-    {
-      question: 'What documents do I need to rent a vehicle?',
-      answer: 'To rent a vehicle, you need a valid government-issued ID, a valid driving license, and an additional address proof. For outstation rentals, additional documentation may be required.'
-    },
-    {
-      question: 'Is there a security deposit?',
-      answer: 'Yes, a security deposit is required for certain vehicles, outstation rentals, and monthly rentals. The deposit amount varies based on the vehicle type and rental duration. The deposit is fully refundable upon safe return of the vehicle.'
-    },
-    {
-      question: 'What are the charges for outstation trips?',
-      answer: 'For outstation trips, there is a 20% additional charge on the rental fee. Only Royal Enfield vehicles are allowed for outstation rentals. Additional security deposit and documentation are required.'
-    },
-    {
-      question: 'What are your operating hours?',
-      answer: 'We are open 24/7 to serve you better. You can pick up and return vehicles at any time, but please make sure to schedule your pickup and return times in advance.'
-    },
-    {
-      question: 'Do you provide helmets with bike rentals?',
-      answer: 'Yes, we provide DOT-certified helmets with all our bike rentals at no additional cost. We prioritize your safety and ensure all our helmets are regularly sanitized.'
-    },
-    {
-      question: 'What is your cancellation policy?',
-      answer: 'We offer free cancellation up to 24 hours before the scheduled pickup time. Cancellations within 24 hours of pickup will incur a 50% charge. No refunds are provided for no-shows.'
-    },
-    {
-      question: 'What happens if the vehicle breaks down?',
-      answer: 'In case of a breakdown, immediately contact our 24/7 support team. We will either fix the issue or provide a replacement vehicle as soon as possible. All our vehicles are regularly maintained to prevent such incidents.'
-    },
-    {
-      question: 'Do you offer monthly rental plans?',
-      answer: 'Yes, we offer monthly rental plans with special rates. Monthly rentals require a security deposit and may have additional documentation requirements. Contact us for detailed monthly rental terms.'
-    },
-    {
-      question: 'What is included in the rental price?',
-      answer: 'The rental price includes basic insurance coverage, vehicle maintenance, and 24/7 roadside assistance. Fuel costs and traffic violations are the responsibility of the renter.'
-    },
-    {
-      question: 'How do I extend my rental period?',
-      answer: 'To extend your rental period, contact our support team at least 6 hours before your scheduled return time. Extensions are subject to vehicle availability and may require additional payment.'
-    }
-  ];
-
-  const toggleFAQ = (index: number) => {
-    setOpenIndex(openIndex === index ? null : index);
-  };
-
   return (
-    <main className="container mx-auto px-4 py-8 mt-16">
-      <h1 className="text-3xl font-bold mb-8 text-center">Frequently Asked Questions</h1>
+    <div className="container mx-auto px-4 py-12">
+      <h1 className="text-3xl font-bold text-center mb-10">Frequently Asked Questions</h1>
       
-      <div className="max-w-3xl mx-auto space-y-4">
+      {/* FAQ Schema for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": faqs.map(faq => ({
+              "@type": "Question",
+              "name": faq.question,
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": faq.answer
+              }
+            }))
+          })
+        }}
+      />
+      
+      <div className="max-w-3xl mx-auto divide-y divide-gray-200">
         {faqs.map((faq, index) => (
-          <div
-            key={index}
-            className="bg-white rounded-lg shadow-md overflow-hidden"
-          >
-            <button
-              className="w-full px-6 py-4 text-left flex justify-between items-center hover:bg-gray-50"
-              onClick={() => toggleFAQ(index)}
-            >
-              <span className="font-semibold text-gray-900">{faq.question}</span>
-              <ChevronDownIcon
-                className={`w-5 h-5 text-gray-500 transition-transform ${
-                  openIndex === index ? 'transform rotate-180' : ''
-                }`}
-              />
-            </button>
-            
-            <div
-              className={`px-6 overflow-hidden transition-all duration-300 ease-in-out ${
-                openIndex === index ? 'py-4' : 'max-h-0'
-              }`}
-            >
-              <p className="text-gray-600">{faq.answer}</p>
-            </div>
+          <div key={index} className="py-6">
+            <h3 className="text-xl font-semibold text-gray-900">{faq.question}</h3>
+            <p className="mt-3 text-gray-600">{faq.answer}</p>
           </div>
         ))}
       </div>
-
+      
       <div className="mt-12 text-center">
-        <p className="text-gray-600">
-          Still have questions? Contact us at
-        </p>
-        <div className="mt-2 text-[#f26e24]">
-          <p>+91 83090 31203</p>
-          <p>+91 91824 95481</p>
+        <h2 className="text-2xl font-bold mb-4">Still have questions?</h2>
+        <p className="mb-6">Our customer support team is here to help you.</p>
+        <div className="flex flex-col sm:flex-row justify-center gap-4">
+          <Link 
+            href="/contact" 
+            className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition-colors"
+          >
+            Contact Us
+          </Link>
+          <a 
+            href="tel:+919876543210" 
+            className="border border-primary text-primary px-6 py-3 rounded-lg font-semibold hover:bg-primary hover:text-white transition-colors"
+          >
+            Call Us
+          </a>
         </div>
       </div>
-    </main>
+    </div>
   );
 } 

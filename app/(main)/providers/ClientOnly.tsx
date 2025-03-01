@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useEffect, useState, useRef } from 'react';
+import logger from '@/lib/logger';
 
 // Create a context to manage portal state
 export const PortalContext = createContext<{
@@ -41,13 +42,13 @@ export default function ClientOnly({ children }: { children: React.ReactNode }) 
                 portal.parentNode.removeChild(portal);
               }
             } catch (error) {
-              console.error('Error removing portal:', error);
+              logger.error('Error removing portal:', error);
             }
           });
           // Clear the set after cleanup
           activePortalsRef.current.clear();
         } catch (error) {
-          console.error('Error during cleanup:', error);
+          logger.error('Error during cleanup:', error);
         }
       }
     };

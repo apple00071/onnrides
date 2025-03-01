@@ -2,6 +2,7 @@
 
 import { format, isValid } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
+import logger from '@/lib/logger';
 
 interface DateTimePickerProps {
   date: Date | null;
@@ -16,7 +17,7 @@ const DateTimePicker = ({ date, setDate, minDate, className }: DateTimePickerPro
     try {
       return format(date, 'yyyy-MM-dd');
     } catch (error) {
-      console.error('Error formatting date:', error);
+      logger.error('Error formatting date:', error);
       return '';
     }
   };
@@ -26,7 +27,7 @@ const DateTimePicker = ({ date, setDate, minDate, className }: DateTimePickerPro
     try {
       return format(date, 'HH:mm');
     } catch (error) {
-      console.error('Error formatting time:', error);
+      logger.error('Error formatting time:', error);
       return '';
     }
   };
@@ -44,7 +45,7 @@ const DateTimePicker = ({ date, setDate, minDate, className }: DateTimePickerPro
         setDate(null);
       }
     } catch (error) {
-      console.error('Error handling date change:', error);
+      logger.error('Error handling date change:', error);
       setDate(null);
     }
   };
@@ -59,7 +60,7 @@ const DateTimePicker = ({ date, setDate, minDate, className }: DateTimePickerPro
         setDate(newDate);
       }
     } catch (error) {
-      console.error('Error handling time change:', error);
+      logger.error('Error handling time change:', error);
     }
   };
 

@@ -106,7 +106,7 @@ export function VehicleCard({
       queryParams.set('pricePerHour', vehicle.price_per_hour.toString());
       router.push(`/booking-summary?${queryParams.toString()}`);
     } catch (error) {
-      console.error('Error checking availability:', error);
+      logger.error('Error checking availability:', error);
       toast.error('Failed to check vehicle availability');
     }
   };

@@ -149,8 +149,6 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
         quantity: formData.quantity
       };
 
-      console.log('Updating vehicle with data:', updateData);
-
       const response = await fetch(`/api/admin/vehicles/${vehicle.id}`, {
         method: 'PUT',
         headers: {
@@ -160,16 +158,14 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to update vehicle');
+        throw new Error('Failed to update vehicle');
       }
 
       const updatedVehicle = await response.json();
-      console.log('Vehicle updated successfully:', updatedVehicle);
       
-      toast.success('Vehicle updated successfully');
       onSuccess(updatedVehicle.data.vehicle);
       onClose();
+      toast.success('Vehicle updated successfully');
     } catch (error) {
       logger.error('Error updating vehicle:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update vehicle');

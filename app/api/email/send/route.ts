@@ -38,6 +38,19 @@ export async function POST(request: NextRequest) {
         );
         break;
 
+      case 'document-upload-reminder':
+        await emailService.sendDocumentUploadReminder(
+          data.email,
+          {
+            name: data.name,
+            bookingId: data.bookingId,
+            uploadUrl: data.uploadUrl,
+            supportEmail: data.supportEmail,
+            deadline: data.deadline
+          }
+        );
+        break;
+
       case 'password_reset':
         await emailService.sendEmail(
           data.email,

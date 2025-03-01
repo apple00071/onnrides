@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import logger from '@/lib/logger';
 
 interface BookingDetails {
   id: string;
@@ -82,7 +83,7 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
 
         setBooking(data.data);
       } catch (error) {
-        console.error('Error fetching booking details:', error);
+        logger.error('Error fetching booking details:', error);
         setError(error instanceof Error ? error.message : 'Failed to fetch booking details');
         toast.error('Failed to load booking details');
       } finally {

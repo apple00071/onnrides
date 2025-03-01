@@ -55,16 +55,13 @@ export async function POST(request: NextRequest): Promise<Response> {
       );
     }
 
-    console.log('Creating Razorpay order with:', {
-      originalAmount: amount,
-      amountInPaise,
+    logger.debug('Creating Razorpay order with:', {
       bookingId,
-      receipt: `booking_${bookingId}`,
-      notes: {
-        booking_id: String(bookingId),
-        vehicle_id: String(vehicleId),
-        user_id: String(session.user.id)
-      }
+      vehicleId,
+      amount: amount,
+      amountInPaise,
+      customerId: session.user.id,
+      receipt: bookingId
     });
 
     try {
@@ -79,7 +76,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         }
       });
 
-      console.log('Razorpay order created:', order);
+      logger.debug('Razorpay order created:', order);
 
       // Update booking with payment details
       await query(
@@ -114,15 +111,15 @@ export async function POST(request: NextRequest): Promise<Response> {
       );
 
     } catch (razorpayError) {
-      console.error('Razorpay error:', razorpayError);
+      logger.error('Razorpay error:', razorpayError);
       
       // If Razorpay order creation fails, delete the booking
       if (bookingId) {
         try {
           await query('DELETE FROM bookings WHERE id = $1', [bookingId]);
-          console.log('Deleted booking after Razorpay error:', { bookingId });
+          logger.debug('Deleted booking after Razorpay error:', { bookingId });
         } catch (deleteError) {
-          console.error('Failed to delete booking:', deleteError);
+          logger.error('Failed to delete booking:', deleteError);
         }
       }
 
@@ -142,7 +139,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
   } catch (error) {
-    console.error('Error in create-order:', error);
+    logger.error('Error in create-order:', error);
     
     return new NextResponse(
       JSON.stringify({

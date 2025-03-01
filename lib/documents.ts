@@ -38,31 +38,39 @@ export async function sendDocumentUploadReminder(
   bookingId: string
 ) {
   try {
-    const emailService = EmailService.getInstance();
-    
-    const emailContent = {
-      subject: 'Document Upload Required for Your Booking',
-      template: 'document_upload_reminder',
-      data: {
-        name,
-        bookingId,
-        uploadUrl: `${process.env.NEXT_PUBLIC_APP_URL}/profile/documents`,
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@onnrides.com'
-      }
-    };
+    // Use the API endpoint for document upload reminders
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/email/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        type: 'document-upload-reminder',
+        data: {
+          email,
+          name,
+          bookingId,
+          uploadUrl: `${process.env.NEXT_PUBLIC_APP_URL}/profile/documents`,
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@onnrides.com',
+          deadline: '24 hours'
+        }
+      })
+    });
 
-    await emailService.sendEmail(email, emailContent);
+    if (!response.ok) {
+      throw new Error('Failed to send document upload reminder');
+    }
     
     logger.info('Document upload reminder sent:', { 
       email, 
       bookingId,
-      template: emailContent.template 
+      template: 'document_upload_reminder' 
     });
 
     return true;
   } catch (error) {
     logger.error('Failed to send document upload reminder:', error);
-    throw error;
+    return false;
   }
 }
 
@@ -79,42 +87,64 @@ export async function sendBookingConfirmationAndRequirements(
   }
 ) {
   try {
-    const emailService = EmailService.getInstance();
     const whatsappService = WhatsAppService.getInstance();
     
-    // Send email confirmation
-    const emailContent = {
-      subject: 'Booking Confirmation and Document Requirements',
-      template: 'booking_confirmation',
-      data: {
-        name,
-        bookingId,
-        vehicleName: bookingDetails.vehicleName,
-        startDate: bookingDetails.startDate,
-        endDate: bookingDetails.endDate,
-        totalAmount: bookingDetails.totalAmount,
-        uploadUrl: `${process.env.NEXT_PUBLIC_APP_URL}/profile/documents`,
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@onnrides.com'
-      }
-    };
+    // Send email confirmation using the API endpoint
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/email/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'booking-confirmation',
+          data: {
+            email: email,
+            name: name,
+            bookingId: bookingId,
+            vehicleName: bookingDetails.vehicleName,
+            startDate: bookingDetails.startDate,
+            endDate: bookingDetails.endDate,
+            amount: `₹${bookingDetails.totalAmount.toFixed(2)}`,
+            paymentId: 'N/A' // No payment ID in this context
+          }
+        })
+      });
 
-    await emailService.sendEmail(email, emailContent);
+      if (!response.ok) {
+        throw new Error('Failed to send email confirmation');
+      }
+      
+      logger.info('Booking confirmation email sent:', { 
+        email, 
+        bookingId,
+        template: 'booking_confirmation' 
+      });
+    } catch (error) {
+      logger.error('Failed to send booking confirmation email:', error);
+      // Continue execution even if email fails
+    }
 
     // Send WhatsApp notification
-    await whatsappService.sendMessage(
-      phone,
-      `🎉 Booking Confirmed!\n\nHi ${name},\n\nYour booking (ID: ${bookingId}) for ${bookingDetails.vehicleName} has been confirmed.\n\n⚠️ Important: Please upload required documents within 24 hours to avoid booking cancellation.\n\nUpload here: ${process.env.NEXT_PUBLIC_APP_URL}/profile/documents`
-    );
-
-    logger.info('Booking confirmation sent:', { 
-      email, 
-      bookingId,
-      template: emailContent.template 
-    });
+    try {
+      await whatsappService.sendMessage(
+        phone,
+        `🎉 Booking Confirmed!\n\nHi ${name},\n\nYour booking (ID: ${bookingId}) for ${bookingDetails.vehicleName} has been confirmed.\n\n⚠️ Important: Please upload required documents within 24 hours to avoid booking cancellation.\n\nUpload here: ${process.env.NEXT_PUBLIC_APP_URL}/profile/documents`
+      );
+      
+      logger.info('WhatsApp notification sent:', { 
+        phone, 
+        bookingId
+      });
+    } catch (error) {
+      logger.error('Failed to send WhatsApp notification:', error);
+      // Continue execution even if WhatsApp fails
+    }
 
     return true;
   } catch (error) {
     logger.error('Failed to send booking confirmation:', error);
-    throw error;
+    // Return false instead of throwing to prevent cascading failures
+    return false;
   }
 } 

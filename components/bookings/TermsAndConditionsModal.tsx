@@ -32,7 +32,7 @@ export function TermsAndConditionsModal({
   };
 
   // Log when modal props change
-  console.log('Terms Modal Props:', { isOpen, accepted });
+  logger.debug('Terms Modal Props:', { isOpen, accepted });
 
   return (
     <Dialog 

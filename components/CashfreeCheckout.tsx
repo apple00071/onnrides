@@ -4,6 +4,7 @@ import React from 'react';
 import { useEffect } from 'react';
 import Script from 'next/script';
 import { toast } from 'sonner';
+import logger from '@/lib/logger';
 
 interface CashfreeCheckoutProps {
   orderId: string;
@@ -23,7 +24,7 @@ export function CashfreeCheckout({ orderId, sessionId, onSuccess, onFailure }: C
     const initializePayment = async () => {
       try {
         if (!window.Cashfree) {
-          console.error('Cashfree SDK not loaded');
+          logger.error('Cashfree SDK not loaded');
           return;
         }
 
@@ -37,17 +38,17 @@ export function CashfreeCheckout({ orderId, sessionId, onSuccess, onFailure }: C
 
         // Listen for payment events
         window.addEventListener('payment.success', (event: any) => {
-          console.log('Payment success:', event.detail);
+          logger.debug('Payment success:', event.detail);
           onSuccess(event.detail);
         });
 
         window.addEventListener('payment.failed', (event: any) => {
-          console.error('Payment failed:', event.detail);
+          logger.error('Payment failed:', event.detail);
           onFailure(event.detail);
         });
 
       } catch (error) {
-        console.error('Error initializing Cashfree:', error);
+        logger.error('Error initializing Cashfree:', error);
         toast.error('Failed to initialize payment. Please try again.');
       }
     };

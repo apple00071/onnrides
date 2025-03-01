@@ -4,6 +4,7 @@ import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { verifyEmailConfig } from '@/lib/email/config';
 import { EmailService } from '@/lib/email/service';
+import { formatDateToIST } from '@/lib/utils';
 
 // New route segment config
 export const dynamic = 'force-dynamic';
@@ -139,8 +140,8 @@ export async function POST(request: NextRequest): Promise<Response> {
         payment_reference: paymentEntity.id,
         paymentStatus: paymentEntity.status,
         status: 'confirmed',
-        startDate: booking.start_date,
-        endDate: booking.end_date,
+        startDate: formatDateToIST(booking.start_date),
+        endDate: formatDateToIST(booking.end_date),
         pickupLocation: booking.pickup_location,
         totalPrice: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`
       };
@@ -166,8 +167,8 @@ export async function POST(request: NextRequest): Promise<Response> {
                 email: booking.user_email,
                 name: booking.user_name || 'User',
                 bookingId: booking.booking_id || booking.id,
-                startDate: new Date(booking.start_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-                endDate: new Date(booking.end_date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                startDate: formatDateToIST(booking.start_date),
+                endDate: formatDateToIST(booking.end_date),
                 vehicleName: booking.vehicle_name,
                 amount: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`,
                 paymentId: paymentEntity.id

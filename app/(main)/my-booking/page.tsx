@@ -4,8 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import logger from '@/lib/logger';
-import { format, parseISO } from 'date-fns';
-import { utcToZonedTime } from 'date-fns-tz';
+import { formatDateToIST } from '@/lib/utils';
 
 interface Booking {
   id: string;
@@ -123,18 +122,7 @@ export default function MyBooking() {
   }, [user, startPolling]);
 
   const formatDate = (dateString: string) => {
-    try {
-      if (!dateString) return 'N/A';
-      
-      // Parse the date and convert to IST
-      const date = utcToZonedTime(parseISO(dateString), 'Asia/Kolkata');
-      
-      // Format the date in 12-hour format with AM/PM
-      return format(date, 'dd MMM yyyy, hh:mm a');
-    } catch (error) {
-      logger.error('Error formatting date:', { dateString, error });
-      return 'Invalid date';
-    }
+    return formatDateToIST(dateString);
   };
 
   const handlePageChange = (newPage: number) => {

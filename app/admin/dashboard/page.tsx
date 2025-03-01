@@ -9,6 +9,7 @@ import { formatCurrency } from '@/lib/utils';
 import type { Session } from 'next-auth';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
+import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,7 +141,7 @@ export default function AdminDashboard() {
       });
 
     } catch (error) {
-      console.error('Dashboard fetch error:', error);
+      logger.error('Dashboard fetch error:', error);
       setError(error instanceof Error ? error.message : 'Failed to fetch dashboard data');
       toast.error('Failed to fetch dashboard data');
     } finally {

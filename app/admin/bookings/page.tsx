@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { format, isValid, parseISO } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { toast } from 'react-hot-toast';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDateToIST } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Eye, History, Loader2 } from 'lucide-react';
 import { utcToZonedTime } from 'date-fns-tz';
+import { useSession } from 'next-auth/react';
+import { redirect } from 'next/navigation';
 
 interface Booking {
   id: string;
@@ -47,29 +49,10 @@ interface Booking {
   payment_details?: any;       // Add payment details
 }
 
-// Helper function to format date in IST
-const formatDateTime = (date: string | Date) => {
-  try {
-    if (!date) return 'Date not available';
-    
-    // Parse the date string or use the Date object
-    const parsedDate = typeof date === 'string' ? parseISO(date) : date;
-    
-    // Check if date is valid
-    if (!isValid(parsedDate)) {
-      logger.error('Invalid date value:', date);
-      return 'Invalid date';
-    }
-    
-    // Convert to IST timezone
-    const istDate = utcToZonedTime(parsedDate, 'Asia/Kolkata');
-    
-    // Format the date
-    return format(istDate, 'dd MMM yyyy, hh:mm a');
-  } catch (error) {
-    logger.error('Error formatting date:', { date, error });
-    return 'Invalid date';
-  }
+// Helper function to format dates in IST timezone - now using the standard utility
+const formatDateTime = (dateString: string | null | undefined) => {
+  // This is now just a wrapper around our standardized function
+  return formatDateToIST(dateString || null);
 };
 
 // Helper function to parse location

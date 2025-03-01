@@ -1,5 +1,9 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { parseISO, format, isValid } from 'date-fns';
+import { utcToZonedTime } from 'date-fns-tz';
+import logger from './logger';
+import { toIST, formatDateTimeIST, formatDateIST, formatTimeIST } from './utils/timezone';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -24,8 +28,7 @@ export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 0,
   }).format(amount);
 }
 
@@ -205,4 +208,19 @@ export function isServerless(): boolean {
     process.env.NETLIFY === 'true' ||  // Netlify
     process.env.CLOUD_FUNCTION_NAME !== undefined  // Other cloud functions
   );
-} 
+}
+
+// Export timezone functions from the dedicated utils/timezone.ts file
+export { toIST, formatDateTimeIST, formatDateIST, formatTimeIST } from './utils/timezone';
+
+// Keep our new format function as a wrapper for consistency with existing code
+// This will be used where we previously added formatDateToIST
+export const formatDateToIST = (dateString: string | Date | null) => {
+  if (!dateString) return 'N/A';
+  try {
+    return formatDateTimeIST(dateString);
+  } catch (error) {
+    logger.error('Error formatting date:', { dateString, error });
+    return 'Invalid date';
+  }
+}; 

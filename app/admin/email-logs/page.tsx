@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { CheckCircle2, XCircle } from 'lucide-react';
+import logger from '@/lib/logger';
 
 interface EmailLog {
   id: string;
@@ -44,7 +45,7 @@ export default function EmailLogsPage() {
         setPagination(data.pagination);
       }
     } catch (error) {
-      console.error('Failed to fetch email logs:', error);
+      logger.error('Failed to fetch email logs:', error);
     } finally {
       setLoading(false);
     }

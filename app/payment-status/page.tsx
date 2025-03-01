@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import logger from '@/lib/logger';
 
 type VerificationStatus = 'idle' | 'verifying' | 'success' | 'error';
 
@@ -19,7 +20,7 @@ export default function PaymentStatus() {
   const verifyPayment = useCallback(async () => {
     // Prevent multiple verification attempts
     if (hasAttemptedVerification.current) {
-      console.log('Verification already attempted, skipping...');
+      logger.debug('Verification already attempted, skipping...');
       return;
     }
     hasAttemptedVerification.current = true;
@@ -27,11 +28,11 @@ export default function PaymentStatus() {
     try {
       // Get payment reference from URL
       const reference = searchParams.get('reference');
-      console.log('Payment reference from URL:', reference);
+      logger.debug('Payment reference from URL:', reference);
       
       // Try to get order ID from localStorage
       const pendingPayment = localStorage.getItem('pendingPayment');
-      console.log('Raw pendingPayment from localStorage:', pendingPayment);
+      logger.debug('Raw pendingPayment from localStorage:', pendingPayment);
       
       let orderId: string | undefined;
       let bookingId: string | undefined;
@@ -39,24 +40,24 @@ export default function PaymentStatus() {
       if (pendingPayment) {
         try {
           const paymentData = JSON.parse(pendingPayment);
-          console.log('Parsed payment data:', paymentData);
+          logger.debug('Parsed payment data:', paymentData);
           orderId = paymentData.order_id;
           bookingId = paymentData.booking_id;
-          console.log('Extracted order_id:', orderId);
-          console.log('Extracted booking_id:', bookingId);
+          logger.debug('Extracted order_id:', orderId);
+          logger.debug('Extracted booking_id:', bookingId);
         } catch (e) {
-          console.error('Failed to parse pendingPayment:', e);
+          logger.error('Failed to parse pendingPayment:', e);
         }
       }
       
       if (!reference || !orderId) {
-        console.error('Missing payment data:', { reference, orderId, bookingId });
+        logger.error('Missing payment data:', { reference, orderId, bookingId });
         setVerificationStatus('error');
         toast.error('Missing payment information');
         return;
       }
 
-      console.log('Sending verification request with:', {
+      logger.debug('Sending verification request with:', {
         payment_reference: reference,
         order_id: orderId,
         booking_id: bookingId
@@ -76,9 +77,9 @@ export default function PaymentStatus() {
         }),
       });
 
-      console.log('Verification response status:', response.status);
+      logger.debug('Verification response status:', response.status);
       const data = await response.json();
-      console.log('Verification response data:', data);
+      logger.debug('Verification response data:', data);
 
       if (!response.ok) {
         throw new Error(data.error || 'Payment verification failed');
@@ -88,31 +89,31 @@ export default function PaymentStatus() {
       toast.success('Payment verified successfully');
       
       // Clear stored payment data
-      console.log('Clearing pendingPayment from localStorage');
+      logger.debug('Clearing pendingPayment from localStorage');
       localStorage.removeItem('pendingPayment');
       
       // Redirect to booking details after a short delay
-      console.log('Scheduling redirect to:', `/bookings/${orderId}`);
+      logger.debug('Scheduling redirect to:', `/bookings/${orderId}`);
       setTimeout(() => {
         router.push(`/bookings/${orderId}`);
       }, 2000);
 
     } catch (error) {
-      console.error('Payment verification error:', error);
+      logger.error('Payment verification error:', error);
       setVerificationStatus('error');
       toast.error(error instanceof Error ? error.message : 'Payment verification failed');
     }
   }, [searchParams, router]);
 
   useEffect(() => {
-    console.log('Payment status effect running. Session status:', sessionStatus);
-    console.log('Current verification status:', verificationStatus);
+    logger.debug('Payment status effect running. Session status:', sessionStatus);
+    logger.debug('Current verification status:', verificationStatus);
     
     if (sessionStatus === 'authenticated' && verificationStatus === 'idle') {
-      console.log('Starting payment verification...');
+      logger.debug('Starting payment verification...');
       verifyPayment();
     } else if (sessionStatus === 'unauthenticated') {
-      console.log('User not authenticated, redirecting to signin...');
+      logger.debug('User not authenticated, redirecting to signin...');
       toast.error('Please sign in to continue');
       router.push('/auth/signin');
     }
@@ -136,7 +137,7 @@ export default function PaymentStatus() {
         <p className="mt-2 text-sm text-gray-600">Reference ID: {searchParams.get('reference')}</p>
         <button 
           onClick={() => {
-            console.log('Current localStorage pendingPayment:', localStorage.getItem('pendingPayment'));
+            logger.debug('Current localStorage pendingPayment:', localStorage.getItem('pendingPayment'));
           }}
           className="mt-4 text-sm text-blue-600 hover:underline"
         >

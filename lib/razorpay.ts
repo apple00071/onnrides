@@ -20,7 +20,7 @@ function validateEnvironmentVariables() {
 // Create a new instance each time to ensure we're using the latest credentials
 export function getRazorpayInstance(): Razorpay {
   const { key_id, key_secret } = validateEnvironmentVariables();
-  console.log('Creating new Razorpay instance with key_id:', key_id);
+  logger.debug('Creating new Razorpay instance with key_id:', key_id);
   return new Razorpay({
     key_id,
     key_secret,
@@ -123,7 +123,7 @@ export function validatePaymentVerification({
 }: PaymentVerificationParams): boolean {
   try {
     if (!order_id || !payment_id || !signature) {
-      console.error('Missing required verification parameters');
+      logger.error('Missing required verification parameters');
       return false;
     }
 
@@ -136,7 +136,7 @@ export function validatePaymentVerification({
 
     const isValid = expectedSignature === signature;
 
-    console.log('Payment verification result:', {
+    logger.info('Payment verification result:', {
       orderId: order_id,
       paymentId: payment_id,
       isValid
@@ -144,7 +144,7 @@ export function validatePaymentVerification({
 
     return isValid;
   } catch (error) {
-    console.error('Payment verification error:', error);
+    logger.error('Payment verification error:', error);
     return false;
   }
 } 

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
+import logger from '@/lib/logger';
 
 export default function WhatsAppAdminPage() {
   const router = useRouter();
@@ -57,7 +58,7 @@ export default function WhatsAppAdminPage() {
       const errorMessage = error instanceof Error ? error.message : 'Failed to initialize WhatsApp';
       setError(errorMessage);
       toast.error(errorMessage);
-      console.error('WhatsApp initialization error:', error);
+      logger.error('WhatsApp initialization error:', error);
       
       // Increment retry count
       setRetryCount(prev => prev + 1);
@@ -79,7 +80,7 @@ export default function WhatsAppAdminPage() {
         setError(data.error);
       }
     } catch (error) {
-      console.error('Status check error:', error);
+      logger.error('Status check error:', error);
     }
   };
 
