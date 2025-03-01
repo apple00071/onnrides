@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import logger from '@/lib/logger';
-import { formatDateToIST } from '@/lib/utils';
+import { formatDateTimeIST } from '@/lib/utils/timezone';
 
 interface Booking {
   id: string;
@@ -122,7 +122,7 @@ export default function MyBooking() {
   }, [user, startPolling]);
 
   const formatDate = (dateString: string) => {
-    return formatDateToIST(dateString);
+    return formatDateTimeIST(dateString);
   };
 
   const handlePageChange = (newPage: number) => {

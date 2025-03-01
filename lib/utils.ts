@@ -213,14 +213,17 @@ export function isServerless(): boolean {
 // Export timezone functions from the dedicated utils/timezone.ts file
 export { toIST, formatDateTimeIST, formatDateIST, formatTimeIST } from './utils/timezone';
 
-// Keep our new format function as a wrapper for consistency with existing code
-// This will be used where we previously added formatDateToIST
+/**
+ * Format a date string to IST timezone with proper formatting
+ * This is a wrapper for consistency with existing code 
+ */
 export const formatDateToIST = (dateString: string | Date | null) => {
   if (!dateString) return 'N/A';
+  
   try {
     return formatDateTimeIST(dateString);
   } catch (error) {
-    logger.error('Error formatting date:', { dateString, error });
+    logger.error('Error formatting date to IST', { date: dateString, error });
     return 'Invalid date';
   }
-}; 
+} 

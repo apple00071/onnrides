@@ -6,7 +6,7 @@ import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { EmailService } from '@/lib/email/service';
 import { WhatsAppService } from '@/lib/whatsapp/service';
-import { formatDateToIST } from '@/lib/utils';
+import { formatDateTimeIST } from '@/lib/utils/timezone';
 
 interface BookingRow {
   id: string;
@@ -34,16 +34,9 @@ const ITEMS_PER_PAGE = 10;
 function formatDate(dateStr: string | Date | null): string {
   if (!dateStr) return 'Invalid Date';
   try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDateTimeIST(dateStr);
   } catch (error) {
+    logger.error('Error formatting date in admin bookings:', { date: dateStr, error });
     return 'Invalid Date';
   }
 }
@@ -295,8 +288,8 @@ export async function PUT(request: NextRequest) {
           <ul>
             <li>Booking ID: ${booking.id}</li>
             <li>Vehicle: ${booking.vehicle_name}</li>
-            <li>Start Date: ${formatDateToIST(booking.start_date)}</li>
-            <li>End Date: ${formatDateToIST(booking.end_date)}</li>
+            <li>Start Date: ${formatDate(booking.start_date)}</li>
+            <li>End Date: ${formatDate(booking.end_date)}</li>
           </ul>
           
           <p>If you have any questions, please contact our support team:</p>
