@@ -57,16 +57,33 @@ export class WhatsAppService {
                 params: { token: this.token }
             });
 
+            // Check for subscription or payment issues
+            if (response.data?.error && response.data.error.includes('non-payment')) {
+                logger.error('WhatsApp service subscription has expired:', {
+                    error: response.data.error
+                });
+                this.isInitialized = false;
+                throw new Error('WhatsApp service subscription has expired and needs renewal');
+            }
+
             if (response.data?.status !== 'connected') {
-                throw new Error('WhatsApp instance is not connected');
+                throw new Error(`WhatsApp instance is not connected. Status: ${response.data?.status || 'unknown'}`);
             }
 
             this.isInitialized = true;
             logger.info('WhatsApp service initialized successfully');
         } catch (error) {
             this.isInitialized = false;
-            logger.error('Failed to initialize WhatsApp service:', error);
-            throw error;
+            // Check for specific subscription errors
+            if (axios.isAxiosError(error) && error.response?.data?.error?.includes('non-payment')) {
+                logger.error('WhatsApp service subscription has expired:', {
+                    error: error.response.data.error
+                });
+            } else {
+                logger.error('Failed to initialize WhatsApp service:', error);
+            }
+            // We don't throw here, allowing the service to exist in a failed state
+            // This prevents errors from propagating to other parts of the application
         }
     }
 
@@ -147,8 +164,37 @@ export class WhatsAppService {
 
     async sendMessage(to: string, message: string, bookingId?: string): Promise<any> {
         try {
-            // Wait for initialization
-            await this.waitForInitialization();
+            // Check if the service is initialized
+            if (!this.isInitialized) {
+                // Try to initialize again
+                try {
+                    await this.initialize();
+                    if (!this.isInitialized) {
+                        throw new Error('WhatsApp service is not available - possible subscription issue');
+                    }
+                } catch (initError) {
+                    logger.warn('WhatsApp service still unavailable:', {
+                        error: initError instanceof Error ? initError.message : 'Unknown error'
+                    });
+                    
+                    // Log the message that would have been sent
+                    await this.logMessage({
+                        recipient: to,
+                        message: message,
+                        booking_id: bookingId,
+                        status: 'failed',
+                        error: 'WhatsApp service unavailable - possible subscription issue',
+                        message_type: 'text'
+                    });
+                    
+                    // Return a fallback response instead of throwing
+                    return {
+                        sent: false,
+                        error: 'WhatsApp service unavailable - check subscription',
+                        fallback: true
+                    };
+                }
+            }
 
             const phoneNumber = this.validatePhoneNumber(to);
 
@@ -180,17 +226,82 @@ export class WhatsAppService {
                     recipient: phoneNumber,
                     bookingId
                 });
+                
+                // Log successful message
+                await this.logMessage({
+                    recipient: phoneNumber,
+                    message: message,
+                    booking_id: bookingId,
+                    status: 'success',
+                    chat_id: response.data.id,
+                    message_type: 'text'
+                });
+                
                 return response.data;
             } else {
+                // Check for subscription issues in the response
+                if (response.data?.error && response.data.error.includes('non-payment')) {
+                    logger.error('WhatsApp service subscription has expired:', {
+                        error: response.data.error
+                    });
+                    this.isInitialized = false;
+                    
+                    // Log failed message with specific error
+                    await this.logMessage({
+                        recipient: phoneNumber,
+                        message: message,
+                        booking_id: bookingId,
+                        status: 'failed',
+                        error: 'Subscription expired: ' + response.data.error,
+                        message_type: 'text'
+                    });
+                    
+                    return {
+                        sent: false,
+                        error: 'WhatsApp service subscription has expired',
+                        fallback: true
+                    };
+                }
+                
                 throw new Error(response.data?.message || 'Failed to send message');
             }
         } catch (error) {
+            // Check for specific subscription errors
+            let errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            let subscriptionIssue = false;
+            
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                if (error.response?.data?.error?.includes('non-payment')) {
+                    errorMessage = 'WhatsApp service subscription has expired: ' + error.response.data.error;
+                    subscriptionIssue = true;
+                    this.isInitialized = false;
+                }
+            }
+            
             logger.error('Error sending WhatsApp message:', {
-                error: error instanceof Error ? error.message : 'Unknown error',
+                error: errorMessage,
                 to,
-                bookingId
+                bookingId,
+                subscriptionIssue
             });
-            throw error;
+            
+            // Log the failed message
+            await this.logMessage({
+                recipient: to,
+                message: message,
+                booking_id: bookingId,
+                status: 'failed',
+                error: errorMessage,
+                message_type: 'text'
+            });
+            
+            // Return a structured error rather than throwing
+            return {
+                sent: false, 
+                error: errorMessage,
+                subscriptionIssue,
+                fallback: true
+            };
         }
     }
 
