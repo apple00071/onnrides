@@ -2,6 +2,7 @@ import { Pool, QueryResult } from 'pg';
 import { Kysely, PostgresDialect } from 'kysely';
 import type { Database } from './schema';
 import logger from './logger';
+import { configureGlobalTimezone, configureDatabaseTimezone } from './utils/timezone-config';
 
 // Parse and validate the connection string
 const connectionString = process.env.DATABASE_URL;
@@ -69,12 +70,19 @@ export async function initializeDatabase(): Promise<void> {
   let retries = 0;
   let lastError;
   
+  // Configure global timezone settings
+  await configureGlobalTimezone();
+  
   while (retries < MAX_RETRIES) {
     try {
       const client = await pool.connect();
       try {
         await client.query('SELECT NOW()');
         logger.info('Database connection established');
+        
+        // Configure timezone settings for the database pool
+        await configureDatabaseTimezone(pool);
+        
         return;
       } finally {
         client.release();
@@ -92,7 +100,7 @@ export async function initializeDatabase(): Promise<void> {
     }
   }
   
-  throw new Error(`Failed to initialize database after ${MAX_RETRIES} attempts: ${lastError?.message}`);
+  throw lastError || new Error('Failed to connect to the database after multiple retries');
 }
 
 // Create and export Kysely instance

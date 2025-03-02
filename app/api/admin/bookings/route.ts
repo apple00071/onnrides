@@ -1,12 +1,17 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import logger from '@/lib/logger';
 import { authOptions } from '@/lib/auth/config';
 import { query } from '@/lib/db';
-import { NextResponse } from 'next/server';
 import { EmailService } from '@/lib/email/service';
 import { WhatsAppService } from '@/lib/whatsapp/service';
 import { formatDateTimeIST } from '@/lib/utils/timezone';
+import { 
+  buildTimezoneAwareQuery, 
+  toISTSql, 
+  selectWithISTDates 
+} from '@/lib/utils/sql-helpers';
+import { withTimezoneProcessing } from '@/middleware/timezone-middleware';
 
 interface BookingRow {
   id: string;
@@ -61,53 +66,81 @@ function generateBookingId(): string {
   return result;
 }
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-export const fetchCache = 'force-no-store';
-
-export async function GET(request: NextRequest) {
+// Update the GET function to use our middleware
+const getBookingsHandler = async (request: NextRequest) => {
   try {
+    // Check if user is authenticated and is admin
     const session = await getServerSession(authOptions);
-    
-    // Log session for debugging
-    logger.info('Session:', { session });
-
-    if (!session?.user || session.user.role !== 'admin') {
-      logger.warn('Unauthorized access attempt:', { 
-        userId: session?.user?.id,
-        role: session?.user?.role 
-      });
-      return NextResponse.json({ 
-        success: false,
-        message: 'Unauthorized' 
-      }, { status: 401 });
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    // Get pagination parameters from query string
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
+    // Get query parameters with defaults
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const status = url.searchParams.get('status') || 'all';
+    const searchTerm = url.searchParams.get('search') || '';
+    
+    // Define pagination
+    const ITEMS_PER_PAGE = 10;
     const offset = (page - 1) * ITEMS_PER_PAGE;
+    
+    // Build filtering conditions
+    let whereClause = '1=1';
+    const params: any[] = [];
+    
+    // Add status filter if not 'all'
+    if (status !== 'all') {
+      whereClause += ` AND b.status = $${params.length + 1}`;
+      params.push(status);
+    }
+    
+    // Add search term filter
+    if (searchTerm) {
+      whereClause += ` AND (
+        b.booking_id ILIKE $${params.length + 1} OR
+        u.name ILIKE $${params.length + 2} OR
+        u.email ILIKE $${params.length + 3} OR
+        u.phone ILIKE $${params.length + 4} OR
+        v.name ILIKE $${params.length + 5}
+      )`;
+      const searchPattern = `%${searchTerm}%`;
+      params.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+    }
 
     // Get total count first (in a separate query for better performance)
-    const countResult = await query('SELECT COUNT(*) FROM bookings');
+    const countSql = `
+      SELECT COUNT(*) 
+      FROM bookings b
+      LEFT JOIN vehicles v ON b.vehicle_id = v.id
+      LEFT JOIN users u ON b.user_id = u.id
+      WHERE ${whereClause}
+    `;
+    const countResult = await query(countSql, params);
     const totalItems = parseInt(countResult.rows[0].count);
     const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-
-    // Main query with pagination
+    
+    // Define the date fields to convert to IST
+    const dateFields = ['start_date', 'end_date', 'created_at', 'updated_at'];
+    
+    // Build the main query with timezone handling
     const sqlQuery = `
       WITH booking_data AS (
         SELECT 
           b.id,
           b.user_id,
           b.vehicle_id,
-          b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as start_date,
-          b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as end_date,
+          ${toISTSql('b.start_date')} as start_date,
+          ${toISTSql('b.end_date')} as end_date,
           b.total_hours,
           b.total_price,
           b.status,
           b.payment_status,
-          b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
-          b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at,
+          ${toISTSql('b.created_at')} as created_at,
+          ${toISTSql('b.updated_at')} as updated_at,
           b.booking_id,
           v.name as vehicle_name,
           v.location as vehicle_location,
@@ -115,104 +148,44 @@ export async function GET(request: NextRequest) {
           u.email as user_email,
           u.phone as user_phone,
           
-          -- Explicitly format dates as strings in SQL for consistency
-          TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') as formatted_start_date,
-          TO_CHAR(b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') as formatted_end_date
+          -- Formatted dates as strings
+          TO_CHAR(${toISTSql('b.start_date')}, 'DD Mon YYYY, HH12:MI AM') as formatted_pickup,
+          TO_CHAR(${toISTSql('b.end_date')}, 'DD Mon YYYY, HH12:MI AM') as formatted_dropoff
         FROM bookings b
         LEFT JOIN vehicles v ON b.vehicle_id = v.id
         LEFT JOIN users u ON b.user_id = u.id
+        WHERE ${whereClause}
       )
       SELECT * FROM booking_data
       ORDER BY created_at DESC
-      LIMIT $1 OFFSET $2
+      LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
     `;
-
-    logger.info('Executing paginated SQL query with explicit IST conversion');
-    const result = await query(sqlQuery, [ITEMS_PER_PAGE, offset]);
-
-    // Transform the result
-    const bookings = result.rows.map((row: Record<string, any>): BookingRow => ({
-      id: row.id,
-      booking_id: row.booking_id,
-      user_id: row.user_id,
-      vehicle_id: row.vehicle_id,
-      start_date: row.start_date,
-      end_date: row.end_date,
-      formatted_start_date: row.formatted_start_date,
-      formatted_end_date: row.formatted_end_date,
-      total_hours: row.total_hours,
-      total_price: row.total_price,
-      status: row.status,
-      payment_status: row.payment_status,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      vehicle_location: row.vehicle_location,
-      user_name: row.user_name,
-      user_email: row.user_email,
-      user_phone: row.user_phone,
-      vehicle_name: row.vehicle_name
-    }));
-
-    // Format the data for the response
-    const formattedBookings = bookings.map(booking => {
-      // Use standardized date formatting for consistency across environments
-      const formattedPickupDate = formatDateTimeIST(booking.start_date);
-      const formattedDropoffDate = formatDateTimeIST(booking.end_date);
-      
-      return {
-        id: booking.id,
-        booking_id: booking.booking_id || `OR${booking.id.slice(0, 3)}`,
-        user_id: booking.user_id,
-        vehicle_id: booking.vehicle_id,
-        pickup_datetime: booking.start_date,
-        dropoff_datetime: booking.end_date,
-        formatted_pickup: booking.formatted_start_date || formattedPickupDate,
-        formatted_dropoff: booking.formatted_end_date || formattedDropoffDate,
-        total_hours: Number(booking.total_hours || 0),
-        total_price: Number(booking.total_price || 0),
-        status: booking.status,
-        payment_status: booking.payment_status || 'pending',
-        created_at: booking.created_at,
-        updated_at: booking.updated_at,
-        location: booking.vehicle_location || '',
-        user: {
-          name: booking.user_name || 'Unknown',
-          email: booking.user_email || '',
-          phone: booking.user_phone || 'N/A'
-        },
-        vehicle: {
-          name: booking.vehicle_name || 'Unknown'
-        }
-      };
-    });
-
-    logger.info('Successfully transformed bookings:', { 
-      count: formattedBookings.length,
-      page,
-      totalPages 
-    });
-
-    return NextResponse.json({ 
+    
+    // Execute the query
+    const result = await query(sqlQuery, params);
+    
+    // Format the response
+    return NextResponse.json({
       success: true,
-      data: {
-        bookings: formattedBookings,
-        pagination: {
-          currentPage: page,
-          totalPages,
-          totalItems,
-          itemsPerPage: ITEMS_PER_PAGE
-        }
+      data: result.rows,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems,
+        itemsPerPage: ITEMS_PER_PAGE
       }
     });
   } catch (error) {
-    logger.error('Error in GET /api/admin/bookings:', error);
-    return NextResponse.json({ 
-      success: false,
-      error: 'Failed to fetch bookings',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    logger.error('Failed to fetch admin bookings:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch bookings' },
+      { status: 500 }
+    );
   }
-}
+};
+
+// Apply the timezone processing middleware to ensure consistent date formatting
+export const GET = withTimezoneProcessing(getBookingsHandler);
 
 export async function PUT(request: NextRequest) {
   try {

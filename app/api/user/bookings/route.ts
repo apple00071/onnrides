@@ -5,6 +5,8 @@ import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { randomUUID } from 'crypto';
 import { sendBookingNotification } from '@/lib/whatsapp/integration';
+import { toISTSql, selectWithISTDates } from '@/lib/utils/sql-helpers';
+import { withTimezoneProcessing } from '@/middleware/timezone-middleware';
 
 interface BookingBody {
   vehicle_id: string;
@@ -14,90 +16,88 @@ interface BookingBody {
   total_price: number;
 }
 
-export async function GET(request: NextRequest) {
+// Update the GET function to use our middleware
+const getBookingsHandler = async (request: NextRequest) => {
   try {
+    // Check if user is authenticated
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json(
-        { error: 'Authentication required' },
+        { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Get URL parameters
-    const url = new URL(request.url);
-    const page = parseInt(url.searchParams.get('page') || '1');
-    const limit = parseInt(url.searchParams.get('limit') || '10');
+    const userId = session.user.id;
+    
+    // Get pagination parameters
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
     const offset = (page - 1) * limit;
-
-    // Get total count for pagination
-    const countResult = await query(`
+    
+    // Get total count first
+    const countSql = `
       SELECT COUNT(*) 
       FROM bookings 
       WHERE user_id = $1
-    `, [session.user.id]);
-
-    const totalBookings = parseInt(countResult.rows[0].count);
-    const totalPages = Math.ceil(totalBookings / limit);
-
-    // Get the user's booking history with vehicle information
-    const result = await query(`
+    `;
+    const countResult = await query(countSql, [userId]);
+    const totalItems = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalItems / limit);
+    
+    // Build the main query with timezone handling
+    const sqlQuery = `
       SELECT 
-        b.*,
+        b.id,
+        b.vehicle_id,
+        ${toISTSql('b.start_date')} as pickup_datetime,
+        ${toISTSql('b.end_date')} as dropoff_datetime,
+        b.total_hours,
+        b.total_price,
+        b.status,
+        b.payment_status,
+        ${toISTSql('b.created_at')} as created_at,
+        ${toISTSql('b.updated_at')} as updated_at,
+        b.booking_id,
         v.name as vehicle_name,
-        v.type as vehicle_type,
         v.location as vehicle_location,
-        b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as pickup_datetime,
-        b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as dropoff_datetime,
-        b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
-        b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at
+        
+        -- Formatted dates as strings
+        TO_CHAR(${toISTSql('b.start_date')}, 'DD Mon YYYY, HH12:MI AM') as formatted_pickup,
+        TO_CHAR(${toISTSql('b.end_date')}, 'DD Mon YYYY, HH12:MI AM') as formatted_dropoff
       FROM bookings b
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
       WHERE b.user_id = $1
       ORDER BY b.created_at DESC
       LIMIT $2 OFFSET $3
-    `, [session.user.id, limit, offset]);
-
-    // Format the bookings
-    const bookings = result.rows.map(booking => ({
-      id: booking.id,
-      booking_id: booking.booking_id,
-      vehicle_name: booking.vehicle_name,
-      pickup_datetime: booking.pickup_datetime,
-      dropoff_datetime: booking.dropoff_datetime,
-      pickup_location: booking.vehicle_location,
-      drop_location: booking.dropoff_location || booking.vehicle_location,
-      total_amount: parseFloat(booking.total_price || 0),
-      status: booking.status,
-      payment_status: booking.payment_status || 'pending',
-      created_at: booking.created_at
-    }));
-
-    logger.info('Booking history fetched successfully', {
-      userId: session.user.id,
-      page,
-      limit,
-      totalBookings
-    });
-
+    `;
+    
+    // Execute the query
+    const result = await query(sqlQuery, [userId, limit, offset]);
+    
+    // Return the formatted data
     return NextResponse.json({
-      bookings,
+      success: true,
+      data: result.rows,
       pagination: {
-        total: totalBookings,
-        page,
-        limit,
-        totalPages
+        currentPage: page,
+        totalPages,
+        totalItems,
+        itemsPerPage: limit
       }
     });
-
   } catch (error) {
-    logger.error('Error fetching booking history:', error);
+    logger.error('Failed to fetch user bookings:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch booking history' },
+      { success: false, error: 'Failed to fetch bookings' },
       { status: 500 }
     );
   }
-}
+};
+
+// Apply the timezone processing middleware
+export const GET = withTimezoneProcessing(getBookingsHandler);
 
 export async function POST(request: NextRequest) {
   try {
