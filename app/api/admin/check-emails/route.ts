@@ -1,138 +1,157 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { ADMIN_EMAILS, DEFAULT_ADMIN_EMAILS } from '@/lib/notifications/admin-notification';
+import { pool } from '@/lib/db';
 import { EmailService } from '@/lib/email/service';
-import logger from '@/lib/logger';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET(request: NextRequest) {
+/**
+ * API endpoint for checking email configuration and admin emails
+ * For debugging purposes only - should be disabled in production
+ */
+export async function GET(req: NextRequest) {
   try {
-    // Only allow admins to use this API
-    const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
+    // Get admin emails from environment
+    const adminEmails = ADMIN_EMAILS.length > 0 ? ADMIN_EMAILS : DEFAULT_ADMIN_EMAILS;
+    
+    // Get SMTP configuration
+    const smtpConfig = {
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '465', 10),
+      user: process.env.SMTP_USER || '',
+      from: process.env.SMTP_FROM || '',
+      // Don't expose the password, just indicate if it's set
+      hasPassword: Boolean(process.env.SMTP_PASS),
+    };
+    
+    // Check database connection
+    let dbStatus = 'Unknown';
+    try {
+      const client = await pool.connect();
+      try {
+        const result = await client.query('SELECT NOW()');
+        dbStatus = 'Connected, timestamp: ' + result.rows[0].now;
+      } finally {
+        client.release();
+      }
+    } catch (dbError: any) {
+      dbStatus = `Error: ${dbError.message}`;
+    }
+    
+    // Check email logs table
+    let emailLogsStatus = 'Unknown';
+    try {
+      const client = await pool.connect();
+      try {
+        const result = await client.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'email_logs'
+          );
+        `);
+        
+        if (result.rows[0].exists) {
+          const columnsResult = await client.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_schema = 'public' 
+            AND table_name = 'email_logs';
+          `);
+          
+          const columns = columnsResult.rows.map((row: any) => row.column_name);
+          emailLogsStatus = `Table exists with columns: ${columns.join(', ')}`;
+        } else {
+          emailLogsStatus = 'Table does not exist';
+        }
+      } finally {
+        client.release();
+      }
+    } catch (emailLogsError: any) {
+      emailLogsStatus = `Error: ${emailLogsError.message}`;
     }
 
-    // Get email addresses from environment variable or query param
-    const { searchParams } = new URL(request.url);
-    let emailsToTest = searchParams.get('email') ? 
-      [searchParams.get('email')!] : 
-      (process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : []);
+    // Return configuration info
+    return NextResponse.json({
+      adminEmails,
+      smtpConfig,
+      dbStatus,
+      emailLogsStatus,
+      environment: process.env.NODE_ENV || 'unknown',
+      server: {
+        timestamp: new Date().toISOString(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }
+    }, { status: 200 });
+  } catch (error: any) {
+    return NextResponse.json({
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    }, { status: 500 });
+  }
+}
 
-    // Log email configuration
-    logger.info('Checking email configuration:', {
-      smtp_host: process.env.SMTP_HOST,
-      smtp_port: process.env.SMTP_PORT,
-      smtp_user: process.env.SMTP_USER?.substring(0, 3) + '...',
-      smtp_from: process.env.SMTP_FROM,
-      admin_emails: emailsToTest
-    });
-
-    // Initialize Email Service
+/**
+ * API endpoint for sending a test email to admin
+ */
+export async function POST(req: NextRequest) {
+  try {
+    // Only allow in development mode
+    if (process.env.NODE_ENV !== 'development') {
+      return NextResponse.json({ error: 'Endpoint disabled in production' }, { status: 403 });
+    }
+    
+    const adminEmails = ADMIN_EMAILS.length > 0 ? ADMIN_EMAILS : DEFAULT_ADMIN_EMAILS;
+    if (!adminEmails.length) {
+      return NextResponse.json({ error: 'No admin emails configured' }, { status: 400 });
+    }
+    
+    // Send a test email
+    const testId = Math.random().toString(36).substring(2, 15);
     const emailService = EmailService.getInstance();
     
-    // Create detailed HTML content with delivery timestamp
-    const timestamp = new Date().toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata'
-    });
-    
     const results = [];
-    
-    // Send test emails to each admin email
-    for (const email of emailsToTest) {
+    for (const email of adminEmails) {
       try {
-        if (!email) continue;
-        
-        const htmlContent = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #f0f0f0; border-radius: 5px;">
-            <h1 style="color: #f26e24;">OnnRides Admin Email Test</h1>
-            <p>This is a test email to verify admin notifications are working correctly.</p>
-            
-            <div style="background-color: #f8f8f8; padding: 15px; border-radius: 4px; margin: 20px 0;">
-              <p><strong>Delivery Information:</strong></p>
-              <ul>
-                <li>Sent at: ${timestamp}</li>
-                <li>Recipient: ${email}</li>
-                <li>Server: ${process.env.VERCEL_ENV || 'Development'}</li>
-                <li>SMTP Host: ${process.env.SMTP_HOST}</li>
-              </ul>
-            </div>
-            
-            <p>If you received this email, admin notifications should be working properly! 🎉</p>
-            <p>Please check the following:</p>
-            <ul>
-              <li>Is this email in your inbox? If it's in spam, add the sender to your contacts.</li>
-              <li>How long did it take to arrive? The send time was ${timestamp}.</li>
-              <li>Are all formatting and images displayed correctly?</li>
-            </ul>
-            
-            <p style="color: #666; font-size: 12px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">
-              This is an automated test from OnnRides. Please do not reply to this email.
-            </p>
-          </div>
-        `;
-        
         const { messageId, logId } = await emailService.sendEmail(
           email,
-          'OnnRides Admin Email Test',
-          htmlContent
+          `[ONNRIDES] Test Email ${testId}`,
+          `
+            <h1>Test Email</h1>
+            <p>This is a test email from the ONNRIDES system.</p>
+            <p>Test ID: ${testId}</p>
+            <p>Timestamp: ${new Date().toISOString()}</p>
+            <p>Environment: ${process.env.NODE_ENV || 'unknown'}</p>
+          `
         );
         
         results.push({
           email,
           success: true,
           messageId,
-          logId,
-          timestamp
+          logId
         });
-        
-        logger.info(`Test email sent to admin ${email}`, {
-          messageId,
-          logId,
-          timestamp
-        });
-      } catch (error) {
-        logger.error(`Failed to send test email to ${email}:`, error);
-        
+      } catch (err: any) {
         results.push({
-          email,
+          email, 
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          timestamp
+          error: err.message
         });
       }
     }
     
-    // Return the results
     return NextResponse.json({
       success: true,
-      timestamp,
-      results,
-      environment: {
-        smtp_host: process.env.SMTP_HOST,
-        smtp_port: process.env.SMTP_PORT,
-        smtp_user: process.env.SMTP_USER?.substring(0, 3) + '...',
-        smtp_from: process.env.SMTP_FROM,
-        node_env: process.env.NODE_ENV,
-        vercel_env: process.env.VERCEL_ENV
-      }
-    });
-  } catch (error) {
-    logger.error('Error in admin email check endpoint:', error);
-    
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to run email check',
-        stack: error instanceof Error ? error.stack : undefined
-      },
-      { status: 500 }
-    );
+      message: `Test email sent to ${adminEmails.join(', ')}`,
+      testId,
+      results
+    }, { status: 200 });
+  } catch (error: any) {
+    return NextResponse.json({
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    }, { status: 500 });
   }
 } 
