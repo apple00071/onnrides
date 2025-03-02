@@ -111,16 +111,40 @@ async function main() {
     warning('System timezone is not set to Asia/Kolkata (IST), which might affect timestamps');
   }
   
-  // Gmail security issues
+  // Email provider specific checks
   if (process.env.SMTP_HOST?.includes('gmail')) {
     info('Using Gmail SMTP server');
     warning('Gmail may require "Less secure app access" to be enabled or an app password');
     warning('App passwords: https://support.google.com/accounts/answer/185833');
     warning('Less secure access (not recommended): https://myaccount.google.com/lesssecureapps');
+  } else if (process.env.SMTP_HOST?.includes('secureserver.net')) {
+    info('Using GoDaddy SMTP server');
+    info('GoDaddy email is better suited for business applications than Gmail');
+    info('Make sure DNS records (SPF, DKIM) are properly configured for better deliverability');
+    
+    // Check if using the correct port
+    if (process.env.SMTP_PORT === '465') {
+      success('Using correct SSL port (465) for GoDaddy');
+    } else if (process.env.SMTP_PORT === '587') {
+      success('Using correct TLS port (587) for GoDaddy');
+    } else {
+      warning(`Unusual port ${process.env.SMTP_PORT} for GoDaddy SMTP. Recommended: 465 (SSL) or 587 (TLS)`);
+    }
+    
+    // Check username format
+    if (process.env.SMTP_USER && !process.env.SMTP_USER.includes('@')) {
+      warning('GoDaddy requires full email address as username (e.g., contact@onnrides.com)');
+    }
   }
   
   // Rate limits
-  warning('Email providers often have rate limits (Gmail: 500/day, 20/hour for free accounts)');
+  info('Email providers have rate limits:');
+  if (process.env.SMTP_HOST?.includes('gmail')) {
+    warning('Gmail: 500/day, 20/hour for free accounts');
+  } else if (process.env.SMTP_HOST?.includes('secureserver.net')) {
+    info('GoDaddy: Typically higher rate limits than free email providers');
+    info('Check your specific GoDaddy plan for exact sending limits');
+  }
   
   console.log('\n============================================');
   success('ADMIN NOTIFICATION TEST COMPLETED');

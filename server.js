@@ -11,9 +11,27 @@ const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
 const port = parseInt(process.env.PORT || '3000', 10);
 
-// Import logger and shutdown manager after environment is configured
-const logger = require('./lib/logger').default;
-const shutdownManager = require('./lib/shutdown-manager').default;
+// Simple server logger
+const serverLogger = {
+  info: (message) => console.log(`[INFO] ${message}`),
+  error: (message, err) => console.error(`[ERROR] ${message}`, err),
+  warn: (message) => console.warn(`[WARN] ${message}`),
+  debug: (message) => dev ? console.debug(`[DEBUG] ${message}`) : null
+};
+
+// Import shutdown manager
+const shutdownManager = (() => {
+  try {
+    return require('./lib/shutdown-manager').default;
+  } catch (err) {
+    serverLogger.warn('Could not load shutdown manager, using fallback');
+    // Simple fallback if shutdown manager can't be loaded
+    return {
+      registerHandler: () => {},
+      shutdown: async () => {}
+    };
+  }
+})();
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -24,14 +42,14 @@ app.prepare().then(() => {
       const parsedUrl = parse(req.url, true);
       await handle(req, res, parsedUrl);
     } catch (err) {
-      logger.error('Error handling request:', err);
+      serverLogger.error('Error handling request:', err);
       res.statusCode = 500;
       res.end('Internal Server Error');
     }
   });
 
   server.listen(port, () => {
-    logger.info(`> Server ready on http://${hostname}:${port}`);
+    serverLogger.info(`> Server ready on http://${hostname}:${port}`);
   });
 
   // Register server shutdown with the shutdown manager
@@ -39,20 +57,20 @@ app.prepare().then(() => {
     'http-server',
     async () => {
       return new Promise((resolve, reject) => {
-        logger.info('Closing HTTP server...');
+        serverLogger.info('Closing HTTP server...');
         server.close((err) => {
           if (err) {
-            logger.error('Error closing HTTP server:', err);
+            serverLogger.error('Error closing HTTP server:', err);
             reject(err);
           } else {
-            logger.info('HTTP server closed successfully');
+            serverLogger.info('HTTP server closed successfully');
             resolve();
           }
         });
         
         // Force close after timeout
         setTimeout(() => {
-          logger.warn('Forcing HTTP server close after timeout');
+          serverLogger.warn('Forcing HTTP server close after timeout');
           resolve();
         }, 5000);
       });
@@ -63,21 +81,30 @@ app.prepare().then(() => {
 
   // Initialize database
   try {
-    const { initializeDatabase } = require('./lib/db');
+    const db = (() => {
+      try {
+        return require('./lib/db');
+      } catch (err) {
+        serverLogger.warn('Could not load database module:', err.message);
+        return {
+          initializeDatabase: async () => {},
+          pool: { end: async () => {} }
+        };
+      }
+    })();
     
     // Register database shutdown
     shutdownManager.registerHandler(
       'postgres-pool',
       async () => {
-        const { pool } = require('./lib/db');
-        logger.info('Closing PostgreSQL connection pool...');
+        serverLogger.info('Closing PostgreSQL connection pool...');
         try {
-          await pool.end();
-          logger.info('PostgreSQL connection pool closed successfully');
+          await db.pool.end();
+          serverLogger.info('PostgreSQL connection pool closed successfully');
         } catch (error) {
           // Ignore "called end more than once" errors
           if (error.message !== 'Called end on pool more than once') {
-            logger.error('Error closing PostgreSQL pool:', error);
+            serverLogger.error('Error closing PostgreSQL pool:', error);
             throw error;
           }
         }
@@ -90,13 +117,22 @@ app.prepare().then(() => {
     shutdownManager.registerHandler(
       'prisma-client',
       async () => {
-        const prisma = require('./lib/prisma').default;
-        logger.info('Disconnecting Prisma client...');
+        const prisma = (() => {
+          try {
+            const imported = require('./lib/prisma');
+            return imported.default || imported;
+          } catch (err) {
+            serverLogger.warn('Could not load Prisma module:', err.message);
+            return { $disconnect: async () => {} };
+          }
+        })();
+        
+        serverLogger.info('Disconnecting Prisma client...');
         try {
           await prisma.$disconnect();
-          logger.info('Prisma client disconnected successfully');
+          serverLogger.info('Prisma client disconnected successfully');
         } catch (error) {
-          logger.error('Error disconnecting Prisma client:', error);
+          serverLogger.error('Error disconnecting Prisma client:', error);
           throw error;
         }
       },
@@ -105,10 +141,10 @@ app.prepare().then(() => {
     );
     
     // Initialize the database
-    initializeDatabase()
-      .then(() => logger.info('Database initialized successfully'))
-      .catch(err => logger.error('Failed to initialize database:', err));
+    db.initializeDatabase()
+      .then(() => serverLogger.info('Database initialized successfully'))
+      .catch(err => serverLogger.error('Failed to initialize database:', err));
   } catch (err) {
-    logger.error('Error setting up database:', err);
+    serverLogger.error('Error setting up database:', err);
   }
 }); 

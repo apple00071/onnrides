@@ -13,6 +13,7 @@ import JsonLd from './components/JsonLd';
 import { headers } from 'next/headers';
 import ClientOnly from './(main)/providers/ClientOnly';
 import logger from '@/lib/logger';
+import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -89,45 +90,16 @@ export const metadata: Metadata = {
   },
 };
 
-async function checkMaintenanceMode(): Promise<boolean> {
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/maintenance/check`, {
-      cache: 'no-store',
-    });
-    if (!response.ok) {
-      logger.error('Failed to check maintenance mode:', response.statusText);
-      return false;
-    }
-    const data = await response.json();
-    return Boolean(data.maintenance);
-  } catch (error) {
-    logger.error('Error checking maintenance mode:', error);
-    return false;
-  }
-}
-
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const session = await getServerSession(authOptions);
-  const headersList = headers();
-  const pathname = headersList.get('x-pathname') || '/';
-  const isMaintenancePath = pathname.startsWith('/maintenance');
-  const isAdminPath = pathname.startsWith('/admin');
-  const isApiPath = pathname.startsWith('/api');
-  const isNextPath = pathname.startsWith('/_next');
-
-  // Skip maintenance check for certain paths
-  if (!isMaintenancePath && !isAdminPath && !isApiPath && !isNextPath) {
-    const isMaintenanceMode = await checkMaintenanceMode();
-    if (isMaintenanceMode) {
-      const { redirect } = await import('next/navigation');
-      redirect('/maintenance');
-    }
-  }
-
+  
+  // Note: Maintenance mode redirection is now handled by middleware.ts
+  // We don't need to check for maintenance mode here anymore
+  
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
   const structuredData = {
     '@context': 'https://schema.org',
@@ -162,7 +134,7 @@ export default async function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={cn(inter.className)} suppressHydrationWarning>
         <Providers session={session}>
           <AuthProvider>
             <ClientOnly>

@@ -253,23 +253,29 @@ async function main() {
     });
   }
   
-  // Provide recommendations
-  console.log('\n' + colors.bold + colors.green + '=== RECOMMENDATIONS ===' + colors.reset);
+  // Print recommendations
+  console.log(`${colors.bold}${colors.magenta}Recommendations:${colors.reset}`);
+  console.log('1. Make sure your SMTP server is correctly configured in .env file');
+  console.log('2. Check that your SMTP username and password are correct');
   
-  // Standard recommendations
-  console.log('1. Check .env file for correct SMTP settings');
-  console.log('2. Verify ADMIN_EMAILS is properly configured');
-  console.log('3. If using Gmail, ensure "Less secure app access" is enabled or an app password is used');
-  console.log('4. Check for rate limits with your email provider');
-  console.log('5. Monitor server logs for detailed email sending errors');
+  // Email provider specific recommendations
+  if (process.env.SMTP_HOST?.includes('gmail')) {
+    console.log('3. For Gmail: Ensure "Less secure app access" is enabled or an app password is used');
+    console.log('   - App passwords: https://support.google.com/accounts/answer/185833');
+    console.log('   - Be aware of Gmail sending limits (500/day, 20/hour for free accounts)');
+  } else if (process.env.SMTP_HOST?.includes('secureserver.net')) {
+    console.log('3. For GoDaddy:');
+    console.log('   - Ensure you\'re using your full email address as the username (e.g., contact@onnrides.com)');
+    console.log('   - Use port 465 (SSL) or 587 (TLS) for GoDaddy SMTP');
+    console.log('   - Set up SPF and DKIM records for better email deliverability');
+  } else {
+    console.log('3. For your email provider:');
+    console.log('   - Check provider-specific requirements for SMTP authentication');
+    console.log('   - Be aware of any sending rate limits imposed by your provider');
+  }
   
-  // Add specific recommendations based on issues
-  if (diagnosticData.issues_found.some(issue => issue.includes('authentication'))) {
-    console.log('6. Update your SMTP password or app password');
-  }
-  if (diagnosticData.issues_found.some(issue => issue.includes('timeout'))) {
-    console.log('7. Check network connectivity and firewall rules for SMTP port access');
-  }
+  console.log('4. Check firewall or network restrictions that might block outgoing SMTP connections');
+  console.log('5. Verify that your email service provider is operational');
   
   console.log('\n' + colors.bold + colors.blue + '=====================================' + colors.reset);
   console.log(colors.bold + colors.blue + '      DIAGNOSTIC PROCESS COMPLETE      ' + colors.reset);

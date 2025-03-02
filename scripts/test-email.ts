@@ -22,7 +22,7 @@ async function testEmail() {
         
         // Send test email
         await emailService.sendEmail(
-            'applegraphicshyd@gmail.com', // Send to the same email for testing
+            'contact@onnrides.com', // Send to the GoDaddy email for testing
             'Test Email from OnnRides',
             `
             <h2>Test Email</h2>
