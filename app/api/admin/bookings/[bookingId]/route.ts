@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import { query } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+
+// Mark route as dynamic to allow server-only features
+export const dynamic = 'force-dynamic';
 
 interface UpdateBookingBody {
   status?: 'pending' | 'confirmed' | 'cancelled' | 'completed';
@@ -15,8 +19,8 @@ export async function GET(
 ) {
   try {
     // Verify authentication
-    const user = await getCurrentUser();
-    if (!user || user.role !== 'admin') {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -24,29 +28,33 @@ export async function GET(
     }
 
     // Get booking details
-    const booking = await query(`
+    const bookingResult = await query(`
       SELECT * FROM bookings 
       WHERE id = $1 
       LIMIT 1
     `, [params.bookingId]);
 
-    if (!booking[0]) {
+    if (bookingResult.rows.length === 0) {
       return NextResponse.json(
         { error: 'Booking not found' },
         { status: 404 }
       );
     }
 
+    const booking = bookingResult.rows[0];
+
     // Get vehicle details
-    const vehicle = await query(`
+    const vehicleResult = await query(`
       SELECT * FROM vehicles 
       WHERE id = $1 
       LIMIT 1
-    `, [booking[0].vehicle_id]);
+    `, [booking.vehicle_id]);
+
+    const vehicle = vehicleResult.rows.length > 0 ? vehicleResult.rows[0] : null;
 
     return NextResponse.json({
       booking: {
-        ...booking[0],
+        ...booking,
         vehicle
       }
     });
@@ -66,8 +74,8 @@ export async function PATCH(
 ) {
   try {
     // Verify authentication
-    const user = await getCurrentUser();
-    if (!user || user.role !== 'admin') {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -78,7 +86,7 @@ export async function PATCH(
     const { status, paymentStatus } = body;
 
     // Update booking
-    const updatedBooking = await query(`
+    const updatedBookingResult = await query(`
       UPDATE bookings 
       SET status = COALESCE($1, status),
           payment_status = COALESCE($2, payment_status),
@@ -87,25 +95,29 @@ export async function PATCH(
       RETURNING *
     `, [status, paymentStatus, params.bookingId]);
 
-    if (!updatedBooking[0]) {
+    if (updatedBookingResult.rows.length === 0) {
       return NextResponse.json(
         { error: 'Booking not found' },
         { status: 404 }
       );
     }
 
+    const updatedBooking = updatedBookingResult.rows[0];
+
     // Get vehicle details
-    const vehicle = await query(`
+    const vehicleResult = await query(`
       SELECT * FROM vehicles 
       WHERE id = $1 
       LIMIT 1
-    `, [updatedBooking[0].vehicle_id]);
+    `, [updatedBooking.vehicle_id]);
+
+    const vehicle = vehicleResult.rows.length > 0 ? vehicleResult.rows[0] : null;
 
     return NextResponse.json({
       success: true,
       message: 'Booking updated successfully',
       booking: {
-        ...updatedBooking[0],
+        ...updatedBooking,
         vehicle
       }
     });
@@ -125,28 +137,28 @@ export async function DELETE(
 ) {
   try {
     // Verify authentication
-    const user = await getCurrentUser();
-    if (!user || user.role !== 'admin') {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const deletedBooking = await query(`
+    const deletedBookingResult = await query(`
       DELETE FROM bookings 
       WHERE id = $1 
       RETURNING *
     `, [params.bookingId]);
 
-    if (!deletedBooking[0]) {
+    if (deletedBookingResult.rows.length === 0) {
       return NextResponse.json(
         { error: 'Booking not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ booking: deletedBooking[0] });
+    return NextResponse.json({ booking: deletedBookingResult.rows[0] });
   } catch (error) {
     logger.error('Error in DELETE /api/admin/bookings/[bookingId]:', error);
     return NextResponse.json(

@@ -15,6 +15,7 @@ import ClientOnly from './(main)/providers/ClientOnly';
 import logger from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
+// Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -95,58 +96,78 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
-  
-  // Note: Maintenance mode redirection is now handled by middleware.ts
-  // We don't need to check for maintenance mode here anymore
-  
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
-  const structuredData = {
-    '@context': 'https://schema.org',
-    '@graph': [
-      {
-        '@type': 'Organization',
-        '@id': `${baseUrl}/#organization`,
-        name: 'OnnRides Hyderabad',
-        url: baseUrl,
-        logo: {
-          '@type': 'ImageObject',
-          url: `${baseUrl}/logo.png`,
+  try {
+    const session = await getServerSession(authOptions);
+    
+    // Note: Maintenance mode redirection is now handled by middleware.ts
+    // We don't need to check for maintenance mode here anymore
+    
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
+    const structuredData = {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Organization',
+          '@id': `${baseUrl}/#organization`,
+          name: 'OnnRides Hyderabad',
+          url: baseUrl,
+          logo: {
+            '@type': 'ImageObject',
+            url: `${baseUrl}/logo.png`,
+          }
         }
-      }
-    ]
-  };
+      ]
+    };
 
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta
-          name="format-detection"
-          content="telephone=no, date=no, email=no, address=no"
-        />
-        <link 
-          rel="preload" 
-          href="/fonts/Good Times Rg.woff2" 
-          as="font" 
-          type="font/woff2" 
-          crossOrigin="anonymous"
-        />
-      </head>
-      <body className={cn(inter.className)} suppressHydrationWarning>
-        <Providers session={session}>
-          <AuthProvider>
-            <ClientOnly>
-              <NotificationBar />
-              {children}
-              <Toaster position="top-center" />
-              <ScriptLoader />
-            </ClientOnly>
-          </AuthProvider>
-        </Providers>
-        <JsonLd data={structuredData} />
-      </body>
-    </html>
-  );
+    return (
+      <html lang="en" suppressHydrationWarning>
+        <head>
+          <meta charSet="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <meta
+            name="format-detection"
+            content="telephone=no, date=no, email=no, address=no"
+          />
+          <link 
+            rel="preload" 
+            href="/fonts/Good Times Rg.woff2" 
+            as="font" 
+            type="font/woff2" 
+            crossOrigin="anonymous"
+          />
+        </head>
+        <body className={cn(inter.className)} suppressHydrationWarning>
+          <Providers session={session}>
+            <AuthProvider>
+              <ClientOnly>
+                <NotificationBar />
+                {children}
+                <Toaster position="top-center" />
+                <ScriptLoader />
+              </ClientOnly>
+            </AuthProvider>
+          </Providers>
+          <JsonLd data={structuredData} />
+        </body>
+      </html>
+    );
+  } catch (error) {
+    // Error fallback to ensure we always render something
+    logger.error('Error in root layout:', error);
+    
+    return (
+      <html lang="en">
+        <body className={cn(inter.className)}>
+          <div className="flex min-h-screen flex-col items-center justify-center p-24">
+            <div className="max-w-5xl w-full">
+              <h1 className="text-4xl font-bold mb-4">OnnRides</h1>
+              <div className="bg-white shadow-md rounded-lg p-6">
+                {children}
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+    );
+  }
 }

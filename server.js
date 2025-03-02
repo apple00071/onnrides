@@ -2,6 +2,7 @@ const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
 const path = require('path');
+const http = require('http');
 
 // Configure environment before importing other modules
 const dotenvPath = path.resolve(process.cwd(), '.env');
@@ -36,6 +37,41 @@ const shutdownManager = (() => {
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
+// Helper function to initialize settings
+function initializeSettings() {
+  setTimeout(() => {
+    try {
+      // Make a request to the settings initialization endpoint
+      const req = http.request({
+        hostname: 'localhost',
+        port: port,
+        path: '/api/settings/initialize',
+        method: 'GET'
+      }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            serverLogger.info('Settings initialized successfully');
+          } else {
+            serverLogger.warn('Settings initialization returned status:', res.statusCode);
+          }
+        });
+      });
+      
+      req.on('error', (error) => {
+        serverLogger.warn('Failed to initialize settings:', error.message);
+      });
+      
+      req.end();
+    } catch (err) {
+      serverLogger.warn('Could not initialize settings:', err.message);
+    }
+  }, 2000); // Wait 2 seconds for the server to start
+}
+
 app.prepare().then(() => {
   const server = createServer(async (req, res) => {
     try {
@@ -50,6 +86,9 @@ app.prepare().then(() => {
 
   server.listen(port, () => {
     serverLogger.info(`> Server ready on http://${hostname}:${port}`);
+    
+    // Initialize settings after server starts
+    initializeSettings();
   });
 
   // Register server shutdown with the shutdown manager

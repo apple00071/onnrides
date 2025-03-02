@@ -13,6 +13,9 @@ import {
 } from '@/lib/utils/sql-helpers';
 import { withTimezoneProcessing } from '@/middleware/timezone-middleware';
 
+// Set this route as dynamic to allow headers modification
+export const dynamic = 'force-dynamic';
+
 interface BookingRow {
   id: string;
   booking_id: string | null;
