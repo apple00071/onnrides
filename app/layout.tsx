@@ -14,11 +14,17 @@ import { headers } from 'next/headers';
 import ClientOnly from './(main)/providers/ClientOnly';
 import logger from '@/lib/logger';
 import { cn } from '@/lib/utils';
+import GoogleAnalytics from './components/GoogleAnalytics';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
 const inter = Inter({ subsets: ['latin'] });
+
+// GA Measurement ID - replace with your actual Google Analytics ID
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || '';
+// Only use Google Analytics in production
+const isProduction = process.env.NODE_ENV === 'production';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com'),
@@ -135,6 +141,8 @@ export default async function RootLayout({
             type="font/woff2" 
             crossOrigin="anonymous"
           />
+          {/* Only include Google Analytics in production */}
+          {isProduction && GA_MEASUREMENT_ID && <GoogleAnalytics GA_MEASUREMENT_ID={GA_MEASUREMENT_ID} />}
         </head>
         <body className={cn(inter.className)} suppressHydrationWarning>
           <Providers session={session}>
