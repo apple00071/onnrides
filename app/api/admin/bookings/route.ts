@@ -267,7 +267,7 @@ export async function PUT(request: NextRequest) {
       RETURNING *
     `, [status, bookingId]);
 
-    // Send email notification
+    // Send notifications
     try {
       const emailService = EmailService.getInstance();
       const whatsappService = WhatsAppService.getInstance();
@@ -300,7 +300,7 @@ export async function PUT(request: NextRequest) {
         booking.id.toString()
       );
 
-      // Send WhatsApp notification
+      // Send WhatsApp notification using new service
       if (booking.user_phone) {
         await whatsappService.sendBookingCancellation(
           booking.user_phone,
