@@ -151,9 +151,9 @@ const getBookingsHandler = async (request: NextRequest) => {
           u.email as user_email,
           u.phone as user_phone,
           
-          -- Formatted dates as strings
-          TO_CHAR(${toISTSql('b.start_date')}, 'DD Mon YYYY, HH12:MI AM') as formatted_pickup,
-          TO_CHAR(${toISTSql('b.end_date')}, 'DD Mon YYYY, HH12:MI AM') as formatted_dropoff
+          -- Explicitly formatted dates as strings in IST timezone
+          TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') as formatted_pickup,
+          TO_CHAR(b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') as formatted_dropoff
         FROM bookings b
         LEFT JOIN vehicles v ON b.vehicle_id = v.id
         LEFT JOIN users u ON b.user_id = u.id

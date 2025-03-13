@@ -153,25 +153,13 @@ export default function BookingsPage() {
 
   const formatDate = (dateString: string) => {
     try {
-      // Log the input date string
-      logger.debug('Input date string:', { dateString });
-      
-      // Create a date object from the string
+      // Always add 5 hours and 30 minutes for IST conversion
       const date = new Date(dateString);
-      logger.debug('Created date object:', { date: date.toISOString() });
-      
-      // Manually add 5 hours and 30 minutes to convert UTC to IST
-      // This is a direct way to handle the +5:30 offset for IST
       const istDateManual = new Date(date);
       istDateManual.setHours(date.getHours() + 5);
       istDateManual.setMinutes(date.getMinutes() + 30);
       
-      logger.debug('Manually converted to IST:', { 
-        original: date.toISOString(),
-        afterAdjustment: istDateManual.toISOString() 
-      });
-      
-      // Format the date with Indian locale and 12-hour time
+      // Format with Indian locale and 12-hour time
       return istDateManual.toLocaleString('en-IN', {
         day: 'numeric',
         month: 'short',
