@@ -1,4 +1,4 @@
-// This script synchronizes all favicon files to ensure consistency
+// This script ensures all favicon files are in the correct locations
 const fs = require('fs');
 const path = require('path');
 
@@ -6,46 +6,45 @@ const path = require('path');
 const publicDir = path.join(__dirname, '../public');
 const faviconDir = path.join(publicDir, 'favicon');
 
-// Files to synchronize
+// Files to ensure are in both locations
 const filesToSync = [
-  { 
-    src: path.join(publicDir, 'favicon.png'), 
-    dest: path.join(faviconDir, 'favicon-32x32.png') 
-  },
-  { 
-    src: path.join(publicDir, 'favicon-192.png'), 
-    dest: path.join(faviconDir, 'android-chrome-192x192.png') 
-  },
-  { 
-    src: path.join(publicDir, 'favicon-512.png'), 
-    dest: path.join(faviconDir, 'android-chrome-512x512.png') 
-  },
-  { 
-    src: path.join(publicDir, 'apple-touch-icon.png'), 
-    dest: path.join(faviconDir, 'apple-touch-icon.png') 
-  },
-  { 
-    src: path.join(publicDir, 'favicon.ico'), 
-    dest: path.join(faviconDir, 'favicon.ico') 
-  }
+  { name: 'favicon.ico', ensureInRoot: true, ensureInFaviconDir: true },
+  { name: 'favicon.png', ensureInRoot: true, ensureInFaviconDir: false },
+  { name: 'favicon-192.png', ensureInRoot: true, ensureInFaviconDir: false },
+  { name: 'favicon-512.png', ensureInRoot: true, ensureInFaviconDir: false },
+  { name: 'apple-touch-icon.png', ensureInRoot: true, ensureInFaviconDir: true },
+  { name: 'android-chrome-192x192.png', ensureInRoot: false, ensureInFaviconDir: true },
+  { name: 'android-chrome-512x512.png', ensureInRoot: false, ensureInFaviconDir: true },
+  { name: 'favicon-32x32.png', ensureInRoot: false, ensureInFaviconDir: true },
+  { name: 'favicon-16x16.png', ensureInRoot: false, ensureInFaviconDir: true },
+  { name: 'site.webmanifest', ensureInRoot: false, ensureInFaviconDir: true },
 ];
 
 // Ensure the favicon directory exists
 if (!fs.existsSync(faviconDir)) {
   fs.mkdirSync(faviconDir, { recursive: true });
+  console.log('Created favicon directory');
 }
 
-// Copy files
-filesToSync.forEach(({ src, dest }) => {
-  if (fs.existsSync(src)) {
-    try {
-      fs.copyFileSync(src, dest);
-      console.log(`Copied ${path.basename(src)} to ${path.relative(publicDir, dest)}`);
-    } catch (error) {
-      console.error(`Error copying ${path.basename(src)}:`, error);
-    }
-  } else {
-    console.warn(`Source file ${path.basename(src)} does not exist`);
+// Copy files to ensure they're in all required locations
+filesToSync.forEach(({ name, ensureInRoot, ensureInFaviconDir }) => {
+  const rootPath = path.join(publicDir, name);
+  const faviconPath = path.join(faviconDir, name);
+  
+  // Check if file exists in either location
+  const existsInRoot = fs.existsSync(rootPath);
+  const existsInFaviconDir = fs.existsSync(faviconPath);
+  
+  if (existsInRoot && ensureInFaviconDir && !existsInFaviconDir) {
+    // Copy from root to favicon dir
+    fs.copyFileSync(rootPath, faviconPath);
+    console.log(`Copied ${name} from root to favicon directory`);
+  } else if (existsInFaviconDir && ensureInRoot && !existsInRoot) {
+    // Copy from favicon dir to root
+    fs.copyFileSync(faviconPath, rootPath);
+    console.log(`Copied ${name} from favicon directory to root`);
+  } else if (!existsInRoot && !existsInFaviconDir) {
+    console.warn(`Warning: ${name} not found in either location`);
   }
 });
 
