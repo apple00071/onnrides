@@ -1,7 +1,7 @@
 import winston from 'winston';
 import 'winston-daily-rotate-file';
 
-const isBrowser = typeof window !== 'undefined';
+const isBrowser = typeof process === 'undefined';
 const isProduction = process.env.NODE_ENV === 'production';
 
 type LogLevel = 'info' | 'error' | 'warn' | 'debug';
@@ -19,25 +19,29 @@ function formatMessage(level: LogLevel, message: string, metadata?: any): string
 }
 
 // Simple logger that works in both Edge and Node.js environments
-const logger = {
-  info: (message: string, metadata?: any) => {
-    const formattedMessage = formatMessage('info', message, metadata);
-    console.log(formattedMessage);
-  },
-  error: (message: string, metadata?: any) => {
-    const formattedMessage = formatMessage('error', message, metadata);
-    console.error(formattedMessage);
-  },
-  warn: (message: string, metadata?: any) => {
-    const formattedMessage = formatMessage('warn', message, metadata);
-    console.warn(formattedMessage);
-  },
-  debug: (message: string, metadata?: any) => {
-    if (process.env.NODE_ENV === 'development') {
-      const formattedMessage = formatMessage('debug', message, metadata);
-      console.debug(formattedMessage);
-    }
-  }
-};
+const logger = isBrowser ? 
+  // Browser logger
+  {
+    info: (...args: any[]) => console.log(...args),
+    error: (...args: any[]) => console.error(...args),
+    warn: (...args: any[]) => console.warn(...args),
+    debug: (...args: any[]) => console.debug(...args)
+  } :
+  // Node.js logger
+  winston.createLogger({
+    level: process.env.LOG_LEVEL || 'info',
+    format: winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.json()
+    ),
+    transports: [
+      new winston.transports.Console({
+        format: winston.format.combine(
+          winston.format.colorize(),
+          winston.format.simple()
+        )
+      })
+    ]
+  });
 
 export default logger; 

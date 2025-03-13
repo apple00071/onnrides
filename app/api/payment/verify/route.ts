@@ -316,41 +316,72 @@ export async function POST(request: NextRequest) {
       // Add the email sending function
       const sendEmailConfirmation = async (booking: any, userEmail: string) => {
         try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/email/send`, {
+          logger.info('Attempting to send booking confirmation email', {
+            bookingId: booking.booking_id || booking.id,
+            email: userEmail
+          });
+
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          const emailEndpoint = `${appUrl}/api/email/send`;
+          
+          logger.debug('Using email endpoint', { endpoint: emailEndpoint });
+
+          const emailPayload = {
+            type: 'booking-confirmation',
+            data: {
+              email: userEmail,
+              name: booking.user_name || 'User',
+              bookingId: booking.booking_id || booking.id,
+              startDate: formatDateToIST(booking.start_date),
+              endDate: formatDateToIST(booking.end_date),
+              vehicleName: booking.vehicle_name,
+              amount: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`,
+              paymentId: payment_reference
+            }
+          };
+
+          logger.debug('Email payload prepared', { payload: emailPayload });
+
+          const response = await fetch(emailEndpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              type: 'booking-confirmation',
-              data: {
-                email: userEmail,
-                name: booking.user_name || 'User',
-                bookingId: booking.booking_id || booking.id,
-                startDate: formatDateToIST(booking.start_date),
-                endDate: formatDateToIST(booking.end_date),
-                vehicleName: booking.vehicle_name,
-                amount: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`,
-                paymentId: payment_reference
-              }
-            })
+            body: JSON.stringify(emailPayload)
           });
 
+          const responseData = await response.json();
+
           if (!response.ok) {
-            throw new Error('Failed to send email confirmation');
+            throw new Error(`Failed to send email confirmation: ${response.status} ${response.statusText} - ${JSON.stringify(responseData)}`);
           }
+
+          logger.info('Email confirmation request successful', { 
+            status: response.status,
+            response: responseData 
+          });
+          
+          return true;
         } catch (error) {
-          logger.error('Failed to send payment verification email confirmation:', error);
+          logger.error('Failed to send payment verification email confirmation:', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : null,
+            bookingId: booking.booking_id || booking.id,
+            email: userEmail
+          });
+          
+          // Continue the process even if email fails
+          return false;
         }
       };
 
       // Replace the direct email call with the new function
-      await sendEmailConfirmation(booking, booking.user_email || session.user.email);
+      const emailSent = await sendEmailConfirmation(booking, booking.user_email || session.user.email);
 
       logger.info('Payment verification completed successfully', { 
         bookingId,
         payment_reference,
-        email_sent: isEmailConfigValid
+        email_sent: emailSent
       });
 
       // Send notification to admins

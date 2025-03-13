@@ -1,11 +1,13 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
-import { EmailService } from '../lib/email/service';
-import logger from '../lib/logger';
 
-// Load environment variables
+// Load environment variables first
 const envPath = resolve(__dirname, '../.env');
 config({ path: envPath });
+
+// Now import the modules that depend on environment variables
+import { EmailService } from '../lib/email/service';
+import logger from '../lib/logger';
 
 async function testEmail() {
     try {
@@ -40,12 +42,4 @@ async function testEmail() {
     }
 }
 
-// Run the test
-if (require.main === module) {
-    testEmail().catch(error => {
-        logger.error('Script error:', error);
-        process.exit(1);
-    });
-}
-
-export default testEmail; 
+testEmail(); 

@@ -26,10 +26,25 @@ export async function GET(req: Request) {
     // Get total count
     const countResult = await query('SELECT COUNT(*) FROM email_logs');
     const totalCount = parseInt(countResult.rows[0].count);
+    
+    logger.debug('Checking bookings table structure');
+    // Check for the existence of booking_id column in the bookings table
+    const checkBookingIdColumnResult = await query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'bookings' 
+        AND column_name = 'booking_id'
+    `);
+    
+    const hasBookingIdColumn = checkBookingIdColumnResult.rows.length > 0;
+    logger.debug('Bookings table structure check result', { 
+      hasBookingIdColumn, 
+      columns: checkBookingIdColumnResult.rows 
+    });
 
-    // Get email logs with pagination
-    const result = await query(
-      `WITH email_data AS (
+    // Get email logs with pagination - modify the join based on the bookings table structure
+    const sqlQuery = `
+      WITH email_data AS (
         SELECT 
           el.*,
           el.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_created_at
@@ -47,12 +62,18 @@ export async function GET(req: Request) {
         ed.ist_created_at,
         v.name as vehicle_name 
       FROM email_data ed
-      LEFT JOIN bookings b ON b.id::text = ed.booking_id
+      LEFT JOIN bookings b ON ${hasBookingIdColumn ? 
+        'b.booking_id = ed.booking_id' : 
+        'b.id::text = ed.booking_id'
+      }
       LEFT JOIN vehicles v ON v.id = b.vehicle_id 
       ORDER BY ed.created_at DESC 
-      LIMIT $1 OFFSET $2`,
-      [limit, offset]
-    );
+      LIMIT $1 OFFSET $2
+    `;
+    
+    logger.debug('Executing email logs query', { query: sqlQuery });
+    
+    const result = await query(sqlQuery, [limit, offset]);
 
     // Format the response data
     const formattedData = result.rows.map(row => ({

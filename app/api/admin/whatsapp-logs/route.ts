@@ -32,23 +32,31 @@ export async function GET(request: NextRequest) {
         const totalItems = parseInt(totalCountResult.rows[0].count);
         const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
 
-        // Get logs with pagination
-        const logsResult = await query(
-            `SELECT 
-                wl.id,
-                wl.recipient,
-                wl.message,
-                wl.booking_id,
-                wl.status,
-                wl.error,
-                wl.message_type,
-                wl.chat_id,
-                wl.created_at,
+        // Get logs with pagination and timezone conversion
+        const logsResult = await query(`
+            WITH log_data AS (
+                SELECT 
+                    wl.*,
+                    wl.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_created_at
+                FROM whatsapp_logs wl
+            )
+            SELECT 
+                ld.id,
+                ld.recipient,
+                ld.message,
+                ld.message_id,
+                ld.instance_id,
+                ld.status,
+                ld.error,
+                ld.message_type,
+                ld.chat_id,
+                ld.ist_created_at as created_at,
+                ld.metadata,
                 COALESCE(v.name, '-') as vehicle_name
-            FROM whatsapp_logs wl
-            LEFT JOIN bookings b ON wl.booking_id = b.booking_id
-            LEFT JOIN vehicles v ON b.vehicle_id = v.id
-            ORDER BY wl.created_at DESC
+            FROM log_data ld
+            LEFT JOIN bookings b ON b.booking_id = ld.booking_id
+            LEFT JOIN vehicles v ON v.id = b.vehicle_id
+            ORDER BY ld.created_at DESC
             LIMIT $1 OFFSET $2`,
             [ITEMS_PER_PAGE, offset]
         );

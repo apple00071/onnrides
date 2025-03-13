@@ -1,6 +1,6 @@
 import nodemailer, { Transporter } from 'nodemailer';
-import logger from '@/lib/logger';
-import { query } from '@/lib/db';
+import logger from '../logger';
+import { query } from '../db';
 
 interface EmailLog {
   recipient: string;
@@ -51,6 +51,7 @@ export class EmailService {
   private transporter!: Transporter;
   private initialized: boolean = false;
   private initializationPromise: Promise<void>;
+  private initializationError: Error | null = null;
 
   private constructor() {
     this.initializationPromise = this.initialize();
@@ -63,8 +64,20 @@ export class EmailService {
       const missingVars = requiredVars.filter(varName => !process.env[varName]);
       
       if (missingVars.length > 0) {
-        throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+        const errorMsg = `Missing required environment variables: ${missingVars.join(', ')}`;
+        logger.error(errorMsg);
+        this.initializationError = new Error(errorMsg);
+        throw this.initializationError;
       }
+
+      // Log all environment variables with partially masked values for debugging
+      logger.info('Email service environment variables:', {
+        SMTP_HOST: process.env.SMTP_HOST,
+        SMTP_PORT: process.env.SMTP_PORT,
+        SMTP_USER: process.env.SMTP_USER?.substring(0, 3) + '...',
+        SMTP_PASS: process.env.SMTP_PASS ? '******' : 'not set',
+        SMTP_FROM: process.env.SMTP_FROM
+      });
 
       // Create transporter with secure configuration
       this.transporter = nodemailer.createTransport({
@@ -81,7 +94,14 @@ export class EmailService {
       });
 
       // Verify connection
-      await this.transporter.verify();
+      try {
+        await this.transporter.verify();
+        logger.info('Email service SMTP connection verified successfully');
+      } catch (verifyError) {
+        logger.error('SMTP connection verification failed:', verifyError);
+        this.initializationError = verifyError instanceof Error ? verifyError : new Error('SMTP verification failed');
+        throw this.initializationError;
+      }
       
       logger.info('Email service initialized successfully', {
         host: process.env.SMTP_HOST,
@@ -91,6 +111,8 @@ export class EmailService {
 
       this.initialized = true;
     } catch (error) {
+      this.initialized = false;
+      this.initializationError = error instanceof Error ? error : new Error('Unknown error initializing email service');
       logger.error('Failed to initialize email service:', error);
       throw error;
     }
@@ -103,9 +125,21 @@ export class EmailService {
     return EmailService.instance;
   }
 
+  public getInitializationStatus(): { initialized: boolean; error: Error | null } {
+    return { 
+      initialized: this.initialized,
+      error: this.initializationError
+    };
+  }
+
   private async waitForInitialization(): Promise<void> {
     if (!this.initialized) {
-      await this.initializationPromise;
+      try {
+        await this.initializationPromise;
+      } catch (error) {
+        logger.error('Email service initialization failed during wait:', error);
+        throw error;
+      }
     }
   }
 
