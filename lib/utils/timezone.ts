@@ -25,8 +25,25 @@ export function toIST(date: Date | string | null): Date | null {
       return null;
     }
     
+    // Add detailed logging for debugging timezone issues
+    const originalDate = new Date(dateObj);
+    
     // Convert UTC date to IST timezone
-    return utcToZonedTime(dateObj, IST_TIMEZONE);
+    const istDate = utcToZonedTime(dateObj, IST_TIMEZONE);
+    
+    // Log detailed time information for debugging
+    logger.debug('Converting to IST timezone', {
+      inputType: typeof date,
+      originalDate: dateObj.toISOString(),
+      originalTimeString: dateObj.toTimeString(),
+      istDate: istDate.toISOString(),
+      istTimeString: istDate.toTimeString(),
+      istHours: istDate.getHours(),
+      istMinutes: istDate.getMinutes(),
+      timeDifferenceHours: (istDate.getTime() - dateObj.getTime()) / (1000 * 60 * 60)
+    });
+    
+    return istDate;
   } catch (error) {
     logger.error('Error converting date to IST', { date, error });
     return null;
@@ -174,21 +191,29 @@ export function formatISOWithTZ(date: Date | string | null): string {
       return '';
     }
     
-    // Generate ISO string with explicit timezone
-    // Format: YYYY-MM-DDTHH:mm:ss+05:30
-    const isoStr = dateObj.toISOString().slice(0, 19);
+    // IMPORTANT FIX: Don't modify the time, just append the correct timezone
+    // Create a date string in ISO format but preserve the actual hours and minutes
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const hours = String(dateObj.getHours()).padStart(2, '0');
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+    const seconds = String(dateObj.getSeconds()).padStart(2, '0');
+    
+    const isoStr = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
     const result = `${isoStr}${IST_OFFSET}`;
     
     logger.debug('Formatted date with timezone', {
       original: String(date),
-      formatted: result
+      originalTime: dateObj.toTimeString(),
+      formattedResult: result
     });
     
     return result;
   } catch (error) {
     logger.error('Error formatting date to ISO with TZ', { 
       date: typeof date === 'string' ? date : String(date), 
-      error: error instanceof Error ? error.message : String(error)
+      error 
     });
     return '';
   }

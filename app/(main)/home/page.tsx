@@ -52,6 +52,16 @@ export default function Home() {
       return;
     }
 
+    // Add debug logging for selected times
+    console.log('Selected times:', {
+      pickupDate,
+      pickupTime,
+      dropoffDate,
+      dropoffTime,
+      fullPickupDateTime: `${pickupDate}T${pickupTime}`,
+      fullDropoffDateTime: `${dropoffDate}T${dropoffTime}`
+    });
+
     const searchParams = new URLSearchParams({
       pickupDate,
       pickupTime,

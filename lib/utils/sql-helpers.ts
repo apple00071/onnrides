@@ -10,7 +10,8 @@ import logger from '@/lib/logger';
  * @returns SQL expression that converts the field to IST
  */
 export function toISTSql(field: string): string {
-  return `${field} AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata'`;
+  // Using direct interval addition instead of timezone conversion for more reliable results
+  return `(${field} + INTERVAL '5 hours 30 minutes')`;
 }
 
 /**

@@ -136,14 +136,26 @@ const getBookingsHandler = async (request: NextRequest) => {
           b.id,
           b.user_id,
           b.vehicle_id,
-          ${toISTSql('b.start_date')} as start_date,
-          ${toISTSql('b.end_date')} as end_date,
+          
+          -- Store original UTC dates without modification
+          b.start_date as original_start_date,
+          b.end_date as original_end_date,
+          
+          -- Add debug fields to check what's happening with the dates
+          TO_CHAR(b.start_date, 'YYYY-MM-DD HH24:MI:SS TZ') as utc_start_date_str,
+          
+          -- Apply IST conversion (+5:30 hours) only once
+          (b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_start_date,
+          (b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_end_date,
+          
           b.total_hours,
           b.total_price,
           b.status,
           b.payment_status,
-          ${toISTSql('b.created_at')} as created_at,
-          ${toISTSql('b.updated_at')} as updated_at,
+          b.created_at,
+          b.updated_at,
+          (b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_created_at,
+          (b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_updated_at,
           b.booking_id,
           v.name as vehicle_name,
           v.location as vehicle_location,
@@ -151,16 +163,23 @@ const getBookingsHandler = async (request: NextRequest) => {
           u.email as user_email,
           u.phone as user_phone,
           
-          -- Explicitly formatted dates as strings in IST timezone
-          TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') as formatted_pickup,
-          TO_CHAR(b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, HH12:MI AM') as formatted_dropoff
+          -- Formatted pickup/dropoff times for display with proper timezone conversion
+          TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
+          TO_CHAR(b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
+          
+          -- Include additional debug information
+          TO_CHAR(b.start_date, 'YYYY-MM-DD HH24:MI:SS') as db_start_time,
+          TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD HH24:MI:SS') as ist_start_time,
+          
+          -- Calculate duration in hours for debugging
+          EXTRACT(EPOCH FROM (b.end_date - b.start_date))/3600 as calculated_duration_hours
         FROM bookings b
         LEFT JOIN vehicles v ON b.vehicle_id = v.id
         LEFT JOIN users u ON b.user_id = u.id
         WHERE ${whereClause}
       )
       SELECT * FROM booking_data
-      ORDER BY created_at DESC
+      ORDER BY ist_created_at DESC
       LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
     `;
     

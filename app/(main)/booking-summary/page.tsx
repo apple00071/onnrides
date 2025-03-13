@@ -166,17 +166,22 @@ export default function BookingSummaryPage() {
         return;
       }
 
-      // Convert local datetime to IST
-      const pickupDateTime = toIST(
-        new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`)
-      );
-      const dropoffDateTime = toIST(
-        new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`)
-      );
+      // Log the raw time data selected by the user
+      console.log('Raw booking time data:', {
+        pickupDate: bookingDetails.pickupDate,
+        pickupTime: bookingDetails.pickupTime,
+        dropoffDate: bookingDetails.dropoffDate,
+        dropoffTime: bookingDetails.dropoffTime,
+      });
+
+      // Parse the dates preserving the exact time the user selected
+      // We DON'T need to apply time zone conversion here since these are the actual times the user wants
+      const pickupDateTime = new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`);
+      const dropoffDateTime = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`);
 
       // Calculate duration only if both dates are valid
       let duration = 0;
-      if (pickupDateTime && dropoffDateTime) {
+      if (!isNaN(pickupDateTime.getTime()) && !isNaN(dropoffDateTime.getTime())) {
         duration = calculateDuration(pickupDateTime, dropoffDateTime);
       } else {
         logger.warn('Invalid dates for duration calculation', {
@@ -186,8 +191,8 @@ export default function BookingSummaryPage() {
         throw new Error('Invalid booking dates');
       }
       
-      // Check if pickup date is a weekend in IST
-      const isWeekend = pickupDateTime ? isWeekendIST(pickupDateTime) : false;
+      // Check if pickup date is a weekend
+      const isWeekend = pickupDateTime.getDay() === 0 || pickupDateTime.getDay() === 6;
       
       // Create a pricing object with the pricing details
       const pricing = {
@@ -217,14 +222,10 @@ export default function BookingSummaryPage() {
         advancePaymentPercentage: `${(advancePayment / totalPrice * 100).toFixed(1)}%`
       });
 
-      // Format dates in ISO format with timezone information
-      // Ensure we're using the correct pickup and dropoff times
-      const pickupDateIST = pickupDateTime 
-        ? formatISOWithTZ(pickupDateTime) 
-        : '';
-      const dropoffDateIST = dropoffDateTime 
-        ? formatISOWithTZ(dropoffDateTime) 
-        : '';
+      // IMPORTANT FIX: Send ISO strings WITHOUT timezone indicators
+      // Just use the raw date objects' ISO strings - the API will handle the timezone conversion
+      const pickupDateISO = pickupDateTime.toISOString();
+      const dropoffDateISO = dropoffDateTime.toISOString();
 
       // Debug logging for date information
       logger.info('Booking dates:', {
@@ -235,12 +236,18 @@ export default function BookingSummaryPage() {
           dropoffTimeStr: bookingDetails.dropoffTime,
         },
         parsed: {
-          pickupDateTime: pickupDateTime?.toISOString(),
-          dropoffDateTime: dropoffDateTime?.toISOString(),
+          pickupTime: `${pickupDateTime.getHours()}:${pickupDateTime.getMinutes()}`,
+          dropoffTime: `${dropoffDateTime.getHours()}:${dropoffDateTime.getMinutes()}`,
+          pickupDate: pickupDateTime.toDateString(),
+          dropoffDate: dropoffDateTime.toDateString(),
         },
         formatted: {
-          pickupDateIST,
-          dropoffDateIST
+          pickupDateISO,
+          dropoffDateISO,
+          pickupHours: pickupDateTime.getHours(),
+          pickupMinutes: pickupDateTime.getMinutes(),
+          dropoffHours: dropoffDateTime.getHours(),
+          dropoffMinutes: dropoffDateTime.getMinutes(),
         }
       });
 
@@ -250,8 +257,8 @@ export default function BookingSummaryPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           vehicleId: bookingDetails.vehicleId,
-          pickupDate: pickupDateIST,
-          dropoffDate: dropoffDateIST,
+          pickupDate: pickupDateISO,  // Changed from pickupDateIST to pickupDateISO
+          dropoffDate: dropoffDateISO, // Changed from dropoffDateIST to dropoffDateISO
           location: bookingDetails.location,
           totalPrice: totalPrice,
           advancePayment: advancePayment,

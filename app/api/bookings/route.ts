@@ -16,6 +16,7 @@ import { toUTC } from '@/lib/utils/timezone';
 import prisma from '@/lib/prisma';
 import { RazorpayOrder } from '@/lib/razorpay';
 import { formatDateToIST } from '@/lib/utils';
+import { toISTSql } from '@/lib/utils/sql-helpers';
 
 // Define standard support contact info
 const SUPPORT_EMAIL = 'contact@onnrides.com';
@@ -131,26 +132,34 @@ export async function GET(request: NextRequest) {
     // Get all bookings with vehicle information
     const result = await query(`
       SELECT 
-        b.*,
+        b.id, 
+        b.booking_id, 
+        b.status, 
+        b.start_date, 
+        b.end_date,
+        
+        -- Apply IST conversion correctly using AT TIME ZONE
+        (b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as pickup_datetime,
+        (b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as dropoff_datetime,
+        
+        -- Create formatted dates for display
+        TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
+        TO_CHAR(b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
+        
+        b.total_price, 
+        b.payment_status,
+        b.created_at,
+        b.updated_at,
+        v.id as vehicle_id,
         v.name as vehicle_name,
         v.type as vehicle_type,
         v.location as vehicle_location,
         v.images as vehicle_images,
-        v.price_per_hour as vehicle_price_per_hour,
-        b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as pickup_datetime,
-        b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as dropoff_datetime,
-        b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
-        b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at
+        v.price_per_hour as vehicle_price_per_hour
       FROM bookings b
-      LEFT JOIN vehicles v ON b.vehicle_id = v.id
+      JOIN vehicles v ON b.vehicle_id = v.id
       WHERE b.user_id = $1
-      ORDER BY 
-        CASE 
-          WHEN b.status = 'confirmed' AND b.payment_status = 'completed' AND b.end_date > CURRENT_TIMESTAMP THEN 1
-          WHEN b.status = 'pending' THEN 2
-          ELSE 3
-        END,
-        b.created_at DESC
+      ORDER BY b.created_at DESC
       LIMIT $2 OFFSET $3
     `, [session.user.id, limit, offset]);
 
@@ -159,8 +168,15 @@ export async function GET(request: NextRequest) {
       id: booking.id,
       booking_id: booking.booking_id,
       status: booking.status,
-      start_date: booking.pickup_datetime,
-      end_date: booking.dropoff_datetime,
+      // Use the original UTC dates, client-side will apply IST conversion
+      start_date: booking.start_date,
+      end_date: booking.end_date,
+      // Include formatted date fields for optional usage
+      formatted_pickup: booking.formatted_pickup,
+      formatted_dropoff: booking.formatted_dropoff,
+      // Include IST-converted fields as separate properties
+      pickup_datetime: booking.pickup_datetime,
+      dropoff_datetime: booking.dropoff_datetime,
       total_price: parseFloat(booking.total_price || 0),
       payment_status: booking.payment_status || 'pending',
       created_at: booking.created_at,
@@ -272,18 +288,27 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     // Validate dates
     const now = new Date();
+    
+    // IMPORTANT FIX: Parse dates directly from the ISO strings
+    // These are the exact times the user selected and should be stored as is
     const pickupDateTime = new Date(pickupDate);
     const dropoffDateTime = new Date(dropoffDate);
-
-    logger.info('Date validation:', {
+    
+    // Log the dates for debugging
+    logger.info('Date validation and parsing:', {
       received: {
         pickupDate,
-        dropoffDate
+        dropoffDate,
+        isISOString: pickupDate.includes('T') && pickupDate.includes('Z')
       },
       parsed: {
         pickupDateTime: pickupDateTime.toISOString(),
         dropoffDateTime: dropoffDateTime.toISOString(),
-        now: now.toISOString()
+        now: now.toISOString(),
+        pickupHours: pickupDateTime.getUTCHours(),
+        pickupMinutes: pickupDateTime.getUTCMinutes(),
+        dropoffHours: dropoffDateTime.getUTCHours(),
+        dropoffMinutes: dropoffDateTime.getUTCMinutes(),
       }
     });
 
@@ -320,14 +345,28 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     // Create booking in database
     const bookingId = 'OR' + Math.random().toString(36).substring(2, 5).toUpperCase();
+    
+    // IMPORTANT FIX: Store the dates as is without any timezone adjustment
+    // These dates represent the exact times the user selected
+    logger.info('Storing dates in database:', {
+      dates: {
+        pickup: pickupDateTime.toISOString(),
+        dropoff: dropoffDateTime.toISOString(),
+        pickupHours: pickupDateTime.getUTCHours(),
+        pickupMinutes: pickupDateTime.getUTCMinutes(),
+        dropoffHours: dropoffDateTime.getUTCHours(),
+        dropoffMinutes: dropoffDateTime.getUTCMinutes(),
+      }
+    });
+    
     const booking = await prisma.bookings.create({
       data: {
         id: randomUUID(),
         booking_id: bookingId,
         user_id: session.user.id,
         vehicle_id: vehicleId,
-        start_date: pickupDateTime,  // Store as is, PostgreSQL will handle timezone
-        end_date: dropoffDateTime,   // Store as is, PostgreSQL will handle timezone
+        start_date: pickupDateTime,  // Store the date as is - no timezone adjustment
+        end_date: dropoffDateTime,   // Store the date as is - no timezone adjustment
         total_hours: durationInHours,
         total_price: totalPrice,
         status: 'pending',

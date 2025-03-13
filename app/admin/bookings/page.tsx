@@ -61,11 +61,8 @@ const formatDateTime = (dateString: string | null | undefined) => {
       return dateString;
     }
 
-    // Create a date object
+    // For dates without AM/PM, parse and format with Indian locale and 12-hour time
     const date = new Date(dateString);
-    
-    // Format with Indian locale and 12-hour time
-    // Note: The database already converts to IST with AT TIME ZONE 'Asia/Kolkata'
     return date.toLocaleString('en-IN', {
       day: 'numeric',
       month: 'short',
@@ -146,13 +143,16 @@ export default function BookingsPage() {
 
       // Transform the flat data into the expected nested structure
       const transformedBookings = (data.data || []).map((booking: any) => {
-        // Special fix for booking ORAAU
-        if (booking.booking_id === 'ORAAU') {
-          booking.formatted_pickup = '24 Mar 2025, 4:00 PM';
-          booking.formatted_dropoff = '24 Mar 2025, 5:00 PM';
-          logger.info('Applied special formatting fix for booking ORAAU');
-        }
+        // Log debug information for each booking's date fields
+        logger.debug(`Booking ${booking.booking_id} time data:`, {
+          formatted_pickup: booking.formatted_pickup,
+          formatted_dropoff: booking.formatted_dropoff,
+          db_start_time: booking.db_start_time,
+          ist_start_time: booking.ist_start_time,
+          calculated_duration: booking.calculated_duration_hours
+        });
         
+        // Create a properly structured booking object from the flat API response
         return {
           ...booking,
           // Convert flat fields to nested objects
@@ -166,9 +166,12 @@ export default function BookingsPage() {
           },
           // Map location field
           location: booking.vehicle_location,
-          // Map pickup/dropoff datetime fields
-          pickup_datetime: booking.start_date,
-          dropoff_datetime: booking.end_date
+          // Map pickup/dropoff datetime fields using IST converted values
+          pickup_datetime: booking.ist_start_date || booking.start_date,
+          dropoff_datetime: booking.ist_end_date || booking.end_date,
+          // Ensure created_at is the IST version 
+          created_at: booking.ist_created_at || booking.created_at,
+          updated_at: booking.ist_updated_at || booking.updated_at
         };
       });
       
@@ -176,8 +179,9 @@ export default function BookingsPage() {
         bookingsCount: transformedBookings.length,
         sampleBooking: transformedBookings[0] ? {
           id: transformedBookings[0].id,
-          hasUser: !!transformedBookings[0].user,
-          hasVehicle: !!transformedBookings[0].vehicle
+          booking_id: transformedBookings[0].booking_id,
+          formatted_pickup: transformedBookings[0].formatted_pickup,
+          formatted_dropoff: transformedBookings[0].formatted_dropoff
         } : 'No bookings'
       });
       

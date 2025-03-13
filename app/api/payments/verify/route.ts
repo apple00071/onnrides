@@ -404,7 +404,7 @@ export async function POST(request: NextRequest) {
     try {
       // 1. Get booking details from database
       const booking = await findBooking(booking_id, session.user.id);
-      
+
       if (!booking) {
         logger.error('Booking not found', { 
           booking_id,
@@ -423,7 +423,7 @@ export async function POST(request: NextRequest) {
           { status: 404 }
         );
       }
-      
+
       // 2. Get the payment details from Razorpay
       let payment;
       try {
@@ -599,7 +599,7 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      
+
       // 5. Verify signature if provided
       let signatureValid = false;
       
@@ -654,11 +654,11 @@ export async function POST(request: NextRequest) {
           });
           
           // Capture the payment
-          captureResponse = await razorpay.payments.capture(
-            razorpay_payment_id,
-            captureAmount,
-            'INR'
-          );
+        captureResponse = await razorpay.payments.capture(
+          razorpay_payment_id,
+          captureAmount,
+          'INR'
+        );
           
           logger.info('Payment captured successfully', {
             paymentId: razorpay_payment_id,
@@ -735,30 +735,30 @@ export async function POST(request: NextRequest) {
           logger.info('Attempting emergency direct booking update');
           
           const emergencyUpdate = await query(
-            `UPDATE bookings 
-             SET status = 'confirmed',
-                 payment_status = 'completed',
-                 payment_details = jsonb_build_object(
+        `UPDATE bookings 
+         SET status = 'confirmed',
+             payment_status = 'completed',
+             payment_details = jsonb_build_object(
                    'emergency_update', true,
                    'razorpay_payment_id', $1::text,
                    'razorpay_order_id', $2::text,
-                   'payment_status', 'completed',
-                   'payment_completed_at', CURRENT_TIMESTAMP,
+               'payment_status', 'completed',
+               'payment_completed_at', CURRENT_TIMESTAMP,
                    'amount_paid', $3::numeric,
                    'currency', $4::text
-                 ),
-                 updated_at = CURRENT_TIMESTAMP
+             ),
+             updated_at = CURRENT_TIMESTAMP
              WHERE booking_id = $5::text
-             RETURNING id, booking_id, status, payment_status, payment_details`,
-            [
-              razorpay_payment_id,
+         RETURNING id, booking_id, status, payment_status, payment_details`,
+        [
+          razorpay_payment_id,
               orderId,
-              Number(captureAmount) / 100,
-              order.currency,
-              booking_id
-            ]
-          );
-          
+          Number(captureAmount) / 100,
+          order.currency,
+          booking_id
+        ]
+      );
+
           if (emergencyUpdate.rows.length > 0) {
             updatedBooking = emergencyUpdate.rows[0];
             logger.info('Emergency booking update successful', {
