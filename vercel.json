@@ -22,10 +22,5 @@
     "enabled": true,
     "silent": false,
     "autoAlias": true
-  },
-  "build": {
-    "env": {
-      "DATABASE_URL": "@database_url"
-    }
   }
 } 
