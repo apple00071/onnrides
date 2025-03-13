@@ -1,6 +1,7 @@
 import nodemailer, { Transporter } from 'nodemailer';
 import logger from '../logger';
 import { query } from '../db';
+import { v4 as uuidv4 } from 'uuid';
 
 interface EmailLog {
   recipient: string;
@@ -199,83 +200,36 @@ export class EmailService {
     }
   }
 
-  private async logEmail(recipient: string, subject: string, message: string, status: string, bookingId?: string | null): Promise<string> {
+  private async logEmail(
+    recipient: string,
+    subject: string,
+    message: string,
+    status: string = 'pending',
+    bookingId?: string | null
+  ): Promise<string> {
     try {
-      // Validate required fields
-      if (!recipient || !subject || !message || !status) {
-        throw new Error('Missing required fields for email log');
-      }
+      // Generate a proper UUID for the log entry
+      const logId = uuidv4();
 
-      // Ensure status is one of the allowed values
-      const validStatuses = ['pending', 'success', 'failed'];
-      if (!validStatuses.includes(status)) {
-        status = 'pending';
-      }
+      const result = await query(
+        `
+        INSERT INTO email_logs (
+            id, recipient, subject, message_content, 
+            booking_id, status, created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING id
+        `,
+        [logId, recipient, subject, message, bookingId, status]
+      );
 
-      try {
-        // First check if table exists and has correct columns
-        try {
-          await query('SELECT column_name FROM information_schema.columns WHERE table_name = $1', ['email_logs']);
-          
-          // Try inserting with basic columns only
-          // Use a more flexible query that doesn't depend on exact column names
-          const result = await query(
-            `INSERT INTO email_logs 
-             (recipient, subject, status, booking_id, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, NOW(), NOW())
-             RETURNING id::text`,
-            [recipient, subject, status, bookingId]
-          );
-          
-          if (!result.rows[0]?.id) {
-            throw new Error('Failed to create email log - no ID returned');
-          }
-          
-          return result.rows[0].id;
-        } catch (schemaError) {
-          logger.error('Error with email_logs table structure:', schemaError);
-          
-          // Attempt to create the table with the minimal required structure
-          await query(`
-            CREATE TABLE IF NOT EXISTS email_logs (
-              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-              recipient TEXT NOT NULL,
-              subject TEXT NOT NULL,
-              status TEXT NOT NULL,
-              booking_id TEXT,
-              created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-              updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-            )
-          `);
-          
-          // Try again with minimal fields
-          const result = await query(
-            `INSERT INTO email_logs 
-             (recipient, subject, status, booking_id)
-             VALUES ($1, $2, $3, $4)
-             RETURNING id::text`,
-            [recipient, subject, status, bookingId]
-          );
-          
-          if (!result.rows[0]?.id) {
-            throw new Error('Failed to create email log - no ID returned');
-          }
-          
-          return result.rows[0].id;
-        }
-      } catch (insertError) {
-        // Direct DB logging failed, log to console only
-        logger.error('Failed to insert email log to database:', {
-          error: insertError,
-          recipient,
-          subject,
-          status,
-          bookingId
-        });
-        
-        // Return a fallback ID since we couldn't create a log record
-        return `fallback-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-      }
+      logger.info('Email log created:', {
+        logId: result.rows[0].id,
+        recipient,
+        status
+      });
+
+      return result.rows[0].id;
     } catch (error) {
       logger.error('Failed to log email:', {
         error,
@@ -284,44 +238,56 @@ export class EmailService {
         status,
         bookingId
       });
-      // Return a random ID since we couldn't create a proper log
-      return `error-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      throw error;
     }
   }
 
-  private async updateEmailLog(id: string, updates: { status: string; message_id?: string; error?: string }) {
+  private async updateEmailLog(
+    id: string,
+    updates: { status: string; message_id?: string; error?: string }
+  ): Promise<void> {
     try {
-      const params: any[] = [];
-      const updates_sql: string[] = [];
-      
+      // Validate UUID format
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        throw new Error(`Invalid UUID format for email log ID: ${id}`);
+      }
+
+      const updateFields = [];
+      const values = [id];
+      let paramCount = 2;
+
       if (updates.status) {
-        params.push(updates.status);
-        updates_sql.push(`status = $${params.length}`);
+        updateFields.push(`status = $${paramCount}`);
+        values.push(updates.status);
+        paramCount++;
       }
-      
+
       if (updates.message_id) {
-        params.push(updates.message_id);
-        updates_sql.push(`message_id = $${params.length}`);
+        updateFields.push(`message_id = $${paramCount}`);
+        values.push(updates.message_id);
+        paramCount++;
       }
-      
+
       if (updates.error) {
-        params.push(updates.error);
-        updates_sql.push(`error = $${params.length}`);
+        updateFields.push(`error = $${paramCount}`);
+        values.push(updates.error);
+        paramCount++;
       }
-      
-      // Add updated_at
-      updates_sql.push('updated_at = CURRENT_TIMESTAMP');
-      
-      // Add the id as the last parameter
-      params.push(id);
-      
+
+      updateFields.push('updated_at = CURRENT_TIMESTAMP');
+
       const sql = `
         UPDATE email_logs 
-        SET ${updates_sql.join(', ')}
-        WHERE id = $${params.length}
+        SET ${updateFields.join(', ')}
+        WHERE id = $1
       `;
 
-      await query(sql, params);
+      await query(sql, values);
+
+      logger.info('Email log updated:', {
+        logId: id,
+        updates
+      });
     } catch (error) {
       logger.error('Failed to update email log:', {
         error,
