@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { WhatsAppService } from '@/lib/whatsapp/service';
+import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';

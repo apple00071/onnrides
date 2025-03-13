@@ -1,5 +1,5 @@
 import { EmailService } from '@/lib/email/service';
-import { WhatsAppService } from '@/lib/whatsapp/service';
+import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import logger from '@/lib/logger';
 import db from '@/lib/prisma';
 import { formatCurrency } from '@/lib/utils';

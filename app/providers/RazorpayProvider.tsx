@@ -43,87 +43,143 @@ async function waitForRazorpay(retries = 0): Promise<boolean> {
 
 export const initializeRazorpayPayment = async (options: PaymentOptions) => {
   try {
-    // Wait for Razorpay to be available
-    await waitForRazorpay();
+    logger.info('Initializing Razorpay payment', {
+      orderId: options.orderId,
+      bookingId: options.bookingId,
+      amount: options.amount,
+      amountInRupees: options.amount / 100 // Log amount in rupees for clarity
+    });
 
-    // Log payment initialization
-    logger.debug('Initializing payment with options:', {
+    // Ensure Razorpay is loaded
+    const isLoaded = await waitForRazorpay();
+    if (!isLoaded) {
+      logger.error('Failed to load Razorpay checkout');
+      throw new Error('Failed to load Razorpay checkout');
+    }
+
+    // Create Razorpay instance
+    const rzp = new window.Razorpay({
       key: options.key,
       amount: options.amount,
-      orderId: options.orderId,
-      bookingId: options.bookingId
-    });
+      currency: options.currency || 'INR',
+      name: 'OnnRides',
+      description: `Booking ID: ${options.bookingId}`,
+      order_id: options.orderId,
+      prefill: options.prefill || {},
+      image: `${window.location.origin}/favicon-192.png`,
+      theme: {
+        color: '#f26e24',
+      },
+      handler: async function (response: any) {
+        // Log complete response for debugging
+        logger.info('Razorpay payment callback received', {
+          response,
+          bookingId: options.bookingId,
+          hasPaymentId: !!response.razorpay_payment_id,
+          hasOrderId: !!response.razorpay_order_id,
+          hasSignature: !!response.razorpay_signature,
+        });
 
-    return new Promise((resolve, reject) => {
-      try {
-        const rzp = new window.Razorpay({
-          ...options,
-          name: 'OnnRides',
-          description: `Booking ID: ${options.bookingId}`,
-          image: '/logo.png',
-          handler: async function (response: any) {
-            try {
-              logger.debug('Payment successful, verifying...', response);
-              
-              // Verify payment
-              const verificationResponse = await fetch('/api/payments/verify', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_signature: response.razorpay_signature,
-                  booking_id: options.bookingId,
-                }),
-              });
+        // Check for payment ID at minimum
+        if (!response.razorpay_payment_id) {
+          logger.error('Payment ID missing from Razorpay response', { 
+            response,
+            bookingId: options.bookingId
+          });
+          
+          window.location.href = `/payment-status?status=failed&error=missing_payment_id&booking_id=${options.bookingId}`;
+          return;
+        }
 
-              if (!verificationResponse.ok) {
-                const error = await verificationResponse.json();
-                throw new Error(error.message || 'Payment verification failed');
-              }
+        try {
+          // Log verification attempt
+          logger.info('Attempting payment verification', {
+            paymentId: response.razorpay_payment_id,
+            bookingId: options.bookingId
+          });
 
-              const result = await verificationResponse.json();
-              resolve(result);
-              
-              // Redirect on success
-              window.location.href = `/payment-status?booking_id=${options.bookingId}&status=success`;
-            } catch (error) {
-              logger.error('Payment verification failed:', error);
-              reject(error);
-              window.location.href = `/payment-status?booking_id=${options.bookingId}&status=failed`;
-            }
-          },
-          modal: {
-            ondismiss: function () {
-              logger.debug('Payment modal dismissed');
-              window.location.href = `/payment-status?booking_id=${options.bookingId}&status=failed`;
+          // Send complete data to server (even if some fields are missing)
+          const verifyResult = await fetch('/api/payments/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
-            confirm_close: true,
-            escape: false
-          },
-          prefill: options.prefill || {},
-          theme: {
-            color: '#f26e24',
-          },
-        });
+            body: JSON.stringify({
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id || null,
+              razorpay_signature: response.razorpay_signature || null,
+              booking_id: options.bookingId,
+            }),
+          });
 
-        rzp.on('payment.failed', function (response: any) {
-          logger.error('Payment failed:', response.error);
-          window.location.href = `/payment-status?booking_id=${options.bookingId}&status=failed`;
-        });
+          const verifyData = await verifyResult.json();
 
-        // Open Razorpay modal
-        logger.debug('Opening Razorpay modal');
-        rzp.open();
-      } catch (error) {
-        logger.error('Error creating Razorpay instance:', error);
-        reject(error);
-      }
+          // Log verification result
+          logger.info('Payment verification response', {
+            status: verifyResult.status,
+            success: verifyData.success,
+            message: verifyData.message,
+            paymentId: response.razorpay_payment_id,
+            bookingId: options.bookingId
+          });
+
+          if (verifyResult.ok && verifyData.success) {
+            // Success case
+            window.location.href = `/payment-status?status=success&booking_id=${options.bookingId}&payment_id=${response.razorpay_payment_id}`;
+          } else {
+            // Failed verification
+            logger.error('Payment verification failed', {
+              status: verifyResult.status,
+              error: verifyData.error,
+              details: verifyData.details,
+              paymentId: response.razorpay_payment_id
+            });
+            
+            window.location.href = `/payment-status?status=failed&error=verification_failed&booking_id=${options.bookingId}&payment_id=${response.razorpay_payment_id}`;
+          }
+        } catch (error) {
+          // Log fetch/verification errors
+          logger.error('Error during payment verification fetch', {
+            error: error instanceof Error ? {
+              message: error.message,
+              stack: error.stack
+            } : String(error),
+            paymentId: response.razorpay_payment_id,
+            bookingId: options.bookingId
+          });
+          
+          window.location.href = `/payment-status?status=failed&error=verification_error&booking_id=${options.bookingId}&payment_id=${response.razorpay_payment_id}`;
+        }
+      },
+      modal: {
+        ondismiss: function() {
+          logger.info('Razorpay modal dismissed', { bookingId: options.bookingId });
+          window.location.href = `/payment-status?status=cancelled&booking_id=${options.bookingId}`;
+        },
+        // Required in Android to access HDFC bank gateway
+        escape: false
+      },
     });
+
+    // Open payment modal
+    logger.info('Opening Razorpay payment modal', { 
+      bookingId: options.bookingId,
+      orderId: options.orderId
+    });
+    rzp.open();
+    
+    return true;
   } catch (error) {
-    logger.error('Failed to initialize Razorpay payment:', error);
+    // Log initialization errors
+    logger.error('Error initializing Razorpay payment', {
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack
+      } : String(error),
+      bookingId: options.bookingId,
+      orderId: options.orderId
+    });
+    
     throw error;
   }
 };

@@ -6,13 +6,15 @@ import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { format, parseISO, isValid } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
-import { formatDateToIST } from '@/lib/utils';
+import { formatDateToIST, formatBookingDateTime } from '@/lib/utils';
 
 interface Booking {
   id: string;
   status: string;
   start_date: string;
   end_date: string;
+  pickup_datetime?: string;
+  dropoff_datetime?: string;
   total_price: number;
   payment_status: string;
   created_at: string;
@@ -150,7 +152,38 @@ export default function BookingsPage() {
   );
 
   const formatDate = (dateString: string) => {
-    return formatDateToIST(dateString);
+    try {
+      // Log the input date string
+      logger.debug('Input date string:', { dateString });
+      
+      // Create a date object from the string
+      const date = new Date(dateString);
+      logger.debug('Created date object:', { date: date.toISOString() });
+      
+      // Manually add 5 hours and 30 minutes to convert UTC to IST
+      // This is a direct way to handle the +5:30 offset for IST
+      const istDateManual = new Date(date);
+      istDateManual.setHours(date.getHours() + 5);
+      istDateManual.setMinutes(date.getMinutes() + 30);
+      
+      logger.debug('Manually converted to IST:', { 
+        original: date.toISOString(),
+        afterAdjustment: istDateManual.toISOString() 
+      });
+      
+      // Format the date with Indian locale and 12-hour time
+      return istDateManual.toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      logger.error('Error formatting date', { dateString, error });
+      return dateString;
+    }
   };
   
   // Helper function to safely parse location
@@ -276,6 +309,17 @@ function BookingCard({
   formatDate: (date: string) => string;
   parseLocation: (location: string | string[]) => string;
 }) {
+  // Log full booking object to debug time display issue
+  useEffect(() => {
+    logger.debug('Booking date fields:', { 
+      id: booking.booking_id,
+      start_date: booking.start_date,
+      end_date: booking.end_date,
+      pickup_datetime: booking.pickup_datetime, 
+      dropoff_datetime: booking.dropoff_datetime 
+    });
+  }, [booking]);
+
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="p-6">
@@ -311,7 +355,9 @@ function BookingCard({
           <div>
             <p className="text-sm text-gray-500">Pickup</p>
             <div>
-              <p className="font-medium">{formatDate(booking.start_date)}</p>
+              <p className="font-medium">
+                {formatDate(booking.pickup_datetime || booking.start_date)}
+              </p>
               <p className="text-sm text-gray-600 mt-1">
                 {parseLocation(booking.vehicle?.location)}
               </p>
@@ -320,7 +366,9 @@ function BookingCard({
           <div>
             <p className="text-sm text-gray-500">Drop-off</p>
             <div>
-              <p className="font-medium">{formatDate(booking.end_date)}</p>
+              <p className="font-medium">
+                {formatDate(booking.dropoff_datetime || booking.end_date)}
+              </p>
               <p className="text-sm text-gray-600 mt-1">
                 {parseLocation(booking.vehicle?.location)}
               </p>

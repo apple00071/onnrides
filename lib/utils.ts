@@ -226,4 +226,33 @@ export const formatDateToIST = (dateString: string | Date | null) => {
     logger.error('Error formatting date to IST', { date: dateString, error });
     return 'Invalid date';
   }
+}
+
+/**
+ * Format a date explicitly for display in bookings with clear IST time
+ * Shows date and time in format: DD MMM YYYY, hh:mm am/pm
+ */
+export const formatBookingDateTime = (dateString: string | Date | null) => {
+  if (!dateString) return 'N/A';
+  
+  try {
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    
+    // Convert to IST timezone first
+    const istDate = utcToZonedTime(date, 'Asia/Kolkata');
+    
+    // Format the date using toLocaleString with explicit IST timezone
+    return istDate.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (error) {
+    logger.error('Error formatting booking date time', { date: dateString, error });
+    return 'Invalid date';
+  }
 } 

@@ -25,9 +25,8 @@ export function toIST(date: Date | string | null): Date | null {
       return null;
     }
     
-    // No need to do timezone conversion on Date objects as they're always in UTC internally
-    // Just return the date object which can be formatted appropriately later
-    return dateObj;
+    // Convert UTC date to IST timezone
+    return utcToZonedTime(dateObj, IST_TIMEZONE);
   } catch (error) {
     logger.error('Error converting date to IST', { date, error });
     return null;
@@ -157,23 +156,40 @@ export function formatTimeIST(date: Date | string | null): string {
  * @returns ISO-formatted date string with timezone
  */
 export function formatISOWithTZ(date: Date | string | null): string {
-  if (!date) return '';
+  if (!date) {
+    logger.warn('Null or undefined date provided to formatISOWithTZ');
+    return '';
+  }
   
   try {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
     
     // Check if valid date
     if (isNaN(dateObj.getTime())) {
-      logger.warn('Invalid date provided to formatISOWithTZ', { date });
+      logger.warn('Invalid date provided to formatISOWithTZ', { 
+        date,
+        type: typeof date, 
+        dateValue: String(date)
+      });
       return '';
     }
     
     // Generate ISO string with explicit timezone
     // Format: YYYY-MM-DDTHH:mm:ss+05:30
     const isoStr = dateObj.toISOString().slice(0, 19);
-    return `${isoStr}${IST_OFFSET}`;
+    const result = `${isoStr}${IST_OFFSET}`;
+    
+    logger.debug('Formatted date with timezone', {
+      original: String(date),
+      formatted: result
+    });
+    
+    return result;
   } catch (error) {
-    logger.error('Error formatting date to ISO with TZ', { date, error });
+    logger.error('Error formatting date to ISO with TZ', { 
+      date: typeof date === 'string' ? date : String(date), 
+      error: error instanceof Error ? error.message : String(error)
+    });
     return '';
   }
 }

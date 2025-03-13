@@ -3,6 +3,7 @@ require('dotenv').config();
 const { randomUUID } = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const { WhatsAppService } = require('../app/lib/whatsapp/service');
 
 // Colored console output
 const colors = {
@@ -151,9 +152,35 @@ async function main() {
   console.log('============================================\n');
 }
 
+async function testAdminNotification() {
+  try {
+    const whatsapp = WhatsAppService.getInstance();
+    
+    const testMessage = {
+      customerName: "Test User",
+      customerPhone: process.env.ADMIN_PHONE,
+      vehicleType: "Bike",
+      vehicleModel: "Honda Activa",
+      startDate: "2024-03-20 10:00 AM",
+      endDate: "2024-03-21 10:00 AM",
+      bookingId: "TEST123",
+      totalAmount: "₹500",
+      pickupLocation: "Hyderabad"
+    };
+
+    console.log('Sending test notification to admin...');
+    await whatsapp.sendBookingConfirmation(testMessage);
+    console.log('Test notification sent successfully!');
+  } catch (error) {
+    console.error('Error sending test notification:', error);
+  }
+}
+
 // Run the test
 main().catch(err => {
   error(`Unexpected error: ${err.message}`);
   error(err.stack);
   process.exit(1);
-}); 
+});
+
+testAdminNotification(); 

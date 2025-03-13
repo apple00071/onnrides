@@ -3,8 +3,14 @@
   "buildCommand": "next build",
   "outputDirectory": ".next",
   "env": {
-    "ULTRAMSG_TOKEN": "kjiva1qf01n0mvkr",
-    "ULTRAMSG_INSTANCE_ID": "instance108219"
+    "DATABASE_URL": "@database_url",
+    "NEXTAUTH_SECRET": "@nextauth_secret",
+    "NEXTAUTH_URL": "@nextauth_url",
+    "WHATSAPP_API_URL": "http://34.45.239.220:3001",
+    "WHATSAPP_API_KEY": "onn7r1d3s_wh4ts4pp_ap1_s3cur3_k3y_9872354176",
+    "WHATSAPP_INSTANCE_ID_1": "instance1",
+    "WHATSAPP_INSTANCE_ID_2": "instance2",
+    "ADMIN_PHONE": "919182495481"
   },
   "git": {
     "deploymentEnabled": {
@@ -17,5 +23,10 @@
     "enabled": true,
     "silent": false,
     "autoAlias": true
+  },
+  "build": {
+    "env": {
+      "DATABASE_URL": "@database_url"
+    }
   }
 } 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { WhatsAppService } from '@/lib/whatsapp/service';
+import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import logger from '@/lib/logger';
 
 export const runtime = 'nodejs';

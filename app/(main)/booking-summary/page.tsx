@@ -11,8 +11,9 @@ import { useSession } from 'next-auth/react';
 import { Loader2 } from 'lucide-react';
 import { BookingSummary } from '@/components/bookings/BookingSummary';
 import logger from '@/lib/logger';
-import { initializeRazorpayPayment } from '@/app/(main)/providers/RazorpayProvider';
+import { initializeRazorpayPayment } from '@/app/providers/RazorpayProvider';
 import { toIST, formatISOWithTZ, isWeekendIST } from '@/lib/utils/timezone';
+import { formatRazorpayAmount } from '@/app/lib/razorpayAmount';
 
 interface BookingSummaryDetails {
   vehicleId: string;
@@ -173,10 +174,20 @@ export default function BookingSummaryPage() {
         new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`)
       );
 
-      const duration = calculateDuration(pickupDateTime, dropoffDateTime);
+      // Calculate duration only if both dates are valid
+      let duration = 0;
+      if (pickupDateTime && dropoffDateTime) {
+        duration = calculateDuration(pickupDateTime, dropoffDateTime);
+      } else {
+        logger.warn('Invalid dates for duration calculation', {
+          pickupDateTime,
+          dropoffDateTime
+        });
+        throw new Error('Invalid booking dates');
+      }
       
       // Check if pickup date is a weekend in IST
-      const isWeekend = isWeekendIST(pickupDateTime);
+      const isWeekend = pickupDateTime ? isWeekendIST(pickupDateTime) : false;
       
       // Create a pricing object with the pricing details
       const pricing = {
@@ -194,12 +205,44 @@ export default function BookingSummaryPage() {
       const serviceFee = basePrice * 0.05;
       const totalPrice = basePrice + gst + serviceFee;
 
-      // Calculate advance payment (5% of total)
+      // Calculate advance payment (exactly 5% of total price)
       const advancePayment = Math.round(totalPrice * 0.05);
+      
+      logger.info('Payment calculation:', {
+        basePrice,
+        gst,
+        serviceFee,
+        totalPrice,
+        advancePayment,
+        advancePaymentPercentage: `${(advancePayment / totalPrice * 100).toFixed(1)}%`
+      });
 
-      // Format dates in ISO format with IST timezone
-      const pickupDateIST = formatISOWithTZ(pickupDateTime);
-      const dropoffDateIST = formatISOWithTZ(dropoffDateTime);
+      // Format dates in ISO format with timezone information
+      // Ensure we're using the correct pickup and dropoff times
+      const pickupDateIST = pickupDateTime 
+        ? formatISOWithTZ(pickupDateTime) 
+        : '';
+      const dropoffDateIST = dropoffDateTime 
+        ? formatISOWithTZ(dropoffDateTime) 
+        : '';
+
+      // Debug logging for date information
+      logger.info('Booking dates:', {
+        original: {
+          pickupDateStr: bookingDetails.pickupDate,
+          pickupTimeStr: bookingDetails.pickupTime,
+          dropoffDateStr: bookingDetails.dropoffDate,
+          dropoffTimeStr: bookingDetails.dropoffTime,
+        },
+        parsed: {
+          pickupDateTime: pickupDateTime?.toISOString(),
+          dropoffDateTime: dropoffDateTime?.toISOString(),
+        },
+        formatted: {
+          pickupDateIST,
+          dropoffDateIST
+        }
+      });
 
       // Create booking
       const bookingResponse = await fetch('/api/bookings', {
@@ -224,8 +267,38 @@ export default function BookingSummaryPage() {
       });
 
       if (!bookingResponse.ok) {
-        const error = await bookingResponse.json();
-        throw new Error(error.message || 'Failed to create booking');
+        const errorData = await bookingResponse.json();
+        logger.error('Booking creation failed:', { 
+          status: bookingResponse.status,
+          error: errorData 
+        });
+        
+        // Create a more user-friendly error message
+        let errorMessage = 'Failed to create booking';
+        if (errorData?.error) {
+          errorMessage = errorData.error;
+        }
+        if (errorData?.details) {
+          // Try to parse the error details for more information
+          try {
+            const detailsObj = typeof errorData.details === 'string' && 
+                              errorData.details.startsWith('{') ? 
+                              JSON.parse(errorData.details) : null;
+                              
+            if (detailsObj?.message) {
+              errorMessage = `${errorMessage}: ${detailsObj.message}`;
+            } else if (typeof errorData.details === 'string') {
+              errorMessage = `${errorMessage}: ${errorData.details}`;
+            }
+          } catch (e) {
+            // If we can't parse it, just use the string
+            if (typeof errorData.details === 'string') {
+              errorMessage = `${errorMessage}: ${errorData.details}`;
+            }
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const bookingResult = await bookingResponse.json();
@@ -239,10 +312,54 @@ export default function BookingSummaryPage() {
         throw new Error('Invalid payment data received');
       }
 
-      // Initialize Razorpay payment directly with advance payment amount
+      // Log payment details before initializing
+      logger.info('Initializing payment with data:', {
+        orderId: paymentData.orderId,
+        bookingId: paymentData.bookingId,
+        originalAmount: advancePayment, // This is the INR amount (5% of total)
+        razorpayAmount: paymentData.razorpayAmount, // This is the actual amount in INR
+        razorpayAmountPaise: (paymentData.razorpayAmount * 100) // Convert to paise for debugging
+      });
+
+      // Need to display a toast if there's a minimum amount adjustment
+      if (paymentData.razorpayAmount !== undefined && 
+          paymentData.amount !== undefined && 
+          paymentData.razorpayAmount !== paymentData.amount) {
+        toast.custom(
+          () => (
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded shadow-md">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-blue-800">
+                    Due to payment processor requirements, a minimum fee of ₹1 will be charged. Your actual advance amount is ₹{advancePayment}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ),
+          { duration: 6000 }
+        );
+      }
+
+      // We need to convert the amount to paise for Razorpay
+      // This should be handled on the server, but we'll ensure it here as well
+      const paymentAmountInPaise = Math.round(paymentData.razorpayAmount * 100);
+      
+      logger.info('Final payment amount calculation:', {
+        originalAdvanceINR: advancePayment,
+        razorpayAmountINR: paymentData.razorpayAmount,
+        amountToSendToPaiseFE: paymentAmountInPaise
+      });
+      
+      // Initialize Razorpay payment with the amount in paise
       await initializeRazorpayPayment({
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
-        amount: Math.round(advancePayment * 100), // Convert advance payment to paise
+        amount: paymentAmountInPaise, // Amount in paise
         currency: 'INR',
         orderId: paymentData.orderId,
         bookingId: paymentData.bookingId,
@@ -250,16 +367,6 @@ export default function BookingSummaryPage() {
           name: session.user.name || undefined,
           email: session.user.email || undefined,
           contact: (session.user as any)?.phone || undefined
-        },
-        modal: {
-          ondismiss: function() {
-            logger.debug('Payment modal dismissed');
-            setIsLoading(false);
-            toast.error('Payment cancelled. You can try again when ready.');
-          },
-          escape: true,
-          backdropClose: false,
-          confirm_close: true
         }
       });
 

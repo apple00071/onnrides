@@ -11,7 +11,7 @@ import Razorpay from 'razorpay';
 import { createOrder } from '@/lib/razorpay';
 import { generateBookingId } from '@/lib/bookingIdGenerator';
 import { EmailService } from '@/lib/email/service';
-import { WhatsAppService } from '@/lib/whatsapp/service';
+import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import { toUTC } from '@/lib/utils/timezone';
 import prisma from '@/lib/prisma';
 import { RazorpayOrder } from '@/lib/razorpay';
@@ -208,7 +208,10 @@ export async function POST(request: NextRequest): Promise<Response> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ 
+        success: false,
+        error: 'Unauthorized' 
+      }, { status: 401 });
     }
 
     const data = await request.json();
@@ -225,12 +228,78 @@ export async function POST(request: NextRequest): Promise<Response> {
       customerDetails
     } = data;
 
+    // Validate required fields
+    const requiredFields = [
+      'vehicleId', 'pickupDate', 'dropoffDate', 'location', 
+      'totalPrice', 'advancePayment', 'basePrice', 'gst', 'serviceFee'
+    ];
+    
+    const missingFields = requiredFields.filter(field => data[field] === undefined);
+    
+    if (missingFields.length > 0) {
+      logger.warn('Missing required fields for booking creation', { 
+        missingFields,
+        providedFields: Object.keys(data)
+      });
+      
+      return NextResponse.json({ 
+        success: false, 
+        error: `Missing required fields: ${missingFields.join(', ')}` 
+      }, { status: 400 });
+    }
+
+    // Validate numeric fields
+    const numericFields = ['totalPrice', 'advancePayment', 'basePrice', 'gst', 'serviceFee'];
+    const invalidFields = numericFields.filter(field => {
+      const value = Number(data[field]);
+      return isNaN(value) || value < 0;
+    });
+    
+    if (invalidFields.length > 0) {
+      logger.warn('Invalid numeric fields for booking creation', { 
+        invalidFields,
+        values: invalidFields.reduce((acc, field) => {
+          acc[field] = data[field];
+          return acc;
+        }, {} as Record<string, any>)
+      });
+      
+      return NextResponse.json({ 
+        success: false, 
+        error: `Invalid numeric fields: ${invalidFields.join(', ')}` 
+      }, { status: 400 });
+    }
+
     // Validate dates
     const now = new Date();
     const pickupDateTime = new Date(pickupDate);
     const dropoffDateTime = new Date(dropoffDate);
 
-    if (pickupDateTime < now) {
+    logger.info('Date validation:', {
+      received: {
+        pickupDate,
+        dropoffDate
+      },
+      parsed: {
+        pickupDateTime: pickupDateTime.toISOString(),
+        dropoffDateTime: dropoffDateTime.toISOString(),
+        now: now.toISOString()
+      }
+    });
+
+    if (isNaN(pickupDateTime.getTime()) || isNaN(dropoffDateTime.getTime())) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Invalid date format for pickup or dropoff dates' 
+      }, { status: 400 });
+    }
+
+    // Compare dates without time components to avoid timezone issues
+    const nowDate = new Date(now.toISOString().split('T')[0]);
+    const pickupDateOnly = new Date(pickupDateTime.toISOString().split('T')[0]);
+    
+    // Only check if pickup date is earlier than today's date (ignoring time)
+    if (pickupDateOnly < nowDate) {
       return NextResponse.json({ 
         success: false, 
         error: 'Pickup date cannot be in the past' 
@@ -251,7 +320,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     // Create booking in database
     const bookingId = 'OR' + Math.random().toString(36).substring(2, 5).toUpperCase();
-    const newBooking = await prisma.bookings.create({
+    const booking = await prisma.bookings.create({
       data: {
         id: randomUUID(),
         booking_id: bookingId,
@@ -273,34 +342,115 @@ export async function POST(request: NextRequest): Promise<Response> {
       }
     });
 
-    // Create Razorpay order with IST dates in notes
-    const order = await createOrder({
-      amount: advancePayment * 100,
-      currency: 'INR',
-      receipt: newBooking.id,
-      notes: {
-        bookingId: bookingId, // Use the generated bookingId directly to avoid null
-        vehicleId: vehicleId,
-        pickupDate: formatDate(new Date(pickupDate)),
-        dropoffDate: formatDate(new Date(dropoffDate)),
-        customerName: customerDetails.name,
-        customerEmail: customerDetails.email,
-        customerPhone: customerDetails.phone
-      }
+    // Use exactly 5% for advance payment (no minimum enforced)
+    // Note: This might trigger a Razorpay minimum amount error for very small bookings
+    logger.info('Creating Razorpay order:', {
+      advancePayment,
+      advancePercentage: `${(advancePayment / totalPrice * 100).toFixed(1)}%`,
+      totalPrice,
+      bookingId
     });
+    
+    // Create Razorpay order
+    try {
+      // For advance payments greater than ₹1, don't apply minimum amount logic
+      const isAboveMinimum = advancePayment >= 1;
+      
+      logger.info('Creating Razorpay order:', {
+        advancePayment,
+        advancePercentage: `${(advancePayment / totalPrice * 100).toFixed(1)}%`,
+        totalPrice,
+        bookingId,
+        isAboveMinimum
+      });
+      
+      const razorpayOrder = await createOrder({
+        amount: advancePayment,
+        currency: 'INR',
+        receipt: booking.id,
+        notes: {
+          bookingId,
+          vehicleId,
+          pickupDate: formatDate(new Date(pickupDate)),
+          dropoffDate: formatDate(new Date(dropoffDate)),
+          customerName: customerDetails.name,
+          customerEmail: customerDetails.email,
+          customerPhone: customerDetails.phone,
+          skipMinimumCheck: isAboveMinimum ? 'true' : 'false'
+        },
+      });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        bookingId: newBooking.booking_id,
-        orderId: order.id,
-        amount: advancePayment
+      // Log the actual order details
+      logger.info('Razorpay order created:', {
+        orderId: razorpayOrder.id,
+        originalAmount: advancePayment,
+        razorpayAmount: razorpayOrder.amount / 100, // Convert paise to INR for logging
+        razorpayAmountOriginal: razorpayOrder.amount, // Original paise amount
+        currency: razorpayOrder.currency
+      });
+
+      // Return booking ID and payment information
+      return NextResponse.json({
+        success: true,
+        data: {
+          bookingId,
+          orderId: razorpayOrder.id,
+          amount: advancePayment,  // Original amount calculated (5% of total) in INR
+          razorpayAmount: razorpayOrder.amount / 100,  // Actual amount in Razorpay in INR
+          razorpayAmountPaise: razorpayOrder.amount, // The actual amount in paise (for debugging)
+          currency: razorpayOrder.currency,
+        },
+      });
+    } catch (error) {
+      // Properly format Razorpay errors which might have a different structure
+      let errorDetails = '';
+      
+      if (error instanceof Error) {
+        errorDetails = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        // Handle Razorpay API errors which come as objects with specific properties
+        const errorObj = error as any;
+        errorDetails = JSON.stringify({
+          message: errorObj.message || 'Unknown error',
+          description: errorObj.description,
+          code: errorObj.code,
+          status: errorObj.status
+        });
+      } else {
+        errorDetails = String(error);
       }
-    });
+      
+      logger.error('Error creating Razorpay order:', {
+        error: typeof error === 'object' ? JSON.stringify(error) : error,
+        errorDetails
+      });
+      
+      // Delete the booking if payment initialization fails
+      await prisma.bookings.delete({
+        where: { id: booking.id },
+      });
+
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Failed to create payment order',
+          details: errorDetails
+        },
+        { status: 500 }
+      );
+    }
   } catch (error) {
-    logger.error('Error creating booking:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails = error instanceof Error ? (error as any).details || {} : {};
+    
+    logger.error('Error creating booking:', {
+      error: errorMessage,
+      details: errorDetails,
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
     return NextResponse.json(
-      { error: 'Failed to create booking' },
+      { success: false, error: 'Failed to create booking', message: errorMessage },
       { status: 500 }
     );
   }

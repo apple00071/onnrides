@@ -40,8 +40,59 @@ export async function createOrder({
   notes = {},
 }: CreateOrderParams): Promise<RazorpayOrder> {
   try {
+    // Validate amount before proceeding
+    if (amount === undefined || amount === null) {
+      throw new Error('Amount is required for order creation');
+    }
+    
+    // Ensure amount is a number
+    const numericAmount = Number(amount);
+    if (isNaN(numericAmount)) {
+      throw new Error(`Invalid amount: ${amount}. Amount must be a valid number.`);
+    }
+    
+    // Convert to paise (smallest currency unit)
+    let amountInPaise = Math.round(numericAmount * 100);
+    
+    // Handle small amounts (for 5% advance payments with small bookings)
+    // Razorpay requires minimum 100 paise (1 INR)
+    if (amountInPaise < 100) {
+      logger.warn('Amount too small for Razorpay standard minimums:', {
+        originalAmount: amount,
+        amountInPaise,
+        minRequired: 100
+      });
+      
+      // If advance is very small (< ₹1), use a token amount of ₹1
+      // We'll record the actual advance in the payment metadata
+      const adjustedAmount = 100; // 1 INR in paise
+      
+      logger.info('Using token amount for Razorpay with original recorded in metadata:', {
+        original: amountInPaise,
+        adjusted: adjustedAmount
+      });
+      
+      // Add special note about the adjustment
+      notes = {
+        ...notes,
+        original_amount: String(amountInPaise),
+        is_token_payment: 'true'
+      };
+      
+      // Use the adjusted minimum amount
+      amountInPaise = adjustedAmount;
+    }
+    
+    logger.info('Creating Razorpay order:', { 
+      originalAmount: amount,
+      amountInPaise,
+      currency, 
+      receipt: receipt.substring(0, 8) + '...',
+      notesKeys: Object.keys(notes)
+    });
+
     const order = await razorpay.orders.create({
-      amount: Math.round(amount * 100), // Convert to smallest currency unit (paise)
+      amount: amountInPaise,
       currency,
       receipt,
       notes,
@@ -71,8 +122,25 @@ export async function createOrder({
     
     return processedOrder;
   } catch (error) {
-    logger.error('Error creating Razorpay order:', error);
-    throw error;
+    // Log detailed error information
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails = error instanceof Error && (error as any).details ? (error as any).details : {};
+    
+    logger.error('Error creating Razorpay order:', {
+      error: errorMessage,
+      details: errorDetails,
+      amount,
+      currency,
+      receiptPrefix: receipt.substring(0, 8) + '...',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    // Re-throw with enhanced information
+    if (error instanceof Error) {
+      error.message = `Razorpay order creation failed: ${error.message}`;
+      throw error;
+    }
+    throw new Error(`Razorpay order creation failed: ${errorMessage}`);
   }
 }
 

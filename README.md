@@ -1,98 +1,109 @@
-# OnnRides Vehicle Rental Platform
+# OnnRides - Vehicle Rental Service
 
-OnnRides is a modern web application for renting bikes, scooters, and other vehicles in Hyderabad, India. The platform offers hourly, daily, and weekly rental options with multiple pickup/dropoff locations.
+## Prerequisites
 
-## Key Features
+- Node.js 18+ and npm
+- PostgreSQL database
+- Gmail account for email notifications
+- WhatsApp Business API for notifications
+- Razorpay account for payments
 
-- Vehicle search with real-time availability checking
-- Online booking and payment processing (Razorpay integration)
-- User account management with secure document verification
-- Admin dashboard for fleet and booking management
-- WhatsApp and email notifications for bookings and updates
+## Environment Variables
 
-## Technical Architecture
+Create a `.env.local` file in the root directory with the following variables:
 
-### Database Connection Management
-
-The application uses both Prisma ORM and direct PostgreSQL queries via the `pg` package. To ensure reliable database access, we've implemented:
-
-#### Connection Pooling
-
-- **Main PostgreSQL Pool**: Configured in `lib/db.ts` with optimal settings for production environments
-- **Prisma Connection**: Singleton pattern implementation in `lib/prisma.ts`
-
-#### Error Handling and Resilience
-
-- **Retry Logic**: All database operations include automatic retry with exponential backoff for transient errors
-- **Connection Validation**: Pool health monitoring with periodic checks
-- **Error Logging**: Comprehensive logging of database errors with context for easier debugging
-
-#### Graceful Shutdown
-
-The application uses a centralized `ShutdownManager` (in `lib/shutdown-manager.ts`) to ensure proper closure of all connections during server shutdown:
-
-1. **Shutdown Phases**:
-   - `web`: Close HTTP server first
-   - `services`: Terminate background services
-   - `databases`: Close database connections last
-   - `final`: Final cleanup operations
-
-2. **Benefits**:
-   - Prevents "Connection already closed" errors
-   - Ensures all queries complete before shutdown
-   - Properly releases system resources
-   - Maintains order of operations for dependent systems
-
-## Development
-
-### Prerequisites
-
-- Node.js (v18+)
-- PostgreSQL database (or Neon serverless PostgreSQL)
-- Razorpay account for payment processing
-- SMTP server for email notifications
-- UltraMsg account for WhatsApp notifications
-
-### Environment Setup
-
-Configure the following environment variables in `.env`:
-
-```
+```env
 # Database Configuration
-DATABASE_URL="postgresql://user:password@host:port/database"
-DIRECT_URL="postgresql://user:password@host:port/database"
+DATABASE_URL=your_database_url
 
-# PostgreSQL Connection Pool Configuration
-PG_POOL_MAX=20
-PG_POOL_IDLE_TIMEOUT=30000
-PG_POOL_CONNECTION_TIMEOUT=10000
+# Email Configuration (Gmail SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_app_specific_password
+SMTP_FROM="ONNRIDES <your_email@gmail.com>"
 
-# Other services configuration
-# ...
+# WhatsApp Configuration
+WHATSAPP_API_URL=http://34.45.239.220:3001
+WHATSAPP_API_KEY=your_whatsapp_api_key
+WHATSAPP_INSTANCE_ID_1=onnrides_customer
+WHATSAPP_INSTANCE_ID_2=onnrides_admin
+ADMIN_PHONE=your_admin_phone_number
+
+# Razorpay Configuration
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+
+# Next.js Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-### Running the Application
+## Installation
 
+1. Clone the repository
 ```bash
-# Install dependencies
+git clone https://github.com/yourusername/onnrides.git
+cd onnrides
+```
+
+2. Install dependencies
+```bash
 npm install
+```
 
-# Run database migrations
+3. Run database migrations
+```bash
 npm run migrate
+```
 
-# Start the development server
+4. Start the development server
+```bash
 npm run dev
 ```
 
-## Troubleshooting Database Connections
+## Features
 
-If you encounter database connection errors like `Error { kind: Closed, cause: None }`, try the following:
+- Vehicle rental booking system
+- Real-time availability tracking
+- Secure payment processing with Razorpay
+- Email notifications for bookings and updates
+- WhatsApp notifications for important updates
+- Admin dashboard for managing rentals
 
-1. **Test Connection**: Run `npm run test:db` to diagnose connection issues
-2. **Check Pool Settings**: Adjust `PG_POOL_*` variables for your environment
-3. **Verify Network**: Ensure network stability between the application and database
-4. **Monitor Connection Count**: Use the database dashboard to check for connection limit issues
+## API Documentation
+
+### WhatsApp Notifications
+
+The application uses a custom WhatsApp Business API for sending notifications. The following types of notifications are supported:
+
+1. Booking Confirmations
+2. Payment Confirmations
+3. Booking Cancellations
+4. Admin Notifications
+
+Example usage:
+```typescript
+const whatsapp = WhatsAppService.getInstance();
+
+// Send booking confirmation
+await whatsapp.sendBookingConfirmation({
+  customerName: "John Doe",
+  customerPhone: "919876543210",
+  vehicleType: "Bike",
+  vehicleModel: "Honda Activa",
+  startDate: "2024-03-20 10:00 AM",
+  endDate: "2024-03-21 10:00 AM",
+  bookingId: "OR123",
+  totalAmount: "₹500",
+  pickupLocation: "Hyderabad"
+});
+```
+
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## License
 
-Copyright © 2024 OnnRides. All rights reserved.
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details

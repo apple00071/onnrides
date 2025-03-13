@@ -4,7 +4,7 @@ import logger from '@/lib/logger';
 import { authOptions } from '@/lib/auth/config';
 import { query } from '@/lib/db';
 import { EmailService } from '@/lib/email/service';
-import { WhatsAppService } from '@/lib/whatsapp/service';
+import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import { formatDateTimeIST } from '@/lib/utils/timezone';
 import { 
   buildTimezoneAwareQuery, 

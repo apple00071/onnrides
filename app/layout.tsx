@@ -95,6 +95,29 @@ export const metadata: Metadata = {
   alternates: {
     canonical: process.env.NEXT_PUBLIC_APP_URL,
   },
+  icons: {
+    icon: [
+      { url: '/favicon/favicon.ico' },
+      { url: '/favicon/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/favicon/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    other: [
+      {
+        rel: 'mask-icon',
+        url: '/favicon/safari-pinned-tab.svg',
+        color: '#f26e24'
+      },
+    ]
+  },
+  manifest: '/favicon/site.webmanifest',
+  themeColor: '#f26e24',
+  appleWebApp: {
+    title: 'OnnRides',
+    statusBarStyle: 'black-translucent',
+  },
 };
 
 export default async function RootLayout({
@@ -109,21 +132,135 @@ export default async function RootLayout({
     // We don't need to check for maintenance mode here anymore
     
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
-    const structuredData = {
-      '@context': 'https://schema.org',
-      '@graph': [
-        {
-          '@type': 'Organization',
-          '@id': `${baseUrl}/#organization`,
-          name: 'OnnRides Hyderabad',
-          url: baseUrl,
-          logo: {
-            '@type': 'ImageObject',
-            url: `${baseUrl}/logo.png`,
+    
+    // Enhanced structured data
+    const structuredDataItems = [
+      // Organization schema
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        '@id': `${baseUrl}/#organization`,
+        name: 'OnnRides Hyderabad',
+        url: baseUrl,
+        logo: {
+          '@type': 'ImageObject',
+          url: `${baseUrl}/logo.png`,
+        },
+        contactPoint: [
+          {
+            '@type': 'ContactPoint',
+            telephone: '+91-8247494622',
+            contactType: 'customer service',
+            areaServed: 'Hyderabad',
+            availableLanguage: ['English', 'Hindi', 'Telugu']
           }
+        ],
+        sameAs: [
+          'https://www.facebook.com/onnrides',
+          'https://www.instagram.com/onnrides',
+          'https://twitter.com/onnrides'
+        ]
+      },
+      
+      // Local Business schema
+      {
+        '@context': 'https://schema.org',
+        '@type': 'LocalBusiness',
+        '@id': `${baseUrl}/#localbusiness`,
+        name: 'OnnRides Vehicle Rental',
+        image: `${baseUrl}/logo.png`,
+        url: baseUrl,
+        telephone: '+91-8247494622',
+        priceRange: '₹₹',
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: 'Hyderabad',
+          addressLocality: 'Hyderabad',
+          addressRegion: 'Telangana',
+          postalCode: '500000',
+          addressCountry: 'IN'
+        },
+        geo: {
+          '@type': 'GeoCoordinates',
+          latitude: 17.385044,
+          longitude: 78.486671
+        },
+        openingHoursSpecification: {
+          '@type': 'OpeningHoursSpecification',
+          dayOfWeek: [
+            'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+          ],
+          opens: '09:00',
+          closes: '21:00'
         }
-      ]
-    };
+      },
+      
+      // Service schema
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Service',
+        '@id': `${baseUrl}/#service`,
+        name: 'Vehicle Rental Services',
+        provider: {
+          '@type': 'Organization',
+          '@id': `${baseUrl}/#organization`
+        },
+        areaServed: {
+          '@type': 'City',
+          name: 'Hyderabad'
+        },
+        serviceType: ['Car Rental', 'Bike Rental', 'Scooter Rental'],
+        description: 'Best vehicle rental service in Hyderabad. Rent cars, bikes & scooters with doorstep delivery. Affordable hourly rates, multiple pickup locations across Hyderabad.',
+        offers: {
+          '@type': 'AggregateOffer',
+          priceCurrency: 'INR',
+          lowPrice: '199',
+          highPrice: '2999',
+          offerCount: '50+'
+        }
+      },
+      
+      // FAQ schema
+      {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        '@id': `${baseUrl}/#faqpage`,
+        mainEntity: [
+          {
+            '@type': 'Question',
+            name: 'What documents do I need to rent a vehicle?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'You need a valid driving license, Aadhar card or any government-issued ID proof, and a security deposit.'
+            }
+          },
+          {
+            '@type': 'Question',
+            name: 'Do you offer doorstep delivery?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Yes, we offer doorstep delivery and pickup services across Hyderabad for your convenience.'
+            }
+          },
+          {
+            '@type': 'Question',
+            name: 'How can I make a payment?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'We accept payments through credit/debit cards, UPI, and online banking. Payment is secured through Razorpay.'
+            }
+          },
+          {
+            '@type': 'Question',
+            name: 'What is your cancellation policy?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Cancellations made 24 hours before the booking start time receive a full refund. Later cancellations may be subject to charges.'
+            }
+          }
+        ]
+      }
+    ];
 
     return (
       <html lang="en" suppressHydrationWarning>
@@ -134,6 +271,12 @@ export default async function RootLayout({
             name="format-detection"
             content="telephone=no, date=no, email=no, address=no"
           />
+          <link rel="icon" href="/favicon.ico" sizes="any" />
+          <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
+          <link rel="icon" href="/favicon-192.png" type="image/png" sizes="192x192" />
+          <link rel="icon" href="/favicon-512.png" type="image/png" sizes="512x512" />
+          <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+          <link rel="manifest" href="/favicon/site.webmanifest" />
           <link 
             rel="preload" 
             href="/fonts/Good Times Rg.woff2" 
@@ -155,7 +298,7 @@ export default async function RootLayout({
               </ClientOnly>
             </AuthProvider>
           </Providers>
-          <JsonLd data={structuredData} />
+          <JsonLd data={structuredDataItems} />
         </body>
       </html>
     );

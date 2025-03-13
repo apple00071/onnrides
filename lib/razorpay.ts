@@ -55,12 +55,6 @@ export async function createOrder({
   notes = {},
 }: CreateOrderParams): Promise<RazorpayOrder> {
   try {
-    // Validate amount (amount should already be in paise)
-    if (typeof amount !== 'number' || amount < 100) { // Minimum amount is 1 INR (100 paise)
-      logger.error('Invalid amount provided:', { amount });
-      throw new Error('Invalid amount. Amount must be at least 100 paise (1 INR).');
-    }
-    
     logger.info('Creating Razorpay order:', { 
       amount,
       currency,
@@ -72,38 +66,119 @@ export async function createOrder({
     const razorpay = getRazorpayInstance();
     logger.info('Got Razorpay instance, creating order...');
 
-    // Create order (amount is already in paise)
+    // Check if amount is within Razorpay's valid range
+    if (typeof amount !== 'number') {
+      logger.error('Invalid amount type provided:', { amount, type: typeof amount });
+      throw new Error('Invalid amount. Amount must be a number.');
+    }
+    
+    // ALWAYS convert to paise (1 INR = 100 paise)
+    // We assume all incoming amounts are in INR (₹) and convert to paise
+    const amountInPaise = Math.round(amount * 100);
+    
+    logger.info('Amount conversion to paise:', {
+      originalAmountINR: amount,
+      convertedAmountPaise: amountInPaise
+    });
+    
+    // Handle minimum payment requirements for Razorpay
+    let paymentAmount = amountInPaise;
+    
+    // Check if we should skip minimum amount enforcement
+    const skipMinimumCheck = notes?.skipMinimumCheck === 'true';
+    
+    // Only apply minimum amount logic for very small amounts (< 1 INR / 100 paise)
+    // AND when not explicitly skipped
+    if (amountInPaise < 100 && !skipMinimumCheck) {
+      logger.warn('Amount too small for Razorpay minimum:', { 
+        originalAmountINR: amount,
+        amountInPaise: amountInPaise,
+        minimum: 100,
+        skipMinimumCheck
+      });
+      
+      // Record the original amount in the payment metadata
+      notes = {
+        ...notes,
+        original_amount: String(amount),
+        original_amount_paise: String(amountInPaise),
+        is_minimum_payment: 'true',
+        amount_adjustment: 'Used minimum payment of ₹1 instead of original amount'
+      };
+      
+      // Use minimum amount required by Razorpay
+      paymentAmount = 100; // 1 INR = 100 paise
+      
+      logger.info('Adjusted payment amount to meet Razorpay minimum:', {
+        fromINR: amount,
+        fromPaise: amountInPaise,
+        toINR: 1,
+        toPaise: paymentAmount
+      });
+    } else {
+      // For normal amounts (≥ 1 INR) or when minimum check is skipped
+      logger.info('Using original payment amount (no adjustment needed):', {
+        amountINR: amount,
+        amountPaise: amountInPaise
+      });
+    }
+
+    // Create order with the amount in paise
     const orderData = {
-      amount: amount, // Remove Math.round to keep exact amount
+      amount: paymentAmount,
       currency,
       receipt,
       notes,
     };
 
-    const order = await razorpay.orders.create(orderData);
+    try {
+      const order = await razorpay.orders.create(orderData);
 
-    // Convert string amounts to numbers and ensure correct types
-    const processedOrder: RazorpayOrder = {
-      id: order.id,
-      entity: order.entity,
-      amount: Number(order.amount),
-      amount_paid: Number(order.amount_paid),
-      amount_due: Number(order.amount_due),
-      currency: order.currency,
-      receipt: order.receipt || null,
-      status: order.status as RazorpayOrder['status'],
-      attempts: order.attempts,
-      notes: order.notes || {},
-      created_at: Number(order.created_at),
-    };
+      // Convert string amounts to numbers and ensure correct types
+      const processedOrder: RazorpayOrder = {
+        id: order.id,
+        entity: order.entity,
+        amount: Number(order.amount),
+        amount_paid: Number(order.amount_paid),
+        amount_due: Number(order.amount_due),
+        currency: order.currency,
+        receipt: order.receipt || null,
+        status: order.status as RazorpayOrder['status'],
+        attempts: order.attempts,
+        notes: order.notes || {},
+        created_at: Number(order.created_at),
+      };
 
-    logger.info('Created Razorpay order:', { 
-      orderId: processedOrder.id, 
-      amount: processedOrder.amount, 
-      currency: processedOrder.currency 
-    });
-    
-    return processedOrder;
+      logger.info('Created Razorpay order:', { 
+        orderId: processedOrder.id, 
+        amount: processedOrder.amount, 
+        currency: processedOrder.currency 
+      });
+      
+      return processedOrder;
+    } catch (razorpayError) {
+      // Extract and log the detailed error info from Razorpay
+      const errorInfo = {
+        message: razorpayError instanceof Error ? razorpayError.message : 'Unknown error',
+        code: (razorpayError as any)?.code,
+        description: (razorpayError as any)?.description,
+        field: (razorpayError as any)?.field,
+        source: (razorpayError as any)?.source,
+        step: (razorpayError as any)?.step,
+        reason: (razorpayError as any)?.reason,
+        metadata: (razorpayError as any)?.metadata,
+        originalError: razorpayError
+      };
+      
+      logger.error('Razorpay API error when creating order:', {
+        orderData,
+        errorInfo,
+        errorString: JSON.stringify(errorInfo)
+      });
+      
+      // Re-throw with enhanced context for better debugging
+      throw new Error(`Razorpay order creation failed: ${errorInfo.message || 'Unknown error'}`);
+    }
   } catch (error) {
     logger.error('Error creating Razorpay order:', error);
     throw error;

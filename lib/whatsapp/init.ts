@@ -1,5 +1,5 @@
 import logger from '../logger';
-import { WhatsAppService } from './service';
+import { WhatsAppService } from '@/app/lib/whatsapp/service';
 
 export async function initializeWhatsAppService() {
     if (typeof window !== 'undefined') {

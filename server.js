@@ -87,8 +87,18 @@ app.prepare().then(() => {
   server.listen(port, () => {
     serverLogger.info(`> Server ready on http://${hostname}:${port}`);
     
-    // Initialize settings after server starts
+    // Initialize settings and database after server starts
     initializeSettings();
+    
+    // Initialize database
+    try {
+      const { initializeDatabase } = require(path.join(process.cwd(), 'lib', 'db'));
+      initializeDatabase()
+        .then(() => serverLogger.info('Database initialized successfully'))
+        .catch(err => serverLogger.error('Failed to initialize database:', err));
+    } catch (err) {
+      serverLogger.error('Error loading database module:', err);
+    }
   });
 
   // Register server shutdown with the shutdown manager
@@ -122,7 +132,7 @@ app.prepare().then(() => {
   try {
     const db = (() => {
       try {
-        return require('./lib/db');
+        return require(path.join(process.cwd(), 'lib', 'db'));
       } catch (err) {
         serverLogger.warn('Could not load database module:', err.message);
         return {
@@ -158,7 +168,7 @@ app.prepare().then(() => {
       async () => {
         const prisma = (() => {
           try {
-            const imported = require('./lib/prisma');
+            const imported = require('./app/lib/prisma');
             return imported.default || imported;
           } catch (err) {
             serverLogger.warn('Could not load Prisma module:', err.message);
@@ -178,11 +188,6 @@ app.prepare().then(() => {
       'databases', // phase
       10          // priority
     );
-    
-    // Initialize the database
-    db.initializeDatabase()
-      .then(() => serverLogger.info('Database initialized successfully'))
-      .catch(err => serverLogger.error('Failed to initialize database:', err));
   } catch (err) {
     serverLogger.error('Error setting up database:', err);
   }

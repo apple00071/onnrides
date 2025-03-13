@@ -8,7 +8,7 @@ Disallow: /api/
 Disallow: /auth/
 
 # Sitemap location
-Sitemap: https://onnrides.vercel.app/sitemap.xml
+Sitemap: https://onnrides.com/sitemap.xml
 
 # Crawl delay
 Crawl-delay: 10 
