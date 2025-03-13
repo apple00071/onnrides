@@ -1,4 +1,4 @@
-import { WhatsAppService } from '../lib/whatsapp/service';
+import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import logger from '../lib/logger';
 
 async function sendTestMessage() {

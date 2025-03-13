@@ -2,4 +2,4 @@ export {
   sendBookingConfirmationEmail,
   sendPasswordResetEmail,
   sendWelcomeEmail
-} from './service'; 
+} from '@/app/lib/whatsapp/service'; 

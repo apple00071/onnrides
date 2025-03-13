@@ -1,6 +1,6 @@
 'use server';
 
-import { WhatsAppService } from './service';
+import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import { User } from '@/lib/types';
 import logger from '@/lib/logger';
 
@@ -41,18 +41,22 @@ export async function sendBookingNotification(
 
         switch (bookingDetails.status) {
             case 'confirmed':
-                return await whatsappService.sendBookingConfirmation(
-                    user.phone,
-                    user.name || 'User',
-                    bookingDetails.vehicleName,
-                    formattedDate
-                );
+                return await whatsappService.sendBookingConfirmation({
+                    customerName: user.name || 'User',
+                    customerPhone: user.phone,
+                    vehicleType: 'Vehicle',
+                    vehicleModel: bookingDetails.vehicleName,
+                    startDate: formattedDate,
+                    endDate: bookingDetails.endDate,
+                    bookingId: bookingDetails.bookingId
+                });
 
             case 'cancelled':
                 return await whatsappService.sendBookingCancellation(
                     user.phone,
                     user.name || 'User',
-                    bookingDetails.vehicleName
+                    bookingDetails.vehicleName,
+                    bookingDetails.bookingId
                 );
 
             case 'pending':
@@ -60,8 +64,8 @@ export async function sendBookingNotification(
                     return await whatsappService.sendPaymentConfirmation(
                         user.phone,
                         user.name || 'User',
-                        bookingDetails.totalPrice,
-                        bookingDetails.bookingId
+                        bookingDetails.bookingId,
+                        bookingDetails.totalPrice
                     );
                 }
                 break;

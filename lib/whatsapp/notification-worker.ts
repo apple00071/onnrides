@@ -1,5 +1,5 @@
 import { query } from '@/lib/db';
-import { WhatsAppService } from './service';
+import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import logger from '@/lib/logger';
 
 interface NotificationQueueItem {
