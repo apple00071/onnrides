@@ -8,6 +8,12 @@ import Image from 'next/image';
 import { FaHome, FaCar, FaUsers, FaBookmark, FaEnvelope, FaWhatsapp, FaQrcode, FaTrash, FaSignOutAlt, FaTicketAlt, FaCog } from 'react-icons/fa';
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarProvider } from '@/components/admin/Sidebar';
 import { cn } from '@/lib/utils';
+import { Metadata } from 'next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Providers } from '../providers';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 
 const menuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="h-5 w-5" /> },
@@ -27,13 +33,13 @@ function MainContent({ children }: { children: React.ReactNode }) {
   return (
     <main className={cn(
       "min-h-screen bg-gray-100 transition-all duration-300",
-      "pt-[56px] md:pt-0", // Add padding top for mobile header
+      "pt-[60px]", // Increased padding for mobile header
       "md:pl-[60px]", // Collapsed sidebar width
       open && "md:pl-[300px]" // Expanded sidebar width
     )}>
       <div className="p-4 sm:p-6 max-w-[1600px] mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl text-gray-900">
+          <h1 className="text-xl sm:text-2xl text-gray-900 font-semibold">
             {menuItems.find(item => item.href === pathname)?.label || 'Dashboard'}
           </h1>
         </div>
@@ -46,6 +52,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
 function AdminDashboard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { open, setOpen } = useSidebar();
   
   const handleSignOut = () => {
     router.push('/admin/login');
@@ -53,11 +60,38 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      {/* Mobile Header */}
+      <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50 md:hidden">
+        <div className="flex items-center justify-between h-full px-4">
+          <button
+            onClick={() => setOpen(!open)}
+            className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
+            aria-label="Toggle menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div className="relative h-10 w-32">
+            <Image
+              src="/logo.png"
+              alt="OnnRides Admin"
+              fill
+              className="object-contain"
+              priority
+              sizes="(max-width: 768px) 128px, 120px"
+            />
+          </div>
+          <div className="w-10" /> {/* Spacer for alignment */}
+        </div>
+      </header>
+
       <SidebarProvider>
         <Sidebar>
           <SidebarBody>
             <div className="flex flex-col h-full">
-              <div className="h-16 flex items-center px-4 border-b border-gray-200">
+              {/* Desktop Logo */}
+              <div className="hidden md:flex h-16 items-center px-4 border-b border-gray-200">
                 <div className="relative h-12 w-44">
                   <Image
                     src="/logo.png"
@@ -106,60 +140,80 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AdminLayout({
+export const metadata: Metadata = {
+  title: 'OnnRides Admin Dashboard',
+  description: 'Admin dashboard for OnnRides vehicle rental service',
+  manifest: '/admin/manifest.json',
+  themeColor: '#f26e24',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'OnnRides Admin',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  icons: {
+    apple: [
+      { url: '/admin/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/admin/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+  },
+};
+
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const pathname = usePathname();
-  const [isChecking, setIsChecking] = useState(true);
+  const session = await getServerSession(authOptions);
 
-  useEffect(() => {
-    // Skip auth check for login page
-    if (pathname === '/admin/login') {
-      setIsChecking(false);
-      return;
-    }
-
-    const checkAuth = async () => {
-      if (status === 'loading') return;
-
-      if (status === 'unauthenticated') {
-        router.replace('/admin/login');
-        return;
-      }
-
-      if (status === 'authenticated' && session?.user?.role !== 'admin') {
-        router.replace('/');
-        return;
-      }
-
-      setIsChecking(false);
-    };
-
-    checkAuth();
-  }, [status, session, router, pathname]);
-
-  // Show loading state while checking session
-  if (isChecking) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#f26e24] border-t-transparent"></div>
-      </div>
-    );
+  if (!session?.user || session.user.role !== 'admin') {
+    redirect('/');
   }
 
-  // Skip layout for login page
-  if (pathname === '/admin/login') {
-    return children;
-  }
-
-  // Don't render anything while redirecting
-  if (status === 'unauthenticated' || (status === 'authenticated' && session?.user?.role !== 'admin')) {
-    return null;
-  }
-
-  return <AdminDashboard>{children}</AdminDashboard>;
+  return (
+    <html lang="en">
+      <head>
+        <link rel="manifest" href="/admin/manifest.json" />
+        <meta name="theme-color" content="#f26e24" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="OnnRides Admin" />
+        <link rel="apple-touch-icon" href="/admin/icon-192x192.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="application-name" content="OnnRides Admin" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="msapplication-TileColor" content="#f26e24" />
+        <meta name="msapplication-config" content="none" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/admin/sw.js').then(
+                    function(registration) {
+                      console.log('Admin Service Worker registration successful');
+                    },
+                    function(err) {
+                      console.log('Admin Service Worker registration failed: ', err);
+                    }
+                  );
+                });
+              }
+            `,
+          }}
+        />
+      </head>
+      <body className="antialiased">
+        <Providers session={session}>
+          {children}
+          <SpeedInsights />
+        </Providers>
+      </body>
+    </html>
+  );
 } 
