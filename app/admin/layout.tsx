@@ -8,7 +8,6 @@ import Image from 'next/image';
 import { FaHome, FaCar, FaUsers, FaBookmark, FaEnvelope, FaWhatsapp, FaQrcode, FaTrash, FaSignOutAlt, FaTicketAlt, FaCog } from 'react-icons/fa';
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarProvider } from '@/components/admin/Sidebar';
 import { cn } from '@/lib/utils';
-import { Metadata } from 'next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Providers } from '../providers';
 import { getServerSession } from 'next-auth';
@@ -139,30 +138,6 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
-export const metadata: Metadata = {
-  title: 'OnnRides Admin Dashboard',
-  description: 'Admin dashboard for OnnRides vehicle rental service',
-  manifest: '/admin/manifest.json',
-  themeColor: '#f26e24',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'OnnRides Admin',
-  },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
-  icons: {
-    apple: [
-      { url: '/admin/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/admin/icon-512x512.png', sizes: '512x512', type: 'image/png' },
-    ],
-  },
-};
 
 export default async function AdminLayout({
   children,

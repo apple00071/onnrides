@@ -22,12 +22,4 @@ export const metadata: Metadata = {
       { url: '/admin/icon-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
   },
-};
-
-export default function AdminTemplate({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return children;
-} 
+}; 
