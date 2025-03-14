@@ -10,6 +10,9 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL is not set');
 }
 
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
+
 export type QueryResult<T> = {
   rows: T[];
 };
@@ -30,26 +33,29 @@ export type DbUser = {
 
 export type NewDbUser = Omit<DbUser, 'id' | 'created_at' | 'updated_at'>;
 
-// Create a connection pool
-const pool = new Pool({
+// Create a connection pool only on the server side
+const pool = !isBrowser ? new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
-});
+}) : null;
 
 // Function to execute a query with retries
 async function queryWithRetry(
   text: string,
   params?: any[],
   retries = 3,
-  delay = 500
+  delay = 1000
 ): Promise<any> {
+  if (isBrowser) {
+    throw new Error('Database operations are not available in the browser');
+  }
+
   try {
-    return await pool.query(text, params);
+    return await pool?.query(text, params);
   } catch (error) {
     if (retries > 0 && error instanceof Error) {
       // Check if error is a connection error
       if (error.message.includes('connection') || error.message.includes('timeout')) {
-        logger.warn(`Query attempt ${4-retries} failed, retrying in ${delay}ms...`, { error });
         await new Promise(resolve => setTimeout(resolve, delay));
         return queryWithRetry(text, params, retries - 1, delay * 2);
       }
@@ -60,32 +66,24 @@ async function queryWithRetry(
 
 // Export the query function
 export async function query(text: string, params?: any[]) {
+  if (isBrowser) {
+    throw new Error('Database operations are not available in the browser');
+  }
+
   try {
-    const client = await pool.connect();
-    logger.debug('New database connection established');
-    try {
-      const result = await queryWithRetry(text, params);
-      logger.debug('Database query completed', { 
-        query: text,
-        params,
-        duration: result.duration
-      });
-      return result;
-    } catch (error) {
-      logger.error('Database query error:', { error, query: text, params });
-      throw error;
-    } finally {
-      client.release();
-      logger.debug('Database client connection ended');
-    }
+    return await queryWithRetry(text, params);
   } catch (error) {
-    logger.error('Database connection error:', error);
+    logger.error('Database query error:', { error, query: text, params });
     throw error;
   }
 }
 
 // Initialize database tables
 export async function initializeDatabase() {
+  if (isBrowser) {
+    throw new Error('Database operations are not available in the browser');
+  }
+
   try {
     // Create WhatsApp logs table
     await query(`
@@ -111,7 +109,7 @@ export async function initializeDatabase() {
   }
 }
 
-// Export the pool for direct access if needed
+// Export the pool for direct access if needed (server-side only)
 export { pool };
 
 export async function findUserByEmail(email: string): Promise<DbUser | null> {
