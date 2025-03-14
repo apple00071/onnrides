@@ -15,6 +15,7 @@ import ClientOnly from './(main)/providers/ClientOnly';
 import logger from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import GoogleAnalytics from './components/GoogleAnalytics';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -302,6 +303,7 @@ export default async function RootLayout({
             </AuthProvider>
           </Providers>
           <JsonLd data={structuredDataItems} />
+          <SpeedInsights />
         </body>
       </html>
     );
@@ -320,6 +322,7 @@ export default async function RootLayout({
               </div>
             </div>
           </div>
+          <SpeedInsights />
         </body>
       </html>
     );

@@ -6,7 +6,7 @@ import logger from '@/lib/logger';
 
 export function Providers({ 
   children,
-  session 
+  session
 }: { 
   children: React.ReactNode;
   session: Session | null;
