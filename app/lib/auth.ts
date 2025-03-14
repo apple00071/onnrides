@@ -41,7 +41,8 @@ export const authOptions: NextAuthOptions = {
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
+        isAdmin: { label: "Is Admin", type: "text" }
       },
       async authorize(credentials) {
         try {
@@ -56,6 +57,13 @@ export const authOptions: NextAuthOptions = {
           
           if (!user || !user.password_hash) {
             logger.warn('User not found or no password:', credentials.email);
+            return null;
+          }
+
+          // Check if this is an admin login attempt
+          const isAdminLogin = credentials.isAdmin === 'true';
+          if (isAdminLogin && user.role.toLowerCase() !== 'admin') {
+            logger.warn('Non-admin user attempted admin login:', credentials.email);
             return null;
           }
 
@@ -112,9 +120,18 @@ export const authOptions: NextAuthOptions = {
         }
       };
     },
+    async redirect({ url, baseUrl }) {
+      // If the url is relative, prefix it with the base URL
+      if (url.startsWith('/')) return `${baseUrl}${url}`;
+      // If the url is on the same domain, allow it
+      if (new URL(url).origin === baseUrl) return url;
+      // Default to the base URL
+      return baseUrl;
+    },
   },
   pages: {
     signIn: "/login",
+    error: "/login",
   },
 };
 

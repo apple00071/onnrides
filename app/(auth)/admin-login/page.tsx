@@ -50,7 +50,7 @@ export default function AdminLoginPage() {
         }
       } else if (result.ok) {
         toast.success('Welcome back, admin!');
-        router.push(callbackUrl);
+        router.replace(callbackUrl);
       }
     } catch (error) {
       logger.error('Login error:', error);
