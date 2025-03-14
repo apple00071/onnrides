@@ -1,22 +1,61 @@
 {
-  "name": "OnnRides Admin",
+  "name": "OnnRides Admin Dashboard",
   "short_name": "OnnRides Admin",
-  "description": "Admin dashboard for OnnRides vehicle rental service",
+  "description": "Online admin dashboard for OnnRides vehicle rental service management (requires internet connection)",
   "start_url": "/admin",
+  "scope": "/admin/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#f26e24",
   "orientation": "portrait",
+  "categories": ["business", "productivity", "utilities"],
+  "dir": "ltr",
+  "lang": "en-US",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Bookings",
+      "short_name": "Bookings",
+      "description": "View and manage bookings",
+      "url": "/admin/bookings",
+      "icons": [{ "src": "/admin/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Vehicles",
+      "short_name": "Vehicles",
+      "description": "Manage vehicle inventory",
+      "url": "/admin/vehicles",
+      "icons": [{ "src": "/admin/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Users",
+      "short_name": "Users",
+      "description": "Manage user accounts",
+      "url": "/admin/users",
+      "icons": [{ "src": "/admin/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ],
   "icons": [
     {
       "src": "/admin/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/admin/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/admin/screenshot-dashboard.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "platform": "wide",
+      "label": "Dashboard view of OnnRides Admin"
     }
   ]
 } 

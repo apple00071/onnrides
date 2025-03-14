@@ -80,6 +80,8 @@ export const DesktopSidebar = ({
   ...props
 }: React.ComponentProps<typeof motion.div>) => {
   const { open, setOpen, animate } = useSidebar();
+  const isNoHover = className?.includes('no-hover');
+  
   return (
     <motion.div
       className={cn(
@@ -89,8 +91,8 @@ export const DesktopSidebar = ({
       animate={{
         width: animate ? (open ? "300px" : "60px") : "300px",
       }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={isNoHover ? undefined : () => setOpen(true)}
+      onMouseLeave={isNoHover ? undefined : () => setOpen(false)}
       {...props}
     >
       {children}

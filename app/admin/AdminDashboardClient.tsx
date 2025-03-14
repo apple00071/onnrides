@@ -5,6 +5,11 @@ import Image from 'next/image';
 import { FaHome, FaCar, FaUsers, FaBookmark, FaEnvelope, FaWhatsapp, FaQrcode, FaTrash, FaSignOutAlt, FaTicketAlt, FaCog } from 'react-icons/fa';
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarProvider } from '@/components/admin/Sidebar';
 import { cn } from '@/lib/utils';
+import dynamic from 'next/dynamic';
+import { useState } from 'react';
+
+// Dynamically import the AdminPWA component with no SSR
+const AdminPWA = dynamic(() => import('./components/AdminPWA'), { ssr: false });
 
 const menuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="h-5 w-5" /> },
@@ -18,9 +23,69 @@ const menuItems = [
   { href: '/admin/settings', label: 'Settings', icon: <FaCog className="h-5 w-5" /> },
 ];
 
+// Main content component that responds to sidebar state
+function MainContent({ children }: { children: React.ReactNode }) {
+  const { open } = useSidebar();
+  const pathname = usePathname();
+  
+  return (
+    <main 
+      className={cn(
+        "min-h-screen bg-gray-100 transition-all duration-300",
+        "pt-[60px]", // Padding for mobile header
+        open 
+          ? "md:pl-[300px]" // Expanded sidebar width
+          : "md:pl-[60px]"  // Collapsed sidebar width
+      )}
+    >
+      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto">
+        <div className="mb-6">
+          <h1 className="text-xl sm:text-2xl text-gray-900 font-semibold">
+            {menuItems.find(item => item.href === pathname)?.label || 'Dashboard'}
+          </h1>
+        </div>
+        {children}
+      </div>
+    </main>
+  );
+}
+
+// Mobile header with toggle button
+function MobileHeader() {
+  const { open, setOpen } = useSidebar();
+  
+  return (
+    <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50 md:hidden">
+      <div className="flex items-center justify-between h-full px-4">
+        <button
+          onClick={() => setOpen(!open)}
+          className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
+          aria-label="Toggle menu"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <div className="relative h-10 w-32">
+          <Image
+            src="/logo.png"
+            alt="OnnRides Admin"
+            fill
+            className="object-contain"
+            priority
+            sizes="(max-width: 768px) 128px, 120px"
+          />
+        </div>
+        <div className="w-10" /> {/* Spacer for alignment */}
+      </div>
+    </header>
+  );
+}
+
 export default function AdminDashboardClient({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
   const handleSignOut = () => {
     router.push('/admin/login');
@@ -28,35 +93,9 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <SidebarProvider>
+      <SidebarProvider open={sidebarOpen} setOpen={setSidebarOpen} animate={true}>
         {/* Mobile Header */}
-        <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50 md:hidden">
-          <div className="flex items-center justify-between h-full px-4">
-            <button
-              onClick={() => {
-                const { setOpen, open } = useSidebar();
-                setOpen(!open);
-              }}
-              className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
-              aria-label="Toggle menu"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            <div className="relative h-10 w-32">
-              <Image
-                src="/logo.png"
-                alt="OnnRides Admin"
-                fill
-                className="object-contain"
-                priority
-                sizes="(max-width: 768px) 128px, 120px"
-              />
-            </div>
-            <div className="w-10" /> {/* Spacer for alignment */}
-          </div>
-        </header>
+        <MobileHeader />
 
         <Sidebar>
           <SidebarBody>
@@ -103,22 +142,13 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
           </SidebarBody>
         </Sidebar>
 
-        {/* Main Content */}
-        <main className={cn(
-          "min-h-screen bg-gray-100 transition-all duration-300",
-          "pt-[60px]", // Increased padding for mobile header
-          "md:pl-[60px]", // Collapsed sidebar width
-          "md:pl-[300px]" // Expanded sidebar width
-        )}>
-          <div className="p-4 sm:p-6 max-w-[1600px] mx-auto">
-            <div className="mb-6">
-              <h1 className="text-xl sm:text-2xl text-gray-900 font-semibold">
-                {menuItems.find(item => item.href === pathname)?.label || 'Dashboard'}
-              </h1>
-            </div>
-            {children}
-          </div>
-        </main>
+        {/* Main Content with responsive padding */}
+        <MainContent>
+          {children}
+        </MainContent>
+
+        {/* PWA Install Prompt */}
+        <AdminPWA />
       </SidebarProvider>
     </div>
   );
