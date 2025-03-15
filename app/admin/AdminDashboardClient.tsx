@@ -14,6 +14,12 @@ const AdminPWA = dynamic(() => import('./components/AdminPWA'), {
   loading: () => null
 });
 
+// Dynamically import the mobile wrapper with no SSR to avoid hydration issues
+const MobileAdminWrapper = dynamic(
+  () => import('./components/MobileAdminWrapper'),
+  { ssr: false }
+);
+
 const menuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="h-5 w-5" /> },
   { href: '/admin/vehicles', label: 'Vehicles', icon: <FaCar className="h-5 w-5" /> },
@@ -105,64 +111,66 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <SidebarProvider open={sidebarOpen} setOpen={setSidebarOpen} animate={true}>
-        {/* Mobile Header */}
-        <MobileHeader />
+    <MobileAdminWrapper>
+      <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+        <SidebarProvider open={sidebarOpen} setOpen={setSidebarOpen} animate={true}>
+          {/* Mobile Header */}
+          <MobileHeader />
 
-        <Sidebar>
-          <SidebarBody>
-            <div className="flex flex-col h-full">
-              {/* Desktop Logo */}
-              <div className="hidden md:flex h-16 items-center px-4 border-b border-gray-200">
-                <div className="relative h-12 w-44">
-                  <Image
-                    src="/logo.png"
-                    alt="OnnRides Admin"
-                    fill
-                    className="object-contain"
-                    priority
-                    sizes="(max-width: 768px) 160px, 120px"
-                  />
+          <Sidebar>
+            <SidebarBody>
+              <div className="flex flex-col h-full">
+                {/* Desktop Logo */}
+                <div className="hidden md:flex h-16 items-center px-4 border-b border-gray-200">
+                  <div className="relative h-12 w-44">
+                    <Image
+                      src="/logo.png"
+                      alt="OnnRides Admin"
+                      fill
+                      className="object-contain"
+                      priority
+                      sizes="(max-width: 768px) 160px, 120px"
+                    />
+                  </div>
+                </div>
+
+                <nav className="flex-1 overflow-y-auto py-4">
+                  {menuItems.map((item) => (
+                    <SidebarLink
+                      key={item.href}
+                      link={item}
+                      className={cn(
+                        "px-4 py-3 text-sm",
+                        pathname === item.href 
+                          ? 'text-[#f26e24] bg-orange-50' 
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-[#f26e24]'
+                      )}
+                    />
+                  ))}
+                </nav>
+
+                <div className="border-t border-gray-200 p-4">
+                  <button
+                    onClick={handleSignOut}
+                    className="flex items-center w-full px-4 py-2 text-sm font-medium text-gray-600 hover:text-[#f26e24] hover:bg-orange-50 rounded-md transition-colors font-goodtimes"
+                  >
+                    <FaSignOutAlt className="h-5 w-5 mr-3" />
+                    <span>Sign Out</span>
+                  </button>
                 </div>
               </div>
+            </SidebarBody>
+          </Sidebar>
 
-              <nav className="flex-1 overflow-y-auto py-4">
-                {menuItems.map((item) => (
-                  <SidebarLink
-                    key={item.href}
-                    link={item}
-                    className={cn(
-                      "px-4 py-3 text-sm",
-                      pathname === item.href 
-                        ? 'text-[#f26e24] bg-orange-50' 
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-[#f26e24]'
-                    )}
-                  />
-                ))}
-              </nav>
+          {/* Main Content with responsive padding */}
+          <MainContent>
+            {children}
+          </MainContent>
 
-              <div className="border-t border-gray-200 p-4">
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center w-full px-4 py-2 text-sm font-medium text-gray-600 hover:text-[#f26e24] hover:bg-orange-50 rounded-md transition-colors font-goodtimes"
-                >
-                  <FaSignOutAlt className="h-5 w-5 mr-3" />
-                  <span>Sign Out</span>
-                </button>
-              </div>
-            </div>
-          </SidebarBody>
-        </Sidebar>
-
-        {/* Main Content with responsive padding */}
-        <MainContent>
-          {children}
-        </MainContent>
-
-        {/* PWA Install Prompt */}
-        {mounted && <AdminPWA key="admin-pwa" />}
-      </SidebarProvider>
-    </div>
+          {/* PWA Install Prompt */}
+          {mounted && <AdminPWA key="admin-pwa" />}
+        </SidebarProvider>
+      </div>
+    </MobileAdminWrapper>
   );
 } 

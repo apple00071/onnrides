@@ -84,17 +84,30 @@ export default async function AdminLayout({
           <link rel="manifest" href="/admin/manifest.json" />
           <meta name="theme-color" content="#f26e24" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
-          <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
           <meta name="apple-mobile-web-app-title" content="OnnRides Admin" />
+          
+          {/* iOS Home Screen Icons */}
           <link rel="apple-touch-icon" href="/admin/apple-touch-icon.png" />
           <link rel="apple-touch-icon" sizes="120x120" href="/admin/apple-touch-icon-120x120.png" />
           <link rel="apple-touch-icon" sizes="152x152" href="/admin/apple-touch-icon-152x152.png" />
           <link rel="apple-touch-icon" sizes="180x180" href="/admin/apple-touch-icon-180x180.png" />
+          
+          {/* iOS Home Screen Icon Precomposed (no iOS styling) */}
+          <link rel="apple-touch-icon-precomposed" href="/admin/icon-192x192.png" />
+          
+          {/* Mobile Web App Settings */}
           <meta name="mobile-web-app-capable" content="yes" />
           <meta name="application-name" content="OnnRides Admin" />
           <meta name="format-detection" content="telephone=no" />
+          
+          {/* Microsoft Tile Settings */}
           <meta name="msapplication-TileColor" content="#f26e24" />
+          <meta name="msapplication-TileImage" content="/admin/icon-192x192.png" />
           <meta name="msapplication-config" content="none" />
+          
+          {/* Prevent Automatic Phone Number Detection */}
+          <meta name="format-detection" content="telephone=no" />
           
           {/* Apple Splash Screen Images */}
           <link
