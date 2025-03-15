@@ -14,7 +14,13 @@
     "test:db": "ts-node -r dotenv/config scripts/test-db-connection.ts",
     "generate:favicons": "node scripts/generate-favicons.js && node scripts/create-root-favicon.js && node scripts/sync-favicons.js",
     "fix:booking-dates": "ts-node -r dotenv/config scripts/fix-booking-dates.ts",
-    "test:notifications": "ts-node -r dotenv/config scripts/test-notifications.ts"
+    "test:notifications": "ts-node -r dotenv/config scripts/test-notifications.ts",
+    "maintenance": "ts-node -r dotenv/config scripts/maintenance-mode.ts",
+    "maintenance:on": "ts-node -r dotenv/config scripts/maintenance-mode.ts on",
+    "maintenance:off": "ts-node -r dotenv/config scripts/maintenance-mode.ts off",
+    "maintenance:status": "ts-node -r dotenv/config scripts/maintenance-mode.ts status",
+    "test:redirect": "ts-node -r dotenv/config scripts/test-redirect.ts",
+    "test:middleware": "ts-node -r dotenv/config scripts/check-middleware.ts"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.734.0",

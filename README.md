@@ -100,6 +100,24 @@ await whatsapp.sendBookingConfirmation({
 });
 ```
 
+## Recent Updates
+
+### URL Consistency
+
+The application now consistently redirects `/home` to the root URL (`/`) to ensure:
+- Consistent user experience
+- Better SEO (no duplicate content)
+- Reliable maintenance mode behavior
+- Accurate analytics
+
+See [URL Consistency Documentation](docs/url-consistency.md) for more details.
+
+### Maintenance Mode
+
+The maintenance mode feature allows administrators to temporarily disable public access to the site during maintenance or updates. 
+
+See [Maintenance Mode Documentation](docs/maintenance-mode.md) for more details.
+
 ## Contributing
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.

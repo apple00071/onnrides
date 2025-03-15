@@ -2,53 +2,82 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-// Cache the maintenance mode status for 60 seconds
+// Cache the maintenance mode status for a short period
 let maintenanceMode: boolean = false;
 let lastCheck = 0;
-const CACHE_DURATION = 60 * 1000; // 60 seconds
+const CACHE_DURATION = 10 * 1000; // 10 seconds
+
+// Simple logging helper for middleware
+function logMiddleware(message: string) {
+  console.log(`[Middleware] ${message}`);
+}
 
 async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
   const now = Date.now();
   
-  // Return cached value if available and not expired
-  if (lastCheck > 0 && (now - lastCheck) < CACHE_DURATION) {
-    return maintenanceMode;
+  // Always check on first request or if cache expired
+  if (lastCheck === 0 || (now - lastCheck) >= CACHE_DURATION) {
+    try {
+      // Get the base URL from the request
+      const protocol = request.headers.get('x-forwarded-proto') || 'http';
+      const host = request.headers.get('host') || 'localhost:3000';
+      const baseUrl = `${protocol}://${host}`;
+
+      // Add a cache-busting parameter
+      const url = `${baseUrl}/api/maintenance/check?_t=${now}`;
+      
+      // Call the maintenance check API with no-cache headers
+      const response = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+      
+      const data = await response.json();
+      logMiddleware(`Maintenance check: ${JSON.stringify(data)}`);
+      
+      maintenanceMode = Boolean(data.maintenance);
+      lastCheck = now;
+    } catch (error) {
+      console.error('[Middleware] Error checking maintenance mode:', error);
+      return false;
+    }
   }
-
-  try {
-    // Get the base URL from the request
-    const protocol = request.headers.get('x-forwarded-proto') || 'http';
-    const host = request.headers.get('host') || 'localhost:3000';
-    const baseUrl = `${protocol}://${host}`;
-
-    // Call the maintenance check API
-    const response = await fetch(`${baseUrl}/api/maintenance/check`);
-    const data = await response.json();
-
-    maintenanceMode = Boolean(data.maintenance);
-    lastCheck = now;
-    return maintenanceMode;
-  } catch (error) {
-    console.error('Error checking maintenance mode:', error);
-    return false;
-  }
+  
+  return maintenanceMode;
 }
 
 export async function middleware(request: NextRequest) {
-  const pathname = request.url.split('?')[0].split('#')[0];
-
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+  
+  logMiddleware(`Processing request: ${pathname}`);
+  
+  // Add debug path info in a request header
+  // Since we can't modify the response directly when returning undefined,
+  // we'll use the X-Debug-Path header when redirecting to maintenance page
+  
   // Skip maintenance check for these paths
-  if (pathname.includes('/_next') || 
-      pathname.includes('/api') || 
-      pathname.includes('/maintenance') ||
-      pathname.includes('/admin') ||
+  if (pathname.startsWith('/_next') || 
+      pathname.startsWith('/api') || 
+      pathname.startsWith('/maintenance') ||
+      pathname.startsWith('/admin') ||
+      pathname.includes('/favicon') ||
       pathname.match(/\.[^/]+$/) // Skip files with extensions
   ) {
-    return undefined; // Allow the request to continue
+    logMiddleware(`Skipping maintenance check for: ${pathname}`);
+    return undefined;
   }
 
   // Check maintenance mode
   const maintenance = await isMaintenanceMode(request);
+  logMiddleware(`Maintenance check result for ${pathname}: ${maintenance}`);
   
   if (maintenance) {
     try {
@@ -60,32 +89,36 @@ export async function middleware(request: NextRequest) {
 
       // If user is admin, let them through
       if (token?.role === 'admin') {
-        return undefined; // Allow the request to continue
+        logMiddleware(`Admin user allowed: ${token.email || 'unknown'}`);
+        return undefined;
       }
 
       // Otherwise redirect to maintenance page
+      logMiddleware(`Redirecting to maintenance page from: ${pathname}`);
       const maintenanceUrl = new URL('/maintenance', request.url);
-      return NextResponse.redirect(maintenanceUrl);
+      const redirectResponse = NextResponse.redirect(maintenanceUrl);
+      
+      // Add debug headers
+      redirectResponse.headers.set('X-Maintenance-Redirect', 'true');
+      redirectResponse.headers.set('X-Debug-Path', pathname);
+      
+      return redirectResponse;
     } catch (error) {
-      console.error('Error verifying admin status:', error);
+      console.error('[Middleware] Error verifying admin status:', error);
       const maintenanceUrl = new URL('/maintenance', request.url);
       return NextResponse.redirect(maintenanceUrl);
     }
   }
 
-  return undefined; // Allow the request to continue
+  // If no maintenance, let the request through
+  return undefined;
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
-     * 1. /api/ routes (handled separately within the middleware)
-     * 2. /_next/ (Next.js internals)
-     * 3. /_static (inside /public)
-     * 4. /_vercel (Vercel internals)
-     * 5. /favicon.ico, /sitemap.xml (static files)
+     * Match all request paths except for specific Next.js paths
      */
-    '/((?!_next/|_static/|_vercel|favicon.ico|sitemap.xml).*)',
+    '/((?!_next/static|_next/image|_vercel/image).*)',
   ],
 }; 
