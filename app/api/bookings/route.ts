@@ -9,14 +9,16 @@ import { Booking, ApiResponse } from '@/lib/types';
 import { randomUUID } from 'crypto';
 import Razorpay from 'razorpay';
 import { createOrder } from '@/lib/razorpay';
-import { generateBookingId } from '@/lib/bookingIdGenerator';
+import { generateBookingId } from '@/lib/utils/booking-id';
 import { EmailService } from '@/lib/email/service';
 import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import { toUTC } from '@/lib/utils/timezone';
 import prisma from '@/lib/prisma';
 import { RazorpayOrder } from '@/lib/razorpay';
-import { formatDateToIST } from '@/lib/utils';
+import { formatIST, formatISTDateOnly, formatISTTimeOnly, isDateInFuture, getCurrentIST } from '@/lib/utils/time-formatter';
+import { validateBookingDates, BookingValidationError } from '@/lib/utils/booking-validator';
 import { toISTSql } from '@/lib/utils/sql-helpers';
+import { formatDateToIST } from '@/lib/utils'; // Keep this import for backward compatibility
 
 // Define standard support contact info
 const SUPPORT_EMAIL = 'contact@onnrides.com';
@@ -100,7 +102,8 @@ try {
 }
 
 // Replace any custom date formatting with our standardized function
-const formatDate = (date: Date) => formatDateToIST(date);
+// Use our new formatIST function but maintain backward compatibility
+const formatDate = (date: Date) => formatIST(date);
 
 // GET /api/bookings - List user's bookings
 export async function GET(request: NextRequest) {
@@ -286,11 +289,28 @@ export async function POST(request: NextRequest): Promise<Response> {
       }, { status: 400 });
     }
 
-    // Validate dates
-    const now = new Date();
+    // Validate dates using our new validator
+    const validationResult = validateBookingDates({
+      pickupDate,
+      dropoffDate
+    });
     
-    // IMPORTANT FIX: Parse dates directly from the ISO strings
-    // These are the exact times the user selected and should be stored as is
+    if (!validationResult.isValid) {
+      logger.warn('Invalid booking dates', { 
+        errors: validationResult.errors,
+        pickupDate,
+        dropoffDate,
+        currentTime: formatIST(getCurrentIST())
+      });
+      
+      return NextResponse.json({ 
+        success: false, 
+        error: validationResult.errors.map(e => e.message).join(', '),
+        validationErrors: validationResult.errors
+      }, { status: 400 });
+    }
+    
+    // Parse dates directly from the ISO strings
     const pickupDateTime = new Date(pickupDate);
     const dropoffDateTime = new Date(dropoffDate);
     
@@ -298,53 +318,22 @@ export async function POST(request: NextRequest): Promise<Response> {
     logger.info('Date validation and parsing:', {
       received: {
         pickupDate,
-        dropoffDate,
-        isISOString: pickupDate.includes('T') && pickupDate.includes('Z')
+        dropoffDate
       },
       parsed: {
-        pickupDateTime: pickupDateTime.toISOString(),
-        dropoffDateTime: dropoffDateTime.toISOString(),
-        now: now.toISOString(),
-        pickupHours: pickupDateTime.getUTCHours(),
-        pickupMinutes: pickupDateTime.getUTCMinutes(),
-        dropoffHours: dropoffDateTime.getUTCHours(),
-        dropoffMinutes: dropoffDateTime.getUTCMinutes(),
-      }
+        pickupDateTime: formatIST(pickupDateTime),
+        dropoffDateTime: formatIST(dropoffDateTime)
+      },
+      currentTime: formatIST(getCurrentIST())
     });
-
-    if (isNaN(pickupDateTime.getTime()) || isNaN(dropoffDateTime.getTime())) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Invalid date format for pickup or dropoff dates' 
-      }, { status: 400 });
-    }
-
-    // Compare dates without time components to avoid timezone issues
-    const nowDate = new Date(now.toISOString().split('T')[0]);
-    const pickupDateOnly = new Date(pickupDateTime.toISOString().split('T')[0]);
     
-    // Only check if pickup date is earlier than today's date (ignoring time)
-    if (pickupDateOnly < nowDate) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Pickup date cannot be in the past' 
-      }, { status: 400 });
-    }
-
-    if (dropoffDateTime <= pickupDateTime) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Drop-off date must be after pickup date' 
-      }, { status: 400 });
-    }
-
     // Calculate duration in hours
     const durationInHours = Math.ceil(
       (dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60)
     );
 
-    // Create booking in database
-    const bookingId = 'OR' + Math.random().toString(36).substring(2, 5).toUpperCase();
+    // Create booking in database with our reusable booking ID generator
+    const bookingId = generateBookingId();
     
     // IMPORTANT FIX: Store the dates as is without any timezone adjustment
     // These dates represent the exact times the user selected

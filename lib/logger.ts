@@ -1,8 +1,10 @@
 import winston from 'winston';
 import 'winston-daily-rotate-file';
 
-// Check if we're in a browser environment
-const isBrowser = typeof window !== 'undefined';
+// Check if we're in a browser environment in a way that works with ts-node
+const isBrowser = typeof process === 'undefined' || 
+                 !process.versions ||
+                 !process.versions.node;
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Define log levels and colors

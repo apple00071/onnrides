@@ -12,6 +12,7 @@ import {
   selectWithISTDates 
 } from '@/lib/utils/sql-helpers';
 import { withTimezoneProcessing } from '@/middleware/timezone-middleware';
+import { generateBookingId } from '@/lib/utils/booking-id';
 
 // Set this route as dynamic to allow headers modification
 export const dynamic = 'force-dynamic';
@@ -60,14 +61,14 @@ function formatAmount(amount: number | string | null): string {
 }
 
 // Helper function to generate unique booking ID
-function generateBookingId(): string {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = 'OR';
-  for (let i = 0; i < 3; i++) {
-    result += characters.charAt(Math.floor(Math.random() * characters.length));
-  }
-  return result;
-}
+// function generateBookingId(): string {
+//   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+//   let result = 'OR';
+//   for (let i = 0; i < 3; i++) {
+//     result += characters.charAt(Math.floor(Math.random() * characters.length));
+//   }
+//   return result;
+// }
 
 // Update the GET function to use our middleware
 const getBookingsHandler = async (request: NextRequest) => {
