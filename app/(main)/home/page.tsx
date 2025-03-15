@@ -89,41 +89,46 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
       <section className="relative h-[100vh] w-full overflow-hidden">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-r from-white to-[#f26e24]"></div>
+        {/* Background Image (Desktop) */}
+        <div className="hidden md:block absolute inset-0">
+          <Image
+            src="/hero.png"
+            alt="Discover The Wonders of Hyderabad"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
 
-        {/* Left Side Content */}
-        <div className="absolute left-0 top-0 h-full w-[40%]">
-          <div className="relative h-full flex items-center justify-center">
-            <Image
-              src="/images/charminar-illustration.png"
-              alt="Charminar Illustration"
-              width={800}
-              height={1000}
-              className="object-contain h-[90%] w-auto"
-              priority
-            />
-          </div>
+        {/* Background Image (Mobile) */}
+        <div className="block md:hidden absolute inset-0">
+          <Image
+            src="/hero-mobile.png"
+            alt="Discover The Wonders of Hyderabad"
+            fill
+            className="object-cover"
+            priority
+          />
         </div>
 
         {/* Search Form */}
-        <div className="absolute left-[20%] top-[40%] w-[800px]">
+        <div className="absolute left-[5%] md:left-[20%] top-[40%] w-[90%] md:w-[800px] z-10">
           <div className="bg-blue-100/80 backdrop-blur-sm rounded-lg p-8">
-            <div className="grid grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
                 <label className="block text-gray-600 mb-2 font-medium">Pickup</label>
-                <div className="flex gap-4">
+                <div className="flex flex-col md:flex-row gap-4">
                   <input
                     type="date"
                     value={pickupDate}
                     onChange={(e) => setPickupDate(e.target.value)}
-                    className="w-[250px] p-2.5 border rounded bg-white/90 text-gray-700"
+                    className="w-full md:w-[250px] p-2.5 border rounded bg-white/90 text-gray-700"
                     placeholder="dd-mm-yyyy"
                   />
                   <select
                     value={pickupTime}
                     onChange={(e) => setPickupTime(e.target.value)}
-                    className="w-[150px] p-2.5 border rounded bg-white/90 text-gray-700"
+                    className="w-full md:w-[150px] p-2.5 border rounded bg-white/90 text-gray-700"
                   >
                     <option value="">Select time</option>
                     {timeOptions.map(({ value, label }) => (
@@ -134,18 +139,18 @@ export default function Home() {
               </div>
               <div>
                 <label className="block text-gray-600 mb-2 font-medium">Dropoff</label>
-                <div className="flex gap-4">
+                <div className="flex flex-col md:flex-row gap-4">
                   <input
                     type="date"
                     value={dropoffDate}
                     onChange={(e) => setDropoffDate(e.target.value)}
-                    className="w-[250px] p-2.5 border rounded bg-white/90 text-gray-700"
+                    className="w-full md:w-[250px] p-2.5 border rounded bg-white/90 text-gray-700"
                     placeholder="dd-mm-yyyy"
                   />
                   <select
                     value={dropoffTime}
                     onChange={(e) => setDropoffTime(e.target.value)}
-                    className="w-[150px] p-2.5 border rounded bg-white/90 text-gray-700"
+                    className="w-full md:w-[150px] p-2.5 border rounded bg-white/90 text-gray-700"
                   >
                     <option value="">Select time</option>
                     {timeOptions.map(({ value, label }) => (
@@ -161,26 +166,6 @@ export default function Home() {
             >
               Search
             </button>
-          </div>
-        </div>
-
-        {/* Right Side Content */}
-        <div className="absolute right-0 top-0 h-full w-[60%] bg-[#f26e24]">
-          <div className="h-full flex flex-col justify-between">
-            <div className="text-white pt-32 pl-12">
-              <h1 className="text-5xl md:text-6xl font-bold">
-                Discover The Wonders<br />of Hyderabad
-              </h1>
-            </div>
-            <div className="relative w-full h-[400px]">
-              <Image
-                src="/images/vehicles.png"
-                alt="Vehicles"
-                fill
-                className="object-contain object-right-bottom"
-                priority
-              />
-            </div>
           </div>
         </div>
       </section>

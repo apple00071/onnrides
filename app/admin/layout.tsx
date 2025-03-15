@@ -93,10 +93,20 @@ export default async function AdminLayout({
                 if ('serviceWorker' in navigator) {
                   window.addEventListener('load', function() {
                     navigator.serviceWorker.register('/admin/sw.js', {
-                      scope: '/admin/'
+                      scope: '/admin'
                     }).then(
                       function(registration) {
                         console.log('Admin Service Worker registration successful with scope:', registration.scope);
+                        
+                        // Ensure the current URL is within the admin scope
+                        const isAdminPath = window.location.pathname.startsWith('/admin');
+                        if (window.location.pathname === '/admin') {
+                          // Redirect to dashboard if at root admin path
+                          window.location.href = '/admin/dashboard';
+                        } else if (!isAdminPath && registration.active) {
+                          // If outside admin scope, go to admin dashboard
+                          window.location.href = '/admin/dashboard';
+                        }
                       },
                       function(err) {
                         console.error('Admin Service Worker registration failed: ', err);
