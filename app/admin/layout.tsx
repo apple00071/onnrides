@@ -7,50 +7,43 @@ import AdminDashboardClient from '@/app/admin/AdminDashboardClient';
 import logger from '@/lib/logger';
 import { Metadata } from 'next';
 
-export const metadata: Metadata = {
-  title: 'OnnRides Admin Dashboard',
-  description: 'Admin dashboard for OnnRides vehicle rental service',
-  manifest: '/admin/manifest.json',
-  themeColor: '#f26e24',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'OnnRides Admin',
-    startupImage: [
-      {
-        url: '/admin/icon-512x512.png',
-        media: '(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)',
-      }
-    ]
-  },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
-  icons: {
-    icon: [
-      { url: '/admin/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/admin/icon-512x512.png', sizes: '512x512', type: 'image/png' },
-    ],
-    apple: [
-      { url: '/admin/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-    ],
-    shortcut: [
-      { url: '/admin/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-    ],
-  },
-};
-
-// Redirect root admin path to dashboard
-export function generateMetadata({ params, searchParams }: any) {
-  // If we're at exactly /admin, redirect to /admin/dashboard
-  if (typeof window !== 'undefined' && window.location.pathname === '/admin') {
-    redirect('/admin/dashboard');
-  }
-  
-  return {};
+// Provide metadata for admin pages
+export function generateMetadata(): Metadata {
+  return {
+    title: 'OnnRides Admin Dashboard',
+    description: 'Admin dashboard for OnnRides vehicle rental service',
+    manifest: '/admin/manifest.json',
+    themeColor: '#f26e24',
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: 'OnnRides Admin',
+      startupImage: [
+        {
+          url: '/admin/icon-512x512.png',
+          media: '(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)',
+        }
+      ]
+    },
+    viewport: {
+      width: 'device-width',
+      initialScale: 1,
+      maximumScale: 1,
+      userScalable: false,
+    },
+    icons: {
+      icon: [
+        { url: '/admin/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+        { url: '/admin/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+      ],
+      apple: [
+        { url: '/admin/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      ],
+      shortcut: [
+        { url: '/admin/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      ],
+    },
+  };
 }
 
 export default async function AdminLayout({
