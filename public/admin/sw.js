@@ -1,8 +1,8 @@
 // OnnRides Admin Service Worker
 // This service worker enables PWA functionality without offline caching
 
-const VERSION = 'v4';
-const ADMIN_SCOPE = '/admin';
+const VERSION = 'v5';
+const ADMIN_SCOPE = '/admin/';
 const ADMIN_DASHBOARD = '/admin/dashboard';
 
 // Install event - minimal setup without caching
@@ -42,14 +42,16 @@ self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate' && url.origin === self.location.origin) {
     // If this is a navigation request to the root path or outside admin scope
     if (url.pathname === '/' || 
-        (!url.pathname.startsWith(ADMIN_SCOPE) && url.pathname !== ADMIN_SCOPE)) {
+        (url.pathname !== '/admin' && 
+         url.pathname !== '/admin/' && 
+         !url.pathname.startsWith(ADMIN_SCOPE))) {
       console.log('[Admin Service Worker] Redirecting to admin dashboard from:', url.pathname);
       event.respondWith(Response.redirect(ADMIN_DASHBOARD));
       return;
     }
     
     // If this is the admin root path, redirect to dashboard
-    if (url.pathname === ADMIN_SCOPE) {
+    if (url.pathname === '/admin' || url.pathname === '/admin/') {
       console.log('[Admin Service Worker] Redirecting from admin root to dashboard');
       event.respondWith(Response.redirect(ADMIN_DASHBOARD));
       return;

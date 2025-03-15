@@ -20,8 +20,20 @@ export function generateMetadata(): Metadata {
       title: 'OnnRides Admin',
       startupImage: [
         {
-          url: '/admin/icon-512x512.png',
+          url: '/admin/startup-640x1136.png',
           media: '(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)',
+        },
+        {
+          url: '/admin/icon-512x512.png',
+          media: '(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)',
+        },
+        {
+          url: '/admin/icon-512x512.png',
+          media: '(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)',
+        },
+        {
+          url: '/admin/icon-512x512.png',
+          media: '(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)',
         }
       ]
     },
@@ -29,7 +41,6 @@ export function generateMetadata(): Metadata {
       width: 'device-width',
       initialScale: 1,
       maximumScale: 1,
-      userScalable: false,
     },
     icons: {
       icon: [
@@ -37,6 +48,9 @@ export function generateMetadata(): Metadata {
         { url: '/admin/icon-512x512.png', sizes: '512x512', type: 'image/png' },
       ],
       apple: [
+        { url: '/admin/apple-touch-icon-120x120.png', sizes: '120x120', type: 'image/png' },
+        { url: '/admin/apple-touch-icon-152x152.png', sizes: '152x152', type: 'image/png' },
+        { url: '/admin/apple-touch-icon-180x180.png', sizes: '180x180', type: 'image/png' },
         { url: '/admin/icon-192x192.png', sizes: '192x192', type: 'image/png' },
       ],
       shortcut: [
@@ -72,12 +86,37 @@ export default async function AdminLayout({
           <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-status-bar-style" content="default" />
           <meta name="apple-mobile-web-app-title" content="OnnRides Admin" />
-          <link rel="apple-touch-icon" href="/admin/icon-192x192.png" />
+          <link rel="apple-touch-icon" href="/admin/apple-touch-icon.png" />
+          <link rel="apple-touch-icon" sizes="120x120" href="/admin/apple-touch-icon-120x120.png" />
+          <link rel="apple-touch-icon" sizes="152x152" href="/admin/apple-touch-icon-152x152.png" />
+          <link rel="apple-touch-icon" sizes="180x180" href="/admin/apple-touch-icon-180x180.png" />
           <meta name="mobile-web-app-capable" content="yes" />
           <meta name="application-name" content="OnnRides Admin" />
           <meta name="format-detection" content="telephone=no" />
           <meta name="msapplication-TileColor" content="#f26e24" />
           <meta name="msapplication-config" content="none" />
+          
+          {/* Apple Splash Screen Images */}
+          <link
+            rel="apple-touch-startup-image"
+            href="/admin/icon-512x512.png"
+            media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)"
+          />
+          <link
+            rel="apple-touch-startup-image"
+            href="/admin/icon-512x512.png"
+            media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)"
+          />
+          <link
+            rel="apple-touch-startup-image"
+            href="/admin/icon-512x512.png"
+            media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)"
+          />
+          <link
+            rel="apple-touch-startup-image"
+            href="/admin/icon-512x512.png"
+            media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)"
+          />
         </head>
         <body className="antialiased">
           <Providers session={session}>
@@ -92,19 +131,15 @@ export default async function AdminLayout({
               __html: `
                 if ('serviceWorker' in navigator) {
                   window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/admin/sw.js', {
-                      scope: '/admin'
+                    navigator.serviceWorker.register('/admin/sw.js', { 
+                      scope: '/admin/'
                     }).then(
                       function(registration) {
                         console.log('Admin Service Worker registration successful with scope:', registration.scope);
                         
-                        // Ensure the current URL is within the admin scope
-                        const isAdminPath = window.location.pathname.startsWith('/admin');
-                        if (window.location.pathname === '/admin') {
-                          // Redirect to dashboard if at root admin path
-                          window.location.href = '/admin/dashboard';
-                        } else if (!isAdminPath && registration.active) {
-                          // If outside admin scope, go to admin dashboard
+                        // Check if we're on the admin root page
+                        if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
+                          // Redirect to dashboard if at admin root
                           window.location.href = '/admin/dashboard';
                         }
                       },

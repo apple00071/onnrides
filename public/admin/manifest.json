@@ -3,7 +3,7 @@
   "short_name": "OnnRides Admin",
   "description": "Online admin dashboard for OnnRides vehicle rental service management (requires internet connection)",
   "start_url": "/admin/dashboard",
-  "scope": "/admin",
+  "scope": "/admin/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#f26e24",
@@ -36,6 +36,24 @@
     }
   ],
   "icons": [
+    {
+      "src": "/admin/apple-touch-icon-120x120.png",
+      "sizes": "120x120",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/admin/apple-touch-icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/admin/apple-touch-icon-180x180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/admin/icon-192x192.png",
       "sizes": "192x192",

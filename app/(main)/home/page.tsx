@@ -90,45 +90,59 @@ export default function Home() {
       {/* Hero Section */}
       <section className="relative h-[100vh] w-full overflow-hidden">
         {/* Background Image (Desktop) */}
-        <div className="hidden md:block absolute inset-0">
+        <div className="hidden md:block absolute inset-0 z-0">
           <Image
             src="/hero.png"
             alt="Discover The Wonders of Hyderabad"
             fill
             className="object-cover"
+            sizes="100vw"
+            quality={90}
             priority
           />
         </div>
 
         {/* Background Image (Mobile) */}
-        <div className="block md:hidden absolute inset-0">
+        <div className="block md:hidden absolute inset-0 z-0">
           <Image
             src="/hero-mobile.png"
             alt="Discover The Wonders of Hyderabad"
             fill
             className="object-cover"
+            sizes="100vw"
+            quality={90}
             priority
           />
         </div>
 
+        {/* Hero Content Overlay */}
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-4 md:px-12">
+          <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-lg mb-6">
+            Discover The Wonders of Hyderabad
+          </h1>
+          <p className="text-xl md:text-2xl text-white drop-shadow-md mb-12 max-w-3xl">
+            Explore the city at your pace with our premium vehicles
+          </p>
+        </div>
+
         {/* Search Form */}
-        <div className="absolute left-[5%] md:left-[20%] top-[40%] w-[90%] md:w-[800px] z-10">
-          <div className="bg-blue-100/80 backdrop-blur-sm rounded-lg p-8">
+        <div className="absolute bottom-24 md:bottom-32 left-[5%] md:left-[20%] w-[90%] md:w-[800px] z-20">
+          <div className="bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-xl">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <label className="block text-gray-600 mb-2 font-medium">Pickup</label>
+                <label className="block text-gray-800 mb-2 font-medium">Pickup</label>
                 <div className="flex flex-col md:flex-row gap-4">
                   <input
                     type="date"
                     value={pickupDate}
                     onChange={(e) => setPickupDate(e.target.value)}
-                    className="w-full md:w-[250px] p-2.5 border rounded bg-white/90 text-gray-700"
+                    className="w-full md:w-[250px] p-2.5 border rounded bg-white text-gray-700"
                     placeholder="dd-mm-yyyy"
                   />
                   <select
                     value={pickupTime}
                     onChange={(e) => setPickupTime(e.target.value)}
-                    className="w-full md:w-[150px] p-2.5 border rounded bg-white/90 text-gray-700"
+                    className="w-full md:w-[150px] p-2.5 border rounded bg-white text-gray-700"
                   >
                     <option value="">Select time</option>
                     {timeOptions.map(({ value, label }) => (
@@ -138,19 +152,19 @@ export default function Home() {
                 </div>
               </div>
               <div>
-                <label className="block text-gray-600 mb-2 font-medium">Dropoff</label>
+                <label className="block text-gray-800 mb-2 font-medium">Dropoff</label>
                 <div className="flex flex-col md:flex-row gap-4">
                   <input
                     type="date"
                     value={dropoffDate}
                     onChange={(e) => setDropoffDate(e.target.value)}
-                    className="w-full md:w-[250px] p-2.5 border rounded bg-white/90 text-gray-700"
+                    className="w-full md:w-[250px] p-2.5 border rounded bg-white text-gray-700"
                     placeholder="dd-mm-yyyy"
                   />
                   <select
                     value={dropoffTime}
                     onChange={(e) => setDropoffTime(e.target.value)}
-                    className="w-full md:w-[150px] p-2.5 border rounded bg-white/90 text-gray-700"
+                    className="w-full md:w-[150px] p-2.5 border rounded bg-white text-gray-700"
                   >
                     <option value="">Select time</option>
                     {timeOptions.map(({ value, label }) => (
