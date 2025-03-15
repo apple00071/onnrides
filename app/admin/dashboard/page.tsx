@@ -10,8 +10,28 @@ import type { Session } from 'next-auth';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import logger from '@/lib/logger';
+import dynamic from 'next/dynamic';
+import useIsMobile from '../hooks/useIsMobile';
 
-export const dynamic = 'force-dynamic';
+// Rename the conflicting dynamic export
+export const dynamicConfig = 'force-dynamic';
+
+// Dynamically import the mobile dashboard with no SSR to avoid hydration issues
+const MobileDashboard = dynamic(() => import('../components/MobileDashboard'), {
+  ssr: false,
+  loading: () => (
+    <div className="p-4 space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white rounded-lg p-4 h-24 animate-pulse">
+            <div className="h-3 bg-gray-200 rounded w-2/3 mb-3"></div>
+            <div className="h-5 bg-gray-200 rounded w-1/3"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+});
 
 interface DashboardStats {
   totalUsers: number;
@@ -67,6 +87,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats>(defaultStats);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { isMobile } = useIsMobile();
 
   // Handle authentication
   useEffect(() => {
@@ -148,6 +169,11 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   };
+
+  // Show mobile dashboard for mobile devices
+  if (isMobile) {
+    return <MobileDashboard />;
+  }
 
   // Show loading state
   if (status === 'loading' || loading) {
@@ -248,19 +274,19 @@ export default function AdminDashboard() {
                           ? 'bg-green-100 text-green-800'
                           : booking.status === 'cancelled'
                           ? 'bg-red-100 text-red-800'
-                          : 'bg-blue-100 text-blue-800'
+                          : booking.status === 'confirmed'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-yellow-100 text-yellow-800'
                       }`}
                     >
-                      {booking.status}
+                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                     </span>
                   </div>
                 </div>
               </div>
             ))
           ) : (
-            <div className="bg-gray-50 rounded-lg p-4 text-center text-sm sm:text-base text-gray-500">
-              No recent bookings found
-            </div>
+            <p className="text-center text-gray-500 py-8">No recent bookings found</p>
           )}
         </div>
       </div>
