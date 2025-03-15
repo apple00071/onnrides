@@ -1,7 +1,9 @@
 // OnnRides Admin Service Worker
 // This service worker enables PWA functionality without offline caching
 
-const VERSION = 'v1';
+const VERSION = 'v3';
+const ADMIN_SCOPE = '/admin';
+const ADMIN_DASHBOARD = '/admin/dashboard';
 
 // Install event - minimal setup without caching
 self.addEventListener('install', (event) => {
@@ -18,8 +20,11 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          console.log('[Admin Service Worker] Deleting old cache:', cacheName);
-          return caches.delete(cacheName);
+          if (cacheName.includes('admin')) {
+            console.log('[Admin Service Worker] Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+          return Promise.resolve();
         })
       );
     }).then(() => {
@@ -29,10 +34,21 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - network-only strategy (no caching)
+// Fetch event - network-only strategy with scope enforcement
 self.addEventListener('fetch', (event) => {
-  // Let the browser handle all requests normally
-  // This ensures the app is always using the latest data from the server
+  const url = new URL(event.request.url);
+  
+  // Only handle navigation requests
+  if (event.request.mode === 'navigate') {
+    // If the URL is outside the admin scope but within our domain, redirect to admin dashboard
+    if (!url.pathname.startsWith(ADMIN_SCOPE) && url.origin === self.location.origin) {
+      console.log('[Admin Service Worker] Redirecting to admin dashboard from:', url.pathname);
+      event.respondWith(Response.redirect(ADMIN_DASHBOARD));
+      return;
+    }
+  }
+  
+  // For all other requests, use the network
   return;
 });
 
@@ -46,7 +62,7 @@ self.addEventListener('push', (event) => {
     icon: '/admin/icon-192x192.png',
     badge: '/admin/icon-192x192.png',
     data: {
-      url: '/admin/dashboard'
+      url: ADMIN_DASHBOARD
     }
   };
   
@@ -74,14 +90,14 @@ self.addEventListener('notificationclick', (event) => {
   
   event.notification.close();
   
-  const urlToOpen = event.notification.data?.url || '/admin/dashboard';
+  const urlToOpen = event.notification.data?.url || ADMIN_DASHBOARD;
   
   event.waitUntil(
     clients.matchAll({ type: 'window' })
       .then((clientList) => {
         // Check if a window is already open
         for (const client of clientList) {
-          if (client.url.includes('/admin') && 'focus' in client) {
+          if (client.url.includes(ADMIN_SCOPE) && 'focus' in client) {
             client.navigate(urlToOpen);
             return client.focus();
           }

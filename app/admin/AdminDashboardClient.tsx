@@ -6,10 +6,13 @@ import { FaHome, FaCar, FaUsers, FaBookmark, FaEnvelope, FaWhatsapp, FaQrcode, F
 import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarProvider } from '@/components/admin/Sidebar';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-// Dynamically import the AdminPWA component with no SSR
-const AdminPWA = dynamic(() => import('./components/AdminPWA'), { ssr: false });
+// Dynamically import the AdminPWA component with no SSR and with key
+const AdminPWA = dynamic(() => import('./components/AdminPWA'), { 
+  ssr: false,
+  loading: () => null
+});
 
 const menuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="h-5 w-5" /> },
@@ -86,10 +89,20 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  // Only render client components after mounting to prevent hydration errors
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   const handleSignOut = () => {
-    router.push('/admin/login');
+    router.push('/admin-login');
   };
+
+  if (!mounted) {
+    return <div className="min-h-screen bg-gray-100"></div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -148,7 +161,7 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
         </MainContent>
 
         {/* PWA Install Prompt */}
-        <AdminPWA />
+        {mounted && <AdminPWA key="admin-pwa" />}
       </SidebarProvider>
     </div>
   );

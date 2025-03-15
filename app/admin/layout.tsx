@@ -16,6 +16,12 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'OnnRides Admin',
+    startupImage: [
+      {
+        url: '/admin/icon-512x512.png',
+        media: '(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)',
+      }
+    ]
   },
   viewport: {
     width: 'device-width',
@@ -31,8 +37,21 @@ export const metadata: Metadata = {
     apple: [
       { url: '/admin/icon-192x192.png', sizes: '192x192', type: 'image/png' },
     ],
+    shortcut: [
+      { url: '/admin/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+    ],
   },
 };
+
+// Redirect root admin path to dashboard
+export function generateMetadata({ params, searchParams }: any) {
+  // If we're at exactly /admin, redirect to /admin/dashboard
+  if (typeof window !== 'undefined' && window.location.pathname === '/admin') {
+    redirect('/admin/dashboard');
+  }
+  
+  return {};
+}
 
 export default async function AdminLayout({
   children,
@@ -55,7 +74,6 @@ export default async function AdminLayout({
     return (
       <html lang="en">
         <head>
-          <title>OnnRides Admin Dashboard</title>
           <link rel="manifest" href="/admin/manifest.json" />
           <meta name="theme-color" content="#f26e24" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -67,24 +85,6 @@ export default async function AdminLayout({
           <meta name="format-detection" content="telephone=no" />
           <meta name="msapplication-TileColor" content="#f26e24" />
           <meta name="msapplication-config" content="none" />
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                if ('serviceWorker' in navigator) {
-                  window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/admin/sw.js').then(
-                      function(registration) {
-                        console.log('Admin Service Worker registration successful');
-                      },
-                      function(err) {
-                        console.log('Admin Service Worker registration failed: ', err);
-                      }
-                    );
-                  });
-                }
-              `,
-            }}
-          />
         </head>
         <body className="antialiased">
           <Providers session={session}>
@@ -93,6 +93,27 @@ export default async function AdminLayout({
             </AdminDashboardClient>
             <SpeedInsights />
           </Providers>
+          {/* Service Worker Registration Script */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                if ('serviceWorker' in navigator) {
+                  window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/admin/sw.js', {
+                      scope: '/admin/'
+                    }).then(
+                      function(registration) {
+                        console.log('Admin Service Worker registration successful with scope:', registration.scope);
+                      },
+                      function(err) {
+                        console.error('Admin Service Worker registration failed: ', err);
+                      }
+                    );
+                  });
+                }
+              `,
+            }}
+          />
         </body>
       </html>
     );
