@@ -66,13 +66,18 @@ const menuItems = [
 function MainContent({ children }: { children: React.ReactNode }) {
   const { open } = useSidebar();
   const pathname = usePathname();
-  const { isMobile } = useIsMobile();
+  const { isMobile, isPWA } = useIsMobile();
+  
+  // Determine correct padding based on device and mode
+  const topPadding = isMobile 
+    ? (isPWA ? "pt-2" : "pt-[60px]") // In PWA mode, minimal padding; otherwise, space for mobile header
+    : "pt-[60px]"; // Desktop always needs padding for the sidebar header
   
   return (
     <main 
       className={cn(
         "min-h-screen bg-gray-50 transition-all duration-300 w-full overflow-y-auto",
-        isMobile ? "pt-2" : "pt-[60px]", // Less padding on mobile as the header is in the individual pages
+        topPadding,
         open 
           ? "md:pl-[300px]" // Expanded sidebar width
           : "md:pl-[60px]"  // Collapsed sidebar width
@@ -158,6 +163,7 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { isMobile, isPWA } = useIsMobile();
   
   // Only render client components after mounting to prevent hydration errors
   useEffect(() => {
@@ -168,12 +174,15 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
     return <div className="min-h-screen bg-gray-100"></div>;
   }
 
+  // Only show the mobile header when not in PWA mode
+  const shouldShowMobileHeader = isMobile && !isPWA;
+
   return (
     <MobileAdminWrapper>
       <div className="flex h-screen bg-white dark:bg-gray-900 overflow-hidden">
         <SidebarProvider open={sidebarOpen} setOpen={setSidebarOpen} animate={true}>
-          {/* Mobile Header */}
-          <MobileHeader />
+          {/* Mobile Header - only shown when not in PWA mode */}
+          {shouldShowMobileHeader && <MobileHeader />}
 
           <Sidebar>
             <SidebarBody>

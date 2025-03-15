@@ -6,6 +6,7 @@ import { FaHome, FaList, FaUsers, FaCar, FaSignOutAlt, FaCog, FaBell, FaUserCirc
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 interface MobileAdminWrapperProps {
   children: React.ReactNode;
@@ -163,7 +164,10 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
 
       {/* Mobile bottom navigation */}
       <motion.nav 
-        className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 shadow-lg border-t border-gray-200 dark:border-gray-800 z-20"
+        className={cn(
+          "fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 shadow-xl border-t border-gray-200 dark:border-gray-800 z-20",
+          isMobilePWA && "pb-safe" // Add safe area padding for iOS home bar
+        )}
         initial={{ y: 0 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.3 }}

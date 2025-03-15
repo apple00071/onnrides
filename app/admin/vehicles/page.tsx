@@ -162,7 +162,7 @@ export default function VehiclesPage() {
     );
   } else {
     content = (
-      <div className="w-full max-w-none">
+      <div className="w-full max-w-none overflow-hidden">
         <PageHeader title="Vehicles Management" className="w-full">
           <PageHeaderActions>
             <Button
