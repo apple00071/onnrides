@@ -147,6 +147,19 @@ export default async function AdminLayout({
                         console.error('Admin Service Worker registration failed: ', err);
                       }
                     );
+                    
+                    // Unregister any existing service workers outside our scope
+                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                      for(let registration of registrations) {
+                        // Skip our admin service worker
+                        if (registration.scope.includes('/admin/')) continue;
+                        
+                        // Unregister any other service workers
+                        registration.unregister().then(function() {
+                          console.log('ServiceWorker unregistered to avoid conflicts');
+                        });
+                      }
+                    });
                   });
                 }
               `,

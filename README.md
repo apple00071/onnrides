@@ -102,6 +102,12 @@ await whatsapp.sendBookingConfirmation({
 
 ## Recent Updates
 
+### Admin PWA Support
+
+The admin dashboard now supports installation as a Progressive Web App (PWA). Administrators can install the dashboard as a standalone app on desktop and mobile devices.
+
+See [Admin PWA Documentation](docs/admin-pwa.md) for more details.
+
 ### URL Consistency
 
 The application now consistently redirects `/home` to the root URL (`/`) to ensure:

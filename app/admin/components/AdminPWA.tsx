@@ -86,7 +86,11 @@ export default function AdminPWA() {
         setInstallStatus('success');
         
         // Show a message to the user about where to find the app
-        alert('Installation successful! You can now access the OnnRides Admin app from your home screen or app drawer.');
+        alert(`Installation successful! 
+        
+IMPORTANT: When you launch the OnnRides Admin app from your home screen, always make sure to navigate to the admin section (/admin/dashboard). 
+
+If you accidentally navigate to the main site, the app will continue to show the main site until you manually go back to the admin section.`);
       } else {
         console.log('OnnRides Admin: User dismissed the install prompt');
         setInstallStatus('idle');

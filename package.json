@@ -13,6 +13,7 @@
     "cleanup:logs": "ts-node scripts/replace-console-logs.ts",
     "test:db": "ts-node -r dotenv/config scripts/test-db-connection.ts",
     "generate:favicons": "node scripts/generate-favicons.js && node scripts/create-root-favicon.js && node scripts/sync-favicons.js",
+    "generate:admin-icons": "node scripts/generate-admin-icons.js",
     "fix:booking-dates": "ts-node -r dotenv/config scripts/fix-booking-dates.ts",
     "test:notifications": "ts-node -r dotenv/config scripts/test-notifications.ts",
     "maintenance": "ts-node -r dotenv/config scripts/maintenance-mode.ts",
