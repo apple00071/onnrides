@@ -10,6 +10,7 @@ import AddCouponModal from './components/AddCouponModal';
 import EditCouponModal from './components/EditCouponModal';
 import DeleteCouponModal from './components/DeleteCouponModal';
 import logger from '@/lib/logger';
+import { Plus } from 'lucide-react';
 
 interface Coupon {
   id: string;
@@ -83,12 +84,16 @@ export default function CouponsPage() {
     });
   };
 
+  const handleAddCoupon = () => {
+    setIsAddModalOpen(true);
+  };
+
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="w-full py-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-900">Coupons</h1>
-        <Button onClick={() => setIsAddModalOpen(true)} className="bg-[#f26e24] hover:bg-[#e05d13]">
-          <FaPlus className="mr-2 h-4 w-4" />
+        <h1 className="text-2xl font-semibold">Coupon Management</h1>
+        <Button onClick={handleAddCoupon} className="bg-primary hover:bg-primary/90">
+          <Plus className="w-4 h-4 mr-2" />
           Add Coupon
         </Button>
       </div>

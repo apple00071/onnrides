@@ -46,61 +46,69 @@ export default function MobileDashboard() {
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Simulate data loading
+  // Fetch data on component mount
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
-  // Simulated data fetch function - replace with actual API call
+  // Fetch data from the API
   const fetchDashboardData = async () => {
     setIsRefreshing(true);
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 600));
-    
-    // Simulated data - replace with actual API call
-    setData({
-      stats: {
-        totalUsers: 11,
-        totalRevenue: 3124,
-        revenueChange: '+67%',
-        totalBookings: 6,
-        bookingsChange: '+200%',
-        totalVehicles: 17
-      },
-      recentBookings: [
-        {
-          id: 'b1',
-          userName: 'Vamsi Satya Vishnu Ganta',
-          userEmail: 'vishnuganta01@gmail.com',
-          vehicleName: 'Apache RTR 200',
-          startDate: '12 May 2023',
-          status: 'confirmed',
-          amount: 850
-        },
-        {
-          id: 'b2',
-          userName: 'Rajeev Kumar',
-          userEmail: 'rajeevk@example.com',
-          vehicleName: 'Honda City',
-          startDate: '15 May 2023',
-          status: 'pending',
-          amount: 1200
-        },
-        {
-          id: 'b3',
-          userName: 'Priya Sharma',
-          userEmail: 'priyas@example.com',
-          vehicleName: 'Royal Enfield Classic 350',
-          startDate: '10 May 2023',
-          status: 'completed',
-          amount: 950
+    try {
+      const response = await fetch('/api/admin/dashboard', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
         }
-      ],
-      isLoading: false
-    });
-    
-    setIsRefreshing(false);
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch dashboard data');
+      }
+      
+      // Transform API data to match our component's data structure
+      setData({
+        stats: {
+          totalUsers: result.data.totalUsers || 0,
+          totalRevenue: result.data.totalRevenue || 0,
+          revenueChange: `${result.data.revenueGrowth > 0 ? '+' : ''}${result.data.revenueGrowth}%`,
+          totalBookings: result.data.totalBookings || 0,
+          bookingsChange: `${result.data.bookingGrowth > 0 ? '+' : ''}${result.data.bookingGrowth}%`,
+          totalVehicles: result.data.totalVehicles || 0
+        },
+        recentBookings: Array.isArray(result.data.recentBookings) 
+          ? result.data.recentBookings.map((booking: any) => ({
+              id: String(booking.id || ''),
+              userName: booking.user?.name || 'Unknown',
+              userEmail: booking.user?.email || 'N/A',
+              vehicleName: booking.vehicle?.name || 'Unknown Vehicle',
+              startDate: new Date(booking.startDate).toLocaleDateString(),
+              status: booking.status as 'pending' | 'confirmed' | 'completed' | 'cancelled',
+              amount: Number(booking.amount || 0)
+            }))
+          : [],
+        isLoading: false
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      
+      // Set empty data with loading false
+      setData(prev => ({
+        ...prev,
+        isLoading: false
+      }));
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Handle pull-to-refresh

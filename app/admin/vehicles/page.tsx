@@ -17,7 +17,7 @@ import {
 import { formatCurrency } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Vehicle } from '@/lib/types';
+import { Vehicle } from '@/app/(main)/vehicles/types';
 import { cn } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 import { PageHeader, PageHeaderActions } from '@/components/ui/page-header';
@@ -28,51 +28,33 @@ function formatLocations(location: string | string[] | undefined): string[] {
   
   if (typeof location === 'string') {
     try {
-      // Try to parse if it's a JSON string
-      const parsed = JSON.parse(location);
-      if (Array.isArray(parsed)) {
-        return parsed.map(loc => loc.replace(/[\[\]"{}]/g, '').trim()).filter(Boolean);
-      }
-      return [location.replace(/[\[\]"{}]/g, '').trim()];
-    } catch (e) {
-      // If parsing fails, split by comma
-      return location.split(',').map(loc => loc.replace(/[\[\]"{}]/g, '').trim()).filter(Boolean);
+      return JSON.parse(location);
+    } catch {
+      return [location];
     }
   }
   
-  if (Array.isArray(location)) {
-    return location.map(loc => {
-      if (typeof loc === 'string') {
-        return loc.replace(/[\[\]"{}]/g, '').trim();
-      }
-      return String(loc).trim();
-    }).filter(Boolean);
-  }
-  
-  return [];
+  return location;
 }
 
-// Helper function to convert API vehicle data to our Vehicle type
+// Helper function to convert API vehicle to UI vehicle format
 function convertToVehicle(data: any): Vehicle {
   return {
     id: data.id,
     name: data.name,
     type: data.type,
-    model: data.model || '',
-    year: data.year || new Date().getFullYear(),
-    daily_rate: data.daily_rate || 0,
-    price_per_hour: data.price_per_hour,
-    availability: data.is_available,
-    location: data.location,
-    images: data.images,
-    description: data.description,
+    price_per_hour: parseFloat(data.price_per_hour),
+    price_7_days: data.price_7_days ? parseFloat(data.price_7_days) : null,
+    price_15_days: data.price_15_days ? parseFloat(data.price_15_days) : null,
+    price_30_days: data.price_30_days ? parseFloat(data.price_30_days) : null,
+    location: formatLocations(data.location),
+    images: Array.isArray(data.images) 
+      ? data.images 
+      : (data.images ? [data.images] : []),
     quantity: data.quantity || 1,
-    price_per_day: data.price_per_day || 0,
-    min_booking_days: data.min_booking_days || 1,
-    is_available: data.is_available,
-    status: data.status || 'active',
-    created_at: data.created_at || new Date().toISOString(),
-    updated_at: data.updated_at || new Date().toISOString()
+    min_booking_hours: data.min_booking_hours || 1,
+    is_available: data.is_available === true || data.is_available === 'true',
+    available: data.is_available === true || data.is_available === 'true',
   };
 }
 
@@ -180,8 +162,8 @@ export default function VehiclesPage() {
     );
   } else {
     content = (
-      <div className="container mx-auto px-4 py-8">
-        <PageHeader title="Vehicles Management">
+      <div className="w-full max-w-none">
+        <PageHeader title="Vehicles Management" className="w-full">
           <PageHeaderActions>
             <Button
               type="button"
@@ -194,98 +176,100 @@ export default function VehiclesPage() {
           </PageHeaderActions>
         </PageHeader>
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Image</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Price/Hour</TableHead>
-                <TableHead>Locations</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {vehicles.map((vehicle) => (
-                <TableRow key={vehicle.id}>
-                  <TableCell>
-                    {vehicle.images && (
-                      Array.isArray(vehicle.images) && vehicle.images[0] ? (
-                        <img
-                          src={vehicle.images[0]}
-                          alt={vehicle.name}
-                          className="w-16 h-16 object-cover rounded"
-                        />
-                      ) : typeof vehicle.images === 'string' ? (
-                        <img
-                          src={vehicle.images}
-                          alt={vehicle.name}
-                          className="w-16 h-16 object-cover rounded"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
-                          <span className="text-gray-500">No image</span>
-                        </div>
-                      )
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-base text-gray-900">
-                      {vehicle.name}
-                    </span>
-                  </TableCell>
-                  <TableCell>{vehicle.type}</TableCell>
-                  <TableCell>{formatCurrency(vehicle.price_per_hour)}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {formatLocations(vehicle.location).map((loc, index) => (
-                        <span
-                          key={index}
-                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                        >
-                          {loc}
-                        </span>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={cn(
-                        'px-2 py-1 rounded-full text-xs font-medium',
-                        vehicle.is_available
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      )}
-                    >
-                      {vehicle.is_available ? 'Available' : 'Unavailable'}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(vehicle)}
-                        className="font-goodtimes"
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(vehicle.id)}
-                        className="font-goodtimes"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </TableCell>
+        <div className="bg-white rounded-lg shadow overflow-hidden w-full max-w-none">
+          <div className="w-full overflow-x-auto">
+            <Table className="w-full table-auto">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[80px]">Image</TableHead>
+                  <TableHead className="w-[15%]">Name</TableHead>
+                  <TableHead className="w-[10%]">Type</TableHead>
+                  <TableHead className="w-[10%]">Price/Hour</TableHead>
+                  <TableHead className="w-[25%]">Locations</TableHead>
+                  <TableHead className="w-[10%]">Status</TableHead>
+                  <TableHead className="w-[15%]">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {vehicles.map((vehicle) => (
+                  <TableRow key={vehicle.id}>
+                    <TableCell>
+                      {vehicle.images && (
+                        Array.isArray(vehicle.images) && vehicle.images[0] ? (
+                          <img
+                            src={vehicle.images[0]}
+                            alt={vehicle.name}
+                            className="w-16 h-16 object-cover rounded"
+                          />
+                        ) : typeof vehicle.images === 'string' ? (
+                          <img
+                            src={vehicle.images}
+                            alt={vehicle.name}
+                            className="w-16 h-16 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                            <span className="text-gray-500">No image</span>
+                          </div>
+                        )
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-base text-gray-900">
+                        {vehicle.name}
+                      </span>
+                    </TableCell>
+                    <TableCell>{vehicle.type}</TableCell>
+                    <TableCell>{formatCurrency(vehicle.price_per_hour)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {formatLocations(vehicle.location).map((loc, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                          >
+                            {loc}
+                          </span>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={cn(
+                          'px-2 py-1 rounded-full text-xs font-medium',
+                          vehicle.is_available
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        )}
+                      >
+                        {vehicle.is_available ? 'Available' : 'Unavailable'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(vehicle)}
+                          className="font-goodtimes"
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDelete(vehicle.id)}
+                          className="font-goodtimes"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </div>
     );

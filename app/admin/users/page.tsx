@@ -9,6 +9,7 @@ import { User } from '@/lib/types';
 import UserDetailsModal from './components/UserDetailsModal';
 import UserDocumentsModal from './components/UserDocumentsModal';
 import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 interface Document {
   id: string;
@@ -168,31 +169,31 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Users Management</h1>
-      
-      {users.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-gray-500">No users found</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border border-gray-200 shadow-sm rounded-lg">
-            <thead className="bg-gray-50">
+    <div className="w-full py-8">
+      <Card className="w-full overflow-hidden">
+        <CardHeader>
+          <CardTitle>User Management</CardTitle>
+          <CardDescription>View and manage all registered users</CardDescription>
+        </CardHeader>
+        <div className="w-full overflow-x-auto">
+          <table className="w-full table-auto">
+            <thead className="bg-gray-50 text-xs uppercase text-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Documents</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bookings</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left">Name</th>
+                <th className="px-6 py-3 text-left">Email</th>
+                <th className="px-6 py-3 text-left">Phone</th>
+                <th className="px-6 py-3 text-left">Registered</th>
+                <th className="px-6 py-3 text-left">Status</th>
+                <th className="px-6 py-3 text-left">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-200">
               {users.map((user) => (
                 <tr key={user.id}>
                   <td className="px-6 py-4 whitespace-nowrap">{user.name || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{user.phone || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{user.created_at}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       user.role === 'admin'
@@ -202,25 +203,7 @@ export default function UsersPage() {
                       {user.role}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {user.documents ? (
-                      <span className="text-sm">
-                        {user.documents.approved}/{user.documents.total}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-gray-500">0/0</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {user.bookings ? (
-                      <span className="text-sm">
-                        {user.bookings.completed}/{user.bookings.total}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-gray-500">0/0</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap flex space-x-2">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -254,8 +237,8 @@ export default function UsersPage() {
             </tbody>
           </table>
         </div>
-      )}
-
+      </Card>
+      
       {selectedUser && (
         <UserDetailsModal
           user={selectedUser}

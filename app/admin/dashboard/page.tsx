@@ -16,21 +16,9 @@ import useIsMobile from '../hooks/useIsMobile';
 // Rename the conflicting dynamic export
 export const dynamicConfig = 'force-dynamic';
 
-// Dynamically import the mobile dashboard with no SSR to avoid hydration issues
+// Import the MobileDashboard component with SSR disabled
 const MobileDashboard = dynamic(() => import('../components/MobileDashboard'), {
-  ssr: false,
-  loading: () => (
-    <div className="p-4 space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-white rounded-lg p-4 h-24 animate-pulse">
-            <div className="h-3 bg-gray-200 rounded w-2/3 mb-3"></div>
-            <div className="h-5 bg-gray-200 rounded w-1/3"></div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  ssr: false
 });
 
 interface DashboardStats {
@@ -53,6 +41,12 @@ interface DashboardStats {
     vehicle: {
       name: string;
     };
+  }>;
+  recentActivity: Array<{
+    type: string;
+    message: string;
+    timestamp: string;
+    icon?: string;
   }>;
 }
 
@@ -78,7 +72,8 @@ const defaultStats: DashboardStats = {
   totalVehicles: 0,
   bookingGrowth: 0,
   revenueGrowth: 0,
-  recentBookings: []
+  recentBookings: [],
+  recentActivity: []
 };
 
 export default function AdminDashboard() {
@@ -143,6 +138,9 @@ export default function AdminDashboard() {
         totalVehicles: data.data.totalVehicles || 0,
         bookingGrowth: data.data.bookingGrowth || 0,
         revenueGrowth: data.data.revenueGrowth || 0,
+        recentActivity: Array.isArray(data.data.recentActivity) 
+          ? data.data.recentActivity
+          : [],
         recentBookings: Array.isArray(data.data.recentBookings) 
           ? data.data.recentBookings.map((booking: BookingData) => ({
               id: String(booking.id || ''),
@@ -170,126 +168,151 @@ export default function AdminDashboard() {
     }
   };
 
-  // Show mobile dashboard for mobile devices
+  // Use the mobile dashboard component on mobile devices
   if (isMobile) {
     return <MobileDashboard />;
   }
 
-  // Show loading state
-  if (status === 'loading' || loading) {
-    return (
-      <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="p-3 sm:p-4 md:p-6">
-              <Skeleton className="h-4 w-24 mb-2" />
-              <Skeleton className="h-8 w-32" />
-            </Card>
-          ))}
-        </div>
-        <div className="space-y-3 sm:space-y-4">
-          <Skeleton className="h-7 sm:h-8 w-36 sm:w-48" />
-          <div className="space-y-2 sm:space-y-3">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-[4.5rem] sm:h-16 w-full" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state
-  if (error) {
-    return (
-      <div className="p-3 sm:p-4 md:p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800 text-sm sm:text-base">{error}</p>
-          <button 
-            onClick={() => fetchDashboardData()}
-            className="mt-2 text-red-600 hover:text-red-800 font-medium text-sm sm:text-base"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show dashboard content
+  // Desktop dashboard layout with better space utilization
   return (
-    <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-        <Card className="p-3 sm:p-4 md:p-6">
-          <h3 className="text-xs sm:text-sm text-gray-500">Total Users</h3>
-          <p className="text-xl sm:text-2xl md:text-3xl font-bold mt-1">{stats.totalUsers}</p>
-        </Card>
-
-        <Card className="p-3 sm:p-4 md:p-6">
-          <h3 className="text-xs sm:text-sm text-gray-500">Total Revenue</h3>
-          <p className="text-xl sm:text-2xl md:text-3xl font-bold mt-1">{formatCurrency(stats.totalRevenue)}</p>
-          <span className={`text-xs sm:text-sm ${stats.revenueGrowth >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
-            {stats.revenueGrowth >= 0 ? '+' : ''}{stats.revenueGrowth}% this month
-          </span>
-        </Card>
-
-        <Card className="p-3 sm:p-4 md:p-6">
-          <h3 className="text-xs sm:text-sm text-gray-500">Total Bookings</h3>
-          <p className="text-xl sm:text-2xl md:text-3xl font-bold mt-1">{stats.totalBookings}</p>
-          <span className={`text-xs sm:text-sm ${stats.bookingGrowth >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
-            {stats.bookingGrowth >= 0 ? '+' : ''}{stats.bookingGrowth}% this month
-          </span>
-        </Card>
-
-        <Card className="p-3 sm:p-4 md:p-6">
-          <h3 className="text-xs sm:text-sm text-gray-500">Total Vehicles</h3>
-          <p className="text-xl sm:text-2xl md:text-3xl font-bold mt-1">{stats.totalVehicles}</p>
-        </Card>
-      </div>
-
-      <div className="space-y-3 sm:space-y-4">
-        <h2 className="text-base sm:text-lg font-semibold">Recent Bookings</h2>
-        <div className="space-y-2 sm:space-y-3">
-          {stats.recentBookings.length > 0 ? (
-            stats.recentBookings.map((booking) => (
-              <div
-                key={booking.id}
-                className="bg-white rounded-lg shadow p-3 sm:p-4"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-                  <div className="space-y-1">
-                    <p className="font-medium text-sm sm:text-base">{booking.user.name}</p>
-                    <p className="text-xs sm:text-sm text-gray-500">{booking.user.email}</p>
-                    <p className="text-xs sm:text-sm text-gray-500">{booking.vehicle.name}</p>
-                  </div>
-                  <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:gap-1 border-t sm:border-t-0 pt-2 sm:pt-0">
-                    <p className="text-xs sm:text-sm font-medium order-1 sm:order-none">
-                      {booking.startDate && format(new Date(booking.startDate), 'MMM dd')} -{' '}
-                      {booking.endDate && format(new Date(booking.endDate), 'MMM dd')}
-                    </p>
-                    <p className="text-sm font-medium order-2 sm:order-none">{formatCurrency(booking.amount)}</p>
-                    <span
-                      className={`text-[10px] sm:text-xs px-2 py-1 rounded-full order-3 sm:order-none ${
-                        booking.status === 'completed'
-                          ? 'bg-green-100 text-green-800'
-                          : booking.status === 'cancelled'
-                          ? 'bg-red-100 text-red-800'
-                          : booking.status === 'confirmed'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}
-                    >
-                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                    </span>
-                  </div>
+    <div>
+      {loading ? (
+        <div className="flex justify-center items-center min-h-[50vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+        </div>
+      ) : error ? (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <p>{error}</p>
+        </div>
+      ) : (
+        <>
+          {/* Stats Cards Row - Expand to fill available width */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-gray-500 text-sm">Total Users</h3>
+              <p className="text-3xl font-bold">{stats.totalUsers}</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-gray-500 text-sm">Total Revenue</h3>
+              <p className="text-3xl font-bold">₹{stats.totalRevenue.toLocaleString()}</p>
+              <p className="text-xs text-green-500">+{stats.revenueGrowth}% this month</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-gray-500 text-sm">Total Bookings</h3>
+              <p className="text-3xl font-bold">{stats.totalBookings}</p>
+              <p className="text-xs text-green-500">+{stats.bookingGrowth}% this month</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h3 className="text-gray-500 text-sm">Total Vehicles</h3>
+              <p className="text-3xl font-bold">{stats.totalVehicles}</p>
+            </div>
+          </div>
+          
+          {/* Two-column layout for remaining content */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Recent Bookings Column */}
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Recent Bookings</h2>
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {stats.recentBookings.map((booking) => (
+                        <tr key={booking.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="font-medium text-gray-900">{booking.user.name}</div>
+                            <div className="text-sm text-gray-500">{booking.user.email}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{booking.vehicle.name}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {new Date(booking.startDate).toLocaleDateString()}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              booking.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              booking.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                              booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {booking.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ₹{booking.amount.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            ))
-          ) : (
-            <p className="text-center text-gray-500 py-8">No recent bookings found</p>
-          )}
-        </div>
-      </div>
+            </div>
+            
+            {/* Analytics and Activity Column */}
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Activity Summary</h2>
+              <div className="bg-white rounded-lg shadow p-6 mb-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Revenue Trend</h3>
+                <div className="h-64 flex items-center justify-center bg-gray-50 rounded border">
+                  <div className="text-gray-400">Revenue chart visualization would appear here</div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
+                <div className="space-y-4">
+                  {stats.recentActivity && stats.recentActivity.length > 0 ? (
+                    stats.recentActivity.map((activity, index) => (
+                      <div key={index} className="flex">
+                        <div className="flex-shrink-0">
+                          <div className={`h-8 w-8 rounded-full ${
+                            activity.type === 'booking' ? 'bg-blue-100' :
+                            activity.type === 'payment' ? 'bg-green-100' :
+                            activity.type === 'vehicle' ? 'bg-orange-100' :
+                            activity.type === 'user' ? 'bg-purple-100' :
+                            'bg-gray-100'
+                          } flex items-center justify-center`}>
+                            <svg className={`h-5 w-5 ${
+                              activity.type === 'booking' ? 'text-blue-600' :
+                              activity.type === 'payment' ? 'text-green-600' :
+                              activity.type === 'vehicle' ? 'text-orange-600' :
+                              activity.type === 'user' ? 'text-purple-600' :
+                              'text-gray-600'
+                            }`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <p className="text-sm font-medium text-gray-900">{activity.message}</p>
+                          <p className="text-sm text-gray-500">{activity.timestamp}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-500">No recent activity</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 } 

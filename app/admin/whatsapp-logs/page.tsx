@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -96,93 +96,84 @@ export default function WhatsAppLogsPage() {
     }
 
     return (
-        <div className="container mx-auto py-8">
-            <Card>
+        <div className="w-full py-8">
+            <Card className="w-full overflow-hidden">
                 <CardHeader>
-                    <CardTitle>WhatsApp Message Logs</CardTitle>
+                    <CardTitle>WhatsApp Logs</CardTitle>
+                    <CardDescription>History of all WhatsApp messages sent through the platform</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b">
-                                    <th className="py-2 px-4 text-left">Time</th>
-                                    <th className="py-2 px-4 text-left">Recipient</th>
-                                    <th className="py-2 px-4 text-left">Message</th>
-                                    <th className="py-2 px-4 text-left">Vehicle</th>
-                                    <th className="py-2 px-4 text-left">Type</th>
-                                    <th className="py-2 px-4 text-left">Status</th>
-                                    <th className="py-2 px-4 text-left">Error</th>
+                <div className="w-full overflow-x-auto">
+                    <table className="w-full table-auto">
+                        <thead className="bg-gray-50 text-xs uppercase text-gray-700">
+                            <tr>
+                                <th className="px-6 py-3 text-left">Time</th>
+                                <th className="px-6 py-3 text-left">Phone</th>
+                                <th className="px-6 py-3 text-left">Message</th>
+                                <th className="px-6 py-3 text-left">Status</th>
+                                <th className="px-6 py-3 text-left">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {logs.map((log) => (
+                                <tr key={log.id} className="border-b">
+                                    <td className="py-2 px-4">
+                                        {new Date(log.created_at).toLocaleString('en-IN', {
+                                            timeZone: 'Asia/Kolkata',
+                                            day: '2-digit',
+                                            month: 'short',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit',
+                                            hour12: true
+                                        })}
+                                    </td>
+                                    <td className="py-2 px-4">{log.recipient}</td>
+                                    <td className="py-2 px-4 max-w-md truncate">
+                                        {log.message}
+                                    </td>
+                                    <td className="py-2 px-4">
+                                        {getStatusBadge(log.status)}
+                                    </td>
+                                    <td className="py-2 px-4 text-red-500">
+                                        {log.error || '-'}
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {logs.map((log) => (
-                                    <tr key={log.id} className="border-b">
-                                        <td className="py-2 px-4">
-                                            {new Date(log.created_at).toLocaleString('en-IN', {
-                                                timeZone: 'Asia/Kolkata',
-                                                day: '2-digit',
-                                                month: 'short',
-                                                year: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                                second: '2-digit',
-                                                hour12: true
-                                            })}
-                                        </td>
-                                        <td className="py-2 px-4">{log.recipient}</td>
-                                        <td className="py-2 px-4 max-w-md truncate">
-                                            {log.message}
-                                        </td>
-                                        <td className="py-2 px-4">
-                                            {log.vehicle_name || '-'}
-                                        </td>
-                                        <td className="py-2 px-4">
-                                            {log.message_type}
-                                        </td>
-                                        <td className="py-2 px-4">
-                                            {getStatusBadge(log.status)}
-                                        </td>
-                                        <td className="py-2 px-4 text-red-500">
-                                            {log.error || '-'}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Pagination */}
-                    <div className="flex items-center justify-between mt-4">
-                        <div className="text-sm text-gray-500">
-                            Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to{' '}
-                            {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}
-                            {pagination.totalItems} entries
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(pagination.currentPage - 1)}
-                                disabled={pagination.currentPage === 1}
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            <span className="text-sm">
-                                Page {pagination.currentPage} of {pagination.totalPages}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(pagination.currentPage + 1)}
-                                disabled={pagination.currentPage === pagination.totalPages}
-                            >
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
-                </CardContent>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </Card>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between mt-4 w-full">
+                <div className="text-sm text-gray-500">
+                    Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to{' '}
+                    {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}
+                    {pagination.totalItems} entries
+                </div>
+                <div className="flex items-center space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(pagination.currentPage - 1)}
+                        disabled={pagination.currentPage === 1}
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm">
+                        Page {pagination.currentPage} of {pagination.totalPages}
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(pagination.currentPage + 1)}
+                        disabled={pagination.currentPage === pagination.totalPages}
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
         </div>
     );
 } 

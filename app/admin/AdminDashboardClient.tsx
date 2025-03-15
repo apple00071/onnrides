@@ -7,6 +7,7 @@ import { Sidebar, SidebarBody, SidebarLink, useSidebar, SidebarProvider } from '
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 
 // Dynamically import the AdminPWA component with no SSR and with key
 const AdminPWA = dynamic(() => import('./components/AdminPWA'), { 
@@ -40,15 +41,15 @@ function MainContent({ children }: { children: React.ReactNode }) {
   return (
     <main 
       className={cn(
-        "min-h-screen bg-gray-100 transition-all duration-300",
+        "min-h-screen bg-gray-50 transition-all duration-300 w-full overflow-y-auto",
         "pt-[60px]", // Padding for mobile header
         open 
           ? "md:pl-[300px]" // Expanded sidebar width
           : "md:pl-[60px]"  // Collapsed sidebar width
       )}
     >
-      <div className="p-4 sm:p-6 max-w-[1600px] mx-auto">
-        <div className="mb-6">
+      <div className="p-2 sm:p-4 md:p-6 w-full h-auto max-w-none">
+        <div className="mb-4 md:mb-6 w-full">
           <h1 className="text-xl sm:text-2xl text-gray-900 font-semibold">
             {menuItems.find(item => item.href === pathname)?.label || 'Dashboard'}
           </h1>
@@ -65,7 +66,7 @@ function MobileHeader() {
   
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50 md:hidden">
-      <div className="flex items-center justify-between h-full px-4">
+      <div className="flex items-center justify-between h-full px-2">
         <button
           onClick={() => setOpen(!open)}
           className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
@@ -91,6 +92,34 @@ function MobileHeader() {
   );
 }
 
+// Sign out button component that uses the sidebar context
+function SignOutButton() {
+  const router = useRouter();
+  const { open } = useSidebar();
+  
+  const handleSignOut = () => {
+    router.push('/admin-login');
+  };
+  
+  return (
+    <button
+      onClick={handleSignOut}
+      className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-600 hover:text-[#f26e24] hover:bg-orange-50 rounded-md transition-colors"
+    >
+      <FaSignOutAlt className="h-5 w-5 mr-3" />
+      <motion.span
+        animate={{
+          display: open ? "inline-block" : "none",
+          opacity: open ? 1 : 0,
+        }}
+        className="uppercase tracking-wider whitespace-pre"
+      >
+        Sign Out
+      </motion.span>
+    </button>
+  );
+}
+
 export default function AdminDashboardClient({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -101,10 +130,6 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
   useEffect(() => {
     setMounted(true);
   }, []);
-  
-  const handleSignOut = () => {
-    router.push('/admin-login');
-  };
 
   if (!mounted) {
     return <div className="min-h-screen bg-gray-100"></div>;
@@ -112,7 +137,7 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
 
   return (
     <MobileAdminWrapper>
-      <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+      <div className="flex h-screen bg-white dark:bg-gray-900 overflow-hidden">
         <SidebarProvider open={sidebarOpen} setOpen={setSidebarOpen} animate={true}>
           {/* Mobile Header */}
           <MobileHeader />
@@ -150,13 +175,7 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
                 </nav>
 
                 <div className="border-t border-gray-200 p-4">
-                  <button
-                    onClick={handleSignOut}
-                    className="flex items-center w-full px-4 py-2 text-sm font-medium text-gray-600 hover:text-[#f26e24] hover:bg-orange-50 rounded-md transition-colors font-goodtimes"
-                  >
-                    <FaSignOutAlt className="h-5 w-5 mr-3" />
-                    <span>Sign Out</span>
-                  </button>
+                  <SignOutButton />
                 </div>
               </div>
             </SidebarBody>

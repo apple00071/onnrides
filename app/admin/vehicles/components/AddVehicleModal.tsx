@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { VEHICLE_TYPES, VehicleType } from '@/lib/schema';
-import { Vehicle } from '@/lib/types';
+import { Vehicle } from '@/app/(main)/vehicles/types';
 import {
   Dialog,
   DialogContent,

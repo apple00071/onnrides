@@ -37,6 +37,14 @@ interface BookingStatsRow {
   total_revenue: string;
 }
 
+// Add an interface for recent activity data
+interface ActivityRow {
+  type: string;
+  message: string;
+  timestamp: string;
+  entity_id: string | null;
+}
+
 // Default response data structure
 const defaultData = {
   totalUsers: 0,
@@ -45,7 +53,8 @@ const defaultData = {
   totalVehicles: 0,
   bookingGrowth: 0,
   revenueGrowth: 0,
-  recentBookings: []
+  recentBookings: [],
+  recentActivity: []
 };
 
 export async function GET(request: NextRequest) {
@@ -71,9 +80,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Initialize with default values
+    let userStatsResult: any = { rows: [{ total: '0' }] };
+    let vehicleStatsResult: any = { rows: [{ total: '0' }] };
+    let bookingStatsResult: any = { rows: [{ total_bookings: '0', total_revenue: '0' }] };
+    let lastMonthStatsResult: any = { rows: [{ total_bookings: '0', total_revenue: '0' }] };
+    let recentBookingsResult: any = { rows: [] };
+    let recentActivityResult: any = { rows: [] };
+
     // Test database connection
-    const dbTest = await query<TestRow>('SELECT 1 as test');
-    if (!dbTest?.rows?.[0]?.test) {
+    try {
+      const dbTest = await query('SELECT 1 as test');
+      if (!dbTest?.rows?.[0]?.test) {
+        throw new Error('Database connection failed');
+      }
+    } catch (error) {
+      logger.error('Database connection test failed:', error);
       return new Response(
         JSON.stringify({
           success: false,
@@ -89,21 +111,41 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch all stats in parallel
-    const [userStats, vehicleStats, bookingStats, lastMonthStats, recentBookings] = await Promise.all([
-      query<UserRow>('SELECT COUNT(id) as total FROM users WHERE role != $1', ['admin']),
-      query<VehicleRow>('SELECT COUNT(id) as total FROM vehicles WHERE status = $1', ['active']),
-      query<BookingStatsRow>(`
+    // Fetch all stats in parallel with individual error handling
+    try {
+      userStatsResult = await query('SELECT COUNT(id) as total FROM users WHERE role != $1', ['admin']);
+    } catch (error) {
+      logger.error('Error fetching user stats:', error);
+    }
+
+    try {
+      vehicleStatsResult = await query('SELECT COUNT(id) as total FROM vehicles WHERE status = $1', ['active']);
+    } catch (error) {
+      logger.error('Error fetching vehicle stats:', error);
+    }
+
+    try {
+      bookingStatsResult = await query(`
         SELECT COUNT(id) as total_bookings, COALESCE(SUM(NULLIF(total_price, 0)), 0) as total_revenue
         FROM bookings WHERE status = 'confirmed' AND created_at >= date_trunc('month', CURRENT_DATE)
-      `),
-      query<BookingStatsRow>(`
+      `);
+    } catch (error) {
+      logger.error('Error fetching booking stats:', error);
+    }
+
+    try {
+      lastMonthStatsResult = await query(`
         SELECT COUNT(id) as total_bookings, COALESCE(SUM(NULLIF(total_price, 0)), 0) as total_revenue
         FROM bookings WHERE status = 'confirmed'
         AND created_at >= date_trunc('month', CURRENT_DATE - interval '1' month)
         AND created_at < date_trunc('month', CURRENT_DATE)
-      `),
-      query<BookingRow>(`
+      `);
+    } catch (error) {
+      logger.error('Error fetching last month stats:', error);
+    }
+
+    try {
+      recentBookingsResult = await query(`
         SELECT b.id, b.total_price as amount, b.status, b.start_date, b.end_date,
                u.name as user_name, u.email as user_email, v.name as vehicle_name
         FROM bookings b
@@ -111,8 +153,67 @@ export async function GET(request: NextRequest) {
         LEFT JOIN vehicles v ON b.vehicle_id = v.id
         WHERE b.status != 'cancelled'
         ORDER BY b.created_at DESC LIMIT 5
-      `)
-    ]);
+      `);
+    } catch (error) {
+      logger.error('Error fetching recent bookings:', error);
+    }
+
+    try {
+      // Query to fetch recent activity from various sources
+      recentActivityResult = await query(`
+        WITH booking_activity AS (
+          SELECT 
+            'booking' as type,
+            CASE 
+              WHEN b.status = 'confirmed' THEN 'Booking confirmed'
+              WHEN b.status = 'pending' THEN 'New booking created'
+              ELSE 'Booking ' || b.status
+            END as message,
+            b.created_at as activity_time,
+            b.id as entity_id
+          FROM bookings b
+          ORDER BY b.created_at DESC
+          LIMIT 3
+        ),
+        vehicle_activity AS (
+          SELECT 
+            'vehicle' as type,
+            'New vehicle added: ' || v.name as message,
+            v.created_at as activity_time,
+            v.id as entity_id
+          FROM vehicles v
+          ORDER BY v.created_at DESC
+          LIMIT 2
+        ),
+        user_activity AS (
+          SELECT 
+            'user' as type,
+            'New user registered: ' || u.name as message,
+            u.created_at as activity_time,
+            u.id as entity_id
+          FROM users u
+          WHERE u.role = 'user'
+          ORDER BY u.created_at DESC
+          LIMIT 2
+        )
+        SELECT 
+          type, 
+          message, 
+          to_char(activity_time, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as timestamp,
+          entity_id
+        FROM (
+          SELECT * FROM booking_activity
+          UNION ALL
+          SELECT * FROM vehicle_activity
+          UNION ALL
+          SELECT * FROM user_activity
+        ) all_activity
+        ORDER BY activity_time DESC
+        LIMIT 5
+      `);
+    } catch (error) {
+      logger.error('Error fetching recent activity:', error);
+    }
 
     // Calculate growth percentages
     const calculateGrowth = (current: number, previous: number): number => {
@@ -121,19 +222,19 @@ export async function GET(request: NextRequest) {
     };
 
     const dashboardData = {
-      totalUsers: parseInt(userStats.rows[0]?.total || '0'),
-      totalRevenue: parseFloat(bookingStats.rows[0]?.total_revenue || '0'),
-      totalBookings: parseInt(bookingStats.rows[0]?.total_bookings || '0'),
-      totalVehicles: parseInt(vehicleStats.rows[0]?.total || '0'),
+      totalUsers: parseInt(userStatsResult.rows[0]?.total || '0'),
+      totalRevenue: parseFloat(bookingStatsResult.rows[0]?.total_revenue || '0'),
+      totalBookings: parseInt(bookingStatsResult.rows[0]?.total_bookings || '0'),
+      totalVehicles: parseInt(vehicleStatsResult.rows[0]?.total || '0'),
       bookingGrowth: calculateGrowth(
-        parseInt(bookingStats.rows[0]?.total_bookings || '0'),
-        parseInt(lastMonthStats.rows[0]?.total_bookings || '0')
+        parseInt(bookingStatsResult.rows[0]?.total_bookings || '0'),
+        parseInt(lastMonthStatsResult.rows[0]?.total_bookings || '0')
       ),
       revenueGrowth: calculateGrowth(
-        parseFloat(bookingStats.rows[0]?.total_revenue || '0'),
-        parseFloat(lastMonthStats.rows[0]?.total_revenue || '0')
+        parseFloat(bookingStatsResult.rows[0]?.total_revenue || '0'),
+        parseFloat(lastMonthStatsResult.rows[0]?.total_revenue || '0')
       ),
-      recentBookings: recentBookings.rows.map((booking: BookingRow) => ({
+      recentBookings: recentBookingsResult.rows.map((booking: BookingRow) => ({
         id: booking.id,
         amount: parseFloat(booking.amount || '0'),
         status: booking.status,
@@ -146,7 +247,33 @@ export async function GET(request: NextRequest) {
         vehicle: {
           name: booking.vehicle_name || 'Unknown'
         }
-      }))
+      })),
+      // Process and format recent activity data
+      recentActivity: recentActivityResult.rows.map((activity: ActivityRow) => {
+        // Convert ISO timestamp to relative time (e.g., "5 minutes ago")
+        const timestamp = new Date(activity.timestamp);
+        const now = new Date();
+        const diffMs = now.getTime() - timestamp.getTime();
+        const diffMins = Math.round(diffMs / 60000);
+        const diffHours = Math.round(diffMs / 3600000);
+        const diffDays = Math.round(diffMs / 86400000);
+        
+        let relativeTime;
+        if (diffMins < 60) {
+          relativeTime = `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+        } else if (diffHours < 24) {
+          relativeTime = `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+        } else {
+          relativeTime = `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+        }
+        
+        return {
+          type: activity.type,
+          message: activity.message,
+          timestamp: relativeTime,
+          entityId: activity.entity_id
+        };
+      })
     };
 
     // Create and return the response

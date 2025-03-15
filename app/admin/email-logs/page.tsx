@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Send, Loader2 } from 'lucide-react';
@@ -135,102 +135,95 @@ export default function EmailLogsPage() {
     }
 
     return (
-        <div className="container mx-auto py-8">
-            <Card>
+        <div className="w-full py-8">
+            <Card className="w-full">
                 <CardHeader>
                     <CardTitle>Email Logs</CardTitle>
+                    <CardDescription>History of all emails sent through the platform</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b">
-                                    <th className="py-2 px-4 text-left">Time</th>
-                                    <th className="py-2 px-4 text-left">Recipient</th>
-                                    <th className="py-2 px-4 text-left">Subject</th>
-                                    <th className="py-2 px-4 text-left">Vehicle</th>
-                                    <th className="py-2 px-4 text-left">Status</th>
-                                    <th className="py-2 px-4 text-left">Error</th>
-                                    <th className="py-2 px-4 text-left">Actions</th>
+                <div className="w-full overflow-x-auto">
+                    <table className="w-full table-auto">
+                        <thead className="bg-gray-50 text-xs uppercase text-gray-700">
+                            <tr>
+                                <th className="px-6 py-3 text-left">ID</th>
+                                <th className="px-6 py-3 text-left">To</th>
+                                <th className="px-6 py-3 text-left">Subject</th>
+                                <th className="px-6 py-3 text-left">Status</th>
+                                <th className="px-6 py-3 text-left">Date</th>
+                                <th className="px-6 py-3 text-left">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {logs.map((log) => (
+                                <tr key={log.id} className="border-b">
+                                    <td className="py-2 px-4">{log.id}</td>
+                                    <td className="py-2 px-4">{log.recipient}</td>
+                                    <td className="py-2 px-4 max-w-md truncate">
+                                        {log.subject}
+                                    </td>
+                                    <td className="py-2 px-4">
+                                        {getStatusBadge(log.status)}
+                                    </td>
+                                    <td className="py-2 px-4">
+                                        {new Date(log.created_at).toLocaleString('en-IN', {
+                                            timeZone: 'Asia/Kolkata',
+                                            day: '2-digit',
+                                            month: 'short',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit',
+                                            hour12: true
+                                        })}
+                                    </td>
+                                    <td className="py-2 px-4">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleResendEmail(log.id)}
+                                            disabled={resending === log.id}
+                                        >
+                                            {resending === log.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Send className="h-4 w-4" />
+                                            )}
+                                            <span className="ml-2">Resend</span>
+                                        </Button>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {logs.map((log) => (
-                                    <tr key={log.id} className="border-b">
-                                        <td className="py-2 px-4">
-                                            {new Date(log.created_at).toLocaleString('en-IN', {
-                                                timeZone: 'Asia/Kolkata',
-                                                day: '2-digit',
-                                                month: 'short',
-                                                year: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                                second: '2-digit',
-                                                hour12: true
-                                            })}
-                                        </td>
-                                        <td className="py-2 px-4">{log.recipient}</td>
-                                        <td className="py-2 px-4 max-w-md truncate">
-                                            {log.subject}
-                                        </td>
-                                        <td className="py-2 px-4">
-                                            {log.vehicle_name || '-'}
-                                        </td>
-                                        <td className="py-2 px-4">
-                                            {getStatusBadge(log.status)}
-                                        </td>
-                                        <td className="py-2 px-4 text-red-500">
-                                            {log.error || '-'}
-                                        </td>
-                                        <td className="py-2 px-4">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleResendEmail(log.id)}
-                                                disabled={resending === log.id}
-                                            >
-                                                {resending === log.id ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <Send className="h-4 w-4" />
-                                                )}
-                                                <span className="ml-2">Resend</span>
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
 
-                    {/* Pagination */}
-                    <div className="flex justify-between items-center mt-4">
-                        <div className="text-sm text-gray-500">
-                            Total: {pagination.totalItems} items
-                        </div>
-                        <div className="flex gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(pagination.currentPage - 1)}
-                                disabled={pagination.currentPage === 1}
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            <span className="py-2">
-                                Page {pagination.currentPage} of {pagination.totalPages}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePageChange(pagination.currentPage + 1)}
-                                disabled={pagination.currentPage === pagination.totalPages}
-                            >
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
-                        </div>
+                {/* Pagination */}
+                <div className="flex justify-between items-center mt-4 w-full">
+                    <div className="text-sm text-gray-500">
+                        Total: {pagination.totalItems} items
                     </div>
-                </CardContent>
+                    <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(pagination.currentPage - 1)}
+                            disabled={pagination.currentPage === 1}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="py-2">
+                            Page {pagination.currentPage} of {pagination.totalPages}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(pagination.currentPage + 1)}
+                            disabled={pagination.currentPage === pagination.totalPages}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
             </Card>
         </div>
     );

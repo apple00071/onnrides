@@ -292,17 +292,9 @@ export default function BookingsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="w-full py-8">
         <h1 className="text-2xl font-bold mb-6">Bookings Management</h1>
         
         <div className="text-center py-8">
@@ -319,162 +311,171 @@ export default function BookingsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-2xl font-bold mb-6">Bookings Management</h1>
-      
-      {loading ? (
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="w-8 h-8 animate-spin" />
-        </div>
-      ) : error ? (
-        <div className="text-center py-8">
-          <p className="text-red-500">{error}</p>
-          <button 
-            onClick={() => fetchBookings(1)} 
-            className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
-      ) : bookings.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-gray-500">No bookings found</p>
-        </div>
-      ) : (
-        <>
-          <div className="overflow-x-auto">
-            <div className="grid gap-6">
-              {bookings.map((booking) => (
-                <Card key={booking.id} className="p-6 hover:shadow-md transition-shadow">
-                  <div className="flex flex-col md:flex-row justify-between gap-4">
-                    <div>
-                      <h3 className="font-semibold mb-2">
-                        {booking.vehicle?.name || 'Vehicle info not available'}
-                        <span className="ml-2 text-sm text-gray-500">
-                          #{booking.booking_id || 'No ID'}
-                        </span>
-                      </h3>
-                      <p className="text-sm text-gray-600 mb-1">
-                        Customer: {booking.user?.name || 'Name not available'}
-                      </p>
-                      <p className="text-sm text-gray-600 mb-1">
-                        Email: {booking.user?.email || 'Email not available'}
-                      </p>
-                      <p className="text-sm text-gray-600 mb-2">
-                        Phone: {booking.user?.phone || 'N/A'}
-                      </p>
-                      <div className="mt-2 text-sm text-gray-600">
-                        <div className="flex flex-col gap-2">
-                          <div>
-                            <span className="font-semibold">Pickup:</span>{' '}
-                            {booking.formatted_pickup || formatDateTime(booking.pickup_datetime || booking.start_date)}
-                          </div>
-                          <div>
-                            <span className="font-semibold">Drop-off:</span>{' '}
-                            {booking.formatted_dropoff || formatDateTime(booking.dropoff_datetime || booking.end_date)}
-                          </div>
-                          <div>
-                            <span className="font-semibold">Location:</span>{' '}
-                            {formatLocation(booking.location)}
-                          </div>
-                        </div>
+    <>
+      <div className="w-full py-8">
+        <Card className="w-full overflow-hidden">
+          <div className="p-4 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-1">Booking Management</h2>
+              <p className="text-sm text-gray-500">
+                {bookings.length} bookings found
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {/* Filter buttons would go here */}
+            </div>
+          </div>
+          <div className="w-full overflow-x-auto max-h-[calc(100vh-250px)] overflow-y-auto">
+            <table className="w-full table-auto">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vehicle</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pickup</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dropoff</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-4 text-center">
+                      <div className="flex justify-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-orange-500">
+                    </td>
+                  </tr>
+                ) : bookings.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-4 text-center text-gray-500">
+                      No bookings found
+                    </td>
+                  </tr>
+                ) : (
+                  bookings.map((booking) => (
+                    <tr key={booking.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-4 text-sm text-gray-900">
+                        {booking.booking_id || 'N/A'}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-900">
+                        {booking.vehicle?.name || 'N/A'}
+                      </td>
+                      <td className="px-4 py-4 text-sm">
+                        <div>{booking.user?.name || 'N/A'}</div>
+                        <div className="text-xs text-gray-500">{booking.user?.phone || 'N/A'}</div>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-900">
+                        {booking.formatted_pickup || formatDateTime(booking.pickup_datetime || booking.start_date)}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-900">
+                        {booking.formatted_dropoff || formatDateTime(booking.dropoff_datetime || booking.end_date)}
+                      </td>
+                      <td className="px-4 py-4 text-sm font-medium text-gray-900">
                         {formatCurrency(booking.total_price)}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {formatDateTime(booking.created_at)}
-                      </p>
-                      <span className={`inline-block px-2 py-1 rounded-full text-xs ${
-                        booking.status === 'cancelled'
-                          ? 'bg-red-100 text-red-800'
-                          : booking.payment_status === 'completed'
-                          ? 'bg-green-100 text-green-800'
-                          : booking.payment_status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {booking.status === 'cancelled'
-                          ? 'Cancelled'
-                          : booking.payment_status === 'completed'
-                          ? 'Confirmed'
-                          : booking.payment_status === 'pending'
-                          ? 'Payment Pending'
-                          : booking.status}
-                      </span>
-                      <div className="mt-2 space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewBooking(booking)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewHistory(booking)}
-                        >
-                          <History className="h-4 w-4 mr-1" />
-                        History
-                        </Button>
-                        {booking.status !== 'cancelled' && (
+                      </td>
+                      <td className="px-4 py-4 text-sm">
+                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                          booking.status === 'cancelled'
+                            ? 'bg-red-100 text-red-800'
+                            : booking.payment_status === 'completed'
+                            ? 'bg-green-100 text-green-800'
+                            : booking.payment_status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {booking.status === 'cancelled'
+                            ? 'Cancelled'
+                            : booking.payment_status === 'completed'
+                            ? 'Confirmed'
+                            : booking.payment_status === 'pending'
+                            ? 'Payment Pending'
+                            : booking.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-sm">
+                        <div className="flex space-x-2">
                           <Button
-                            variant="destructive"
+                            variant="outline"
                             size="sm"
-                            onClick={() => handleCancelClick(booking)}
+                            onClick={() => handleViewBooking(booking)}
                           >
-                            Cancel
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
                           </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewHistory(booking)}
+                          >
+                            <History className="h-4 w-4 mr-1" />
+                            History
+                          </Button>
+                          {booking.status !== 'cancelled' && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleCancelClick(booking)}
+                            >
+                              Cancel
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-
+          
           {/* Pagination */}
-          <div className="mt-6 flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              Showing {((currentPage - 1) * 10) + 1} to {Math.min(currentPage * 10, totalItems)} of {totalItems} bookings
+          {!loading && bookings.length > 0 && (
+            <div className="px-4 py-3 flex items-center justify-between border-t border-gray-200">
+              <div className="flex-1 flex justify-between items-center">
+                <p className="text-sm text-gray-700">
+                  Showing {((currentPage - 1) * 10) + 1} to {Math.min(currentPage * 10, totalItems)} of {totalItems} bookings
+                </p>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <div className="flex space-x-1">
+                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                      const page = i + 1;
+                      return (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePageChange(page)}
+                        >
+                          {page}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  className={`px-3 py-1 rounded ${
-                    currentPage === page
-                      ? 'bg-[#f26e24] text-white'
-                      : 'border border-gray-300'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+          )}
+        </Card>
+      </div>
 
       {/* View Booking Modal */}
       <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
@@ -663,6 +664,6 @@ export default function BookingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 } 
