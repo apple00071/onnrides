@@ -62,6 +62,24 @@ npm run migrate
 npm run dev
 ```
 
+## Deployment
+
+### Preparing for Vercel Deployment
+
+Before deploying to Vercel, run the prepare script to optimize your deployment:
+
+```bash
+npm run prepare:vercel
+```
+
+This script:
+1. Checks for compatibility issues with Vercel
+2. Automatically fixes known configuration problems
+3. Optimizes images and removes unnecessary files
+4. Cleans the cache and prepares the codebase for deployment
+
+For more information on optimizing your Vercel deployment, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## Features
 
 - Vehicle rental booking system

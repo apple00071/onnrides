@@ -19,7 +19,9 @@
     "build:optimized": "npm run optimize:images && npm run cleanup:vercel && npm run build",
     "analyze": "ANALYZE=true next build",
     "find:duplicates": "node scripts/find-duplicates.js",
-    "cleanup:cache": "rimraf .next/cache"
+    "cleanup:cache": "rimraf .next/cache",
+    "fix:nextjs-config": "node scripts/fix-nextjs-config.js",
+    "prepare:vercel": "node scripts/prepare-vercel-deploy.js"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.734.0",

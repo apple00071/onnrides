@@ -30,8 +30,6 @@ const nextConfig = {
     minimumCacheTTL: 60,
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
     imageSizes: [16, 32, 48, 64, 96, 128, 256],
-    // Lower quality for better compression (default is 75)
-    quality: 70
   },
   webpack: (config, { isServer, dev }) => {
     // Remove console.* calls in production
