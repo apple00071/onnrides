@@ -14,14 +14,7 @@
     "test:db": "ts-node -r dotenv/config scripts/test-db-connection.ts",
     "generate:favicons": "node scripts/generate-favicons.js && node scripts/create-root-favicon.js && node scripts/sync-favicons.js",
     "fix:booking-dates": "ts-node -r dotenv/config scripts/fix-booking-dates.ts",
-    "optimize:images": "node scripts/optimize-images.js",
-    "cleanup:vercel": "node scripts/clean-vercel-deploy.js",
-    "build:optimized": "npm run optimize:images && npm run cleanup:vercel && npm run build",
-    "analyze": "ANALYZE=true next build",
-    "find:duplicates": "node scripts/find-duplicates.js",
-    "cleanup:cache": "rimraf .next/cache",
-    "fix:nextjs-config": "node scripts/fix-nextjs-config.js",
-    "prepare:vercel": "node scripts/prepare-vercel-deploy.js"
+    "test:notifications": "ts-node -r dotenv/config scripts/test-notifications.ts"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.734.0",

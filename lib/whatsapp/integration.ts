@@ -3,6 +3,7 @@
 import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import { User } from '@/lib/types';
 import logger from '@/lib/logger';
+import { formatIST } from '@/lib/utils/time-formatter';
 
 export async function sendBookingNotification(
     user: User,
@@ -31,13 +32,16 @@ export async function sendBookingNotification(
         }
 
         const whatsappService = WhatsAppService.getInstance();
-        const formattedDate = new Date(bookingDetails.startDate).toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        await whatsappService.initialize();
+
+        // Format date string if it's a Date object
+        const formattedStartDate = typeof bookingDetails.startDate === 'object' 
+            ? formatIST(bookingDetails.startDate)
+            : bookingDetails.startDate;
+            
+        const formattedEndDate = typeof bookingDetails.endDate === 'object'
+            ? formatIST(bookingDetails.endDate)
+            : bookingDetails.endDate;
 
         switch (bookingDetails.status) {
             case 'confirmed':
@@ -46,8 +50,8 @@ export async function sendBookingNotification(
                     customerPhone: user.phone,
                     vehicleType: 'Vehicle',
                     vehicleModel: bookingDetails.vehicleName,
-                    startDate: formattedDate,
-                    endDate: bookingDetails.endDate,
+                    startDate: formattedStartDate,
+                    endDate: formattedEndDate,
                     bookingId: bookingDetails.bookingId
                 });
 

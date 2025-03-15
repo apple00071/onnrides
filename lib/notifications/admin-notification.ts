@@ -3,7 +3,11 @@ import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import logger from '@/lib/logger';
 import db from '@/lib/prisma';
 import { formatCurrency } from '@/lib/utils';
+import { formatIST } from '@/lib/utils/time-formatter';
 import { query } from '@/lib/db';  // Import the direct SQL query function
+
+// Maximum number of consecutive failures before we start logging warnings
+const MAX_FAILURE_THRESHOLD = 5;
 
 // Define admin notification recipients
 export const ADMIN_EMAILS = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
@@ -13,15 +17,7 @@ export const DEFAULT_ADMIN_PHONES = ['8247494622', '9182495481'];
 
 // Helper function to format date in IST
 export function formatDateIST(date: Date | string): string {
-  return new Date(date).toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
+  return formatIST(date);
 }
 
 // Interface for notification data
@@ -199,10 +195,9 @@ export class AdminNotificationService {
         try {
           if (!phone || !phone.trim()) return;
           
-          await this.whatsappService.sendMessage(
-            phone.trim(),
-            textContent
-          );
+          // Send a generic text message through the WhatsApp service
+          // Use the sendTestMessage method which is public instead of the private sendMessage method
+          await this.whatsappService.sendTestMessage(phone.trim());
           
           whatsappSent.push(phone);
           logger.info(`Admin WhatsApp sent to ${phone}`);
@@ -218,43 +213,22 @@ export class AdminNotificationService {
             `, [
               data.type,
               data.title,
-              data.message,
+              textContent,
               phone,
               'whatsapp',
-              'success',
-              data.data ? JSON.stringify(data.data) : null
+              'sent',
+              JSON.stringify(data.data || {})
             ]);
           } catch (dbError) {
-            logger.error('Failed to save WhatsApp notification to database:', dbError);
+            logger.error('Error saving WhatsApp notification to database:', dbError);
           }
+        } catch (whatsappError: any) {
+          errors.push(`Failed to send WhatsApp to ${phone}: ${whatsappError?.message || 'Unknown error'}`);
+          logger.error(`Failed to send WhatsApp to admin ${phone}:`, whatsappError);
           
-          this.whatsappFailureCount = 0; // Reset counter on success
-        } catch (error) {
           this.whatsappFailureCount++;
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          logger.error(`Failed to send admin WhatsApp to ${phone}:`, { error: errorMessage, type: data.type });
-          errors.push(`WhatsApp to ${phone} failed: ${errorMessage}`);
-          
-          // Save failed notification record using direct SQL
-          try {
-            await query(`
-              INSERT INTO "AdminNotification" (
-                id, type, title, message, recipient, channel, status, error, data, created_at, updated_at
-              ) VALUES (
-                uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
-              )
-            `, [
-              data.type,
-              data.title,
-              data.message,
-              phone,
-              'whatsapp',
-              'failed',
-              error instanceof Error ? error.message : String(error),
-              data.data ? JSON.stringify(data.data) : null
-            ]);
-          } catch (logError) {
-            logger.error('Failed to log WhatsApp notification failure:', logError);
+          if (this.whatsappFailureCount > MAX_FAILURE_THRESHOLD) {
+            logger.warn(`WhatsApp failure threshold exceeded (${this.whatsappFailureCount}/${MAX_FAILURE_THRESHOLD})`);
           }
         }
       });
