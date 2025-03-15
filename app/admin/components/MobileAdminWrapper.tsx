@@ -92,55 +92,60 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
     router.push('/admin/profile');
   };
 
+  // Don't show mobile header when in PWA mode - rely on the page headers instead
+  const shouldShowMobileHeader = isMobile && !isPWA;
+
   return (
     <div className="flex flex-col min-h-screen relative bg-gray-50">
-      {/* Mobile header - hidden on scroll down */}
-      <motion.header 
-        className="fixed top-0 left-0 right-0 z-20 bg-white dark:bg-gray-900 shadow-md"
-        initial={{ y: 0 }}
-        animate={{ y: showHeader ? 0 : -64 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div className="flex items-center justify-between px-4 py-3 h-16">
-          <div className="flex items-center">
-            <div className="relative overflow-hidden rounded-lg h-9 w-9 flex items-center justify-center bg-orange-100 mr-3">
-              <img src="/logo.png" alt="OnnRides" className="h-7 w-auto" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-lg text-gray-900 dark:text-white leading-tight">
-                {sectionName}
-              </span>
-              {isPWA && (
-                <span className="text-xs text-orange-600 font-medium -mt-0.5">
-                  Admin Portal
+      {/* Mobile header - only shown when not in PWA mode */}
+      {shouldShowMobileHeader && (
+        <motion.header 
+          className="fixed top-0 left-0 right-0 z-20 bg-white dark:bg-gray-900 shadow-md"
+          initial={{ y: 0 }}
+          animate={{ y: showHeader ? 0 : -64 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="flex items-center justify-between px-4 py-3 h-16">
+            <div className="flex items-center">
+              <div className="relative overflow-hidden rounded-lg h-9 w-9 flex items-center justify-center bg-orange-100 mr-3">
+                <img src="/logo.png" alt="OnnRides" className="h-7 w-auto" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-lg text-gray-900 dark:text-white leading-tight">
+                  {sectionName}
                 </span>
-              )}
+                {isPWA && (
+                  <span className="text-xs text-orange-600 font-medium -mt-0.5">
+                    Admin Portal
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <button 
+                onClick={handleNotificationsClick}
+                className="relative p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                <FaBell size={18} className="text-gray-700" />
+                {hasNotifications && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                )}
+              </button>
+              
+              <button 
+                onClick={handleProfileClick}
+                className="relative p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                <FaUserCircle size={18} className="text-gray-700" />
+              </button>
             </div>
           </div>
-          
-          <div className="flex items-center space-x-3">
-            <button 
-              onClick={handleNotificationsClick}
-              className="relative p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-            >
-              <FaBell size={18} className="text-gray-700" />
-              {hasNotifications && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              )}
-            </button>
-            
-            <button 
-              onClick={handleProfileClick}
-              className="relative p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-            >
-              <FaUserCircle size={18} className="text-gray-700" />
-            </button>
-          </div>
-        </div>
-      </motion.header>
+        </motion.header>
+      )}
 
       {/* Main content - with padding for header and footer */}
-      <main className={`flex-1 pt-16 pb-16 px-4 ${isMobilePWA ? 'pb-24' : ''}`}>
+      <main className={`flex-1 ${shouldShowMobileHeader ? 'pt-16' : 'pt-4'} pb-16 px-4 ${isMobilePWA ? 'pb-24' : ''}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={pathname}

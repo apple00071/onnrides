@@ -9,6 +9,35 @@ import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
+// Hook to detect if the device is mobile
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  const [isPWA, setIsPWA] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    // Check if running as PWA
+    const checkPWA = () => {
+      setIsPWA(
+        window.matchMedia('(display-mode: standalone)').matches ||
+        // @ts-ignore - for iOS Safari
+        (window.navigator as any).standalone === true
+      );
+    };
+
+    checkMobile();
+    checkPWA();
+
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return { isMobile, isPWA, isMobilePWA: isMobile && isPWA };
+}
+
 // Dynamically import the AdminPWA component with no SSR and with key
 const AdminPWA = dynamic(() => import('./components/AdminPWA'), { 
   ssr: false,
@@ -37,23 +66,27 @@ const menuItems = [
 function MainContent({ children }: { children: React.ReactNode }) {
   const { open } = useSidebar();
   const pathname = usePathname();
+  const { isMobile } = useIsMobile();
   
   return (
     <main 
       className={cn(
         "min-h-screen bg-gray-50 transition-all duration-300 w-full overflow-y-auto",
-        "pt-[60px]", // Padding for mobile header
+        isMobile ? "pt-2" : "pt-[60px]", // Less padding on mobile as the header is in the individual pages
         open 
           ? "md:pl-[300px]" // Expanded sidebar width
           : "md:pl-[60px]"  // Collapsed sidebar width
       )}
     >
       <div className="p-2 sm:p-4 md:p-6 w-full h-auto max-w-none">
-        <div className="mb-4 md:mb-6 w-full">
-          <h1 className="text-xl sm:text-2xl text-gray-900 font-semibold">
-            {menuItems.find(item => item.href === pathname)?.label || 'Dashboard'}
-          </h1>
-        </div>
+        {/* Only show this header on desktop */}
+        {!isMobile && (
+          <div className="mb-4 md:mb-6 w-full">
+            <h1 className="text-xl sm:text-2xl text-gray-900 font-semibold">
+              {menuItems.find(item => item.href === pathname)?.label || 'Dashboard'}
+            </h1>
+          </div>
+        )}
         {children}
       </div>
     </main>
