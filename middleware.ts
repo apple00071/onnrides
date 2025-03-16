@@ -2,42 +2,56 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-// Cache the maintenance mode status for a short period
+// Disable middleware caching completely for maintenance mode
 let maintenanceMode: boolean = false;
 let lastCheck = 0;
-const CACHE_DURATION = 10 * 1000; // 10 seconds
+
+// Force check on every request for mobile devices
+const CACHE_DURATION = 5 * 1000; // 5 seconds, shorter cache for more frequent checks
 
 // Simple logging helper for middleware
 function logMiddleware(message: string) {
   console.log(`[Middleware] ${message}`);
 }
 
-// Helper function to check if the request is from a mobile device
+// Enhanced mobile device detection with broader patterns
 function isMobileDevice(request: NextRequest): boolean {
   const userAgent = request.headers.get('user-agent') || '';
-  return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+  const lowerUA = userAgent.toLowerCase();
+  
+  // More comprehensive mobile detection
+  return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet|silk|kindle|samsung|nokia|lg|sony|asus|huawei|oneplus|pixel/i.test(lowerUA) || 
+         // Check for common mobile browser strings
+         /mobile safari|chrome\/[.0-9]* mobile/i.test(lowerUA) ||
+         // Check for mobile screen dimensions in viewport
+         (request.headers.get('sec-ch-ua-mobile') === '?1');
 }
 
 async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
   const now = Date.now();
+  const isMobile = isMobileDevice(request);
   
-  // Always check on first request or if cache expired
-  if (lastCheck === 0 || (now - lastCheck) >= CACHE_DURATION) {
+  // Always check for mobile devices or when cache expired
+  if (isMobile || lastCheck === 0 || (now - lastCheck) >= CACHE_DURATION) {
     try {
       // Get the base URL from the request
       const protocol = request.headers.get('x-forwarded-proto') || 'http';
       const host = request.headers.get('host') || 'localhost:3000';
       const baseUrl = `${protocol}://${host}`;
 
-      // Add a cache-busting parameter
-      const url = `${baseUrl}/api/maintenance/check?_t=${now}`;
+      // Add timestamp for stronger cache busting
+      const url = `${baseUrl}/api/maintenance/check?_t=${now}&mobile=${isMobile ? 1 : 0}`;
       
-      // Call the maintenance check API with no-cache headers
+      // Enhanced no-cache headers
       const response = await fetch(url, {
+        method: 'GET',
         cache: 'no-store',
         headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
+          'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'X-Middleware-Cache': 'no-cache',
+          'X-Mobile-Check': isMobile ? '1' : '0'
         }
       });
       
@@ -46,14 +60,18 @@ async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
       }
       
       const data = await response.json();
-      const isMobile = isMobileDevice(request);
       
-      logMiddleware(`Maintenance check: ${JSON.stringify(data)}, isMobile: ${isMobile}`);
+      logMiddleware(`Maintenance check: ${JSON.stringify(data)}, isMobile: ${isMobile}, timestamp: ${now}`);
       
+      // Set the global maintenance mode state
       maintenanceMode = Boolean(data.maintenance);
       lastCheck = now;
     } catch (error) {
       console.error('[Middleware] Error checking maintenance mode:', error);
+      if (maintenanceMode) {
+        // Preserve existing maintenance mode if there's an error
+        return true;
+      }
       return false;
     }
   }
@@ -66,11 +84,7 @@ export async function middleware(request: NextRequest) {
   const pathname = url.pathname;
   const isMobile = isMobileDevice(request);
   
-  logMiddleware(`Processing request: ${pathname}, isMobile: ${isMobile}`);
-  
-  // Add debug path info in a request header
-  // Since we can't modify the response directly when returning undefined,
-  // we'll use the X-Debug-Path header when redirecting to maintenance page
+  logMiddleware(`Processing request: ${pathname}, isMobile: ${isMobile}, UA: ${request.headers.get('user-agent')?.substring(0, 50)}...`);
   
   // Skip maintenance check for these paths
   if (pathname.startsWith('/_next') || 
@@ -84,7 +98,7 @@ export async function middleware(request: NextRequest) {
     return undefined;
   }
 
-  // Check maintenance mode
+  // Force check maintenance mode on every request for mobile
   const maintenance = await isMaintenanceMode(request);
   logMiddleware(`Maintenance check result for ${pathname}: ${maintenance}, isMobile: ${isMobile}`);
   
@@ -102,21 +116,46 @@ export async function middleware(request: NextRequest) {
         return undefined;
       }
 
-      // Otherwise redirect to maintenance page
+      // Otherwise redirect to maintenance page - with strong cache prevention for mobile
       logMiddleware(`Redirecting to maintenance page from: ${pathname}, isMobile: ${isMobile}`);
       const maintenanceUrl = new URL('/maintenance', request.url);
+      
+      // Add timestamp to maintenance URL for mobile to prevent caching
+      if (isMobile) {
+        maintenanceUrl.searchParams.set('_t', Date.now().toString());
+      }
+      
       const redirectResponse = NextResponse.redirect(maintenanceUrl);
+      
+      // Add strong no-cache headers to prevent browsers from caching the redirect
+      redirectResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+      redirectResponse.headers.set('Pragma', 'no-cache');
+      redirectResponse.headers.set('Expires', '0');
       
       // Add debug headers
       redirectResponse.headers.set('X-Maintenance-Redirect', 'true');
       redirectResponse.headers.set('X-Debug-Path', pathname);
       redirectResponse.headers.set('X-Device-Mobile', String(isMobile));
+      redirectResponse.headers.set('X-Timestamp', String(Date.now()));
       
       return redirectResponse;
     } catch (error) {
       console.error('[Middleware] Error verifying admin status:', error);
       const maintenanceUrl = new URL('/maintenance', request.url);
-      return NextResponse.redirect(maintenanceUrl);
+      
+      // Add timestamp parameter for mobile to prevent caching
+      if (isMobile) {
+        maintenanceUrl.searchParams.set('_t', Date.now().toString());
+      }
+      
+      const redirectResponse = NextResponse.redirect(maintenanceUrl);
+      
+      // Add strong no-cache headers
+      redirectResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+      redirectResponse.headers.set('Pragma', 'no-cache');
+      redirectResponse.headers.set('Expires', '0');
+      
+      return redirectResponse;
     }
   }
 
