@@ -69,8 +69,11 @@ export default function MaintenanceLayout({
           `}
         </Script>
       </head>
-      <body>
-        {children}
+      <body className="overflow-hidden">
+        {/* Clean body with no notification bars or extra UI elements */}
+        <div className="min-h-screen">
+          {children}
+        </div>
       </body>
     </html>
   );

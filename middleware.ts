@@ -132,11 +132,14 @@ export async function middleware(request: NextRequest) {
       redirectResponse.headers.set('Pragma', 'no-cache');
       redirectResponse.headers.set('Expires', '0');
       
-      // Add debug headers
+      // Add debug headers but no UI-affecting ones
       redirectResponse.headers.set('X-Maintenance-Redirect', 'true');
       redirectResponse.headers.set('X-Debug-Path', pathname);
       redirectResponse.headers.set('X-Device-Mobile', String(isMobile));
       redirectResponse.headers.set('X-Timestamp', String(Date.now()));
+      
+      // Add header to tell the maintenance page to hide notifications
+      redirectResponse.headers.set('X-Maintenance-Clean', 'true');
       
       return redirectResponse;
     } catch (error) {
