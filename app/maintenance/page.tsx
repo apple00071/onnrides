@@ -24,30 +24,31 @@ export default function MaintenancePage() {
         </div>
 
         {/* Maintenance Message */}
-        <div className="bg-white p-8 rounded-lg shadow-md space-y-6">
-          <h1 className="text-2xl font-bold text-gray-900">
+        <div className="bg-white p-6 md:p-8 rounded-lg shadow-md space-y-6">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">
             We&apos;re Under Maintenance
           </h1>
           
-          <p className="text-gray-600">
+          <p className="text-sm md:text-base text-gray-600">
             We&apos;re currently updating our systems to serve you better. 
             For immediate bookings, please contact us directly:
           </p>
 
           {/* Contact Numbers */}
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-800">
+            <h2 className="text-base md:text-lg font-semibold text-gray-800">
               Contact for Bookings
             </h2>
-            <div className="space-y-2">
+            <div className="space-y-4">
               {phoneNumbers.map((number, index) => (
                 <a
                   key={index}
                   href={`tel:${number.replace(/\s+/g, '')}`}
-                  className="flex items-center justify-center space-x-2 text-[#f26e24] hover:text-[#e05d13] transition-colors"
+                  className="flex items-center justify-center space-x-2 text-[#f26e24] hover:text-[#e05d13] transition-colors py-2"
+                  aria-label={`Call ${number}`}
                 >
-                  <Phone className="h-4 w-4" />
-                  <span>{number}</span>
+                  <Phone className="h-5 w-5" />
+                  <span className="text-base md:text-lg">{number}</span>
                 </a>
               ))}
             </div>
@@ -58,14 +59,14 @@ export default function MaintenancePage() {
             href="https://wa.me/918309031203"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block bg-[#25D366] text-white px-6 py-2 rounded-full hover:bg-[#128C7E] transition-colors mt-4"
+            className="inline-block bg-[#25D366] text-white px-6 py-3 rounded-full hover:bg-[#128C7E] transition-colors mt-6 text-base md:text-lg font-medium w-full md:w-auto"
           >
             Chat on WhatsApp
           </a>
         </div>
 
         {/* Estimated Time */}
-        <p className="text-sm text-gray-500">
+        <p className="text-xs md:text-sm text-gray-500 px-2">
           We apologize for the inconvenience. Our team is working hard to get everything back online.
         </p>
       </div>

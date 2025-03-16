@@ -12,6 +12,12 @@ function logMiddleware(message: string) {
   console.log(`[Middleware] ${message}`);
 }
 
+// Helper function to check if the request is from a mobile device
+function isMobileDevice(request: NextRequest): boolean {
+  const userAgent = request.headers.get('user-agent') || '';
+  return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+}
+
 async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
   const now = Date.now();
   
@@ -40,7 +46,9 @@ async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
       }
       
       const data = await response.json();
-      logMiddleware(`Maintenance check: ${JSON.stringify(data)}`);
+      const isMobile = isMobileDevice(request);
+      
+      logMiddleware(`Maintenance check: ${JSON.stringify(data)}, isMobile: ${isMobile}`);
       
       maintenanceMode = Boolean(data.maintenance);
       lastCheck = now;
@@ -56,8 +64,9 @@ async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
 export async function middleware(request: NextRequest) {
   const url = new URL(request.url);
   const pathname = url.pathname;
+  const isMobile = isMobileDevice(request);
   
-  logMiddleware(`Processing request: ${pathname}`);
+  logMiddleware(`Processing request: ${pathname}, isMobile: ${isMobile}`);
   
   // Add debug path info in a request header
   // Since we can't modify the response directly when returning undefined,
@@ -77,7 +86,7 @@ export async function middleware(request: NextRequest) {
 
   // Check maintenance mode
   const maintenance = await isMaintenanceMode(request);
-  logMiddleware(`Maintenance check result for ${pathname}: ${maintenance}`);
+  logMiddleware(`Maintenance check result for ${pathname}: ${maintenance}, isMobile: ${isMobile}`);
   
   if (maintenance) {
     try {
@@ -94,13 +103,14 @@ export async function middleware(request: NextRequest) {
       }
 
       // Otherwise redirect to maintenance page
-      logMiddleware(`Redirecting to maintenance page from: ${pathname}`);
+      logMiddleware(`Redirecting to maintenance page from: ${pathname}, isMobile: ${isMobile}`);
       const maintenanceUrl = new URL('/maintenance', request.url);
       const redirectResponse = NextResponse.redirect(maintenanceUrl);
       
       // Add debug headers
       redirectResponse.headers.set('X-Maintenance-Redirect', 'true');
       redirectResponse.headers.set('X-Debug-Path', pathname);
+      redirectResponse.headers.set('X-Device-Mobile', String(isMobile));
       
       return redirectResponse;
     } catch (error) {
