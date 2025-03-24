@@ -1,7 +1,7 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { parseISO, format, isValid } from 'date-fns';
-import { utcToZonedTime } from 'date-fns-tz';
+import { formatInTimeZone } from 'date-fns-tz';
 import logger from './logger';
 import { toIST, formatDateTimeIST, formatDateIST, formatTimeIST } from './utils/timezone';
 
@@ -238,19 +238,8 @@ export const formatBookingDateTime = (dateString: string | Date | null) => {
   try {
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
     
-    // Convert to IST timezone first
-    const istDate = utcToZonedTime(date, 'Asia/Kolkata');
-    
-    // Format the date using toLocaleString with explicit IST timezone
-    return istDate.toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    // Format the date directly in IST timezone
+    return formatInTimeZone(date, 'Asia/Kolkata', 'dd MMM yyyy, hh:mm a');
   } catch (error) {
     logger.error('Error formatting booking date time', { date: dateString, error });
     return 'Invalid date';

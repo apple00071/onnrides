@@ -1,4 +1,4 @@
-import { format, utcToZonedTime } from 'date-fns-tz';
+import { format, formatInTimeZone } from 'date-fns-tz';
 import logger from '../../lib/logger';
 
 // IST timezone string
@@ -14,7 +14,7 @@ export function toIST(date: Date | string | null): Date | null {
   
   try {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
-    return utcToZonedTime(dateObj, IST_TIMEZONE);
+    return new Date(formatInTimeZone(dateObj, IST_TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX"));
   } catch (error) {
     logger.error('Error converting date to IST:', error);
     return null;

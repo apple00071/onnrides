@@ -1,5 +1,5 @@
 import { format, formatISO } from 'date-fns';
-import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
+import { formatInTimeZone } from 'date-fns-tz';
 import logger from '../logger';
 
 /**
@@ -28,8 +28,8 @@ export function toIST(date: Date | string | null): Date | null {
     // Add detailed logging for debugging timezone issues
     const originalDate = new Date(dateObj);
     
-    // Convert UTC date to IST timezone
-    const istDate = utcToZonedTime(dateObj, IST_TIMEZONE);
+    // Convert UTC date to IST timezone using formatInTimeZone
+    const istDate = new Date(formatInTimeZone(dateObj, IST_TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX"));
     
     // Log detailed time information for debugging
     logger.debug('Converting to IST timezone', {

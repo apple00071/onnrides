@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
-import { format, utcToZonedTime } from 'date-fns-tz';
+import { formatInTimeZone } from 'date-fns-tz';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,8 +39,7 @@ interface BookingDetails {
 
 // Helper function to format date in IST
 const formatDateIST = (dateString: string) => {
-  const date = utcToZonedTime(new Date(dateString), 'Asia/Kolkata');
-  return format(date, 'PPP p', { timeZone: 'Asia/Kolkata' });
+  return formatInTimeZone(new Date(dateString), 'Asia/Kolkata', 'PPP p');
 };
 
 // Helper function to parse location
