@@ -1,76 +1,71 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { query } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { db } from '@/lib/db';
+import type { Database } from '@/lib/schema';
+import { verifyAuth } from '@/app/lib/auth';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { bookingId: string } }
 ) {
   try {
-    // Verify authentication
-    const user = await getCurrentUser();
+    // Check if user is authenticated
+    const user = await verifyAuth();
     if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get booking
-    const { rows: [booking] } = await query(
-      `SELECT * FROM bookings WHERE id = $1 LIMIT 1`,
-      [params.bookingId]
-    );
-
-    if (!booking) {
-      return new Response(JSON.stringify({ error: 'Booking not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    const bookingId = params.bookingId;
+    if (!bookingId) {
+      return NextResponse.json(
+        { error: 'Booking ID is required' },
+        { status: 400 }
+      );
     }
 
-    // Check if user is authorized to cancel this booking
-    if (booking.user_id !== user.id) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    // First check if the booking belongs to the user and is in a cancellable state
+    const booking = await db
+      .selectFrom('bookings')
+      .selectAll()
+      .where('id', '=', bookingId)
+      .limit(1)
+      .execute();
+
+    if (!booking || booking.length === 0) {
+      return NextResponse.json(
+        { error: 'Booking not found or unauthorized' },
+        { status: 404 }
+      );
     }
 
-    // Check if booking is in a cancellable state
-    if (booking.status !== 'pending') {
-      return new Response(JSON.stringify({ error: 'Only pending bookings can be cancelled' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    if (booking[0].status !== 'pending') {
+      return NextResponse.json(
+        { error: 'Only pending bookings can be cancelled' },
+        { status: 400 }
+      );
     }
 
     // Update the booking status to cancelled
     const [updatedBooking] = await db
-      .update(bookings)
-      .set({
-        status: 'cancelled',
-        updated_at: new Date()
-      })
-      .where(eq(bookings.id, params.bookingId))
-      .returning();
+      .updateTable('bookings')
+      .set({ status: 'cancelled' })
+      .where('id', '=', bookingId)
+      .returningAll()
+      .execute();
 
     // Update the vehicle availability
     await db
-      .update(vehicles)
+      .updateTable('vehicles')
       .set({ is_available: true })
-      .where(eq(vehicles.id, booking.vehicle_id));
+      .where('id', '=', booking[0].vehicle_id)
+      .execute();
 
-    return new Response(JSON.stringify(updatedBooking), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json(updatedBooking);
   } catch (error) {
     logger.error('Error cancelling booking:', error);
-    return new Response(JSON.stringify({ error: 'Failed to cancel booking' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return NextResponse.json(
+      { error: 'Failed to cancel booking' },
+      { status: 500 }
+    );
   }
 } 
