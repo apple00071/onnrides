@@ -98,13 +98,14 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/favicon.ico' },
-      { url: '/favicon.png', sizes: '32x32', type: 'image/png' },
-      { url: '/favicon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/favicon-512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/favicon/favicon.ico' },
+      { url: '/favicon/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/favicon/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
-      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      { url: '/favicon/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
     ],
     other: [
       {
@@ -115,7 +116,10 @@ export const metadata: Metadata = {
     ]
   },
   manifest: '/favicon/site.webmanifest',
-  themeColor: '#f26e24',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f26e24' },
+    { media: '(prefers-color-scheme: dark)', color: '#f26e24' }
+  ],
   appleWebApp: {
     title: 'OnnRides',
     statusBarStyle: 'black-translucent',
@@ -274,12 +278,12 @@ export default async function RootLayout({
             content="telephone=no, date=no, email=no, address=no"
           />
           {/* High priority favicon links */}
-          <link rel="shortcut icon" href="/favicon.ico" />
-          <link rel="icon" href="/favicon.ico" sizes="any" />
-          <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
-          <link rel="icon" href="/favicon-192.png" type="image/png" sizes="192x192" />
-          <link rel="icon" href="/favicon-512.png" type="image/png" sizes="512x512" />
-          <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+          <link rel="shortcut icon" href="/favicon/favicon.ico" />
+          <link rel="icon" href="/favicon/favicon.ico" sizes="any" />
+          <link rel="icon" href="/favicon/favicon-32x32.png" type="image/png" sizes="32x32" />
+          <link rel="icon" href="/favicon/android-chrome-192x192.png" type="image/png" sizes="192x192" />
+          <link rel="icon" href="/favicon/android-chrome-512x512.png" type="image/png" sizes="512x512" />
+          <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
           <link rel="manifest" href="/favicon/site.webmanifest" />
           <link 
             rel="preload" 

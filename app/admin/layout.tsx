@@ -13,7 +13,10 @@ export function generateMetadata(): Metadata {
     title: 'OnnRides Admin Dashboard',
     description: 'Admin dashboard for OnnRides vehicle rental service',
     manifest: '/admin/manifest.json',
-    themeColor: '#f26e24',
+    themeColor: [
+      { media: '(prefers-color-scheme: light)', color: '#f26e24' },
+      { media: '(prefers-color-scheme: dark)', color: '#f26e24' }
+    ],
     appleWebApp: {
       capable: true,
       statusBarStyle: 'default',

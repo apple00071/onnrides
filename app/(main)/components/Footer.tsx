@@ -15,9 +15,19 @@ export default function Footer() {
           {/* Locations */}
           <div className="space-y-4">
             <h4 className="text-lg font-semibold">Our Locations</h4>
-            <div className="space-y-2">
-              <p className="text-sm text-gray-600">Eragadda Location (1st Branch)</p>
-              <p className="text-sm text-gray-600">Madhapur Location (2nd Branch)</p>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Erragadda Branch</p>
+                <p className="text-sm text-gray-600">R S hotel, Metro Station Erragadda,</p>
+                <p className="text-sm text-gray-600">Prem Nagar, Erragadda,</p>
+                <p className="text-sm text-gray-600">Hyderabad - 500018</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700">Madhapur Branch</p>
+                <p className="text-sm text-gray-600">1173, Ayyappa Society Main Rd,</p>
+                <p className="text-sm text-gray-600">Ayyappa Society, Mega Hills,</p>
+                <p className="text-sm text-gray-600">Madhapur, Hyderabad - 500081</p>
+              </div>
             </div>
           </div>
 
