@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const sqlQuery = `
       SELECT 
         b.id,
-        COALESCE(b.booking_id, 'OR' || SUBSTRING(MD5(RANDOM()::text) FROM 1 FOR 3)) as booking_id,
+        b.booking_id,
         b.user_id,
         b.vehicle_id,
         

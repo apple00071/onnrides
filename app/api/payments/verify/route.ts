@@ -46,15 +46,7 @@ function formatDateIST(date: Date | string): string {
 
 // Helper function to format time only in IST
 function formatTimeIST(date: Date | string): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  const istDate = new Date(dateObj.getTime() + (5.5 * 60 * 60 * 1000));
-  
-  return istDate.toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
+  return formatTimeIST(date);
 }
 
 // Helper function to format date only in IST
@@ -797,6 +789,57 @@ export async function POST(request: NextRequest) {
         status: updatedBooking.status,
         payment_status: updatedBooking.payment_status
       });
+
+      // 9. Send booking confirmation email
+      try {
+        // Get full booking details with user and vehicle info
+        const bookingResult = await query(
+          `SELECT 
+            b.*,
+            u.name as user_name,
+            u.email as user_email,
+            v.name as vehicle_name,
+            b.booking_id
+           FROM bookings b
+           JOIN users u ON b.user_id = u.id
+           JOIN vehicles v ON b.vehicle_id = v.id
+           WHERE b.booking_id = $1`,
+          [booking_id]
+        );
+
+        if (bookingResult.rows.length > 0) {
+          const booking = bookingResult.rows[0];
+          const emailService = EmailService.getInstance();
+
+          await emailService.sendBookingConfirmation(
+            booking.user_email,
+            {
+              userName: booking.user_name,
+              vehicleName: booking.vehicle_name,
+              bookingId: booking.booking_id,
+              startDate: formatDateIST(booking.start_date),
+              endDate: formatDateIST(booking.end_date),
+              amount: `₹${Number(captureAmount) / 100}`,
+              paymentId: razorpay_payment_id
+            }
+          );
+
+          logger.info('Booking confirmation email sent', {
+            bookingId: booking.booking_id,
+            userEmail: booking.user_email
+          });
+        } else {
+          logger.error('Could not find booking details for confirmation email', {
+            bookingId: booking_id
+          });
+        }
+      } catch (emailError) {
+        logger.error('Failed to send booking confirmation email', {
+          error: serializeError(emailError),
+          bookingId: booking_id
+        });
+        // Don't throw error here, continue with success response
+      }
 
       return NextResponse.json({
         success: true,

@@ -39,6 +39,12 @@ interface EmailContent {
   data: Record<string, any>;
 }
 
+interface PasswordResetData {
+  name: string;
+  resetLink: string;
+  supportEmail: string;
+}
+
 interface DocumentUploadReminderData {
   name: string;
   bookingId: string;
@@ -389,8 +395,47 @@ export class EmailService {
     }
   }
 
+  public async sendPasswordResetEmail(
+    to: string,
+    data: PasswordResetData
+  ): Promise<void> {
+    const subject = 'Password Reset - OnnRides';
+    const content = {
+      subject,
+      template: 'password_reset',
+      data: {
+        ...data,
+        supportEmail: data.supportEmail || 'support@onnrides.com'
+      }
+    };
+
+    try {
+      await this.sendEmail(to, content.subject, this.getEmailTemplate(content.template, content.data));
+      logger.info('Password reset email sent:', {
+        recipient: to
+      });
+    } catch (error) {
+      logger.error('Failed to send password reset email:', {
+        error,
+        recipient: to
+      });
+      throw error;
+    }
+  }
+
   private getEmailTemplate(template: string, data: Record<string, any>): string {
     switch (template) {
+      case 'password_reset':
+        return `
+          <h2>Hello ${data.name},</h2>
+          <p>We received a request to reset your password for your OnnRides account.</p>
+          <p>Click the link below to reset your password:</p>
+          <p><a href="${data.resetLink}">${data.resetLink}</a></p>
+          <p>This link will expire in 1 hour for security reasons.</p>
+          <p>If you didn't request this password reset, please ignore this email or contact us at ${data.supportEmail} if you have concerns.</p>
+          <p>Best regards,<br>OnnRides Team</p>
+        `;
+
       case 'document_upload_reminder':
         return `
           <h2>Hello ${data.name},</h2>

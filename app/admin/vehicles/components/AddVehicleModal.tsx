@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { VEHICLE_TYPES, VehicleType } from '@/lib/schema';
 import { Vehicle } from '@/app/(main)/vehicles/types';
 import {
@@ -34,6 +35,7 @@ interface FormData {
   price_15_days: number;
   price_30_days: number;
   images: File[];
+  is_available: boolean;
 }
 
 const LOCATIONS = [
@@ -52,6 +54,7 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
     price_15_days: 0,
     price_30_days: 0,
     images: [] as File[],
+    is_available: true,
   } satisfies FormData;
 
   const [formData, setFormData] = useState<FormData>(defaultFormData);
@@ -147,7 +150,8 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
         quantity: formData.quantity,
         images: uploadedImageUrls,
         min_booking_hours: 1,
-        status: 'active'
+        status: 'active',
+        is_available: formData.is_available
       };
 
       logger.info('Creating vehicle with data:', createData);
@@ -219,6 +223,20 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <Label>Availability</Label>
+            <div className="flex items-center space-x-2 mt-2">
+              <Switch
+                checked={formData.is_available}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_available: checked })}
+                aria-label="Toggle vehicle availability"
+              />
+              <span className="text-sm text-gray-600">
+                {formData.is_available ? 'Available' : 'Unavailable'}
+              </span>
+            </div>
           </div>
 
           <div>

@@ -14,18 +14,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find user by reset token and check if it's still valid
+    // Find valid reset token and associated user
     const result = await query(
-      `SELECT * FROM users 
-       WHERE reset_token = $1 
-       AND reset_token_expiry > NOW()
+      `SELECT u.*, pr.token, pr.expires_at
+       FROM password_resets pr
+       INNER JOIN users u ON u.id = pr.user_id
+       WHERE pr.token = $1 
+       AND pr.expires_at > NOW()
        LIMIT 1`,
       [token]
     );
 
-    const user = result.rows[0];
+    const resetData = result.rows[0];
 
-    if (!user) {
+    if (!resetData) {
       logger.info('Invalid or expired reset token');
       return NextResponse.json(
         { error: 'Invalid or expired reset token' },
@@ -37,23 +39,37 @@ export async function POST(request: NextRequest) {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Update user's password and clear reset token
-    await query(
-      `UPDATE users 
-       SET password_hash = $1, 
-           reset_token = NULL, 
-           reset_token_expiry = NULL,
-           updated_at = NOW()
-       WHERE id = $2`,
-      [hashedPassword, user.id]
-    );
+    // Start a transaction to update password and delete reset token
+    await query('BEGIN');
 
-    logger.info('Password reset successful for user:', { userId: user.id });
+    try {
+      // Update user's password
+      await query(
+        `UPDATE users 
+         SET password_hash = $1,
+             updated_at = NOW()
+         WHERE id = $2`,
+        [hashedPassword, resetData.id]
+      );
 
-    return NextResponse.json({
-      message: 'Password reset successful'
-    });
+      // Delete the used reset token
+      await query(
+        `DELETE FROM password_resets 
+         WHERE user_id = $1`,
+        [resetData.id]
+      );
 
+      await query('COMMIT');
+
+      logger.info('Password reset successful for user:', { userId: resetData.id });
+
+      return NextResponse.json({
+        message: 'Password reset successful'
+      });
+    } catch (error) {
+      await query('ROLLBACK');
+      throw error;
+    }
   } catch (error) {
     logger.error('Password reset error:', {
       error: error instanceof Error ? error.message : 'Unknown error',

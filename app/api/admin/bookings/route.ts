@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import logger from '@/lib/logger';
 import { authOptions } from '@/lib/auth/config';
-import { query } from '@/lib/db';
+import { query, pool } from '@/lib/db';
 import { EmailService } from '@/lib/email/service';
 import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import { formatDateTimeIST } from '@/lib/utils/timezone';
@@ -13,6 +13,7 @@ import {
 } from '@/lib/utils/sql-helpers';
 import { withTimezoneProcessing } from '@/middleware/timezone-middleware';
 import { generateBookingId } from '@/lib/utils/booking-id';
+import { formatInTimeZone } from 'date-fns-tz';
 
 // Set this route as dynamic to allow headers modification
 export const dynamic = 'force-dynamic';
@@ -88,8 +89,7 @@ const getBookingsHandler = async (request: NextRequest) => {
     const status = url.searchParams.get('status') || 'all';
     const searchTerm = url.searchParams.get('search') || '';
     
-    // Define pagination
-    const ITEMS_PER_PAGE = 10;
+    // Use the ITEMS_PER_PAGE constant
     const offset = (page - 1) * ITEMS_PER_PAGE;
     
     // Build filtering conditions
@@ -135,6 +135,7 @@ const getBookingsHandler = async (request: NextRequest) => {
       WITH booking_data AS (
         SELECT 
           b.id,
+          b.booking_id,
           b.user_id,
           b.vehicle_id,
           
@@ -157,7 +158,6 @@ const getBookingsHandler = async (request: NextRequest) => {
           b.updated_at,
           (b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_created_at,
           (b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_updated_at,
-          b.booking_id,
           v.name as vehicle_name,
           v.location as vehicle_location,
           u.name as user_name,
@@ -211,152 +211,149 @@ const getBookingsHandler = async (request: NextRequest) => {
 export const GET = withTimezoneProcessing(getBookingsHandler);
 
 export async function PUT(request: NextRequest) {
+  const client = await pool.connect();
+  const emailService = EmailService.getInstance();
+  const whatsappService = WhatsAppService.getInstance();
+  
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'admin') {
-      return new Response(JSON.stringify({ 
+      return NextResponse.json({ 
         success: false,
-        message: 'Unauthorized' 
-      }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
+        error: 'Unauthorized' 
+      }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { bookingId, action } = body;
+    const { bookingId, action } = await request.json();
 
     if (!bookingId || !action) {
-      return new Response(JSON.stringify({ 
+      return NextResponse.json({ 
         success: false,
-        message: 'Missing required fields' 
-      }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+        error: 'Missing required fields' 
+      }, { status: 400 });
     }
 
-    let status;
-    switch (action) {
-      case 'cancel':
-        status = 'cancelled';
-        break;
-      default:
-        return new Response(JSON.stringify({ 
-          success: false,
-          message: 'Invalid action' 
-        }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
+    if (action === 'cancel') {
+      try {
+        await client.query('BEGIN');
+
+        // Update booking status and payment status
+        const updateQuery = `
+          UPDATE bookings 
+          SET 
+            status = 'cancelled',
+            payment_status = 'cancelled',
+            updated_at = NOW()
+          WHERE booking_id = $1 
+          RETURNING *,
+            start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_start_date,
+            end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_end_date
+        `;
+
+        const result = await client.query(updateQuery, [bookingId]);
+
+        if (result.rowCount === 0) {
+          throw new Error('Booking not found');
+        }
+
+        const booking = result.rows[0];
+
+        // Get user and vehicle details for the notification
+        const detailsQuery = `
+          SELECT 
+            b.*,
+            u.name as user_name,
+            u.email as user_email,
+            u.phone as user_phone,
+            v.name as vehicle_name
+          FROM bookings b
+          LEFT JOIN users u ON b.user_id = u.id
+          LEFT JOIN vehicles v ON b.vehicle_id = v.id
+          WHERE b.booking_id = $1
+        `;
+
+        const details = await client.query(detailsQuery, [bookingId]);
+        const bookingDetails = details.rows[0];
+
+        // Send cancellation notifications
+        try {
+          await Promise.all([
+            emailService.sendEmail(
+              bookingDetails.user_email,
+              'Booking Cancellation - OnnRides',
+              `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h1 style="color: #f26e24;">Booking Cancelled</h1>
+                <p>Dear ${bookingDetails.user_name},</p>
+                <p>Your booking has been cancelled by the administrator.</p>
+                
+                <h2>Booking Details:</h2>
+                <ul>
+                  <li>Booking ID: ${bookingDetails.booking_id}</li>
+                  <li>Vehicle: ${bookingDetails.vehicle_name}</li>
+                  <li>Start Date: ${formatInTimeZone(booking.ist_start_date, 'Asia/Kolkata', 'dd MMM yyyy, hh:mm a')}</li>
+                  <li>End Date: ${formatInTimeZone(booking.ist_end_date, 'Asia/Kolkata', 'dd MMM yyyy, hh:mm a')}</li>
+                </ul>
+                
+                <p>If you have any questions, please contact our support team:</p>
+                <ul>
+                  <li>Email: support@onnrides.com</li>
+                  <li>Phone: +91 8247494622</li>
+                </ul>
+              </div>
+              `,
+              bookingDetails.booking_id
+            ),
+            whatsappService.sendBookingCancellation(
+              bookingDetails.user_phone,
+              bookingDetails.user_name,
+              bookingDetails.vehicle_name,
+              bookingDetails.booking_id
+            ).catch(error => {
+              // Log WhatsApp error but don't fail the transaction
+              logger.warn('Failed to send WhatsApp notification:', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                bookingId: bookingDetails.booking_id
+              });
+            })
+          ]);
+        } catch (notificationError) {
+          // Log notification error but don't fail the transaction
+          logger.error('Error sending notifications:', {
+            error: notificationError instanceof Error ? notificationError.message : 'Unknown error',
+            bookingId: bookingDetails.booking_id
+          });
+        }
+
+        await client.query('COMMIT');
+
+        return NextResponse.json({ 
+          success: true,
+          message: 'Booking cancelled successfully'
         });
-    }
-
-    // Get booking details before updating
-    const bookingResult = await query(`
-      SELECT 
-        b.*,
-        u.email as user_email,
-        u.name as user_name,
-        u.phone as user_phone,
-        v.name as vehicle_name
-      FROM bookings b
-      LEFT JOIN users u ON u.id = b.user_id
-      LEFT JOIN vehicles v ON v.id = b.vehicle_id
-      WHERE b.id = $1
-    `, [bookingId]);
-
-    if (bookingResult.rows.length === 0) {
-      return new Response(JSON.stringify({ 
-        success: false,
-        message: 'Booking not found' 
-      }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    const booking = bookingResult.rows[0];
-
-    // Update booking status
-    const result = await query(`
-      UPDATE bookings
-      SET 
-        status = $1,
-        updated_at = NOW()
-      WHERE id = $2
-      RETURNING *
-    `, [status, bookingId]);
-
-    // Send notifications
-    try {
-      const emailService = EmailService.getInstance();
-      const whatsappService = WhatsAppService.getInstance();
-
-      // Send email
-      await emailService.sendEmail(
-        booking.user_email,
-        'Booking Cancellation - OnnRides',
-        `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h1 style="color: #f26e24;">Booking Cancelled</h1>
-          <p>Dear ${booking.user_name},</p>
-          <p>Your booking has been cancelled by the administrator.</p>
-          
-          <h2>Booking Details:</h2>
-          <ul>
-            <li>Booking ID: ${booking.id}</li>
-            <li>Vehicle: ${booking.vehicle_name}</li>
-            <li>Start Date: ${formatDate(booking.start_date)}</li>
-            <li>End Date: ${formatDate(booking.end_date)}</li>
-          </ul>
-          
-          <p>If you have any questions, please contact our support team:</p>
-          <ul>
-            <li>Email: support@onnrides.com</li>
-            <li>Phone: +91 8247494622</li>
-          </ul>
-        </div>
-        `,
-        booking.id.toString()
-      );
-
-      // Send WhatsApp notification using new service
-      if (booking.user_phone) {
-        await whatsappService.sendBookingCancellation(
-          booking.user_phone,
-          booking.user_name,
-          booking.vehicle_name,
-          booking.booking_id || booking.id.toString()
-        );
+      } catch (error) {
+        await client.query('ROLLBACK');
+        logger.error('Error cancelling booking:', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          bookingId
+        });
+        throw error;
       }
-
-      logger.info('Cancellation notifications sent successfully', {
-        bookingId: booking.id,
-        userEmail: booking.user_email,
-        userPhone: booking.user_phone
-      });
-    } catch (error) {
-      logger.error('Failed to send cancellation notifications:', error);
-      // Don't throw error here, we still want to return the cancelled booking
     }
 
-    return new Response(JSON.stringify({ 
-      success: true,
-      data: result.rows[0]
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-  } catch (error) {
-    logger.error('Error in PUT /api/admin/bookings:', error);
-    return new Response(JSON.stringify({ 
+    return NextResponse.json({ 
       success: false,
-      error: 'Failed to update booking',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      error: 'Invalid action' 
+    }, { status: 400 });
+  } catch (error) {
+    logger.error('Error in booking operation:', {
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
+    return NextResponse.json({ 
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to process booking operation'
+    }, { status: 500 });
+  } finally {
+    client.release();
   }
 } 

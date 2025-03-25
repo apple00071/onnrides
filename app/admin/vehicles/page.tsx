@@ -6,6 +6,7 @@ import logger from '@/lib/logger';
 import AddVehicleModal from './components/AddVehicleModal';
 import EditVehicleModal from './components/EditVehicleModal';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -147,6 +148,35 @@ export default function VehiclesPage() {
     logger.debug('isAddModalOpen set to:', true);
   };
 
+  const handleAvailabilityChange = async (vehicle: Vehicle, isAvailable: boolean) => {
+    try {
+      const response = await fetch(`/api/admin/vehicles/${vehicle.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...vehicle,
+          is_available: isAvailable
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update vehicle availability');
+      }
+
+      // Update local state
+      setVehicles(vehicles.map(v => 
+        v.id === vehicle.id ? { ...v, is_available: isAvailable } : v
+      ));
+
+      toast.success('Vehicle availability updated successfully');
+    } catch (error) {
+      logger.error('Error updating vehicle availability:', error);
+      toast.error('Failed to update vehicle availability');
+    }
+  };
+
   let content;
   if (loading) {
     content = (
@@ -186,7 +216,7 @@ export default function VehiclesPage() {
                   <TableHead className="w-[10%]">Type</TableHead>
                   <TableHead className="w-[10%]">Price/Hour</TableHead>
                   <TableHead className="w-[25%]">Locations</TableHead>
-                  <TableHead className="w-[10%]">Status</TableHead>
+                  <TableHead className="w-[10%]">Available</TableHead>
                   <TableHead className="w-[15%]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -234,16 +264,16 @@ export default function VehiclesPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span
-                        className={cn(
-                          'px-2 py-1 rounded-full text-xs font-medium',
-                          vehicle.is_available
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        )}
-                      >
-                        {vehicle.is_available ? 'Available' : 'Unavailable'}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          checked={vehicle.is_available}
+                          onCheckedChange={(checked) => handleAvailabilityChange(vehicle, checked as boolean)}
+                          aria-label="Toggle vehicle availability"
+                        />
+                        <span className="text-sm text-gray-600">
+                          {vehicle.is_available ? 'Available' : 'Unavailable'}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">

@@ -5,8 +5,9 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { format, parseISO, isValid } from 'date-fns';
-import { utcToZonedTime } from 'date-fns-tz';
+import { toZonedTime } from 'date-fns-tz';
 import { formatDateToIST, formatBookingDateTime } from '@/lib/utils';
+import { formatDateTimeIST } from '@/lib/utils/timezone';
 
 interface Booking {
   id: string;
@@ -162,36 +163,9 @@ export default function BookingsPage() {
     try {
       logger.debug('Formatting date in bookings page:', { dateString, type: typeof dateString });
       
-      // Parse the date - if it's from the database it's in UTC
-      const date = new Date(dateString);
+      // Use our timezone utility function
+      return formatDateTimeIST(dateString);
       
-      // Check if the date is valid
-      if (isNaN(date.getTime())) {
-        logger.warn('Invalid date:', { dateString });
-        return 'Invalid date';
-      }
-      
-      // Convert to IST by adding 5 hours and 30 minutes (5.5 * 60 * 60 * 1000 ms)
-      // This is the key fix for the time discrepancy issue
-      const istDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
-      
-      logger.debug('IST conversion:', {
-        originalDate: date.toISOString(),
-        istDate: istDate.toISOString(),
-        originalTimeString: date.toTimeString(),
-        istTimeString: istDate.toTimeString(),
-        diffHours: (istDate.getTime() - date.getTime()) / (1000 * 60 * 60)
-      });
-      
-      // Format with Indian locale and 12-hour time
-      return istDate.toLocaleString('en-IN', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
     } catch (error) {
       logger.error('Error formatting date', { dateString, error });
       return dateString;

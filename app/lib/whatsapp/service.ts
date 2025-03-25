@@ -253,17 +253,18 @@ export class WhatsAppService {
 
       return response.data;
     } catch (error) {
-      const axiosError = error instanceof Error ? error : new Error('Unknown error');
-      logger.error('Error sending WhatsApp message:', {
-        error: {
-          message: axiosError.message,
-          stack: axiosError.stack
-        },
+      // Properly handle error logging to avoid circular references
+      const errorInfo = {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        name: error instanceof Error ? error.name : 'Unknown',
         response: axios.isAxiosError(error) ? {
           status: error.response?.status,
+          statusText: error.response?.statusText,
           data: error.response?.data
         } : undefined
-      });
+      };
+
+      logger.error('Error sending WhatsApp message:', errorInfo);
       throw error;
     }
   }

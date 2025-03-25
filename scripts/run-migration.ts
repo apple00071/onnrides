@@ -1,18 +1,30 @@
+import { config } from 'dotenv';
+config(); // Load environment variables from .env file
+
 import { Pool } from 'pg';
-import fs from 'fs/promises';
+import fs from 'fs';
 import path from 'path';
+import logger from '../lib/logger';
 
 async function runMigration() {
   const pool = new Pool({
-    connectionString: "postgres://neondb_owner:fpBXEsTct9g1@ep-long-dream-a6avbuml-pooler.us-west-2.aws.neon.tech/neondb?sslmode=require"
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false
+    }
   });
 
   try {
-    const sql = await fs.readFile(path.join(__dirname, '..', 'migrations', 'add_amount_to_payments.sql'), 'utf-8');
+    const migrationFile = path.join(process.cwd(), 'migrations', '20240325_create_password_resets.sql');
+    const sql = fs.readFileSync(migrationFile, 'utf8');
+
+    logger.info('Running migration:', { file: migrationFile });
+
+    // Execute the entire SQL file as one statement
     await pool.query(sql);
-    console.log('Migration completed successfully');
+    logger.info('Migration completed successfully');
   } catch (error) {
-    console.error('Migration failed:', error);
+    logger.error('Migration failed:', error);
     process.exit(1);
   } finally {
     await pool.end();

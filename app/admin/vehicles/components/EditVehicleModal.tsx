@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
@@ -210,6 +211,20 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <Label>Availability</Label>
+            <div className="flex items-center space-x-2 mt-2">
+              <Switch
+                checked={formData.is_available}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_available: checked })}
+                aria-label="Toggle vehicle availability"
+              />
+              <span className="text-sm text-gray-600">
+                {formData.is_available ? 'Available' : 'Unavailable'}
+              </span>
+            </div>
           </div>
 
           <div>

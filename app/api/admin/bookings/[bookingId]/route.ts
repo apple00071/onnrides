@@ -29,10 +29,26 @@ export async function GET(
 
     // Get booking details
     const bookingResult = await query(`
-      SELECT * FROM bookings 
-      WHERE id = $1 
-      LIMIT 1
-    `, [params.bookingId]);
+      SELECT 
+        b.*,
+        v.name as vehicle_name,
+        v.type as vehicle_type,
+        v.price_per_hour,
+        v.location as pickup_location,
+        b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as start_date,
+        b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as end_date,
+        b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
+        b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at
+      FROM bookings b
+      INNER JOIN vehicles v ON b.vehicle_id = v.id
+      WHERE b.booking_id = $1::text 
+        OR b.id = CASE 
+          WHEN $1 ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          THEN $1::uuid 
+          ELSE NULL 
+        END`,
+      [params.bookingId]
+    );
 
     if (bookingResult.rows.length === 0) {
       return NextResponse.json(
@@ -91,9 +107,15 @@ export async function PATCH(
       SET status = COALESCE($1, status),
           payment_status = COALESCE($2, payment_status),
           updated_at = CURRENT_TIMESTAMP 
-      WHERE id = $3 
-      RETURNING *
-    `, [status, paymentStatus, params.bookingId]);
+      WHERE booking_id = $3::text 
+        OR id = CASE 
+          WHEN $3 ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          THEN $3::uuid 
+          ELSE NULL 
+        END
+      RETURNING *`,
+      [status, paymentStatus, params.bookingId]
+    );
 
     if (updatedBookingResult.rows.length === 0) {
       return NextResponse.json(

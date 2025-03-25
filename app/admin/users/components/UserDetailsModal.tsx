@@ -63,6 +63,7 @@ interface Booking {
     type: string;
     images: string[];
   };
+  booking_id: string;
 }
 
 interface UserDetailsModalProps {
@@ -545,21 +546,13 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                     {bookings.map((booking) => (
                       <div key={booking.id} className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0">
                         <div>
-                          <div className="flex items-center space-x-4">
-                            {booking.vehicle?.images[0] && (
-                              <div className="relative w-16 h-16">
-                                <Image
-                                  src={booking.vehicle.images[0]}
-                                  alt={booking.vehicle.name}
-                                  fill
-                                  className="object-cover rounded-md"
-                                />
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-medium">{booking.vehicle?.name}</p>
-                              <p className="text-sm text-gray-500">{booking.vehicle?.type}</p>
-                            </div>
+                          <div className="flex items-center space-x-2">
+                            <h4 className="font-medium text-gray-900">
+                              {booking.vehicle?.name || 'Unknown Vehicle'}
+                            </h4>
+                            <span className="text-sm text-gray-500">
+                              (ID: {booking.booking_id})
+                            </span>
                           </div>
                           <div className="mt-2 space-y-1">
                             <p className="text-sm">
@@ -592,19 +585,6 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                           }`}>
                             Payment: {booking.payment_status}
                           </span>
-                          {booking.status === 'confirmed' && (
-                            <button
-                              onClick={() => {
-                                setSelectedBooking(booking);
-                                setIsCancelModalOpen(true);
-                              }}
-                              className="inline-flex items-center px-2 py-1 text-sm font-medium text-red-600 hover:text-red-800"
-                              title="Cancel Booking"
-                            >
-                              <FaBan className="w-4 h-4 mr-1" />
-                              Cancel
-                            </button>
-                          )}
                         </div>
                       </div>
                     ))}
