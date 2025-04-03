@@ -195,12 +195,16 @@ export default function AdminDashboard() {
             <div className="bg-white p-4 rounded-lg shadow">
               <h3 className="text-gray-500 text-sm">Total Revenue</h3>
               <p className="text-3xl font-bold">₹{stats.totalRevenue.toLocaleString()}</p>
-              <p className="text-xs text-green-500">+{stats.revenueGrowth}% this month</p>
+              {stats.revenueGrowth !== null && (
+                <p className="text-xs text-green-500">+{stats.revenueGrowth}% this month</p>
+              )}
             </div>
             <div className="bg-white p-4 rounded-lg shadow">
               <h3 className="text-gray-500 text-sm">Total Bookings</h3>
               <p className="text-3xl font-bold">{stats.totalBookings}</p>
-              <p className="text-xs text-green-500">+{stats.bookingGrowth}% this month</p>
+              {stats.bookingGrowth !== null && (
+                <p className="text-xs text-green-500">+{stats.bookingGrowth}% this month</p>
+              )}
             </div>
             <div className="bg-white p-4 rounded-lg shadow">
               <h3 className="text-gray-500 text-sm">Total Vehicles</h3>

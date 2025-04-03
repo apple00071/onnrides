@@ -59,42 +59,53 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
 
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [loading, setLoading] = useState(false);
+  const [objectUrls, setObjectUrls] = useState<string[]>([]);
+
+  // Cleanup object URLs when component unmounts or images change
+  useEffect(() => {
+    return () => {
+      objectUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [objectUrls]);
 
   const resetForm = () => {
     setFormData(defaultFormData);
+    // Cleanup any existing object URLs
+    objectUrls.forEach(url => URL.revokeObjectURL(url));
+    setObjectUrls([]);
   };
 
-  // Reset form when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      resetForm();
-    }
-  }, [isOpen]);
-
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const filesArray = Array.from(files);
-      setFormData(prev => ({
-        ...prev,
-        images: [...prev.images, ...filesArray]
-      }));
-    }
+    if (!e.target.files?.length) return;
+    
+    const files = Array.from(e.target.files);
+    const newUrls = files.map(file => URL.createObjectURL(file));
+    
+    setFormData(prev => ({
+      ...prev,
+      images: [...prev.images, ...files]
+    }));
+    setObjectUrls(prev => [...prev, ...newUrls]);
+    
+    // Clear input value to allow selecting the same file again
+    e.target.value = '';
   };
 
   const removeImage = (index: number) => {
+    const urlToRemove = objectUrls[index];
+    URL.revokeObjectURL(urlToRemove);
+    
     setFormData(prev => ({
       ...prev,
       images: prev.images.filter((_, i) => i !== index)
     }));
+    setObjectUrls(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleLocationChange = (location: string) => {
     setFormData(prev => ({
       ...prev,
-      location: prev.location.includes(location)
-        ? prev.location.filter(l => l !== location)
-        : [...prev.location, location]
+      location: [...prev.location, location]
     }));
   };
 
@@ -103,85 +114,41 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
     setLoading(true);
 
     try {
-      // Validate required fields
-      if (!formData.name || !formData.type || !formData.price_per_hour || formData.location.length === 0) {
-        throw new Error('Please fill in all required fields');
-      }
-
-      let uploadedImageUrls: string[] = [];
+      const formDataToSend = new FormData();
       
-      // Only attempt image upload if there are images
-      if (formData.images.length > 0) {
-        try {
-          // First, upload all images
-          uploadedImageUrls = await Promise.all(
-            formData.images.map(async (file) => {
-              const uploadFormData = new FormData();
-              uploadFormData.append('file', file);
-              
-              const uploadResponse = await fetch('/api/upload', {
-                method: 'POST',
-                body: uploadFormData,
-              });
-              
-              if (!uploadResponse.ok) {
-                const error = await uploadResponse.json();
-                throw new Error(error.error || 'Failed to upload image');
-              }
-              
-              const uploadData = await uploadResponse.json();
-              return uploadData.url;
-            })
-          );
-        } catch (uploadError) {
-          logger.error('Error uploading images:', uploadError);
-          throw new Error(`Image upload failed: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
+      // Add all form fields except images
+      Object.entries(formData).forEach(([key, value]) => {
+        if (key !== 'images') {
+          if (Array.isArray(value)) {
+            formDataToSend.append(key, JSON.stringify(value));
+          } else {
+            formDataToSend.append(key, String(value));
+          }
         }
-      }
-
-      const createData = {
-        name: formData.name,
-        type: formData.type,
-        price_per_hour: Number(formData.price_per_hour),
-        price_7_days: Number(formData.price_7_days),
-        price_15_days: Number(formData.price_15_days),
-        price_30_days: Number(formData.price_30_days),
-        location: formData.location,
-        quantity: formData.quantity,
-        images: uploadedImageUrls,
-        min_booking_hours: 1,
-        status: 'active',
-        is_available: formData.is_available
-      };
-
-      logger.info('Creating vehicle with data:', createData);
-
-      const vehicleResponse = await fetch('/api/admin/vehicles', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(createData),
       });
 
-      if (!vehicleResponse.ok) {
-        const errorData = await vehicleResponse.json();
-        throw new Error(`Vehicle creation failed: ${errorData.error || 'Unknown error'}`);
+      // Add images
+      formData.images.forEach((image, index) => {
+        formDataToSend.append(`images[${index}]`, image);
+      });
+
+      const response = await fetch('/api/admin/vehicles', {
+        method: 'POST',
+        body: formDataToSend
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add vehicle');
       }
 
-      const result = await vehicleResponse.json();
-
-      if (!result.data?.vehicle) {
-        throw new Error('Invalid response from server: Missing vehicle data');
-      }
-
-      toast.success('Vehicle created successfully');
-      onSuccess(result.data.vehicle);
-      resetForm(); // Reset form after successful submission
+      const newVehicle = await response.json();
+      onSuccess(newVehicle);
+      resetForm();
       onClose();
+      toast.success('Vehicle added successfully');
     } catch (error) {
-      logger.error('Error in vehicle creation process:', error);
-      toast.error(error instanceof Error ? error.message : 'An unexpected error occurred');
+      logger.error('Error adding vehicle:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to add vehicle');
     } finally {
       setLoading(false);
     }
@@ -343,7 +310,7 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
                 {formData.images.map((file, index) => (
                   <div key={index} className="relative">
                     <img
-                      src={URL.createObjectURL(file)}
+                      src={objectUrls[index]}
                       alt={`Preview ${index + 1}`}
                       className="w-full h-24 object-cover rounded"
                     />
@@ -365,7 +332,7 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Vehicle'}
+              {loading ? 'Adding...' : 'Add Vehicle'}
             </Button>
           </div>
         </form>

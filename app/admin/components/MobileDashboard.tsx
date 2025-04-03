@@ -80,9 +80,9 @@ export default function MobileDashboard() {
         stats: {
           totalUsers: result.data.totalUsers || 0,
           totalRevenue: result.data.totalRevenue || 0,
-          revenueChange: `${result.data.revenueGrowth > 0 ? '+' : ''}${result.data.revenueGrowth}%`,
+          revenueChange: result.data.revenueGrowth !== null ? `${result.data.revenueGrowth > 0 ? '+' : ''}${result.data.revenueGrowth}%` : '',
           totalBookings: result.data.totalBookings || 0,
-          bookingsChange: `${result.data.bookingGrowth > 0 ? '+' : ''}${result.data.bookingGrowth}%`,
+          bookingsChange: result.data.bookingGrowth !== null ? `${result.data.bookingGrowth > 0 ? '+' : ''}${result.data.bookingGrowth}%` : '',
           totalVehicles: result.data.totalVehicles || 0
         },
         recentBookings: Array.isArray(result.data.recentBookings) 
