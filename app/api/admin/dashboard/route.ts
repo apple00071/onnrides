@@ -217,8 +217,13 @@ export async function GET(request: NextRequest) {
 
     // Calculate growth percentages
     const calculateGrowth = (current: number, previous: number): number | null => {
+      // Return null if both values are zero (no meaningful growth to show)
       if (current === 0 && previous === 0) return null;
+      
+      // If previous was zero but current has value, it's new growth (100%)
       if (previous === 0) return current > 0 ? 100 : 0;
+      
+      // Calculate percentage change
       return Math.round(((current - previous) / previous) * 100);
     };
 
