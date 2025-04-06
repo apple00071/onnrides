@@ -130,7 +130,7 @@ export default function AdminBookingsPage() {
     try {
       setLoading(true);
       setError(null);
-
+      
       const response = await fetch(`/api/admin/bookings?page=${page}`);
       if (!response.ok) {
         throw new Error('Failed to fetch bookings');
@@ -151,8 +151,8 @@ export default function AdminBookingsPage() {
         end_date: booking.ist_end_date || booking.end_date,
         pickup_datetime: booking.ist_start_date || booking.start_date,
         dropoff_datetime: booking.ist_end_date || booking.end_date,
-        formatted_pickup: booking.formatted_pickup,
-        formatted_dropoff: booking.formatted_dropoff,
+          formatted_pickup: booking.formatted_pickup,
+          formatted_dropoff: booking.formatted_dropoff,
         total_price: booking.total_price,
         status: booking.status,
         payment_status: booking.payment_status,
@@ -163,13 +163,13 @@ export default function AdminBookingsPage() {
           name: booking.vehicle_name,
           location: booking.vehicle_location
         },
-        user: {
-          name: booking.user_name,
-          email: booking.user_email,
-          phone: booking.user_phone
+          user: {
+            name: booking.user_name,
+            email: booking.user_email,
+            phone: booking.user_phone
         }
       }));
-
+      
       setBookings(transformedBookings);
       setCurrentPage(responseData.pagination?.currentPage || 1);
       setTotalPages(responseData.pagination?.totalPages || 1);
@@ -255,7 +255,7 @@ export default function AdminBookingsPage() {
 
   const handleCancelConfirm = async () => {
     if (!selectedBooking) return;
-    
+
     try {
       setLoading(true);
       
@@ -329,7 +329,7 @@ export default function AdminBookingsPage() {
         <h1 className="text-2xl font-bold">Bookings</h1>
         <Button onClick={() => setIsCreateModalOpen(true)}>
           Create Offline Booking
-        </Button>
+                  </Button>
       </div>
 
       <BookingsTable />
