@@ -13,10 +13,17 @@ import JsonLd from './components/JsonLd';
 import { headers } from 'next/headers';
 import ClientOnly from './(main)/providers/ClientOnly';
 import logger from '@/lib/logger';
-import { cn } from '@/lib/utils';
+import { cn, suppressHydrationWarning } from '@/lib/utils';
 import GoogleAnalytics from './components/GoogleAnalytics';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Toaster as UiToaster } from '@/components/ui/toaster';
+import nextDynamic from 'next/dynamic';
+
+// Import ErrorBoundary dynamically with no SSR
+const ErrorBoundary = nextDynamic(
+  () => import('@/components/ErrorBoundary'),
+  { ssr: false }
+);
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -269,7 +276,7 @@ export default async function RootLayout({
     ];
 
     return (
-      <html lang="en" suppressHydrationWarning>
+      <html lang="en" {...suppressHydrationWarning()}>
         <head>
           <meta charSet="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -294,17 +301,19 @@ export default async function RootLayout({
           {/* Only include Google Analytics in production */}
           {isProduction && GA_MEASUREMENT_ID && <GoogleAnalytics GA_MEASUREMENT_ID={GA_MEASUREMENT_ID} />}
         </head>
-        <body className={cn(inter.className)} suppressHydrationWarning>
-          <Providers session={session}>
-            <AuthProvider>
-              <ClientOnly>
-                <NotificationBar />
-                {children}
-                <Toaster position="top-center" />
-                <ScriptLoader />
-              </ClientOnly>
-            </AuthProvider>
-          </Providers>
+        <body className={cn(inter.className)} {...suppressHydrationWarning()}>
+          <ErrorBoundary>
+            <Providers session={session}>
+              <AuthProvider>
+                <ClientOnly>
+                  <NotificationBar />
+                  {children}
+                  <Toaster position="top-center" />
+                  <ScriptLoader />
+                </ClientOnly>
+              </AuthProvider>
+            </Providers>
+          </ErrorBoundary>
           <JsonLd data={structuredDataItems} />
           <SpeedInsights />
           <UiToaster />
