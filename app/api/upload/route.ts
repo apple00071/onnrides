@@ -3,6 +3,10 @@ import { put } from '@vercel/blob';
 import { nanoid } from 'nanoid';
 import logger from '@/lib/logger';
 
+// Adding route segment config
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();

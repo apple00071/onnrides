@@ -6,6 +6,9 @@ import { mkdir } from 'fs/promises';
 import path from 'path';
 import logger from '@/lib/logger';
 
+// New route segment config
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     // Verify admin authentication
@@ -64,10 +67,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-}; 
+} 
