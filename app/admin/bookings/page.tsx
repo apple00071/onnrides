@@ -5,8 +5,8 @@ import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { format, isValid, parseISO } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { toast } from 'react-hot-toast';
-import { formatCurrency, formatDateToIST } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils/currency-formatter';
+import { formatDate } from '@/lib/utils/time-formatter';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,9 @@ import { Eye, History, Loader2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import { BookingsTable } from './components/BookingsTable';
+import CreateOfflineBookingModal from './components/CreateOfflineBookingModal';
+import { useToast } from '@/hooks/use-toast';
 
 interface Booking {
   id: string;
@@ -49,6 +52,7 @@ interface Booking {
   payment_details?: any;       // Add payment details
   formatted_pickup?: string;   // Add formatted pickup date
   formatted_dropoff?: string;  // Add formatted dropoff date
+  booking_type: string;
 }
 
 // Format date and time - using database formatted values when available
@@ -105,7 +109,7 @@ const formatLocation = (location: string | string[] | null | undefined) => {
   }
 };
 
-export default function BookingsPage() {
+export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,6 +122,8 @@ export default function BookingsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const { toast } = useToast();
 
   // Fetch bookings with pagination
   const fetchBookings = async (page: number) => {
@@ -150,6 +156,7 @@ export default function BookingsPage() {
         total_price: booking.total_price,
         status: booking.status,
         payment_status: booking.payment_status,
+        booking_type: booking.booking_type || 'online',
         created_at: booking.ist_created_at || booking.created_at,
         updated_at: booking.ist_updated_at || booking.updated_at,
         vehicle: {
@@ -170,7 +177,11 @@ export default function BookingsPage() {
     } catch (err) {
       logger.error('Error fetching bookings:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch bookings');
-      toast.error('Failed to load bookings');
+      toast({
+        title: "Error",
+        description: "Failed to load bookings",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -202,9 +213,17 @@ export default function BookingsPage() {
       }
 
       setUserHistory(data.bookings || []);
-    } catch (err) {
-      logger.error('Error fetching user history:', err);
-      toast.error('Failed to load user history');
+      toast({
+        title: "Success",
+        description: "User history fetched successfully"
+      });
+    } catch (error) {
+      logger.error('Error fetching user history:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch user history",
+        variant: "destructive"
+      });
     } finally {
       setLoadingHistory(false);
     }
@@ -260,15 +279,30 @@ export default function BookingsPage() {
       // Close modal and refresh bookings
       setShowCancelDialog(false);
       setSelectedBooking(null);
-      toast.success('Booking cancelled successfully');
+      toast({
+        title: "Success",
+        description: "Booking cancelled successfully",
+      });
       fetchBookings(currentPage);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to cancel booking';
       logger.error('Error cancelling booking:', { error: errorMessage });
-      toast.error(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBookingCreated = () => {
+    toast({
+      title: 'Success',
+      description: 'Offline booking created successfully',
+    });
+    setIsCreateModalOpen(false);
   };
 
   if (error) {
@@ -290,173 +324,21 @@ export default function BookingsPage() {
   }
 
   return (
-    <>
-      <div className="container mx-auto py-6">
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle>Booking Management</CardTitle>
-                <CardDescription>{totalItems} bookings found</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-
-          <div className="w-full overflow-x-auto max-h-[calc(100vh-250px)] overflow-y-auto">
-            <table className="w-full table-auto">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vehicle</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pickup</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dropoff</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {loading ? (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-4 text-center">
-                      <div className="flex justify-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                      </div>
-                    </td>
-                  </tr>
-                ) : bookings.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-4 text-center text-gray-500">
-                      No bookings found
-                    </td>
-                  </tr>
-                ) : (
-                  bookings.map((booking) => (
-                    <tr key={booking.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-4 text-sm text-gray-900">
-                        {booking.booking_id}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-900">
-                        {booking.vehicle?.name || 'N/A'}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        <div>{booking.user?.name || 'N/A'}</div>
-                        <div className="text-xs text-gray-500">{booking.user?.phone || 'N/A'}</div>
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-900">
-                        {booking.formatted_pickup || formatDateTime(booking.pickup_datetime || booking.start_date)}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-gray-900">
-                        {booking.formatted_dropoff || formatDateTime(booking.dropoff_datetime || booking.end_date)}
-                      </td>
-                      <td className="px-4 py-4 text-sm font-medium text-gray-900">
-                        {formatCurrency(booking.total_price)}
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                          booking.status === 'cancelled'
-                            ? 'bg-red-100 text-red-800'
-                            : booking.status === 'confirmed'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {booking.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                          booking.payment_status === 'completed'
-                            ? 'bg-green-100 text-green-800'
-                            : booking.payment_status === 'cancelled'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {booking.payment_status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-sm">
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewBooking(booking)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewHistory(booking)}
-                          >
-                            <History className="h-4 w-4 mr-1" />
-                            History
-                          </Button>
-                          {booking.status !== 'cancelled' && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleCancelClick(booking)}
-                            >
-                              Cancel
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* Pagination */}
-          {!loading && bookings.length > 0 && (
-            <div className="px-4 py-3 flex items-center justify-between border-t border-gray-200">
-              <div className="flex-1 flex justify-between items-center">
-                <p className="text-sm text-gray-700">
-                  Showing {((currentPage - 1) * 10) + 1} to {Math.min(currentPage * 10, totalItems)} of {totalItems} bookings
-                </p>
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <div className="flex space-x-1">
-                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                      const page = i + 1;
-                      return (
-                        <Button
-                          key={page}
-                          variant={currentPage === page ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handlePageChange(page)}
-                        >
-                          {page}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </Card>
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Bookings</h1>
+        <Button onClick={() => setIsCreateModalOpen(true)}>
+          Create Offline Booking
+        </Button>
       </div>
+
+      <BookingsTable />
+
+      <CreateOfflineBookingModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleBookingCreated}
+      />
 
       {/* View Booking Modal */}
       <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
@@ -645,6 +527,6 @@ export default function BookingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 } 

@@ -2,7 +2,7 @@ import { EmailService } from '@/lib/email/service';
 import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import logger from '@/lib/logger';
 import db from '@/lib/prisma';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils/currency-formatter';
 import { formatIST } from '@/lib/utils/time-formatter';
 import { query } from '@/lib/db';  // Import the direct SQL query function
 

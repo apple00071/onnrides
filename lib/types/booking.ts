@@ -1,4 +1,4 @@
-export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
+export type BookingStatus = 'pending' | 'confirmed' | 'initiated' | 'completed' | 'cancelled';
 export type PaymentStatus = 'pending' | 'completed' | 'failed';
 
 export interface Vehicle {

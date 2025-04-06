@@ -16,6 +16,7 @@ import logger from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import GoogleAnalytics from './components/GoogleAnalytics';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Toaster as UiToaster } from '@/components/ui/toaster';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -115,7 +116,6 @@ export const metadata: Metadata = {
       },
     ]
   },
-  manifest: '/favicon/site.webmanifest',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#f26e24' },
     { media: '(prefers-color-scheme: dark)', color: '#f26e24' }
@@ -284,7 +284,6 @@ export default async function RootLayout({
           <link rel="icon" href="/favicon/android-chrome-192x192.png" type="image/png" sizes="192x192" />
           <link rel="icon" href="/favicon/android-chrome-512x512.png" type="image/png" sizes="512x512" />
           <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
-          <link rel="manifest" href="/favicon/site.webmanifest" />
           <link 
             rel="preload" 
             href="/fonts/Good Times Rg.woff2" 
@@ -308,6 +307,7 @@ export default async function RootLayout({
           </Providers>
           <JsonLd data={structuredDataItems} />
           <SpeedInsights />
+          <UiToaster />
         </body>
       </html>
     );

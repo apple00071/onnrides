@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils/currency-formatter';
 import type { Session } from 'next-auth';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';

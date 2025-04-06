@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 import VehicleDetailsClient from './VehicleDetailsClient';
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/${params.id}`);
+export async function generateMetadata({ params }: { params: { vehicleId: string } }): Promise<Metadata> {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vehicles/${params.vehicleId}`);
   const vehicle = await response.json();
 
   return {
@@ -11,6 +11,6 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   };
 }
 
-export default function VehicleDetailsPage({ params }: { params: { id: string } }) {
+export default function VehicleDetailsPage({ params }: { params: { vehicleId: string } }) {
   return <VehicleDetailsClient params={params} />;
 } 

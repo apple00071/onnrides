@@ -89,15 +89,12 @@ export class EmailService {
       // Create transporter with secure configuration
       this.transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT),
-        secure: true,
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: process.env.SMTP_SECURE === 'true',
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
         },
-        tls: {
-          rejectUnauthorized: true
-        }
       });
 
       // Verify connection
@@ -305,34 +302,91 @@ export class EmailService {
   }
 
   public async sendBookingConfirmation(
-    to: string,
+    toEmail: string,
     data: BookingConfirmationData
   ): Promise<void> {
-    const subject = 'Booking Confirmation - OnnRides';
-    const html = `
-      <h2>Booking Confirmation</h2>
-      <p>Hello ${data.userName},</p>
-      <p>Your booking has been confirmed!</p>
-      
-      <h3>Booking Details:</h3>
-      <ul>
-        <li>Booking ID: ${data.bookingId}</li>
-        <li>Vehicle: ${data.vehicleName}</li>
-        <li>Start Date: ${data.startDate}</li>
-        <li>End Date: ${data.endDate}</li>
-        <li>Amount Paid: ${data.amount}</li>
-        <li>Payment ID: ${data.paymentId}</li>
-      </ul>
+    try {
+      const html = this.createBookingConfirmationHtml(data);
 
-      <p>Thank you for choosing OnnRides! We hope you enjoy your ride.</p>
-      
-      <p>If you have any questions, please contact our support team:</p>
-      <ul>
-        <li>Email: support@onnrides.com</li>
-        <li>Phone: +91 8247494622</li>
-      </ul>
+      await this.transporter.sendMail({
+        from: `"Go On Riders" <${process.env.SMTP_FROM}>`,
+        to: toEmail,
+        subject: `Booking Confirmation - ${data.bookingId}`,
+        html,
+      });
+
+      logger.info(`Booking confirmation email sent to ${toEmail}`);
+    } catch (error) {
+      logger.error('Error sending booking confirmation email:', error);
+      throw error;
+    }
+  }
+
+  private createBookingConfirmationHtml(data: BookingConfirmationData): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Booking Confirmation</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 600px;
+              margin: 0 auto;
+              padding: 20px;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+            }
+            .booking-details {
+              background-color: #f9f9f9;
+              padding: 20px;
+              border-radius: 5px;
+              margin-bottom: 20px;
+            }
+            .footer {
+              text-align: center;
+              color: #666;
+              font-size: 14px;
+              margin-top: 30px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>🎉 Booking Confirmed!</h1>
+          </div>
+          
+          <p>Dear ${data.userName},</p>
+          
+          <p>Your booking has been confirmed with Go On Riders. Here are your booking details:</p>
+          
+          <div class="booking-details">
+            <p><strong>Booking ID:</strong> ${data.bookingId}</p>
+            <p><strong>Vehicle:</strong> ${data.vehicleName}</p>
+            <p><strong>Start Date:</strong> ${data.startDate}</p>
+            <p><strong>End Date:</strong> ${data.endDate}</p>
+            <p><strong>Total Amount:</strong> ₹${data.amount}</p>
+            <p><strong>Payment Reference:</strong> ${data.paymentId}</p>
+          </div>
+          
+          <p>If you have any questions or need assistance, please don't hesitate to contact us:</p>
+          <ul>
+            <li>Phone: +91 1234567890</li>
+            <li>Email: support@go-onriders.com</li>
+          </ul>
+          
+          <div class="footer">
+            <p>Thank you for choosing Go On Riders!</p>
+            <p>© ${new Date().getFullYear()} Go On Riders. All rights reserved.</p>
+          </div>
+        </body>
+      </html>
     `;
-    await this.sendEmail(to, subject, html, data.bookingId);
   }
 
   public async sendPaymentFailure(

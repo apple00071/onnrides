@@ -1,6 +1,6 @@
 import logger from '../logger';
 import type { Client } from 'whatsapp-web.js';
-import { isServerless } from '@/lib/utils';
+import { isServerless } from '@/lib/utils/environment';
 import { join } from 'path';
 import fs from 'fs';
 
@@ -118,7 +118,7 @@ export async function initializeWhatsAppClient(): Promise<Client | null> {
     const connectionTimeout = setTimeout(() => {
       if (!whatsappClient?.info) {
         const error = new Error('WhatsApp client connection timeout');
-        logger.error(error);
+        logger.error('WhatsApp client connection error:', error);
         isInitializing = false;
         whatsappClient = null;
         throw error;

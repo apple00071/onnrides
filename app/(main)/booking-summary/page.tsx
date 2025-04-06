@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { calculateDuration, formatCurrency } from '@/lib/utils';
+import { calculateDuration } from '@/lib/utils/duration-calculator';
 import { calculateRentalPrice } from '@/lib/utils/price';
 import { toast } from 'react-hot-toast';
 import { useSession } from 'next-auth/react';

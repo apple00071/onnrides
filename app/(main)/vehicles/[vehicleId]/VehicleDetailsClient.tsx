@@ -10,13 +10,13 @@ import { format } from 'date-fns';
 import { CalendarIcon, MapPin, Clock, DollarSign, Car } from 'lucide-react';
 import Image from 'next/image';
 
-interface VehicleDetailsClientProps {
+interface Props {
   params: {
-    id: string;
+    vehicleId: string;
   };
 }
 
-export default function VehicleDetailsClient({ params }: VehicleDetailsClientProps) {
+export default function VehicleDetailsClient({ params }: Props) {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export default function VehicleDetailsClient({ params }: VehicleDetailsClientPro
   useEffect(() => {
     const fetchVehicle = async () => {
       try {
-        const response = await fetch(`/api/vehicles/${params.id}`);
+        const response = await fetch(`/api/vehicles/${params.vehicleId}`);
         if (!response.ok) {
           throw new Error('Failed to fetch vehicle details');
         }
@@ -39,7 +39,7 @@ export default function VehicleDetailsClient({ params }: VehicleDetailsClientPro
     };
 
     fetchVehicle();
-  }, [params.id]);
+  }, [params.vehicleId]);
 
   if (loading) {
     return (

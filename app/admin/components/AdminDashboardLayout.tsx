@@ -11,9 +11,11 @@ export default function AdminDashboardLayout({ children }: AdminDashboardLayoutP
   return (
     <div className="min-h-screen bg-gray-100">
       <AdminNav />
-      <main className="p-4 sm:p-6 lg:p-8">
-        {children}
-      </main>
+      <div className="pt-16">
+        <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+          {children}
+        </main>
+      </div>
     </div>
   );
 } 

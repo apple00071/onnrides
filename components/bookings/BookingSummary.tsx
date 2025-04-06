@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { TermsAndConditionsModal } from './TermsAndConditionsModal';
 import logger from '@/lib/logger';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils/currency-formatter';
 
 interface BookingSummaryProps {
   booking: {

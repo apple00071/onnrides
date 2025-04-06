@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils/currency-formatter';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Vehicle } from '@/app/(main)/vehicles/types';

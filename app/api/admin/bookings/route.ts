@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import logger from '@/lib/logger';
 import { authOptions } from '@/lib/auth/config';
-import { query, pool } from '@/lib/db';
+import { query } from '@/lib/db';
 import { EmailService } from '@/lib/email/service';
 import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import { formatDateTimeIST } from '@/lib/utils/timezone';
@@ -154,6 +154,10 @@ const getBookingsHandler = async (request: NextRequest) => {
           b.total_price,
           b.status,
           b.payment_status,
+          b.payment_method,
+          b.payment_reference,
+          b.booking_type,
+          b.notes,
           b.created_at,
           b.updated_at,
           (b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_created_at,
@@ -211,7 +215,6 @@ const getBookingsHandler = async (request: NextRequest) => {
 export const GET = withTimezoneProcessing(getBookingsHandler);
 
 export async function PUT(request: NextRequest) {
-  const client = await pool.connect();
   const emailService = EmailService.getInstance();
   const whatsappService = WhatsAppService.getInstance();
   
@@ -235,10 +238,11 @@ export async function PUT(request: NextRequest) {
 
     if (action === 'cancel') {
       try {
-        await client.query('BEGIN');
+        // Begin transaction
+        await query('BEGIN');
 
         // Update booking status and payment status
-        const updateQuery = `
+        const updateResult = await query(`
           UPDATE bookings 
           SET 
             status = 'cancelled',
@@ -248,18 +252,16 @@ export async function PUT(request: NextRequest) {
           RETURNING *,
             start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_start_date,
             end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_end_date
-        `;
+        `, [bookingId]);
 
-        const result = await client.query(updateQuery, [bookingId]);
-
-        if (result.rowCount === 0) {
+        if (updateResult.rowCount === 0) {
           throw new Error('Booking not found');
         }
 
-        const booking = result.rows[0];
+        const booking = updateResult.rows[0];
 
         // Get user and vehicle details for the notification
-        const detailsQuery = `
+        const detailsResult = await query(`
           SELECT 
             b.*,
             u.name as user_name,
@@ -270,10 +272,9 @@ export async function PUT(request: NextRequest) {
           LEFT JOIN users u ON b.user_id = u.id
           LEFT JOIN vehicles v ON b.vehicle_id = v.id
           WHERE b.booking_id = $1
-        `;
-
-        const details = await client.query(detailsQuery, [bookingId]);
-        const bookingDetails = details.rows[0];
+        `, [bookingId]);
+        
+        const bookingDetails = detailsResult.rows[0];
 
         // Send cancellation notifications
         try {
@@ -325,14 +326,14 @@ export async function PUT(request: NextRequest) {
           });
         }
 
-        await client.query('COMMIT');
+        await query('COMMIT');
 
         return NextResponse.json({ 
           success: true,
           message: 'Booking cancelled successfully'
         });
       } catch (error) {
-        await client.query('ROLLBACK');
+        await query('ROLLBACK');
         logger.error('Error cancelling booking:', {
           error: error instanceof Error ? error.message : 'Unknown error',
           bookingId
@@ -353,7 +354,5 @@ export async function PUT(request: NextRequest) {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to process booking operation'
     }, { status: 500 });
-  } finally {
-    client.release();
   }
 } 

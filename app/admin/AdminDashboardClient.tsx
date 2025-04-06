@@ -55,6 +55,7 @@ const menuItems = [
   { href: '/admin/vehicles', label: 'Vehicles', icon: <FaCar className="h-5 w-5" /> },
   { href: '/admin/users', label: 'Users', icon: <FaUsers className="h-5 w-5" /> },
   { href: '/admin/bookings', label: 'Bookings', icon: <FaBookmark className="h-5 w-5" /> },
+  { href: '/admin/trip-initiation', label: 'Trip Initiation', icon: <FaQrcode className="h-5 w-5" /> },
   { href: '/admin/coupons', label: 'Coupons', icon: <FaTicketAlt className="h-5 w-5" /> },
   { href: '/admin/email-logs', label: 'Email Logs', icon: <FaEnvelope className="h-5 w-5" /> },
   { href: '/admin/whatsapp-logs', label: 'WhatsApp Logs', icon: <FaWhatsapp className="h-5 w-5" /> },
@@ -92,6 +93,14 @@ function MainContent({ children }: { children: React.ReactNode }) {
             </h1>
           </div>
         )}
+        {/* On mobile, show the page title for better context */}
+        {isMobile && (
+          <div className="mb-3 w-full">
+            <h1 className="text-lg font-semibold text-gray-900">
+              {menuItems.find(item => item.href === pathname)?.label || 'Dashboard'}
+            </h1>
+          </div>
+        )}
         {children}
       </div>
     </main>
@@ -101,43 +110,59 @@ function MainContent({ children }: { children: React.ReactNode }) {
 // Mobile header with toggle button
 function MobileHeader() {
   const { open, setOpen } = useSidebar();
+  const router = useRouter();
   
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50 md:hidden">
-      <div className="flex items-center justify-between h-full px-2">
+    <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-50 md:hidden shadow-sm">
+      <div className="flex items-center justify-between h-full px-3">
         <button
           onClick={() => setOpen(!open)}
-          className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
           aria-label="Toggle menu"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <div className="relative h-10 w-32">
+        <div 
+          className="relative h-8 w-28 cursor-pointer" 
+          onClick={() => router.push('/admin/dashboard')}
+        >
           <Image
             src="/logo.png"
             alt="OnnRides Admin"
             fill
             className="object-contain"
             priority
-            sizes="(max-width: 768px) 128px, 120px"
+            sizes="112px"
           />
         </div>
-        <div className="w-10" /> {/* Spacer for alignment */}
+        <SignOutButton mobileView={true} />
       </div>
     </header>
   );
 }
 
 // Sign out button component that uses the sidebar context
-function SignOutButton() {
+function SignOutButton({ mobileView = false }: { mobileView?: boolean }) {
   const router = useRouter();
   const { open } = useSidebar();
   
   const handleSignOut = () => {
     router.push('/admin-login');
   };
+  
+  if (mobileView) {
+    return (
+      <button
+        onClick={handleSignOut}
+        className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+        aria-label="Sign out"
+      >
+        <FaSignOutAlt className="h-4 w-4" />
+      </button>
+    );
+  }
   
   return (
     <button
@@ -165,6 +190,13 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
   const [mounted, setMounted] = useState(false);
   const { isMobile, isPWA } = useIsMobile();
   
+  // Close sidebar when route changes on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, [pathname, isMobile]);
+
   // Only render client components after mounting to prevent hydration errors
   useEffect(() => {
     setMounted(true);
@@ -184,6 +216,15 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
           {/* Mobile Header - only shown when not in PWA mode */}
           {shouldShowMobileHeader && <MobileHeader />}
 
+          {/* Sidebar overlay for mobile - closes sidebar when clicking outside */}
+          {isMobile && sidebarOpen && (
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 z-40"
+              onClick={() => setSidebarOpen(false)}
+              aria-hidden="true"
+            />
+          )}
+
           <Sidebar>
             <SidebarBody>
               <div className="flex flex-col h-full">
@@ -200,6 +241,22 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
                     />
                   </div>
                 </div>
+
+                {/* Mobile Logo - shown only in sidebar when mobile */}
+                {isMobile && (
+                  <div className="flex md:hidden h-16 items-center px-4 border-b border-gray-200">
+                    <div className="relative h-10 w-32">
+                      <Image
+                        src="/logo.png"
+                        alt="OnnRides Admin"
+                        fill
+                        className="object-contain"
+                        priority
+                        sizes="128px"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <nav className="flex-1 overflow-y-auto py-4">
                   {menuItems.map((item) => (

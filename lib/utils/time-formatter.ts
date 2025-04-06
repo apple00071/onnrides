@@ -22,7 +22,7 @@ export function toIST(date: Date | string | null): Date | null {
 }
 
 /**
- * Formats a date to IST date and time (DD MMM YYYY, h:mm a)
+ * Format a date to IST timezone with proper formatting
  * @param date Date to format
  * @returns Formatted date string in IST
  */
@@ -30,9 +30,16 @@ export function formatIST(date: Date | string | null): string {
   if (!date) return 'N/A';
   
   try {
-    const istDate = toIST(date);
-    if (!istDate) return 'Invalid Date';
-    return format(istDate, 'dd MMM yyyy, h:mm a', { timeZone: IST_TIMEZONE });
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
   } catch (error) {
     logger.error('Error formatting date to IST:', error);
     return 'Error formatting date';
@@ -148,4 +155,38 @@ export function formatDuration(hours: number): string {
   }
   
   return `${wholeHours} hour${wholeHours !== 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+}
+
+export function formatDateTime(date: string | Date): string {
+  const d = new Date(date);
+  return d.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
+export function formatDate(date: string | Date): string {
+  const d = new Date(date);
+  return d.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+}
+
+export function formatTime(date: string | Date): string {
+  const d = new Date(date);
+  return d.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
+export function formatISOWithTZ(date: Date): string {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
 } 

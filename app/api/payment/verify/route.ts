@@ -5,7 +5,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { sendBookingConfirmationEmail } from '@/lib/email';
 import { verifyEmailConfig } from '@/lib/email/config';
-import { formatDateToIST } from '@/lib/utils';
+import { formatDate } from '@/lib/utils/time-formatter';
 import { AdminNotificationService } from '@/lib/notifications/admin-notification';
 
 // New route segment config
@@ -205,7 +205,15 @@ export async function POST(request: NextRequest) {
         if ((debugResult?.rowCount ?? 0) > 0) {
           logger.error('Debug - Recent bookings found:', {
             bookingsCount: debugResult?.rowCount ?? 0,
-            bookings: debugResult.rows.map(row => ({
+            bookings: debugResult.rows.map((row: {
+              booking_id: string;
+              id: string;
+              status: string;
+              payment_status: string;
+              user_id: string;
+              payment_details: any;
+              created_at: string | Date;
+            }) => ({
               ...row,
               payment_details: row.payment_details ? JSON.stringify(row.payment_details) : null,
               created_at_formatted: new Date(row.created_at).toISOString()
@@ -307,8 +315,8 @@ export async function POST(request: NextRequest) {
         payment_reference,
         payment_status: 'completed',
         status: 'confirmed',
-        startDate: formatDateToIST(booking.start_date),
-        endDate: formatDateToIST(booking.end_date),
+        startDate: formatDate(booking.start_date),
+        endDate: formatDate(booking.end_date),
         pickupLocation: booking.pickup_location,
         totalPrice: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`
       };
@@ -332,8 +340,8 @@ export async function POST(request: NextRequest) {
               email: userEmail,
               name: booking.user_name || 'User',
               bookingId: booking.booking_id || booking.id,
-              startDate: formatDateToIST(booking.start_date),
-              endDate: formatDateToIST(booking.end_date),
+              startDate: formatDate(booking.start_date),
+              endDate: formatDate(booking.end_date),
               vehicleName: booking.vehicle_name,
               amount: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`,
               paymentId: payment_reference

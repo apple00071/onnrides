@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { initializeWhatsApp } from '@/lib/whatsapp/config';
 import logger from '@/lib/logger';
 import QRCode from 'qrcode';
-import { isServerless } from '@/lib/utils';
+import { isServerless } from '@/lib/utils/environment';
 
 const TIMEOUT_DURATION = 25000; // 25 seconds
 
