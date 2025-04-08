@@ -26,7 +26,9 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      const callbackUrl = searchParams.get('from') || '/admin/dashboard';
+      // Always redirect to dashboard after admin login
+      const callbackUrl = '/admin/dashboard';
+      
       const result = await signIn('credentials', {
         email,
         password,
@@ -46,11 +48,12 @@ export default function AdminLoginPage() {
         } else if (result.error === 'AccessDenied') {
           toast.error('You do not have permission to access the admin area');
         } else {
-          toast.error('Failed to sign in. Please try again.');
+          toast.error(result.error || 'Failed to sign in. Please try again.');
         }
       } else if (result.ok) {
         toast.success('Welcome back, admin!');
-        router.replace(callbackUrl);
+        // Force navigation to dashboard
+        router.push(callbackUrl);
       }
     } catch (error) {
       logger.error('Login error:', error);

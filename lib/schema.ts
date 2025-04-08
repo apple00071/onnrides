@@ -68,6 +68,9 @@ interface UsersTable {
   reset_token_expiry: Date | null;
   is_blocked: Generated<boolean>;
   role: UserRole;
+  is_verified: Generated<boolean>;
+  verification_token: string | null;
+  verification_expires: Date | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

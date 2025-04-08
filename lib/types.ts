@@ -21,6 +21,7 @@ export interface User {
   phone: string | null;
   created_at: string;
   is_blocked: boolean;
+  formatted_created?: string;
   documents?: {
     total: number;
     approved: number;

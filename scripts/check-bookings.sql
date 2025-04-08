@@ -1,0 +1,1 @@
+SELECT COUNT(*) as booking_count FROM bookings; 

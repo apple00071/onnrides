@@ -18,6 +18,7 @@ const navigation = [
   { name: 'Users', href: '/admin/users', icon: FaUsers },
   { name: 'Vehicles', href: '/admin/vehicles', icon: FaCar },
   { name: 'Bookings', href: '/admin/bookings', icon: FaCalendarAlt },
+  { name: 'Trips', href: '/admin/trips', icon: FaCar },
   { name: 'Documents', href: '/admin/documents', icon: FaFileAlt },
 ];
 

@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import logger from '@/lib/logger';
 import { sql } from 'kysely';
+import { convertDatesInQueryResults } from '@/lib/utils/timezone-config';
 
 export async function GET(_request: NextRequest) {
   try {
@@ -18,12 +19,15 @@ export async function GET(_request: NextRequest) {
     // Get all non-admin users
     const users = await db
       .selectFrom('users')
-      .select(['id', 'name', 'email', 'phone', 'role', 'created_at'])
+      .select(['id', 'name', 'email', 'phone', 'role', 'created_at', 'is_blocked'])
       .where('role', '!=', 'admin')
       .execute();
 
+    // Convert dates to IST
+    const usersWithFormattedDates = convertDatesInQueryResults(users, ['created_at']);
+
     const usersWithDetails = await Promise.all(
-      users.map(async (user) => {
+      usersWithFormattedDates.map(async (user) => {
         try {
           // Get document counts
           const documentCounts = await db

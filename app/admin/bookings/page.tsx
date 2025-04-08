@@ -16,10 +16,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
-import { Eye, History, Loader2 } from 'lucide-react';
+import { Eye, History, Loader2, Plus } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import CreateOfflineBookingModal from './components/CreateOfflineBookingModal';
 
 interface Booking {
   id: string;
@@ -112,6 +113,7 @@ export default function BookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showOfflineBookingModal, setShowOfflineBookingModal] = useState(false);
   const [userHistory, setUserHistory] = useState<Booking[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -299,6 +301,10 @@ export default function BookingsPage() {
                 <CardTitle>Booking Management</CardTitle>
                 <CardDescription>{totalItems} bookings found</CardDescription>
               </div>
+              <Button onClick={() => setShowOfflineBookingModal(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Offline Booking
+              </Button>
             </div>
           </CardHeader>
 
@@ -645,6 +651,17 @@ export default function BookingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Offline Booking Modal */}
+      <CreateOfflineBookingModal
+        isOpen={showOfflineBookingModal}
+        onClose={() => setShowOfflineBookingModal(false)}
+        onSuccess={() => {
+          setShowOfflineBookingModal(false);
+          fetchBookings(currentPage);
+          toast.success('Offline booking created successfully');
+        }}
+      />
     </>
   );
 } 

@@ -86,11 +86,34 @@ export async function middleware(request: NextRequest) {
   
   logMiddleware(`Processing request: ${pathname}, isMobile: ${isMobile}, UA: ${request.headers.get('user-agent')?.substring(0, 50)}...`);
   
+  // Handle admin routes authorization
+  if (pathname.startsWith('/admin') && !pathname.startsWith('/admin-login')) {
+    try {
+      const token = await getToken({ 
+        req: request,
+        secret: process.env.NEXTAUTH_SECRET 
+      });
+
+      // If no token or user is not admin, redirect to admin login
+      if (!token || token.role !== 'admin') {
+        logMiddleware(`Unauthorized admin access: ${pathname}`);
+        return NextResponse.redirect(new URL('/admin-login', request.url));
+      }
+      
+      // Admin user, allow access
+      logMiddleware(`Admin access granted: ${pathname}`);
+      return undefined;
+    } catch (error) {
+      console.error('[Middleware] Error verifying admin status:', error);
+      return NextResponse.redirect(new URL('/admin-login', request.url));
+    }
+  }
+  
   // Skip maintenance check for these paths
   if (pathname.startsWith('/_next') || 
       pathname.startsWith('/api') || 
       pathname.startsWith('/maintenance') ||
-      pathname.startsWith('/admin') ||
+      pathname.startsWith('/admin-login') ||
       pathname.includes('/favicon') ||
       pathname.match(/\.[^/]+$/) // Skip files with extensions
   ) {

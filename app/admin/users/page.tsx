@@ -10,6 +10,7 @@ import UserDetailsModal from './components/UserDetailsModal';
 import UserDocumentsModal from './components/UserDocumentsModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { formatDateTimeIST } from '@/lib/utils';
 
 interface Document {
   id: string;
@@ -193,7 +194,7 @@ export default function UsersPage() {
                   <td className="px-6 py-4 whitespace-nowrap">{user.name || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{user.phone || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{user.created_at}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{user.formatted_created || formatDateTimeIST(user.created_at)}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       user.role === 'admin'

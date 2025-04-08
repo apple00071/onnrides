@@ -1,6 +1,7 @@
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import StartTripButton from '@/app/components/StartTripButton';
 
 interface Booking {
   id: string;
@@ -130,6 +131,10 @@ export default function BookingDetailsModal({
                         {booking.payment_status}
                       </span>
                     </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <StartTripButton bookingId={booking.id} status={booking.status.toLowerCase()} />
                   </div>
                 </div>
               </Dialog.Panel>

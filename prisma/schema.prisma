@@ -4,34 +4,46 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("PRISMA_ACCELERATE_URL")
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 model bookings {
-  id                String   @id
-  user_id           String
-  vehicle_id        String
-  start_date        DateTime @db.Timestamp(6)
-  end_date          DateTime @db.Timestamp(6)
-  total_hours       Float    @db.Real
-  total_price       Float    @db.Real
-  status            String   @default("pending")
-  payment_status    String   @default("pending")
-  payment_details   String?
-  created_at        DateTime @default(now()) @db.Timestamp(6)
-  updated_at        DateTime @default(now()) @db.Timestamp(6)
-  pickup_location   String?
-  dropoff_location  String?
-  payment_intent_id String?
-  booking_id        String?
-  users             users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "bookings_user_id_users_id_fk")
-  vehicles          vehicles @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "bookings_vehicle_id_vehicles_id_fk")
+  id                   String    @id @default(dbgenerated("uuid_generate_v4()"))
+  user_id              String
+  vehicle_id           String
+  start_date           DateTime  @db.Timestamp(6)
+  end_date             DateTime  @db.Timestamp(6)
+  total_hours          Float?    @db.Real
+  total_price          Float     @db.Real
+  status               String    @default("pending")
+  payment_status       String    @default("pending")
+  payment_details      String?
+  created_at           DateTime  @default(now()) @db.Timestamp(6)
+  updated_at           DateTime  @default(now()) @db.Timestamp(6)
+  pickup_location      String?
+  dropoff_location     String?
+  payment_intent_id    String?
+  booking_id           String    @unique(map: "unique_booking_id")
+  pickup_datetime      DateTime? @db.Timestamptz(6)
+  dropoff_datetime     DateTime? @db.Timestamptz(6)
+  formatted_start_date String?
+  formatted_end_date   String?
+  formatted_pickup     String?
+  formatted_dropoff    String?
+  payment_method       String?   @db.VarChar(20)
+  payment_reference    String?   @db.VarChar(100)
+  booking_type         String?   @default("online") @db.VarChar(20)
+  created_by           String?   @db.VarChar(50)
+  notes                String?
+  users                users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "bookings_user_id_users_id_fk")
+  vehicles             vehicles  @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "bookings_vehicle_id_vehicles_id_fk")
 
   @@index([user_id, status], map: "idx_booking_user_status")
   @@index([vehicle_id, start_date, end_date], map: "idx_booking_vehicle_dates")
   @@index([payment_status], map: "idx_booking_payment_status")
   @@index([payment_intent_id], map: "idx_bookings_payment_intent_id")
+  @@index([booking_id], map: "idx_bookings_booking_id")
 }
 
 model document_submissions {
@@ -105,19 +117,21 @@ model reviews {
 }
 
 model users {
-  id                 String      @id
+  id                 String           @id
   name               String?
-  email              String      @unique(map: "users_email_unique")
+  email              String           @unique(map: "users_email_unique")
   password_hash      String?
   phone              String?
   reset_token        String?
-  reset_token_expiry DateTime?   @db.Timestamp(6)
-  is_blocked         Boolean?    @default(false)
-  role               String      @default("user")
-  created_at         DateTime    @default(now()) @db.Timestamp(6)
-  updated_at         DateTime    @default(now()) @db.Timestamp(6)
+  reset_token_expiry DateTime?        @db.Timestamp(6)
+  is_blocked         Boolean?         @default(false)
+  role               String           @default("user")
+  is_verified        Boolean          @default(false)
+  created_at         DateTime         @default(now()) @db.Timestamp(6)
+  updated_at         DateTime         @default(now()) @db.Timestamp(6)
   bookings           bookings[]
   documents          documents[]
+  password_resets    password_resets?
 }
 
 model vehicles {
@@ -167,14 +181,13 @@ model email_logs {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   recipient       String
   subject         String
-  message_content String
+  message_content String?
+  booking_id      String?
   status          String
   error           String?
+  message_id      String?
   created_at      DateTime? @default(now()) @db.Timestamptz(6)
   updated_at      DateTime? @default(now()) @db.Timestamptz(6)
-
-  @@index([recipient], map: "idx_email_logs_recipient")
-  @@index([status], map: "idx_email_logs_status")
 }
 
 model settings {
@@ -185,26 +198,54 @@ model settings {
   updated_at DateTime @default(now()) @db.Timestamp(6)
 }
 
-enum vehicle_status {
-  active
-  maintenance
-  retired
-}
-
-// Admin Notification Model to track notifications sent to admins
 model AdminNotification {
-  id          String   @id @default(uuid())
-  type        String   // 'booking', 'payment', 'document', 'account', 'system', 'test'
-  title       String
-  recipient   String
-  channel     String   // 'email', 'whatsapp'
-  status      String   // 'delivered', 'failed'
-  error       String?
-  data        String?  // JSON stringified data
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id         String   @id @default(uuid())
+  type       String
+  title      String
+  recipient  String
+  channel    String
+  status     String
+  error      String?
+  data       String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@index([type, status])
   @@index([recipient, channel])
   @@index([created_at])
+}
+
+model password_resets {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @unique
+  token      String    @db.VarChar(255)
+  expires_at DateTime  @db.Timestamptz(6)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([expires_at], map: "idx_password_resets_expires_at")
+  @@index([token], map: "idx_password_resets_token")
+}
+
+model whatsapp_logs {
+  id           Int       @id @default(autoincrement())
+  message_id   String?   @db.VarChar(255)
+  instance_id  String?   @db.VarChar(100)
+  recipient    String?   @db.VarChar(100)
+  message      String?
+  booking_id   String?   @db.VarChar(100)
+  status       String?   @default("pending") @db.VarChar(50)
+  error        String?
+  message_type String?   @db.VarChar(50)
+  chat_id      String?   @db.VarChar(100)
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime? @default(now()) @db.Timestamptz(6)
+  metadata     Json?     @default("{}")
+}
+
+enum vehicle_status {
+  active
+  maintenance
+  retired
 }

@@ -78,7 +78,7 @@ export function convertDatesInQueryResults<T extends Record<string, any>>(
           // Only process valid dates
           if (!isNaN(date.getTime())) {
             // Add formatted date fields
-            const fieldName = field.replace(/(_date|_datetime|_time)$/, '');
+            const fieldName = field.replace(/(_at|_date|_datetime|_time)$/, '');
             convertedRow[`formatted_${fieldName}`] = formatDateTimeIST(date);
           }
         } catch (e) {

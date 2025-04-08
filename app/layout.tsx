@@ -16,6 +16,7 @@ import logger from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import GoogleAnalytics from './components/GoogleAnalytics';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Toaster as NewToaster } from '@/components/ui/toaster';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -308,6 +309,7 @@ export default async function RootLayout({
           </Providers>
           <JsonLd data={structuredDataItems} />
           <SpeedInsights />
+          <NewToaster />
         </body>
       </html>
     );
@@ -327,6 +329,7 @@ export default async function RootLayout({
             </div>
           </div>
           <SpeedInsights />
+          <NewToaster />
         </body>
       </html>
     );

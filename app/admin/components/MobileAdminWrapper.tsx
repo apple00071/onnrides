@@ -74,6 +74,7 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
   const navLinks = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: <FaHome size={20} /> },
     { name: 'Bookings', href: '/admin/bookings', icon: <FaList size={20} /> },
+    { name: 'Trips', href: '/admin/trips', icon: <FaCar size={20} /> },
     { name: 'Users', href: '/admin/users', icon: <FaUsers size={20} /> },
     { name: 'Vehicles', href: '/admin/vehicles', icon: <FaCar size={20} /> },
     { name: 'Settings', href: '/admin/settings', icon: <FaCog size={20} /> },

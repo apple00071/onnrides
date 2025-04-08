@@ -37,6 +37,12 @@ export default function AdminNav() {
                 Bookings
               </Link>
               <Link
+                href="/admin/trips"
+                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${isActive('/admin/trips')}`}
+              >
+                Trips
+              </Link>
+              <Link
                 href="/admin/vehicles"
                 className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${isActive('/admin/vehicles')}`}
               >
