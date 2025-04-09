@@ -98,7 +98,7 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
   const shouldShowMobileHeader = isMobile && !isPWA;
 
   return (
-    <div className="flex flex-col min-h-screen relative bg-gray-50">
+    <div className="flex flex-col min-h-screen relative bg-white">
       {/* Mobile header - only shown when not in PWA mode */}
       {shouldShowMobileHeader && (
         <motion.header 
@@ -147,7 +147,7 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
       )}
 
       {/* Main content - with padding for header and footer */}
-      <main className={`flex-1 ${shouldShowMobileHeader ? 'pt-16' : 'pt-4'} pb-16 px-4 ${isMobilePWA ? 'pb-24' : ''}`}>
+      <main className={`flex-1 ${shouldShowMobileHeader ? 'pt-16' : 'pt-4'} pb-16 px-4 ${isMobilePWA ? 'pb-24' : ''} bg-white`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={pathname}
