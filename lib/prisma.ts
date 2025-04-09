@@ -6,8 +6,8 @@ declare global {
   var cachedPrisma: PrismaClient | undefined;
 }
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 500; // 500ms initial delay
+const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 1000;
 
 const prismaClientSingleton = () => {
   const client = new PrismaClient({
@@ -18,27 +18,27 @@ const prismaClientSingleton = () => {
     datasources: {
       db: {
         url: process.env.DATABASE_URL
-      },
-    },
+      }
+    }
   });
 
-  // Apply middleware for retry logic
-  client.$use(async (params, next) => {
+  client.$use(async (params: any, next: any) => {
     let attempts = 0;
     let delay = RETRY_DELAY_MS;
     
     while (attempts < MAX_RETRIES) {
       try {
         return await next(params);
-      } catch (error: any) { // Using any for error type to access properties
+      } catch (error: any) {
         attempts++;
         const isConnectionError = 
           error.message?.includes('Connection') || 
           error.message?.includes('timeout') || 
           error.message?.includes('connection') ||
-          error.message?.includes('Closed');
+          error.message?.includes('Closed') ||
+          error.message?.includes('P2024') ||
+          error.message?.includes('fetching a new connection');
           
-        // Only retry for connection-related errors
         if (!isConnectionError || attempts >= MAX_RETRIES) {
           logger.error(`Prisma ${params.model}.${params.action} failed after ${attempts} attempts`, { 
             error: error.message,
@@ -54,9 +54,8 @@ const prismaClientSingleton = () => {
           error: error.message 
         });
         
-        // Exponential backoff
         await new Promise(resolve => setTimeout(resolve, delay));
-        delay *= 2; // Double the delay for next attempt
+        delay *= 2;
       }
     }
   });
@@ -64,9 +63,29 @@ const prismaClientSingleton = () => {
   return client;
 };
 
-const prisma = globalThis.cachedPrisma ?? prismaClientSingleton();
+const initializePrisma = async () => {
+  try {
+    const client = prismaClientSingleton();
+    await client.$connect();
+    logger.info('Prisma client connected successfully');
+    return client;
+  } catch (error: any) {
+    logger.error('Failed to initialize Prisma client:', { error: error.message });
+    throw error;
+  }
+};
 
-// Export a safe disconnect function
+let prisma: PrismaClient;
+
+if (globalThis.cachedPrisma) {
+  prisma = globalThis.cachedPrisma;
+} else {
+  prisma = prismaClientSingleton();
+  prisma.$connect()
+    .then(() => logger.info('Prisma client connected successfully'))
+    .catch(error => logger.error('Failed to connect Prisma client:', { error: error.message }));
+}
+
 export async function disconnectPrisma(): Promise<void> {
   try {
     await prisma.$disconnect();

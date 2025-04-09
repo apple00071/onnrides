@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { Metadata } from 'next';
+import { formatDateToIST } from '@/lib/utils/date';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -58,9 +59,9 @@ export default function MaintenancePage({ searchParams }: { searchParams: { _t?:
           We apologize for the inconvenience. Our team is working hard to get everything back online.
         </p>
         
-        {/* Add another timestamp at the bottom for cache busting */}
-        <div className="text-[0.5rem] text-gray-300" aria-hidden="true">
-          Last updated: {new Date().toISOString()}
+        {/* Last updated timestamp in IST */}
+        <div className="text-xs text-gray-400">
+          Last updated: {formatDateToIST(new Date())}
         </div>
       </div>
     </div>

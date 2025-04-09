@@ -102,7 +102,7 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
       {/* Mobile header - only shown when not in PWA mode */}
       {shouldShowMobileHeader && (
         <motion.header 
-          className="fixed top-0 left-0 right-0 z-20 bg-white dark:bg-gray-900 shadow-md"
+          className="fixed top-0 left-0 right-0 z-20 bg-white shadow-md"
           initial={{ y: 0 }}
           animate={{ y: showHeader ? 0 : -64 }}
           transition={{ duration: 0.3 }}
@@ -113,7 +113,7 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
                 <img src="/logo.png" alt="OnnRides" className="h-7 w-auto" />
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-lg text-gray-900 dark:text-white leading-tight">
+                <span className="font-bold text-lg text-gray-900 leading-tight">
                   {sectionName}
                 </span>
                 {isPWA && (
@@ -166,7 +166,7 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
       {/* Mobile bottom navigation */}
       <motion.nav 
         className={cn(
-          "fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 shadow-xl border-t border-gray-200 dark:border-gray-800 z-20",
+          "fixed bottom-0 left-0 right-0 bg-white shadow-xl border-t border-gray-200 z-20",
           isMobilePWA && "pb-safe" // Add safe area padding for iOS home bar
         )}
         initial={{ y: 0 }}
@@ -182,8 +182,8 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
                 href={link.href}
                 className={`flex flex-col items-center py-3 flex-1 relative ${
                   isActive 
-                    ? 'text-orange-500 dark:text-orange-400 font-medium' 
-                    : 'text-gray-600 dark:text-gray-400'
+                    ? 'text-orange-500 font-medium' 
+                    : 'text-gray-600'
                 }`}
               >
                 <motion.div
@@ -195,7 +195,7 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
                 <span className="text-xs mt-1">{link.name}</span>
                 {isActive && (
                   <motion.div 
-                    className="absolute -bottom-0 left-0 right-0 h-1 bg-orange-500 dark:bg-orange-400 rounded-t-full"
+                    className="absolute -bottom-0 left-0 right-0 h-1 bg-orange-500 rounded-t-full"
                     layoutId="activeTab"
                     transition={{ type: "spring", duration: 0.5 }}
                   />
@@ -208,7 +208,7 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
 
       {/* Extra bottom padding for home bar on iOS PWA */}
       {isMobilePWA && (
-        <div className="fixed bottom-0 left-0 right-0 h-8 bg-white dark:bg-gray-900 z-10 border-t border-gray-200 dark:border-gray-800"></div>
+        <div className="fixed bottom-0 left-0 right-0 h-8 bg-white z-10 border-t border-gray-200"></div>
       )}
     </div>
   );

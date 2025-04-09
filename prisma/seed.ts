@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import { hash } from 'bcryptjs';
+import { hash } from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
 
 const prisma = new PrismaClient();
 
@@ -10,13 +11,32 @@ async function main() {
     where: { email: 'admin@onnrides.com' },
     update: {},
     create: {
-      id: 'admin_' + Date.now().toString(),
+      id: uuidv4(),
       email: 'admin@onnrides.com',
       name: 'Admin',
       password_hash: adminPassword,
       role: 'admin',
-      phone: '1234567890'
-    },
+      is_verified: true
+    }
+  });
+
+  console.log({ admin });
+
+  // Create initial settings
+  await prisma.settings.createMany({
+    data: [
+      {
+        id: uuidv4(),
+        key: 'maintenance_mode',
+        value: 'false'
+      },
+      {
+        id: uuidv4(),
+        key: 'site_name',
+        value: 'OnnRides'
+      }
+    ],
+    skipDuplicates: true
   });
 
   // Create sample vehicle
@@ -48,7 +68,7 @@ async function main() {
     },
   });
 
-  console.log({ admin, sampleVehicle, hyderabadLocation });
+  console.log({ sampleVehicle, hyderabadLocation });
 }
 
 main()

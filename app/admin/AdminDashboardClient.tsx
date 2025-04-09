@@ -179,7 +179,7 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
 
   return (
     <MobileAdminWrapper>
-      <div className="flex h-screen bg-white dark:bg-gray-900 overflow-hidden">
+      <div className="flex h-screen bg-white overflow-hidden">
         <SidebarProvider open={sidebarOpen} setOpen={setSidebarOpen} animate={true}>
           {/* Mobile Header - only shown when not in PWA mode */}
           {shouldShowMobileHeader && <MobileHeader />}

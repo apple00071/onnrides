@@ -72,8 +72,16 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
     price_7_days: vehicle.price_7_days || 0,
     price_15_days: vehicle.price_15_days || 0,
     price_30_days: vehicle.price_30_days || 0,
-    location: Array.isArray(vehicle.location) ? vehicle.location : [],
-    images: Array.isArray(vehicle.images) ? vehicle.images : [],
+    location: Array.isArray(vehicle.location) 
+      ? vehicle.location 
+      : typeof vehicle.location === 'string' 
+        ? JSON.parse(vehicle.location)
+        : [],
+    images: Array.isArray(vehicle.images) 
+      ? vehicle.images 
+      : typeof vehicle.images === 'string'
+        ? JSON.parse(vehicle.images)
+        : [],
     is_available: vehicle.is_available,
     quantity: vehicle.quantity || 1,
   });
@@ -127,41 +135,44 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
     setLoading(true);
 
     try {
-      const formDataToSend = new FormData();
-      
-      // Add all form fields except images
-      Object.entries(formData).forEach(([key, value]) => {
-        if (key !== 'images') {
-          if (Array.isArray(value)) {
-            formDataToSend.append(key, JSON.stringify(value));
-          } else {
-            formDataToSend.append(key, String(value));
-          }
-        }
-      });
-
-      // Add existing images
-      formData.images.forEach((image, index) => {
-        if (typeof image === 'string') {
-          formDataToSend.append(`existing_images[${index}]`, image);
-        }
-      });
-
-      // Add new images
-      newImages.forEach((image, index) => {
-        formDataToSend.append(`new_images[${index}]`, image);
-      });
+      // Format the data before sending
+      const vehicleData = {
+        name: formData.name,
+        type: formData.type,
+        location: formData.location,
+        quantity: Number(formData.quantity),
+        price_per_hour: Number(formData.price_per_hour),
+        price_7_days: formData.price_7_days ? Number(formData.price_7_days) : null,
+        price_15_days: formData.price_15_days ? Number(formData.price_15_days) : null,
+        price_30_days: formData.price_30_days ? Number(formData.price_30_days) : null,
+        is_available: Boolean(formData.is_available),
+      };
 
       const response = await fetch(`/api/admin/vehicles/${vehicle.id}`, {
         method: 'PUT',
-        body: formDataToSend
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(vehicleData),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update vehicle');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update vehicle');
       }
 
-      const updatedVehicle = await response.json();
+      const result = await response.json();
+      
+      // Make sure we parse the location if it's a string
+      const updatedVehicle = {
+        ...result.data.vehicle,
+        location: Array.isArray(result.data.vehicle.location)
+          ? result.data.vehicle.location
+          : typeof result.data.vehicle.location === 'string'
+            ? JSON.parse(result.data.vehicle.location)
+            : []
+      };
+
       onSuccess(updatedVehicle);
       onClose();
       toast.success('Vehicle updated successfully');

@@ -114,35 +114,57 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
     setLoading(true);
 
     try {
-      const formDataToSend = new FormData();
+      // Create a FormData instance for the images
+      const imageFormData = new FormData();
       
-      // Add all form fields except images
-      Object.entries(formData).forEach(([key, value]) => {
-        if (key !== 'images') {
-          if (Array.isArray(value)) {
-            formDataToSend.append(key, JSON.stringify(value));
-          } else {
-            formDataToSend.append(key, String(value));
-          }
-        }
+      // Add images to FormData
+      formData.images.forEach((image: File, index: number) => {
+        imageFormData.append('images[]', image);
       });
 
-      // Add images
-      formData.images.forEach((image, index) => {
-        formDataToSend.append(`images[${index}]`, image);
-      });
+      // Create the vehicle data object
+      const vehicleData = {
+        name: formData.name,
+        type: formData.type,
+        location: formData.location,
+        quantity: formData.quantity,
+        price_per_hour: formData.price_per_hour,
+        price_7_days: formData.price_7_days,
+        price_15_days: formData.price_15_days,
+        price_30_days: formData.price_30_days,
+        is_available: formData.is_available,
+        images: [] // Will be handled by the API
+      };
 
+      // First, create the vehicle
       const response = await fetch('/api/admin/vehicles', {
         method: 'POST',
-        body: formDataToSend
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(vehicleData)
       });
 
       if (!response.ok) {
-        throw new Error('Failed to add vehicle');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add vehicle');
       }
 
       const newVehicle = await response.json();
-      onSuccess(newVehicle);
+      
+      // If there are images, upload them separately
+      if (formData.images.length > 0) {
+        const imageResponse = await fetch(`/api/admin/vehicles/${newVehicle.data.vehicle.id}/images`, {
+          method: 'POST',
+          body: imageFormData
+        });
+
+        if (!imageResponse.ok) {
+          throw new Error('Failed to upload images');
+        }
+      }
+
+      onSuccess(newVehicle.data.vehicle);
       resetForm();
       onClose();
       toast.success('Vehicle added successfully');

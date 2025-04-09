@@ -3,6 +3,7 @@ import { Kysely, PostgresDialect } from 'kysely';
 import type { Database } from './schema';
 import logger from './logger';
 import { configureGlobalTimezone, configureDatabaseTimezone } from './utils/timezone-config';
+import { DB } from '../types/db';
 
 // Parse and validate the connection string
 const connectionString = process.env.DATABASE_URL;
@@ -21,9 +22,9 @@ const pool = new Pool({
     rejectUnauthorized: false
   } : undefined,
   // Connection pool configuration
-  max: Number(process.env.PG_POOL_MAX) || 20,
-  idleTimeoutMillis: Number(process.env.PG_POOL_IDLE_TIMEOUT) || 30000,
-  connectionTimeoutMillis: Number(process.env.PG_POOL_CONNECTION_TIMEOUT) || 10000,
+  max: parseInt(process.env.PG_POOL_MAX || '20'),
+  idleTimeoutMillis: parseInt(process.env.PG_POOL_IDLE_TIMEOUT || '30000'),
+  connectionTimeoutMillis: parseInt(process.env.PG_POOL_CONNECTION_TIMEOUT || '10000'),
   // Add additional connection options
   application_name: 'onnrides-app',
   keepAlive: true,
@@ -33,8 +34,7 @@ const pool = new Pool({
 // Handle pool errors
 pool.on('error', (err) => {
   logger.error('Unexpected error on idle client', err);
-  // Don't exit the process, try to keep the app running
-  // process.exit(-1);
+  process.exit(-1);
 });
 
 // Handle pool connection events
@@ -104,7 +104,7 @@ export async function initializeDatabase(): Promise<void> {
 }
 
 // Create and export Kysely instance
-export const db = new Kysely<Database>({
+export const db = new Kysely<DB>({
   dialect: new PostgresDialect({
     pool
   }),

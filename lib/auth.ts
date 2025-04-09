@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcrypt';
 import prisma from '@/lib/prisma';
 import logger from '@/lib/logger';
+import { getServerSession } from 'next-auth/next';
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -119,5 +120,55 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user }) {
       logger.info('User signed in', { userId: user.id });
     }
+  }
+}
+
+export async function getCurrentUser() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return null;
+    }
+    return session.user;
+  } catch (error) {
+    logger.error('Error getting current user:', error);
+    return null;
+  }
+}
+
+export async function validateUser(email: string, password: string) {
+  try {
+    const user = await prisma.users.findUnique({
+      where: { email }
+    });
+
+    if (!user || !user.password_hash) {
+      return null;
+    }
+
+    const isValid = await bcrypt.compare(password, user.password_hash);
+    return isValid ? user : null;
+  } catch (error) {
+    logger.error('Error validating user:', error);
+    return null;
+  }
+}
+
+export async function comparePasswords(password: string, hashedPassword: string) {
+  try {
+    return await bcrypt.compare(password, hashedPassword);
+  } catch (error) {
+    logger.error('Error comparing passwords:', error);
+    return false;
+  }
+}
+
+export async function hashPassword(password: string) {
+  try {
+    const salt = await bcrypt.genSalt(10);
+    return await bcrypt.hash(password, salt);
+  } catch (error) {
+    logger.error('Error hashing password:', error);
+    throw error;
   }
 } 

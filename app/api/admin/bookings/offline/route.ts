@@ -5,7 +5,8 @@ import prisma from '@/lib/prisma';
 import { v4 as uuidv4 } from 'uuid';
 import { put } from '@vercel/blob';
 import logger from '@/lib/logger';
-import { Prisma, PrismaClient } from '@prisma/client';
+// @ts-ignore
+import type { PrismaClient } from '@prisma/client';
 
 // Function to generate booking ID in ORXXX format
 async function generateBookingId() {
@@ -144,19 +145,19 @@ export async function POST(request: Request) {
       })
     ]);
 
-    // Generate booking ID
-    const bookingId = `ONN${Date.now().toString().slice(-6)}`;
+    // Generate booking ID in ORXXX format
+    const bookingId = await generateBookingId();
 
-    const booking = await prisma.$transaction(async (tx) => {
+    const booking = await prisma.$transaction(async (prismaClient: PrismaClient) => {
       // Create a temporary user for offline booking if email is provided
       let userId = uuidv4();
       if (customerEmail) {
-        const existingUser = await tx.users.findUnique({
+        const existingUser = await prismaClient.users.findUnique({
           where: { email: customerEmail }
         });
 
         if (!existingUser) {
-          await tx.users.create({
+          await prismaClient.users.create({
             data: {
               id: userId,
               email: customerEmail,
@@ -172,7 +173,7 @@ export async function POST(request: Request) {
       }
 
       // Create documents records
-      await tx.documents.createMany({
+      await prismaClient.documents.createMany({
         data: [
           {
             id: uuidv4(),
@@ -212,7 +213,7 @@ export async function POST(request: Request) {
         ]
       });
 
-      const newBooking = await tx.bookings.create({
+      const newBooking = await prismaClient.bookings.create({
         data: {
           id: uuidv4(),
           booking_id: bookingId,
@@ -240,7 +241,7 @@ export async function POST(request: Request) {
         },
       });
 
-      await tx.vehicles.update({
+      await prismaClient.vehicles.update({
         where: { id: vehicleId },
         data: { status: 'BOOKED' },
       });
