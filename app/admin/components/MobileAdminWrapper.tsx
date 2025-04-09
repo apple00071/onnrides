@@ -34,7 +34,7 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
   const router = useRouter();
   const [showHeader, setShowHeader] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
-  const [hasNotifications, setHasNotifications] = useState(false); // Placeholder for notification status
+  const [hasNotifications, setHasNotifications] = useState(false);
   
   // Get the current section name for header
   const sectionName = getSectionName(pathname || '');
@@ -45,14 +45,11 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
 
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      
-      // Show header when scrolling up, hide when scrolling down
       if (currentScrollY > lastScrollY && showHeader && currentScrollY > 50) {
         setShowHeader(false);
       } else if (currentScrollY < lastScrollY && !showHeader) {
         setShowHeader(true);
       }
-      
       setLastScrollY(currentScrollY);
     };
 
@@ -60,17 +57,14 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isMobile, lastScrollY, showHeader]);
 
-  // Mock notification check - replace with real check in production
   useEffect(() => {
     setHasNotifications(Math.random() > 0.5);
   }, []);
 
-  // If not mobile, just render children
   if (!isMobile) {
     return <>{children}</>;
   }
 
-  // Mobile navigation links
   const navLinks = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: <FaHome size={20} /> },
     { name: 'Bookings', href: '/admin/bookings', icon: <FaList size={20} /> },
@@ -85,24 +79,20 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
   };
 
   const handleNotificationsClick = () => {
-    // Handle notifications click
     setHasNotifications(false);
   };
 
   const handleProfileClick = () => {
-    // Handle profile click
     router.push('/admin/profile');
   };
 
-  // Don't show mobile header when in PWA mode - rely on the page headers instead
   const shouldShowMobileHeader = isMobile && !isPWA;
 
   return (
-    <div className="flex flex-col min-h-screen relative bg-white">
-      {/* Mobile header - only shown when not in PWA mode */}
+    <div className="flex flex-col min-h-screen relative bg-white dark:bg-white">
       {shouldShowMobileHeader && (
         <motion.header 
-          className="fixed top-0 left-0 right-0 z-20 bg-white shadow-md"
+          className="fixed top-0 left-0 right-0 z-20 bg-white dark:bg-white shadow-md"
           initial={{ y: 0 }}
           animate={{ y: showHeader ? 0 : -64 }}
           transition={{ duration: 0.3 }}
@@ -113,11 +103,11 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
                 <img src="/logo.png" alt="OnnRides" className="h-7 w-auto" />
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-lg text-gray-900 leading-tight">
+                <span className="font-bold text-lg text-gray-900 dark:text-gray-900 leading-tight">
                   {sectionName}
                 </span>
                 {isPWA && (
-                  <span className="text-xs text-orange-600 font-medium -mt-0.5">
+                  <span className="text-xs text-orange-600 dark:text-orange-600 font-medium -mt-0.5">
                     Admin Portal
                   </span>
                 )}
@@ -129,7 +119,7 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
                 onClick={handleNotificationsClick}
                 className="relative p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
               >
-                <FaBell size={18} className="text-gray-700" />
+                <FaBell size={18} className="text-gray-700 dark:text-gray-700" />
                 {hasNotifications && (
                   <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
                 )}
@@ -139,15 +129,19 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
                 onClick={handleProfileClick}
                 className="relative p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
               >
-                <FaUserCircle size={18} className="text-gray-700" />
+                <FaUserCircle size={18} className="text-gray-700 dark:text-gray-700" />
               </button>
             </div>
           </div>
         </motion.header>
       )}
 
-      {/* Main content - with padding for header and footer */}
-      <main className={`flex-1 ${shouldShowMobileHeader ? 'pt-16' : 'pt-4'} pb-16 px-4 ${isMobilePWA ? 'pb-24' : ''} bg-white`}>
+      <main className={cn(
+        "flex-1 bg-white dark:bg-white",
+        shouldShowMobileHeader ? 'pt-16' : 'pt-4',
+        'pb-16 px-4',
+        isMobilePWA && 'pb-24'
+      )}>
         <AnimatePresence mode="wait">
           <motion.div
             key={pathname}
@@ -157,17 +151,15 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
             transition={{ duration: 0.2 }}
             className="w-full"
           >
-            {/* Pass through the children */}
             {children}
           </motion.div>
         </AnimatePresence>
       </main>
 
-      {/* Mobile bottom navigation */}
       <motion.nav 
         className={cn(
-          "fixed bottom-0 left-0 right-0 bg-white shadow-xl border-t border-gray-200 z-20",
-          isMobilePWA && "pb-safe" // Add safe area padding for iOS home bar
+          "fixed bottom-0 left-0 right-0 bg-white dark:bg-white shadow-xl border-t border-gray-200 z-20",
+          isMobilePWA && "pb-safe"
         )}
         initial={{ y: 0 }}
         animate={{ y: 0 }}
@@ -180,11 +172,12 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex flex-col items-center py-3 flex-1 relative ${
+                className={cn(
+                  "flex flex-col items-center py-3 flex-1 relative",
                   isActive 
-                    ? 'text-orange-500 font-medium' 
-                    : 'text-gray-600'
-                }`}
+                    ? 'text-orange-500 dark:text-orange-500 font-medium' 
+                    : 'text-gray-600 dark:text-gray-600'
+                )}
               >
                 <motion.div
                   whileTap={{ scale: 0.9 }}
@@ -195,7 +188,7 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
                 <span className="text-xs mt-1">{link.name}</span>
                 {isActive && (
                   <motion.div 
-                    className="absolute -bottom-0 left-0 right-0 h-1 bg-orange-500 rounded-t-full"
+                    className="absolute -bottom-0 left-0 right-0 h-1 bg-orange-500 dark:bg-orange-500 rounded-t-full"
                     layoutId="activeTab"
                     transition={{ type: "spring", duration: 0.5 }}
                   />
@@ -206,9 +199,8 @@ export default function MobileAdminWrapper({ children }: MobileAdminWrapperProps
         </div>
       </motion.nav>
 
-      {/* Extra bottom padding for home bar on iOS PWA */}
       {isMobilePWA && (
-        <div className="fixed bottom-0 left-0 right-0 h-8 bg-white z-10 border-t border-gray-200"></div>
+        <div className="fixed bottom-0 left-0 right-0 h-8 bg-white dark:bg-white z-10 border-t border-gray-200"></div>
       )}
     </div>
   );
