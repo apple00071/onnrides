@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
     logger.error('Error creating offline booking:', error);
     return NextResponse.json(
       { 
-        success: false,
+      success: false,
         error: error instanceof Error ? error.message : 'Failed to create offline booking'
       },
       { status: 500 }
