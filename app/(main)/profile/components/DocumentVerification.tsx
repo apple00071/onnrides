@@ -70,7 +70,7 @@ const DocumentVerification = ({
         </div>
       ) : (
         <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
-          <p className="text-blue-700">Please upload your documents for verification to start renting vehicles.</p>
+          <p className="text-orange-700">Please upload your documents for verification to start renting vehicles.</p>
         </div>
       )}
 

@@ -27,7 +27,7 @@ interface AddVehicleModalProps {
 
 interface FormData {
   name: string;
-  type: VehicleType;
+  type: 'bike' | 'scooter';
   location: string[];
   quantity: number;
   price_per_hour: number;
@@ -46,7 +46,7 @@ const LOCATIONS = [
 export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalProps) {
   const defaultFormData = {
     name: '',
-    type: 'car' as const,
+    type: 'bike' as const,
     location: [] as string[],
     quantity: 1,
     price_per_hour: 0,

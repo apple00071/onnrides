@@ -311,14 +311,6 @@ export default function Navbar() {
               <Phone className="w-5 h-5 mr-3 flex-shrink-0" />
               <span className="text-base font-medium">Contact Us</span>
             </Link>
-            <Link
-              href="/vehicles"
-              className="flex items-center py-3 px-4 text-gray-600 hover:bg-gray-50 hover:text-[#f26e24] transition-colors active:bg-gray-100"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <Car className="w-5 h-5 mr-3 flex-shrink-0" />
-              <span className="text-base font-medium">Vehicles</span>
-            </Link>
             
             {/* Rest of navigation links... */}
             

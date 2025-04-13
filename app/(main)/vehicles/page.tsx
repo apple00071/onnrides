@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { calculateBookingPrice, formatCurrency } from '@/lib/utils';
 import { toIST, formatDateTimeIST } from '@/lib/utils/timezone';
 import {
   Table,
@@ -56,8 +55,8 @@ export default function VehiclesPage() {
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('price-low-high');
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  const [vehicleType, setVehicleType] = useState<'car' | 'bike'>('bike');
-  const [previousType, setPreviousType] = useState<'car' | 'bike'>('bike');
+  const [vehicleType, setVehicleType] = useState<'bike'>('bike');
+  const [previousType, setPreviousType] = useState<'bike'>('bike');
   const [searchDuration, setSearchDuration] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<string | undefined>(undefined);
@@ -72,7 +71,7 @@ export default function VehiclesPage() {
     pickupTime: string;
     dropoffDate: string;
     dropoffTime: string;
-    type: 'car' | 'bike';
+    type: 'bike';
     location: string | null;
   }>({
     pickupDate: '',
@@ -293,7 +292,7 @@ export default function VehiclesPage() {
     const pickupTime = searchParams.get('pickupTime') || '';
     const dropoffDate = searchParams.get('dropoffDate') || '';
     const dropoffTime = searchParams.get('dropoffTime') || '';
-    const type = (searchParams.get('type') as 'car' | 'bike') || 'bike';
+    const type = (searchParams.get('type') as 'bike') || 'bike';
 
     // Only update on initial mount
     if (isInitialMount.current) {
@@ -465,24 +464,9 @@ export default function VehiclesPage() {
         <div className="flex justify-center">
           <div className="inline-flex rounded-lg border border-gray-200 p-1 bg-white shadow-sm">
             <button
-              onClick={() => setVehicleType('bike')}
-              className={`px-8 py-2 text-sm font-medium rounded-md transition-colors ${
-                vehicleType === 'bike'
-                  ? 'bg-orange-500 text-white'
-                  : 'text-gray-500 hover:text-orange-500'
-              }`}
+              className="px-8 py-2 text-sm font-medium rounded-md transition-colors bg-orange-500 text-white"
             >
               Bikes
-            </button>
-            <button
-              onClick={() => setVehicleType('car')}
-              className={`px-8 py-2 text-sm font-medium rounded-md transition-colors ${
-                vehicleType === 'car'
-                  ? 'bg-orange-500 text-white'
-                  : 'text-gray-500 hover:text-orange-500'
-              }`}
-            >
-              Cars
             </button>
           </div>
         </div>

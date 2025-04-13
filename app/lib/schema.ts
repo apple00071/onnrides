@@ -43,7 +43,7 @@ export interface Document {
   updated_at: Date;
 }
 
-export const VEHICLE_TYPES = ['car', 'bike', 'scooter'] as const;
+export const VEHICLE_TYPES = ['bike', 'scooter'] as const;
 export type VehicleType = typeof VEHICLE_TYPES[number];
 
 export const LOCATIONS = [

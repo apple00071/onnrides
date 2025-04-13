@@ -34,7 +34,7 @@ interface EditVehicleModalProps {
 
 interface FormData {
   name: string;
-  type: VehicleType;
+  type: 'bike' | 'scooter';
   price_per_hour: number;
   price_7_days: number;
   price_15_days: number;
@@ -67,7 +67,7 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     name: vehicle.name,
-    type: VEHICLE_TYPES.includes(vehicle.type as VehicleType) ? (vehicle.type as VehicleType) : 'car',
+    type: VEHICLE_TYPES.includes(vehicle.type as VehicleType) ? (vehicle.type as VehicleType) : 'bike',
     price_per_hour: vehicle.price_per_hour,
     price_7_days: vehicle.price_7_days || 0,
     price_15_days: vehicle.price_15_days || 0,
@@ -283,7 +283,7 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
               {formData.location.map((loc, index) => (
                 <span
                   key={index}
-                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
                 >
                   {loc}
                   <button
@@ -294,7 +294,7 @@ export default function EditVehicleModal({ isOpen, onClose, onSuccess, vehicle }
                         location: prev.location.filter((_, i) => i !== index)
                       }));
                     }}
-                    className="ml-1 text-blue-600 hover:text-blue-800"
+                    className="ml-1 text-gray-600 hover:text-gray-800"
                   >
                     ×
                   </button>

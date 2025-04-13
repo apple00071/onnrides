@@ -508,7 +508,8 @@ function SearchFormContent({
       <button
         onClick={handleSearch}
         disabled={isLoading}
-        className="w-full mt-4 bg-[#f26e24] text-white py-3 rounded-lg text-base font-medium hover:bg-[#e05d13] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full mt-4 bg-[#f26e24] text-white py-3 rounded-lg text-base font-medium hover:bg-[#e05d13] transition-colors disabled:opacity-50 disabled:cursor-not-allowed search-button"
+        style={{ color: 'white !important' }}
       >
         {isLoading ? 'Searching...' : 'Search'}
       </button>

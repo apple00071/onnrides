@@ -129,7 +129,7 @@ export default function BookingsPage() {
           <p className="text-gray-600 mb-4">{error}</p>
           <button 
             onClick={() => fetchBookings(pagination.page)}
-            className="text-sm text-blue-600 hover:text-blue-800"
+            className="text-sm text-orange-600 hover:text-orange-800"
           >
             Try again
           </button>
@@ -198,7 +198,7 @@ export default function BookingsPage() {
             <p className="text-gray-500">No bookings found</p>
             <button 
               onClick={() => fetchBookings(1)}
-              className="mt-4 text-sm text-blue-600 hover:text-blue-800"
+              className="mt-4 text-sm text-orange-600 hover:text-orange-800"
             >
               Refresh
             </button>

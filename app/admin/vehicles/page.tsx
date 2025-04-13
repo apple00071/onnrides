@@ -40,10 +40,13 @@ function formatLocations(location: string | string[] | undefined): string[] {
 
 // Helper function to convert API vehicle to UI vehicle format
 function convertToVehicle(data: any): Vehicle {
+  // Make sure the type is valid (only bike or scooter)
+  const validType = data.type === 'bike' || data.type === 'scooter' ? data.type : 'bike';
+  
   return {
     id: data.id,
     name: data.name,
-    type: data.type,
+    type: validType,
     price_per_hour: parseFloat(data.price_per_hour),
     price_7_days: data.price_7_days ? parseFloat(data.price_7_days) : null,
     price_15_days: data.price_15_days ? parseFloat(data.price_15_days) : null,
@@ -211,19 +214,19 @@ export default function VehiclesPage() {
             <Table className="w-full table-auto">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[80px]">Image</TableHead>
-                  <TableHead className="w-[15%]">Name</TableHead>
-                  <TableHead className="w-[10%]">Type</TableHead>
-                  <TableHead className="w-[10%]">Price/Hour</TableHead>
-                  <TableHead className="w-[25%]">Locations</TableHead>
-                  <TableHead className="w-[10%]">Available</TableHead>
-                  <TableHead className="w-[15%]">Actions</TableHead>
+                  <TableHead className="w-[80px] text-gray-600 bg-gray-50 border-gray-200">Image</TableHead>
+                  <TableHead className="w-[15%] text-gray-600 bg-gray-50 border-gray-200">Name</TableHead>
+                  <TableHead className="w-[10%] text-gray-600 bg-gray-50 border-gray-200">Type</TableHead>
+                  <TableHead className="w-[10%] text-gray-600 bg-gray-50 border-gray-200">Price/Hour</TableHead>
+                  <TableHead className="w-[25%] text-gray-600 bg-gray-50 border-gray-200">Locations</TableHead>
+                  <TableHead className="w-[10%] text-gray-600 bg-gray-50 border-gray-200">Available</TableHead>
+                  <TableHead className="w-[15%] text-gray-600 bg-gray-50 border-gray-200">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {vehicles.map((vehicle) => (
-                  <TableRow key={vehicle.id}>
-                    <TableCell>
+                  <TableRow key={vehicle.id} className="border-gray-200 hover:bg-gray-50">
+                    <TableCell className="border-gray-200">
                       {vehicle.images && (
                         Array.isArray(vehicle.images) && vehicle.images[0] ? (
                           <img
@@ -244,38 +247,50 @@ export default function VehiclesPage() {
                         )
                       )}
                     </TableCell>
-                    <TableCell>
-                      <span className="text-base text-gray-900">
+                    <TableCell className="border-gray-200">
+                      <span className="text-base text-gray-900 font-medium">
                         {vehicle.name}
                       </span>
                     </TableCell>
-                    <TableCell>{vehicle.type}</TableCell>
-                    <TableCell>{formatCurrency(vehicle.price_per_hour)}</TableCell>
-                    <TableCell>
+                    <TableCell className="border-gray-200 text-gray-700">{vehicle.type}</TableCell>
+                    <TableCell className="border-gray-200 text-gray-700">{formatCurrency(vehicle.price_per_hour)}</TableCell>
+                    <TableCell className="border-gray-200">
                       <div className="flex flex-wrap gap-1">
                         {formatLocations(vehicle.location).map((loc, index) => (
                           <span
                             key={index}
-                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
                           >
                             {loc}
                           </span>
                         ))}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="border-gray-200">
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           checked={vehicle.is_available}
                           onCheckedChange={(checked) => handleAvailabilityChange(vehicle, checked as boolean)}
                           aria-label="Toggle vehicle availability"
+                          id={`vehicle-available-${vehicle.id}`}
                         />
-                        <span className="text-sm text-gray-600">
-                          {vehicle.is_available ? 'Available' : 'Unavailable'}
-                        </span>
+                        <div className="flex items-center">
+                          <div 
+                            className={cn(
+                              "w-3 h-3 rounded-full mr-2",
+                              vehicle.is_available ? "bg-green-500" : "bg-gray-400"
+                            )}
+                          />
+                          <span className={cn(
+                            "text-sm font-medium",
+                            vehicle.is_available ? "text-green-700" : "text-gray-600"
+                          )}>
+                            {vehicle.is_available ? 'Available' : 'Unavailable'}
+                          </span>
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="border-gray-200">
                       <div className="flex items-center space-x-2">
                         <Button
                           variant="outline"
