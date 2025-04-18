@@ -7,97 +7,8 @@ import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 import { FaCalendar, FaClock } from 'react-icons/fa';
 import DatePicker from 'react-datepicker';
-import "react-datepicker/dist/react-datepicker.css";
+import '@/styles/datepicker.css';
 import { cn } from "@/lib/utils";
-
-// Add custom styles for the date picker
-const datePickerStyles = `
-  .react-datepicker {
-    font-family: inherit;
-    border-radius: 0.75rem;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  }
-  .react-datepicker__header {
-    background-color: white;
-    border-top-left-radius: 0.75rem;
-    border-top-right-radius: 0.75rem;
-    border-bottom: 1px solid #e5e7eb;
-    padding-top: 0.5rem;
-  }
-  .react-datepicker__current-month {
-    color: #374151;
-    font-weight: 600;
-    font-size: 1rem;
-  }
-  .react-datepicker__day-name {
-    color: #6B7280;
-    font-weight: 500;
-  }
-  .react-datepicker__day--selected,
-  .react-datepicker__day--keyboard-selected {
-    background-color: #f26e24 !important;
-    color: white !important;
-  }
-  .react-datepicker__day:hover {
-    background-color: #ffeee6 !important;
-  }
-  .react-datepicker__navigation-icon::before {
-    border-color: #6B7280;
-  }
-  .react-datepicker__navigation:hover *::before {
-    border-color: #f26e24;
-  }
-  .react-datepicker__input-container {
-    position: relative;
-  }
-  .react-datepicker__input-container::after {
-    content: '';
-    position: absolute;
-    right: 0.5rem;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 1.2em;
-    height: 1.2em;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-    background-size: contain;
-    background-repeat: no-repeat;
-    pointer-events: none;
-    opacity: 0.75;
-  }
-  .react-datepicker__input-container input {
-    padding-right: 2.5rem;
-    font-size: 0.875rem;
-    color: #6B7280;
-    border-radius: 0.75rem;
-  }
-
-  /* Add styles for the time select dropdown */
-  select {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.5rem center;
-    background-size: 1.2em;
-    padding-right: 2.5rem;
-    opacity: 0.75;
-  }
-
-  select::-ms-expand {
-    display: none;
-  }
-
-  select option:checked {
-    background-color: #f26e24;
-    color: white;
-  }
-
-  select option:hover {
-    background-color: #ffeee6;
-  }
-`;
 
 export default function HeroSection() {
   const router = useRouter();
@@ -228,7 +139,6 @@ export default function HeroSection() {
 
   return (
     <>
-      <style>{datePickerStyles}</style>
       <div className="relative h-[50vh] sm:h-screen w-full overflow-hidden">
         {/* Background Image */}
         <div className="absolute inset-0">

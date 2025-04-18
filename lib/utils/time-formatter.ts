@@ -137,54 +137,66 @@ export function getCurrentIST(): Date {
 }
 
 /**
- * Formats a duration in hours to a readable format
- * @param hours Number of hours
- * @returns Formatted duration string (e.g., "9 hours")
+ * Format a date to a standard datetime string
+ */
+export function formatDateTime(date: string | Date | null): string {
+  if (!date) return 'N/A';
+  
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return format(dateObj, 'dd MMM yyyy, h:mm a');
+  } catch (error) {
+    logger.error('Error formatting datetime:', error);
+    return 'Invalid date';
+  }
+}
+
+/**
+ * Format a date to date only string
+ */
+export function formatDate(date: string | Date | null): string {
+  if (!date) return 'N/A';
+  
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return format(dateObj, 'dd MMM yyyy');
+  } catch (error) {
+    logger.error('Error formatting date:', error);
+    return 'Invalid date';
+  }
+}
+
+/**
+ * Format a date to time only string
+ */
+export function formatTime(date: string | Date | null): string {
+  if (!date) return 'N/A';
+  
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return format(dateObj, 'h:mm a');
+  } catch (error) {
+    logger.error('Error formatting time:', error);
+    return 'Invalid time';
+  }
+}
+
+/**
+ * Format a duration in hours to a readable string
  */
 export function formatDuration(hours: number): string {
-  if (hours < 1) {
-    const minutes = Math.round(hours * 60);
-    return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
-  }
-  
   const wholeHours = Math.floor(hours);
   const minutes = Math.round((hours - wholeHours) * 60);
+  
+  if (wholeHours === 0) {
+    return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+  }
   
   if (minutes === 0) {
     return `${wholeHours} hour${wholeHours !== 1 ? 's' : ''}`;
   }
   
   return `${wholeHours} hour${wholeHours !== 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`;
-}
-
-export function formatDateTime(date: string | Date): string {
-  const d = new Date(date);
-  return d.toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-}
-
-export function formatDate(date: string | Date): string {
-  const d = new Date(date);
-  return d.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
-}
-
-export function formatTime(date: string | Date): string {
-  const d = new Date(date);
-  return d.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
 }
 
 export function formatISOWithTZ(date: Date): string {
