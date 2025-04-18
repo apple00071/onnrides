@@ -29,7 +29,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
  
-    --primary: 0 0% 9%;
+    --primary: 24 92% 54%;
     --primary-foreground: 0 0% 98%;
  
     --secondary: 0 0% 96.1%;
@@ -46,7 +46,7 @@
 
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --ring: 24 92% 54%;
  
     --radius: 0.5rem;
  
@@ -71,7 +71,7 @@
     --popover: 0 0% 3.9%;
     --popover-foreground: 0 0% 98%;
  
-    --primary: 0 0% 98%;
+    --primary: 24 92% 54%;
     --primary-foreground: 0 0% 9%;
  
     --secondary: 0 0% 14.9%;
@@ -88,7 +88,7 @@
  
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --ring: 24 92% 54%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -108,6 +108,14 @@
 
 /* Custom utility classes */
 @layer components {
+  .no-container-outline {
+    @apply border-none outline-none ring-0;
+  }
+
+  .container-base {
+    @apply bg-white rounded-lg shadow-sm border-none;
+  }
+
   .upload-box {
     @apply border-2 border-dashed border-gray-200 rounded-lg p-4 text-center cursor-pointer transition-colors duration-200;
   }
@@ -158,6 +166,48 @@
 
   .secondary-button {
     @apply text-[#f26e24] hover:text-[#e05d13] transition-colors duration-200;
+  }
+
+  .page-header {
+    @apply flex items-center justify-between mb-6;
+  }
+
+  .page-title {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+
+  .section-title {
+    @apply text-lg font-medium text-gray-900;
+  }
+
+  .section-description {
+    @apply text-sm text-gray-500;
+  }
+
+  .table-container {
+    @apply w-full overflow-x-auto bg-white rounded-lg shadow-sm;
+  }
+
+  .table-header {
+    @apply bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider;
+  }
+
+  .table-cell {
+    @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
+  }
+
+  .table-row {
+    @apply hover:bg-gray-50;
+  }
+
+  .action-button {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors 
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 
+    disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .action-icon {
+    @apply h-4 w-4;
   }
 }
 

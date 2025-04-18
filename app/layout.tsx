@@ -18,6 +18,7 @@ import GoogleAnalytics from './components/GoogleAnalytics';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Toaster as UiToaster } from '@/components/ui/toaster';
 import nextDynamic from 'next/dynamic';
+import { SidebarProvider } from '@/hooks/use-sidebar';
 
 // Import ErrorBoundary dynamically with no SSR
 const ErrorBoundary = nextDynamic(
@@ -37,11 +38,8 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com'),
-  title: {
-    default: 'OnnRides - Vehicle Rental Service in Hyderabad | Car & Bike Rentals',
-    template: '%s | OnnRides Hyderabad'
-  },
-  description: 'Best vehicle rental service in Hyderabad. Rent cars, bikes & scooters with doorstep delivery. Affordable hourly rates, multiple pickup locations across Hyderabad. Book now!',
+  title: 'OnnRides - Best Bike Rental Service in Hyderabad | OnnRides Hyderabad',
+  description: 'Rent bikes in Hyderabad at affordable rates. Multiple locations in Madhapur & Erragadda with hourly, daily & weekly rental options.',
   keywords: [
     'vehicle rental Hyderabad',
     'car rental Hyderabad',
@@ -88,21 +86,18 @@ export const metadata: Metadata = {
     creator: '@onnrides',
   },
   robots: {
-    index: true,
-    follow: true,
+    index: process.env.VERCEL_ENV === 'production' && !headers().get('host')?.includes('vercel.app'),
+    follow: process.env.VERCEL_ENV === 'production' && !headers().get('host')?.includes('vercel.app'),
     googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      index: process.env.VERCEL_ENV === 'production' && !headers().get('host')?.includes('vercel.app'),
+      follow: process.env.VERCEL_ENV === 'production' && !headers().get('host')?.includes('vercel.app'),
     },
   },
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
   },
   alternates: {
-    canonical: process.env.NEXT_PUBLIC_APP_URL,
+    canonical: 'https://onnrides.com'
   },
   icons: {
     icon: [
@@ -307,7 +302,9 @@ export default async function RootLayout({
               <AuthProvider>
                 <ClientOnly>
                   <NotificationBar />
-                  {children}
+                  <SidebarProvider>
+                    {children}
+                  </SidebarProvider>
                   <Toaster position="top-center" />
                   <ScriptLoader />
                 </ClientOnly>

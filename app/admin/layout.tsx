@@ -11,15 +11,36 @@ import { Metadata } from 'next';
 export function generateMetadata(): Metadata {
   return {
     title: 'OnnRides Admin Dashboard',
-    description: 'Admin dashboard for OnnRides vehicle rental service',
+    description: 'Admin dashboard for OnnRides bike rental service',
+    robots: {
+      index: false,
+      follow: false,
+      nocache: true,
+      googleBot: {
+        index: false,
+        follow: false,
+        noimageindex: true
+      }
+    },
     manifest: '/admin/manifest.json',
     themeColor: [
       { media: '(prefers-color-scheme: light)', color: '#f26e24' },
       { media: '(prefers-color-scheme: dark)', color: '#f26e24' }
     ],
+    other: {
+      'mobile-web-app-capable': 'yes',
+      'apple-mobile-web-app-capable': 'yes',
+      'apple-mobile-web-app-status-bar-style': 'black-translucent',
+      'apple-mobile-web-app-title': 'OnnRides Admin',
+      'application-name': 'OnnRides Admin',
+      'format-detection': 'telephone=no',
+      'msapplication-TileColor': '#f26e24',
+      'msapplication-TileImage': '/admin/icon-192x192.png',
+      'msapplication-config': 'none'
+    },
     appleWebApp: {
       capable: true,
-      statusBarStyle: 'default',
+      statusBarStyle: 'black-translucent',
       title: 'OnnRides Admin',
       startupImage: [
         {
@@ -82,107 +103,54 @@ export default async function AdminLayout({
     }
 
     return (
-      <html lang="en">
-        <head>
-          <link rel="manifest" href="/admin/manifest.json" />
-          <meta name="theme-color" content="#f26e24" />
-          <meta name="apple-mobile-web-app-capable" content="yes" />
-          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-          <meta name="apple-mobile-web-app-title" content="OnnRides Admin" />
-          
-          {/* iOS Home Screen Icons */}
-          <link rel="apple-touch-icon" href="/admin/apple-touch-icon.png" />
-          <link rel="apple-touch-icon" sizes="120x120" href="/admin/apple-touch-icon-120x120.png" />
-          <link rel="apple-touch-icon" sizes="152x152" href="/admin/apple-touch-icon-152x152.png" />
-          <link rel="apple-touch-icon" sizes="180x180" href="/admin/apple-touch-icon-180x180.png" />
-          
-          {/* iOS Home Screen Icon Precomposed (no iOS styling) */}
-          <link rel="apple-touch-icon-precomposed" href="/admin/icon-192x192.png" />
-          
-          {/* Mobile Web App Settings */}
-          <meta name="mobile-web-app-capable" content="yes" />
-          <meta name="application-name" content="OnnRides Admin" />
-          <meta name="format-detection" content="telephone=no" />
-          
-          {/* Microsoft Tile Settings */}
-          <meta name="msapplication-TileColor" content="#f26e24" />
-          <meta name="msapplication-TileImage" content="/admin/icon-192x192.png" />
-          <meta name="msapplication-config" content="none" />
-          
-          {/* Prevent Automatic Phone Number Detection */}
-          <meta name="format-detection" content="telephone=no" />
-          
-          {/* Apple Splash Screen Images */}
-          <link
-            rel="apple-touch-startup-image"
-            href="/admin/icon-512x512.png"
-            media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)"
-          />
-          <link
-            rel="apple-touch-startup-image"
-            href="/admin/icon-512x512.png"
-            media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)"
-          />
-          <link
-            rel="apple-touch-startup-image"
-            href="/admin/icon-512x512.png"
-            media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)"
-          />
-          <link
-            rel="apple-touch-startup-image"
-            href="/admin/icon-512x512.png"
-            media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)"
-          />
-        </head>
-        <body className="antialiased">
-          <Providers session={session}>
-            <AdminDashboardClient>
-              {children}
-            </AdminDashboardClient>
-            <SpeedInsights />
-          </Providers>
-          {/* Service Worker Registration Script */}
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                if ('serviceWorker' in navigator) {
-                  window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/admin/sw.js', { 
-                      scope: '/admin/'
-                    }).then(
-                      function(registration) {
-                        console.log('Admin Service Worker registration successful with scope:', registration.scope);
-                        
-                        // Check if we're on the admin root page
-                        if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
-                          // Redirect to dashboard if at admin root
-                          window.location.href = '/admin/dashboard';
-                        }
-                      },
-                      function(err) {
-                        console.error('Admin Service Worker registration failed: ', err);
+      <>
+        <Providers session={session}>
+          <AdminDashboardClient>
+            {children}
+          </AdminDashboardClient>
+          <SpeedInsights />
+        </Providers>
+        {/* Service Worker Registration Script */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/admin/sw.js', { 
+                    scope: '/admin/'
+                  }).then(
+                    function(registration) {
+                      console.log('Admin Service Worker registration successful with scope:', registration.scope);
+                      
+                      // Check if we're on the admin root page
+                      if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
+                        // Redirect to dashboard if at admin root
+                        window.location.href = '/admin/dashboard';
                       }
-                    );
-                    
-                    // Unregister any existing service workers outside our scope
-                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                      for(let registration of registrations) {
-                        // Skip our admin service worker
-                        if (registration.scope.includes('/admin/')) continue;
-                        
-                        // Unregister any other service workers
-                        registration.unregister().then(function() {
-                          console.log('ServiceWorker unregistered to avoid conflicts');
-                        });
-                      }
-                    });
+                    },
+                    function(err) {
+                      console.error('Admin Service Worker registration failed: ', err);
+                    }
+                  );
+                  
+                  // Unregister any existing service workers outside our scope
+                  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for(let registration of registrations) {
+                      // Skip our admin service worker
+                      if (registration.scope.includes('/admin/')) continue;
+                      
+                      // Unregister any other service workers
+                      registration.unregister().then(function() {
+                        console.log('ServiceWorker unregistered to avoid conflicts');
+                      });
+                    }
                   });
-                }
-              `,
-            }}
-          />
-        </body>
-      </html>
+                });
+              }
+            `,
+          }}
+        />
+      </>
     );
   } catch (error) {
     logger.error('Error in admin layout:', error);

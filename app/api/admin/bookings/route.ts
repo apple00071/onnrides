@@ -55,10 +55,19 @@ function formatDate(dateStr: string | Date | null): string {
 
 // Helper function to format amount
 function formatAmount(amount: number | string | null): string {
-  if (amount === null || amount === undefined) return '₹0.00';
-  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-  if (isNaN(numericAmount)) return '₹0.00';
-  return `₹${numericAmount.toFixed(2)}`;
+  if (!amount) return '₹0';
+  try {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(numAmount);
+  } catch (error) {
+    logger.error('Error formatting amount:', error);
+    return '₹0';
+  }
 }
 
 // Helper function to generate unique booking ID
@@ -127,9 +136,6 @@ const getBookingsHandler = async (request: NextRequest) => {
     const totalItems = parseInt(countResult.rows[0].count);
     const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
     
-    // Define the date fields to convert to IST
-    const dateFields = ['start_date', 'end_date', 'created_at', 'updated_at'];
-    
     // Build the main query with timezone handling
     const sqlQuery = `
       WITH booking_data AS (
@@ -154,10 +160,9 @@ const getBookingsHandler = async (request: NextRequest) => {
           b.total_price,
           b.status,
           b.payment_status,
-          b.payment_method,
-          b.payment_reference,
-          b.booking_type,
-          b.notes,
+          b.payment_details,
+          b.pickup_location,
+          b.dropoff_location,
           b.created_at,
           b.updated_at,
           (b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_created_at,

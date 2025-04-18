@@ -1,13 +1,14 @@
-# Allow all crawlers
+# Allow all for main domains
 User-agent: *
 Allow: /
+Host: https://onnrides.com
 
-# Disallow admin and API routes
-Disallow: /admin/
-Disallow: /api/
-Disallow: /auth/
+# Disallow preview domains
+User-agent: *
+Disallow: /
+Host: onnrides.vercel.app
 
-# Sitemap location
+# Sitemap
 Sitemap: https://onnrides.com/sitemap.xml
 
 # Crawl delay
