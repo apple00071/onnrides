@@ -3,12 +3,12 @@ import * as bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
 
+    // Validate required fields
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
@@ -16,12 +16,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find user by email using raw SQL query
-    const result = await query(
-      'SELECT * FROM users WHERE email = $1 AND role = $2 LIMIT 1',
-      [email, 'admin']
+    // Get user from database
+    const [user] = await query(
+      'SELECT * FROM users WHERE email = ? AND role = "admin" LIMIT 1',
+      [email]
     );
-    const user = result.rows[0];
 
     if (!user) {
       return NextResponse.json(
@@ -31,8 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
-
+    const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
@@ -41,46 +39,39 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate JWT token
-    const token = await new SignJWT({
+    const token = await new SignJWT({ 
       id: user.id,
       email: user.email,
-      role: user.role
+      role: user.role 
     })
       .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
       .setExpirationTime('24h')
       .sign(new TextEncoder().encode(process.env.JWT_SECRET));
 
-    // Update last login timestamp
+    // Update last login
     await query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
+      'UPDATE users SET last_login = NOW() WHERE id = ?',
       [user.id]
     );
 
-    // Create response
-    const response = NextResponse.json({
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      },
-      token
-    });
+    // Create response with cookie
+    const response = NextResponse.json(
+      { success: true },
+      { status: 200 }
+    );
 
-    // Set cookie using next/headers
-    cookies().set('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60 // 24 hours
-    });
+    // Set cookie using headers
+    response.headers.set(
+      'Set-Cookie',
+      `admin_session=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${24 * 60 * 60}`
+    );
 
     return response;
-
   } catch (error) {
     logger.error('Admin login error:', error);
     return NextResponse.json(
-      { error: 'Failed to authenticate' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

@@ -1,26 +1,12 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import logger from '@/lib/logger';
 
 export async function POST() {
   try {
-    // Clear all auth-related cookies
-    const cookieStore = cookies();
-    cookieStore.delete('next-auth.session-token');
-    cookieStore.delete('next-auth.csrf-token');
-    cookieStore.delete('next-auth.callback-url');
-    cookieStore.delete('__Secure-next-auth.session-token');
-    cookieStore.delete('__Secure-next-auth.callback-url');
-    cookieStore.delete('__Host-next-auth.csrf-token');
-
-    // Also clear any custom cookies
-    cookieStore.delete('admin_token');
-    cookieStore.delete('user_token');
-
-    // Return success with clear-site-data header for complete cleanup
-    return new NextResponse(
+    // Create response with success message
+    const response = new NextResponse(
       JSON.stringify({ message: 'Logged out successfully' }),
       {
         status: 200,
@@ -30,6 +16,23 @@ export async function POST() {
         },
       }
     );
+
+    // Clear all auth-related cookies
+    const cookieExpiryDate = 'Thu, 01 Jan 1970 00:00:00 GMT';
+    const cookieOptions = 'Path=/; HttpOnly; Secure; SameSite=Lax';
+    
+    response.headers.append('Set-Cookie', `next-auth.session-token=; ${cookieOptions}; Expires=${cookieExpiryDate}`);
+    response.headers.append('Set-Cookie', `next-auth.csrf-token=; ${cookieOptions}; Expires=${cookieExpiryDate}`);
+    response.headers.append('Set-Cookie', `next-auth.callback-url=; ${cookieOptions}; Expires=${cookieExpiryDate}`);
+    response.headers.append('Set-Cookie', `__Secure-next-auth.session-token=; ${cookieOptions}; Expires=${cookieExpiryDate}`);
+    response.headers.append('Set-Cookie', `__Secure-next-auth.callback-url=; ${cookieOptions}; Expires=${cookieExpiryDate}`);
+    response.headers.append('Set-Cookie', `__Host-next-auth.csrf-token=; ${cookieOptions}; Expires=${cookieExpiryDate}`);
+
+    // Clear custom cookies
+    response.headers.append('Set-Cookie', `admin_token=; ${cookieOptions}; Expires=${cookieExpiryDate}`);
+    response.headers.append('Set-Cookie', `user_token=; ${cookieOptions}; Expires=${cookieExpiryDate}`);
+
+    return response;
   } catch (error) {
     logger.error('Logout error:', error);
     return NextResponse.json(

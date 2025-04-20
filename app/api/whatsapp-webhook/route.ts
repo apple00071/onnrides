@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { headers } from 'next/headers';
 
 // Mark as dynamic to ensure fresh data
 export const dynamic = 'force-dynamic';
@@ -23,9 +22,8 @@ interface WhatsAppWebhookBody {
 
 // Validate API key middleware
 const validateApiKey = (request: NextRequest): boolean => {
-  const headersList = headers();
-  const apiKey = headersList.get('x-api-key');
-  return apiKey === 'onn7r1d3s_wh4ts4pp_ap1_s3cur3_k3y_9872354176';
+  const apiKey = request.headers.get('x-api-key');
+  return apiKey === process.env.WHATSAPP_API_KEY;
 };
 
 // Handle incoming messages

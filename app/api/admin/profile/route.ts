@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import logger from '@/lib/logger';
 import { query } from '@/lib/db';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       { expiresIn: '24h' }
     );
 
-    // Create response
+    // Create response with cookie
     const response = NextResponse.json({
       success: true,
       user: {
@@ -71,16 +71,11 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Set cookie in response
-    response.cookies.set({
-      name: 'admin_session',
-      value: token,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/admin',
-      maxAge: 60 * 60 * 24 // 24 hours
-    });
+    // Set cookie using response headers
+    response.headers.set(
+      'Set-Cookie',
+      `admin_session=${token}; Path=/admin; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24}`
+    );
 
     return response;
   } catch (error) {
@@ -89,23 +84,33 @@ export async function POST(request: NextRequest) {
       { error: 'An unexpected error occurred' },
       { status: 500 }
     );
-    response.cookies.delete('admin_session');
+    
+    // Clear cookie using response headers
+    response.headers.set(
+      'Set-Cookie',
+      'admin_session=; Path=/admin; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    );
+    
     return response;
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
+    // Get session token from cookies
     const cookieStore = cookies();
     const sessionToken = cookieStore.get('admin_session')?.value;
 
     if (!sessionToken) {
-      const response = NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
+      return new NextResponse(
+        JSON.stringify({ error: 'Authentication required' }),
+        { 
+          status: 401,
+          headers: {
+            'Set-Cookie': 'admin_session=; Path=/admin; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
+          }
+        }
       );
-      response.cookies.delete('admin_session');
-      return response;
     }
 
     // Verify token
@@ -116,31 +121,33 @@ export async function GET(request: NextRequest) {
     };
 
     // Get user profile
-    const [profile] = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        role: users.role
-      })
-      .from(users)
-      .where(eq(users.id, decoded.userId));
+    const { rows: [profile] } = await query(
+      'SELECT id, email, role FROM users WHERE id = $1',
+      [decoded.userId]
+    );
 
     if (!profile) {
-      const response = NextResponse.json(
-        { error: 'Profile not found' },
-        { status: 404 }
+      return new NextResponse(
+        JSON.stringify({ error: 'Profile not found' }),
+        { 
+          status: 404,
+          headers: {
+            'Set-Cookie': 'admin_session=; Path=/admin; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
+          }
+        }
       );
-      response.cookies.delete('admin_session');
-      return response;
     }
 
     if (profile.role !== 'admin') {
-      const response = NextResponse.json(
-        { error: 'Unauthorized: Admin access required' },
-        { status: 403 }
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized: Admin access required' }),
+        { 
+          status: 403,
+          headers: {
+            'Set-Cookie': 'admin_session=; Path=/admin; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
+          }
+        }
       );
-      response.cookies.delete('admin_session');
-      return response;
     }
 
     return NextResponse.json({
@@ -153,11 +160,14 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Session verification error:', error);
-    const response = NextResponse.json(
-      { error: 'Invalid or expired session' },
-      { status: 401 }
+    return new NextResponse(
+      JSON.stringify({ error: 'Invalid or expired session' }),
+      { 
+        status: 401,
+        headers: {
+          'Set-Cookie': 'admin_session=; Path=/admin; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        }
+      }
     );
-    response.cookies.delete('admin_session');
-    return response;
   }
 } 
