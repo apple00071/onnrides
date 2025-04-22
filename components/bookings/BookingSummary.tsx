@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -32,11 +32,70 @@ export function BookingSummary({ booking, onProceedToPayment }: BookingSummaryPr
   const [showTerms, setShowTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [couponCode, setCouponCode] = useState('');
+  const imageLoadAttempted = useRef(false);
+
+  // Log the image URL on component mount
+  useEffect(() => {
+    if (!booking.vehicle.image) {
+      logger.warn('No vehicle image URL provided');
+      return;
+    }
+
+    logger.info('Vehicle image in BookingSummary:', { 
+      imageUrl: booking.vehicle.image,
+      vehicleName: booking.vehicle.name
+    });
+    
+    // Only attempt to preload once if it's not a data URL
+    if (!imageLoadAttempted.current && !booking.vehicle.image.startsWith('data:')) {
+      imageLoadAttempted.current = true;
+      
+      try {
+        // Create a new image element to preload
+        const img = new window.Image();
+        
+        img.onload = () => {
+          logger.info('Image preloaded successfully:', { src: booking.vehicle.image });
+          setImageError(false);
+          setImageLoaded(true);
+        };
+        
+        img.onerror = (error) => {
+          logger.warn('Failed to preload image:', { 
+            src: booking.vehicle.image,
+            error: error.toString()
+          });
+          setImageError(true);
+        };
+        
+        // Set src after defining handlers
+        img.src = booking.vehicle.image;
+      } catch (error) {
+        logger.error('Error during image preload:', error);
+        setImageError(true);
+      }
+    }
+  }, [booking.vehicle.image, booking.vehicle.name]);
 
   // Calculate advance payment and remaining amount
   const advancePayment = Math.round(booking.total_price * 0.05);
   const remainingPayment = booking.total_price - advancePayment;
+
+  // Get image source with proper validation
+  const getImageSource = () => {
+    if (imageError || !booking.vehicle.image) {
+      return '/images/placeholder-vehicle.png'; // Using a known placeholder
+    }
+    return booking.vehicle.image;
+  };
+
+  // Check if the image is a data URL
+  const isDataUrl = (url: string) => {
+    return url.startsWith('data:');
+  };
 
   const handleProceed = () => {
     logger.debug('Proceed button clicked', { hasSession: !!session?.user });
@@ -89,20 +148,45 @@ export function BookingSummary({ booking, onProceedToPayment }: BookingSummaryPr
               {/* Hero Image Container */}
               <div className="relative w-full h-[280px] bg-gray-50 rounded-lg overflow-hidden mb-6">
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Image
-                    src={booking.vehicle.image}
-                    alt={booking.vehicle.name}
-                    fill
-                    className="object-contain p-2"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    priority
-                    loading="eager"
-                    quality={100}
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = '/images/placeholder-vehicle.png';
-                    }}
-                  />
+                  {isDataUrl(getImageSource()) ? (
+                    // Render a regular img element for data URLs
+                    <img
+                      src={getImageSource()}
+                      alt={booking.vehicle.name}
+                      className="max-h-full max-w-full object-contain"
+                      onError={() => {
+                        logger.warn('Vehicle image (data URL) failed to load', {
+                          imageUrl: 'data:URL (truncated)'
+                        });
+                        setImageError(true);
+                      }}
+                    />
+                  ) : (
+                    // Use Next.js Image for regular URLs
+                    <Image
+                      src={getImageSource()}
+                      alt={booking.vehicle.name}
+                      fill
+                      className="object-contain"
+                      sizes="100vw"
+                      priority={true}
+                      loading="eager"
+                      quality={100}
+                      unoptimized={true} // Skip Next.js image optimization for faster loading
+                      onError={() => {
+                        logger.warn('Vehicle image failed to load in Next Image component', {
+                          imageUrl: booking.vehicle.image
+                        });
+                        setImageError(true);
+                      }}
+                      onLoad={() => {
+                        logger.info('Vehicle image loaded successfully in Next Image component', {
+                          imageUrl: booking.vehicle.image
+                        });
+                        setImageLoaded(true);
+                      }}
+                    />
+                  )}
                 </div>
               </div>
               

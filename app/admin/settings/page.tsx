@@ -1,152 +1,276 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Switch } from '@/components/ui/switch';
+import { useSession } from 'next-auth/react';
+import { toast } from 'react-hot-toast';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import logger from '@/lib/logger';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { SETTINGS } from '@/lib/settings';
+import { redirectToLogin } from '@/lib/auth-utils';
+
+interface Setting {
+  id: string;
+  key: string;
+  value: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function SettingsPage() {
-  const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const { data: session, status } = useSession();
+  const [settings, setSettings] = useState<Setting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingSetting, setEditingSetting] = useState<Setting | null>(null);
+  const [newValue, setNewValue] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const isAdmin = session?.user?.role === 'admin';
 
   useEffect(() => {
-    // Fetch current maintenance mode status
-    const fetchMaintenanceStatus = async () => {
-      try {
-        const response = await fetch('/api/admin/settings/maintenance');
-        const data = await response.json();
-        setIsMaintenanceMode(data.maintenanceMode);
-      } catch (error) {
-        logger.error('Error fetching maintenance status:', error);
-      }
-    };
+    if (status === 'unauthenticated') {
+      redirectToLogin();
+    }
+  }, [status]);
 
-    fetchMaintenanceStatus();
-  }, []);
+  useEffect(() => {
+    if (status === 'authenticated' && isAdmin) {
+      fetchSettings();
+    }
+  }, [status, isAdmin]);
 
-  const handleMaintenanceModeToggle = async () => {
-    setIsLoading(true);
+  const fetchSettings = async () => {
     try {
-      const response = await fetch('/api/admin/settings/maintenance', {
+      setLoading(true);
+      const response = await fetch('/api/settings');
+      const data = await response.json();
+      
+      if (data.success) {
+        setSettings(data.data);
+      } else {
+        toast.error('Failed to load settings');
+      }
+    } catch (error) {
+      toast.error('Error loading settings');
+      console.error('Error fetching settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditClick = (setting: Setting) => {
+    setEditingSetting(setting);
+    setNewValue(setting.value);
+    setIsDialogOpen(true);
+  };
+
+  const handleSaveSetting = async () => {
+    if (!editingSetting) return;
+    
+    try {
+      const response = await fetch('/api/settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          maintenanceMode: !isMaintenanceMode,
+          key: editingSetting.key,
+          value: newValue,
         }),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update maintenance mode');
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('Setting updated successfully');
+        fetchSettings(); // Refresh the list
+        setIsDialogOpen(false);
+      } else {
+        toast.error(data.error || 'Failed to update setting');
       }
-
-      setIsMaintenanceMode(!isMaintenanceMode);
-      toast.success(
-        `Maintenance mode ${!isMaintenanceMode ? 'enabled' : 'disabled'} successfully`
-      );
     } catch (error) {
-      logger.error('Error updating maintenance mode:', error);
-      toast.error('Failed to update maintenance mode');
-    } finally {
-      setIsLoading(false);
+      toast.error('Error updating setting');
+      console.error('Error updating setting:', error);
     }
   };
 
+  // Helper function to get a more readable name for settings keys
+  const getSettingDisplayName = (key: string): string => {
+    const displayNames: Record<string, string> = {
+      [SETTINGS.MAINTENANCE_MODE]: 'Maintenance Mode',
+      [SETTINGS.SITE_NAME]: 'Site Name',
+      [SETTINGS.SUPPORT_EMAIL]: 'Support Email',
+      [SETTINGS.SUPPORT_PHONE]: 'Support Phone',
+      [SETTINGS.BOOKING_ADVANCE_PAYMENT_PERCENTAGE]: 'Booking Advance Payment (%)',
+      [SETTINGS.BOOKING_GST_PERCENTAGE]: 'GST Percentage (%)',
+      [SETTINGS.BOOKING_SERVICE_FEE_PERCENTAGE]: 'Service Fee Percentage (%)',
+    };
+    
+    return displayNames[key] || key;
+  };
+
+  // Helper function to determine if a setting should be handled as a boolean
+  const isBooleanSetting = (key: string): boolean => {
+    return key === SETTINGS.MAINTENANCE_MODE;
+  };
+
+  if (status === 'loading' || loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+          <p className="mt-4">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-6">Access Denied</h1>
+        <p>You do not have permission to view this page.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full py-6">
-      <Card className="w-full overflow-hidden">
+    <div className="container mx-auto px-4 py-8">
+      <Card>
         <CardHeader>
-          <CardTitle>Site Settings</CardTitle>
+          <CardTitle>System Settings</CardTitle>
           <CardDescription>
-            Manage global site settings and configurations
+            Manage application-wide settings. Changes may require a page refresh to take effect.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="general" className="w-full">
-            <TabsList className="mb-4">
-              <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="payments">Payments</TabsTrigger>
-              <TabsTrigger value="notifications">Notifications</TabsTrigger>
-              <TabsTrigger value="seo">SEO</TabsTrigger>
-            </TabsList>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Maintenance Mode Section */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-semibold mb-4">Maintenance Mode</h2>
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600">
-                    When enabled, all users will be redirected to the maintenance page.
-                    Only administrators will have access to the site.
-                  </p>
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-sm font-medium">
-                      {isMaintenanceMode ? 'Enabled' : 'Disabled'}
-                    </span>
-                    <Switch
-                      checked={isMaintenanceMode}
-                      onCheckedChange={handleMaintenanceModeToggle}
-                      disabled={isLoading}
-                    />
-                  </div>
-                  <div className="pt-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => window.open('/maintenance', '_blank')}
-                      className="w-full"
-                    >
-                      Preview Maintenance Page
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* System Information Section */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-semibold mb-4">System Information</h2>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Environment:</span>
-                    <span className="text-sm font-medium">Production</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Version:</span>
-                    <span className="text-sm font-medium">1.0.0</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Last Updated:</span>
-                    <span className="text-sm font-medium">{new Date().toLocaleDateString()}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Cache Management Section */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-semibold mb-4">Cache Management</h2>
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600">
-                    Clear cache to refresh data and fix display issues.
-                    This will reload data from the database.
-                  </p>
-                  <div className="pt-2">
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => toast.success('Cache cleared successfully')}
-                    >
-                      Clear Application Cache
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Tabs>
+          <Table>
+            <TableCaption>System configuration settings</TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Setting</TableHead>
+                <TableHead>Value</TableHead>
+                <TableHead>Last Updated</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {settings.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-4">
+                    No settings found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                settings.map((setting) => (
+                  <TableRow key={setting.id}>
+                    <TableCell className="font-medium">
+                      {getSettingDisplayName(setting.key)}
+                    </TableCell>
+                    <TableCell>
+                      {isBooleanSetting(setting.key) 
+                        ? (setting.value === 'true' ? 'Enabled' : 'Disabled')
+                        : setting.value}
+                    </TableCell>
+                    <TableCell>
+                      {new Date(setting.updated_at).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleEditClick(setting)}
+                      >
+                        Edit
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
+      
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Setting</DialogTitle>
+            <DialogDescription>
+              {editingSetting && (
+                `Update the value for ${getSettingDisplayName(editingSetting.key)}`
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingSetting && (
+            <>
+              {isBooleanSetting(editingSetting.key) ? (
+                <div className="grid gap-4 py-4">
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant={newValue === 'true' ? 'default' : 'outline'}
+                      onClick={() => setNewValue('true')}
+                    >
+                      Enable
+                    </Button>
+                    <Button
+                      variant={newValue === 'false' ? 'default' : 'outline'}
+                      onClick={() => setNewValue('false')}
+                    >
+                      Disable
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Input
+                      id="value"
+                      value={newValue}
+                      onChange={(e) => setNewValue(e.target.value)}
+                      className="col-span-4"
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveSetting}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

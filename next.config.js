@@ -22,9 +22,14 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'images.unsplash.com',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com',
+        pathname: '/**',
       }
     ],
-    domains: ['images.unsplash.com'],
+    domains: ['images.unsplash.com', 'images.pexels.com'],
   },
   webpack: (config, { isServer, dev }) => {
     // Remove console.* calls in production

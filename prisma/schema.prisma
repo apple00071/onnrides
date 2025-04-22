@@ -19,12 +19,12 @@ model bookings {
   status            String   @default("pending")
   payment_status    String   @default("pending")
   payment_details   String?
-  payment_intent_id String?  @unique
   created_at        DateTime @default(now()) @db.Timestamp(6)
   updated_at        DateTime @default(now()) @db.Timestamp(6)
   pickup_location   String?
   dropoff_location  String?
   booking_id        String?
+  payment_intent_id String?
   users             users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "bookings_user_id_users_id_fk")
   vehicles          vehicles @relation(fields: [vehicle_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "bookings_vehicle_id_vehicles_id_fk")
 

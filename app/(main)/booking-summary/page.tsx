@@ -131,9 +131,25 @@ export default function BookingSummaryPage() {
           throw new Error('Failed to fetch vehicle details');
         }
         const data = await response.json();
+        
+        // More detailed logging to debug image issues
+        logger.info('Vehicle API response received', {
+          vehicleId,
+          hasImages: !!data.images,
+          imageCount: Array.isArray(data.images) ? data.images.length : 0
+        });
+        
+        // Log the images specifically to see their format
+        logger.info('Vehicle images from API:', {
+          imagesType: typeof data.images,
+          isArray: Array.isArray(data.images),
+          firstImageType: Array.isArray(data.images) && data.images.length > 0 ? typeof data.images[0] : null,
+          firstImage: Array.isArray(data.images) && data.images.length > 0 ? data.images[0] : null
+        });
+        
         setVehicleDetails(data);
       } catch (error) {
-        console.error('Error fetching vehicle details:', error);
+        logger.error('Error fetching vehicle details:', error);
         toast.error('Failed to load vehicle details');
       }
     };
@@ -452,10 +468,14 @@ export default function BookingSummaryPage() {
   const serviceFee = basePrice * 0.05;
   const totalPrice = basePrice + gst + serviceFee;
 
+  // Create booking object with properly extracted image from vehicle details
   const booking = {
     vehicle: {
       name: bookingDetails.vehicleName,
-      image: vehicleDetails?.images?.[0] || '/images/placeholder-vehicle.png',
+      // Use the first image from vehicleDetails if available, with proper validation
+      image: vehicleDetails && Array.isArray(vehicleDetails.images) && vehicleDetails.images.length > 0 
+        ? vehicleDetails.images[0] 
+        : '/images/placeholder-vehicle.png',
       location: bookingDetails.location,
     },
     start_date: `${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`,
@@ -466,6 +486,18 @@ export default function BookingSummaryPage() {
     gst: gst,
     service_fee: serviceFee,
   };
+
+  // Add more detailed logging for image debugging
+  logger.info('Booking being passed to BookingSummary:', {
+    vehicleName: booking.vehicle.name,
+    vehicleImageUrl: booking.vehicle.image,
+    vehicleImageType: typeof booking.vehicle.image,
+    isImageDataUrl: booking.vehicle.image?.startsWith('data:'),
+    isImageHttp: booking.vehicle.image?.startsWith('http'),
+    vehicleDetailsAvailable: !!vehicleDetails,
+    imagesArrayExists: vehicleDetails && Array.isArray(vehicleDetails.images),
+    imagesArrayLength: vehicleDetails && Array.isArray(vehicleDetails.images) ? vehicleDetails.images.length : 0
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 relative">

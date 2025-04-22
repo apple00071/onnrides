@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getNumericSetting, SETTINGS } from '@/lib/settings';
+import logger from '@/lib/logger';
 
 // Handle OPTIONS request for CORS preflight
 export async function OPTIONS() {
@@ -58,11 +60,22 @@ export async function GET(request: NextRequest) {
       basePrice = pricePerHour * durationInHours;
     }
 
+    // Fetch configurable rates from settings with defaults as fallback
+    const gstPercentage = await getNumericSetting(SETTINGS.BOOKING_GST_PERCENTAGE, 18);
+    const serviceFeePercentage = await getNumericSetting(SETTINGS.BOOKING_SERVICE_FEE_PERCENTAGE, 5);
+    const advancePaymentPercentage = await getNumericSetting(SETTINGS.BOOKING_ADVANCE_PAYMENT_PERCENTAGE, 5);
+
+    logger.debug('Using configurable rates:', {
+      gstPercentage,
+      serviceFeePercentage,
+      advancePaymentPercentage
+    });
+
     // Calculate fees and taxes
-    const gst = Math.round(basePrice * 0.18); // 18% GST
-    const serviceFee = Math.round(basePrice * 0.05); // 5% service fee
+    const gst = Math.round(basePrice * (gstPercentage / 100));
+    const serviceFee = Math.round(basePrice * (serviceFeePercentage / 100));
     const totalAmount = basePrice + gst + serviceFee;
-    const advancePayment = Math.round(totalAmount * 0.05); // 5% advance payment
+    const advancePayment = Math.round(totalAmount * (advancePaymentPercentage / 100));
 
     const bookingSummary = {
       pickupDate,
@@ -78,6 +91,11 @@ export async function GET(request: NextRequest) {
         serviceFee,
         totalAmount,
         advancePayment,
+        percentages: {
+          gst: gstPercentage,
+          serviceFee: serviceFeePercentage,
+          advancePayment: advancePaymentPercentage
+        },
         specialPricing: {
           sevenDays: price7Days,
           fifteenDays: price15Days,
@@ -95,7 +113,7 @@ export async function GET(request: NextRequest) {
       { headers }
     );
   } catch (error) {
-    console.error('Error in booking summary:', error);
+    logger.error('Error in booking summary:', error);
     
     // Return error response with CORS headers
     return new NextResponse(

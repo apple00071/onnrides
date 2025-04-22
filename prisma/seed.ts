@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -48,7 +49,66 @@ async function main() {
     },
   });
 
-  console.log({ admin, sampleVehicle, hyderabadLocation });
+  // 3. Create the necessary settings
+  const maintenanceModeSetting = await prisma.settings.upsert({
+    where: { key: 'maintenance_mode' },
+    update: {},
+    create: {
+      id: crypto.randomUUID(),
+      key: 'maintenance_mode',
+      value: 'false',
+      created_at: new Date(),
+      updated_at: new Date()
+    }
+  });
+
+  const bookingGstPercentage = await prisma.settings.upsert({
+    where: { key: 'booking_gst_percentage' },
+    update: {},
+    create: {
+      id: crypto.randomUUID(),
+      key: 'booking_gst_percentage', 
+      value: '18',
+      created_at: new Date(),
+      updated_at: new Date()
+    }
+  });
+
+  const bookingServiceFeePercentage = await prisma.settings.upsert({
+    where: { key: 'booking_service_fee_percentage' },
+    update: {},
+    create: {
+      id: crypto.randomUUID(),
+      key: 'booking_service_fee_percentage',
+      value: '5',
+      created_at: new Date(),
+      updated_at: new Date()
+    }
+  });
+
+  const bookingAdvancePaymentPercentage = await prisma.settings.upsert({
+    where: { key: 'booking_advance_payment_percentage' },
+    update: {},
+    create: {
+      id: crypto.randomUUID(),
+      key: 'booking_advance_payment_percentage',
+      value: '5',
+      created_at: new Date(),
+      updated_at: new Date()
+    }
+  });
+
+  console.log({
+    admin,
+    sampleVehicle,
+    hyderabadLocation,
+    settings: {
+      maintenanceMode: maintenanceModeSetting,
+      bookingGstPercentage,
+      bookingServiceFeePercentage,
+      bookingAdvancePaymentPercentage
+    }
+  });
 }
 
 main()

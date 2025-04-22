@@ -265,17 +265,17 @@ export function VehicleCard({
               {vehicle.location[0]}
             </div>
           ) : (
-            // Multiple locations dropdown
+            // Multiple locations dropdown - Updated styling
             <Select 
               value={selectedLocation} 
               onValueChange={handleLocationSelect}
             >
-              <SelectTrigger className="w-full bg-white">
+              <SelectTrigger className="w-full bg-white border-gray-300 focus:ring-primary focus:ring-opacity-50 focus:border-primary focus:ring-0 focus:outline-none">
                 <SelectValue placeholder="Select location" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white border border-gray-200 shadow-md">
                 {vehicle.location.map((loc) => (
-                  <SelectItem key={loc} value={loc}>
+                  <SelectItem key={loc} value={loc} className="hover:bg-gray-100">
                     {loc}
                   </SelectItem>
                 ))}
