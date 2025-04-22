@@ -1,3 +1,5 @@
+import { VEHICLE_TYPES } from '@/lib/schema';
+
 export interface User {
   id: string;
   email: string;
@@ -43,9 +45,6 @@ export interface Document {
   updated_at: Date;
 }
 
-export const VEHICLE_TYPES = ['bike', 'scooter'] as const;
-export type VehicleType = typeof VEHICLE_TYPES[number];
-
 export const LOCATIONS = [
   'Madhapur',
   'Gachibowli',
@@ -57,4 +56,6 @@ export const LOCATIONS = [
   'Banjara Hills',
   'Eragadda'
 ] as const;
-export type Location = typeof LOCATIONS[number]; 
+export type Location = typeof LOCATIONS[number];
+
+export { VEHICLE_TYPES }; 

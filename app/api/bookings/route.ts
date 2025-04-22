@@ -15,10 +15,9 @@ import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import { toUTC } from '@/lib/utils/timezone';
 import prisma from '@/lib/prisma';
 import { RazorpayOrder } from '@/lib/razorpay';
-import { formatIST, formatISTDateOnly, formatISTTimeOnly, isDateInFuture, getCurrentIST } from '@/lib/utils/time-formatter';
+import { formatIST, formatDateTime, formatDate, formatTime } from '@/lib/utils/time-formatter';
 import { validateBookingDates, BookingValidationError } from '@/lib/utils/booking-validator';
 import { toISTSql } from '@/lib/utils/sql-helpers';
-import { formatDateToIST } from '@/lib/utils'; // Keep this import for backward compatibility
 
 // Define standard support contact info
 const SUPPORT_EMAIL = 'contact@onnrides.com';
@@ -101,9 +100,28 @@ try {
   });
 }
 
-// Replace any custom date formatting with our standardized function
-// Use our new formatIST function but maintain backward compatibility
-const formatDate = (date: Date) => formatIST(date);
+// Add interface for booking row type
+interface BookingRow {
+  id: string;
+  booking_id: string;
+  status: string;
+  start_date: Date;
+  end_date: Date;
+  formatted_pickup: string;
+  formatted_dropoff: string;
+  pickup_datetime: Date;
+  dropoff_datetime: Date;
+  total_price: number;
+  payment_status: string;
+  created_at: Date;
+  updated_at: Date;
+  vehicle_id: string;
+  vehicle_name: string;
+  vehicle_type: string;
+  vehicle_location: string;
+  vehicle_images: string;
+  vehicle_price_per_hour: number;
+}
 
 // GET /api/bookings - List user's bookings
 export async function GET(request: NextRequest) {
@@ -167,20 +185,17 @@ export async function GET(request: NextRequest) {
     `, [session.user.id, limit, offset]);
 
     // Format the bookings
-    const bookings = result.rows.map(booking => ({
+    const bookings = result.rows.map((booking: BookingRow) => ({
       id: booking.id,
       booking_id: booking.booking_id,
       status: booking.status,
-      // Use the original UTC dates, client-side will apply IST conversion
       start_date: booking.start_date,
       end_date: booking.end_date,
-      // Include formatted date fields for optional usage
       formatted_pickup: booking.formatted_pickup,
       formatted_dropoff: booking.formatted_dropoff,
-      // Include IST-converted fields as separate properties
       pickup_datetime: booking.pickup_datetime,
       dropoff_datetime: booking.dropoff_datetime,
-      total_price: parseFloat(booking.total_price || 0),
+      total_price: parseFloat(booking.total_price?.toString() || '0'),
       payment_status: booking.payment_status || 'pending',
       created_at: booking.created_at,
       updated_at: booking.updated_at,
@@ -224,6 +239,8 @@ export async function GET(request: NextRequest) {
 
 // POST /api/bookings - Create booking
 export async function POST(request: NextRequest): Promise<Response> {
+  let createdBookingId: string | undefined;
+  
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -235,22 +252,33 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     const data = await request.json();
     const {
+      customerId,
       vehicleId,
       pickupDate,
       dropoffDate,
       location,
-      totalPrice,
-      advancePayment,
+      totalAmount,
+      paymentId,
+      paymentStatus,
+      customerName,
+      customerEmail,
+      customerPhone,
+      vehicleName,
+      pricePerHour,
+      specialPricing7Days,
+      specialPricing15Days,
+      specialPricing30Days,
       basePrice,
       gst,
       serviceFee,
-      customerDetails
+      advancePayment
     } = data;
 
     // Validate required fields
     const requiredFields = [
-      'vehicleId', 'pickupDate', 'dropoffDate', 'location', 
-      'totalPrice', 'advancePayment', 'basePrice', 'gst', 'serviceFee'
+      'customerId', 'vehicleId', 'pickupDate', 'dropoffDate', 'location', 
+      'totalAmount', 'customerName', 'customerEmail', 'customerPhone',
+      'vehicleName', 'pricePerHour'
     ];
     
     const missingFields = requiredFields.filter(field => data[field] === undefined);
@@ -268,7 +296,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
 
     // Validate numeric fields
-    const numericFields = ['totalPrice', 'advancePayment', 'basePrice', 'gst', 'serviceFee'];
+    const numericFields = ['totalAmount', 'pricePerHour'];
     const invalidFields = numericFields.filter(field => {
       const value = Number(data[field]);
       return isNaN(value) || value < 0;
@@ -295,12 +323,15 @@ export async function POST(request: NextRequest): Promise<Response> {
       dropoffDate
     });
     
+    // Replace getCurrentIST usage with new Date()
+    const currentTime = new Date();
+
     if (!validationResult.isValid) {
       logger.warn('Invalid booking dates', { 
         errors: validationResult.errors,
         pickupDate,
         dropoffDate,
-        currentTime: formatIST(getCurrentIST())
+        currentTime: formatIST(new Date())
       });
       
       return NextResponse.json({ 
@@ -324,7 +355,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         pickupDateTime: formatIST(pickupDateTime),
         dropoffDateTime: formatIST(dropoffDateTime)
       },
-      currentTime: formatIST(getCurrentIST())
+      currentTime: formatIST(currentTime)
     });
     
     // Calculate duration in hours
@@ -348,63 +379,66 @@ export async function POST(request: NextRequest): Promise<Response> {
       }
     });
     
-    const booking = await prisma.bookings.create({
-      data: {
-        id: randomUUID(),
-        booking_id: bookingId,
-        user_id: session.user.id,
-        vehicle_id: vehicleId,
-        start_date: pickupDateTime,  // Store the date as is - no timezone adjustment
-        end_date: dropoffDateTime,   // Store the date as is - no timezone adjustment
-        total_hours: durationInHours,
-        total_price: totalPrice,
-        status: 'pending',
-        payment_status: 'pending',
-        payment_details: JSON.stringify({
-          base_price: basePrice,
-          gst: gst,
-          service_fee: serviceFee,
-          advance_payment: advancePayment
-        }),
-        pickup_location: location
-      }
-    });
-
-    // Use exactly 5% for advance payment (no minimum enforced)
-    // Note: This might trigger a Razorpay minimum amount error for very small bookings
-    logger.info('Creating Razorpay order:', {
-      advancePayment,
-      advancePercentage: `${(advancePayment / totalPrice * 100).toFixed(1)}%`,
-      totalPrice,
-      bookingId
-    });
-    
-    // Create Razorpay order
     try {
-      // For advance payments greater than ₹1, don't apply minimum amount logic
-      const isAboveMinimum = advancePayment >= 1;
-      
-      logger.info('Creating Razorpay order:', {
-        advancePayment,
-        advancePercentage: `${(advancePayment / totalPrice * 100).toFixed(1)}%`,
-        totalPrice,
-        bookingId,
-        isAboveMinimum
+      const booking = await prisma.bookings.create({
+        data: {
+          id: randomUUID(),
+          booking_id: bookingId,
+          user_id: String(session.user.id),
+          vehicle_id: vehicleId,
+          start_date: pickupDateTime,
+          end_date: dropoffDateTime,
+          total_hours: durationInHours,
+          total_price: totalAmount,
+          status: 'pending',
+          payment_status: 'pending',
+          payment_details: JSON.stringify({
+            base_price: basePrice,
+            gst: gst,
+            service_fee: serviceFee,
+            advance_payment: advancePayment,
+            customer: {
+              name: customerName,
+              email: customerEmail,
+              phone: customerPhone
+            },
+            vehicle: {
+              name: vehicleName,
+              price_per_hour: pricePerHour,
+              special_pricing: {
+                seven_days: specialPricing7Days,
+                fifteen_days: specialPricing15Days,
+                thirty_days: specialPricing30Days
+              }
+            },
+            booking: {
+              duration_hours: durationInHours,
+              pickup_location: location,
+              pickup_date: formatDate(pickupDate),
+              dropoff_date: formatDate(dropoffDate)
+            }
+          }),
+          pickup_location: location,
+          created_at: new Date(),
+          updated_at: new Date()
+        }
       });
-      
+
+      createdBookingId = booking.id;
+
+      // Create Razorpay order
       const razorpayOrder = await createOrder({
         amount: advancePayment,
         currency: 'INR',
-        receipt: booking.id,
+        receipt: createdBookingId,
         notes: {
           bookingId,
           vehicleId,
-          pickupDate: formatDate(new Date(pickupDate)),
-          dropoffDate: formatDate(new Date(dropoffDate)),
-          customerName: customerDetails.name,
-          customerEmail: customerDetails.email,
-          customerPhone: customerDetails.phone,
-          skipMinimumCheck: isAboveMinimum ? 'true' : 'false'
+          pickupDate: formatDate(pickupDate),
+          dropoffDate: formatDate(dropoffDate),
+          customerName,
+          customerEmail,
+          customerPhone
         },
       });
 
@@ -430,6 +464,12 @@ export async function POST(request: NextRequest): Promise<Response> {
         },
       });
     } catch (error) {
+      if (createdBookingId) {
+        await prisma.bookings.delete({
+          where: { id: createdBookingId },
+        });
+      }
+
       // Properly format Razorpay errors which might have a different structure
       let errorDetails = '';
       
@@ -453,11 +493,6 @@ export async function POST(request: NextRequest): Promise<Response> {
         errorDetails
       });
       
-      // Delete the booking if payment initialization fails
-      await prisma.bookings.delete({
-        where: { id: booking.id },
-      });
-
       return NextResponse.json(
         { 
           success: false, 
@@ -468,17 +503,18 @@ export async function POST(request: NextRequest): Promise<Response> {
       );
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorDetails = error instanceof Error ? (error as any).details || {} : {};
-    
     logger.error('Error creating booking:', {
-      error: errorMessage,
-      details: errorDetails,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      details: error instanceof Error ? (error as any).details || {} : {},
       stack: error instanceof Error ? error.stack : undefined
     });
     
     return NextResponse.json(
-      { success: false, error: 'Failed to create booking', message: errorMessage },
+      { 
+        success: false, 
+        error: 'Failed to create booking',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

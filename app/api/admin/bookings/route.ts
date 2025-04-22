@@ -126,10 +126,10 @@ const getBookingsHandler = async (request: NextRequest) => {
 
     // Get total count first (in a separate query for better performance)
     const countSql = `
-      SELECT COUNT(*) 
+      SELECT COUNT(*)::integer 
       FROM bookings b
-      LEFT JOIN vehicles v ON b.vehicle_id = v.id
-      LEFT JOIN users u ON b.user_id = u.id
+      LEFT JOIN vehicles v ON b.vehicle_id::text = v.id::text
+      LEFT JOIN users u ON b.user_id::text = u.id::text
       WHERE ${whereClause}
     `;
     const countResult = await query(countSql, params);
@@ -184,8 +184,8 @@ const getBookingsHandler = async (request: NextRequest) => {
           -- Calculate duration in hours for debugging
           EXTRACT(EPOCH FROM (b.end_date - b.start_date))/3600 as calculated_duration_hours
         FROM bookings b
-        LEFT JOIN vehicles v ON b.vehicle_id = v.id
-        LEFT JOIN users u ON b.user_id = u.id
+        LEFT JOIN vehicles v ON b.vehicle_id::text = v.id::text
+        LEFT JOIN users u ON b.user_id::text = u.id::text
         WHERE ${whereClause}
       )
       SELECT * FROM booking_data

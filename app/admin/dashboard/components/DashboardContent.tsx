@@ -1,79 +1,112 @@
+import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { FaUsers, FaRupeeSign, FaCalendarCheck, FaCar, FaPlus, FaUserCog, FaChartBar } from 'react-icons/fa';
 import { StatsCard } from './StatsCard';
 import { QuickActionCard } from './QuickActionCard';
+import { useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 
-interface Booking {
-  id: string;
-  user: string;
-  email: string;
-  vehicle: string;
-  amount: number;
-  status: string;
-  date: string;
+interface DashboardData {
+  totalUsers: number;
+  totalRevenue: number;
+  totalBookings: number;
+  totalVehicles: number;
+  bookingGrowth: number | null;
+  revenueGrowth: number | null;
+  recentBookings: Array<{
+    id: string;
+    amount: string;
+    status: string;
+    start_date: string;
+    end_date: string;
+    user_name: string;
+    user_email: string;
+    vehicle_name: string;
+  }>;
+  recentActivity: Array<{
+    type: string;
+    message: string;
+    timestamp: string;
+    entity_id: string;
+  }>;
 }
 
-const recentBookings: Booking[] = [
-  {
-    id: 'BK001',
-    user: 'John Doe',
-    email: 'john@example.com',
-    vehicle: 'Toyota Camry',
-    amount: 5000,
-    status: 'completed',
-    date: '2024-03-15T10:00:00Z'
-  },
-  {
-    id: 'BK002',
-    user: 'Jane Smith',
-    email: 'jane@example.com',
-    vehicle: 'Honda Civic',
-    amount: 4500,
-    status: 'pending',
-    date: '2024-03-14T15:30:00Z'
-  },
-  {
-    id: 'BK003',
-    user: 'Mike Johnson',
-    email: 'mike@example.com',
-    vehicle: 'Hyundai Elantra',
-    amount: 3800,
-    status: 'cancelled',
-    date: '2024-03-13T09:15:00Z'
-  }
-];
-
 export default function DashboardContent() {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const response = await fetch('/api/admin/dashboard');
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to fetch dashboard data');
+        }
+
+        setData(result.data);
+      } catch (error) {
+        console.error('Dashboard fetch error:', error);
+        toast.error('Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#f26e24]"></div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-gray-900">Error</h2>
+          <p className="mt-2 text-sm text-gray-600">Failed to load dashboard data</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Total Users"
-          value="1,234"
+          value={data.totalUsers.toLocaleString()}
           icon={<FaUsers className="h-6 w-6" />}
-          change="+12%"
-          trend="up"
+          change={data.bookingGrowth ? `${data.bookingGrowth.toFixed(1)}%` : 'N/A'}
+          trend={data.bookingGrowth && data.bookingGrowth > 0 ? 'up' : 'down'}
         />
         <StatsCard
           title="Total Revenue"
-          value="₹2.1M"
+          value={`₹${data.totalRevenue.toLocaleString()}`}
           icon={<FaRupeeSign className="h-6 w-6" />}
-          change="+8%"
-          trend="up"
+          change={data.revenueGrowth ? `${data.revenueGrowth.toFixed(1)}%` : 'N/A'}
+          trend={data.revenueGrowth && data.revenueGrowth > 0 ? 'up' : 'down'}
         />
         <StatsCard
           title="Total Bookings"
-          value="856"
+          value={data.totalBookings.toLocaleString()}
           icon={<FaCalendarCheck className="h-6 w-6" />}
-          change="+15%"
-          trend="up"
+          change={data.bookingGrowth ? `${data.bookingGrowth.toFixed(1)}%` : 'N/A'}
+          trend={data.bookingGrowth && data.bookingGrowth > 0 ? 'up' : 'down'}
         />
         <StatsCard
           title="Active Vehicles"
-          value="45"
+          value={data.totalVehicles.toLocaleString()}
           icon={<FaCar className="h-6 w-6" />}
-          change="+5%"
+          change="N/A"
           trend="up"
         />
       </div>
@@ -96,18 +129,22 @@ export default function DashboardContent() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {recentBookings.map((booking) => (
-                <tr key={booking.id}>
+              {data.recentBookings.map((booking) => (
+                <tr key={booking.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{booking.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{booking.user}</div>
-                    <div className="text-sm text-gray-500">{booking.email}</div>
+                    <div className="text-sm text-gray-900">{booking.user_name || 'N/A'}</div>
+                    <div className="text-sm text-gray-500">{booking.user_email || 'N/A'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.vehicle}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹{booking.amount}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {booking.vehicle_name || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    ₹{parseFloat(booking.amount || '0').toLocaleString()}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      booking.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
                       booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-red-100 text-red-800'
                     }`}>
@@ -115,12 +152,40 @@ export default function DashboardContent() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {format(new Date(booking.date), 'MMM d, yyyy')}
+                    {format(new Date(booking.start_date), 'MMM d, yyyy')}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">Recent Activity</h3>
+        </div>
+        <div className="divide-y divide-gray-200">
+          {data.recentActivity.map((activity, index) => (
+            <div key={`${activity.type}-${index}`} className="p-4 hover:bg-gray-50">
+              <div className="flex items-center space-x-3">
+                <div className={`p-2 rounded-full ${
+                  activity.type === 'booking' ? 'bg-blue-100 text-blue-600' :
+                  activity.type === 'vehicle' ? 'bg-green-100 text-green-600' :
+                  'bg-purple-100 text-purple-600'
+                }`}>
+                  {activity.type === 'booking' ? <FaCalendarCheck className="h-4 w-4" /> :
+                   activity.type === 'vehicle' ? <FaCar className="h-4 w-4" /> :
+                   <FaUsers className="h-4 w-4" />}
+                </div>
+                <div>
+                  <p className="text-sm text-gray-900">{activity.message}</p>
+                  <p className="text-xs text-gray-500">{activity.timestamp}</p>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

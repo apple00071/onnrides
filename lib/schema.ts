@@ -1,6 +1,6 @@
 import { Generated, Insertable, Selectable, ColumnType } from 'kysely';
 
-export const VEHICLE_TYPES = ['bike'] as const;
+export const VEHICLE_TYPES = ['car', 'bike', 'scooter'] as const;
 export type VehicleType = typeof VEHICLE_TYPES[number];
 
 export const VEHICLE_STATUS = ['active', 'maintenance', 'retired'] as const;

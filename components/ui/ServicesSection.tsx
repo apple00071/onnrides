@@ -59,7 +59,7 @@ export default function ServicesSection() {
     }
   ];
 
-  const renderIcon = (icon: string) => {
+  const renderIcon = (icon: string, title: string) => {
     switch (icon) {
       case 'flexible':
         return <FlexibleIcon />;
@@ -73,7 +73,7 @@ export default function ServicesSection() {
         return (
           <Image
             src={icon}
-            alt="Service icon"
+            alt={`${title} service icon`}
             width={24}
             height={24}
             className="text-[#f26e24]"
@@ -92,7 +92,7 @@ export default function ServicesSection() {
               <div className="flex items-start space-x-4">
                 <div className="flex-shrink-0">
                   <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                    {renderIcon(service.icon)}
+                    {renderIcon(service.icon, service.title)}
                   </div>
                 </div>
                 <div>

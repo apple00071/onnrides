@@ -2,34 +2,45 @@
 module.exports = {
     darkMode: ['class'],
     content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
+    './pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
     './src/**/*.{ts,tsx}',
   ],
   theme: {
+  	screens: {
+  		'xs': '375px',    // Small phones
+  		'sm': '640px',    // Large phones/Small tablets
+  		'md': '768px',    // Tablets
+  		'lg': '1024px',   // Laptops/Desktops
+  		'xl': '1280px',   // Large Desktops
+  		'2xl': '1536px'   // Extra Large Screens
+  	},
   	container: {
   		center: true,
-  		padding: '2rem',
-  		screens: {
-  			'2xl': '1400px'
-  		}
+  		padding: {
+  			DEFAULT: '1rem',
+  			sm: '2rem',
+  			lg: '4rem',
+  			xl: '5rem',
+  			'2xl': '6rem',
+  		},
   	},
   	extend: {
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
-  			background: 'hsl(var(--background))',
+  			background: {
+  				DEFAULT: '#ffffff',
+  				secondary: '#f5f5f5'
+  			},
   			foreground: 'hsl(var(--foreground))',
   			primary: {
-  				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
+  				DEFAULT: '#f26e24',
+  				hover: '#e05d13'
   			},
-  			secondary: {
-  				DEFAULT: 'hsl(var(--secondary))',
-  				foreground: 'hsl(var(--secondary-foreground))'
-  			},
+  			secondary: '#333333',
   			destructive: {
   				DEFAULT: 'hsl(var(--destructive))',
   				foreground: 'hsl(var(--destructive-foreground))'
@@ -56,6 +67,10 @@ module.exports = {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
+  			},
+  			text: {
+  				primary: '#333333',
+  				secondary: '#666666'
   			}
   		},
   		borderRadius: {

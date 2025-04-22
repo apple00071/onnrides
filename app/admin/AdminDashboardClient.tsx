@@ -55,11 +55,13 @@ function MainContent({ children }: { children: React.ReactNode }) {
   
   return (
     <main className={cn(
-      "flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 transition-all duration-300 ease-in-out",
+      "flex-1 overflow-y-auto bg-gray-50 transition-all duration-300 ease-in-out",
       isOpen ? "md:ml-64" : "md:ml-20"
     )}>
       <div className="container mx-auto px-4 py-8 min-h-screen">
-        {children}
+        <div className="bg-white rounded-lg shadow-sm">
+          {children}
+        </div>
       </div>
     </main>
   );
@@ -127,13 +129,104 @@ function SignOutButton({ mobileView = false }: { mobileView?: boolean }) {
 
 export default function AdminDashboardClient({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile();
+  const { isOpen } = useSidebar();
 
   return (
     <div className="relative flex min-h-screen">
+      {/* Desktop Sidebar */}
+      <div className={cn(
+        "fixed left-0 top-0 z-40 h-screen w-64 -translate-x-full border-r bg-background transition-transform md:translate-x-0",
+        isOpen ? "w-64" : "w-20",
+        "hidden md:block" // Hide on mobile
+      )}>
+        <div className="flex h-full flex-col">
+          <div className="flex h-16 items-center justify-between px-4 py-4">
+            <Link href="/admin/dashboard" className="flex items-center space-x-2">
+              {isOpen ? (
+                <>
+                  <Image
+                    src="/logo.png"
+                    alt="ONNRIDES"
+                    width={32}
+                    height={32}
+                    className="h-8 w-auto"
+                  />
+                  <span className="font-bold text-[#f26e24]">ONNRIDES</span>
+                </>
+              ) : (
+                <Image
+                  src="/logo.png"
+                  alt="ON"
+                  width={32}
+                  height={32}
+                  className="h-8 w-auto"
+                />
+              )}
+            </Link>
+          </div>
+          <nav className="flex-1 space-y-1 px-2 py-4">
+            {menuItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center space-x-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "hover:bg-accent hover:text-accent-foreground",
+                  "focus:bg-accent focus:text-accent-foreground focus:outline-none"
+                )}
+              >
+                {item.icon}
+                {isOpen && <span>{item.label}</span>}
+              </Link>
+            ))}
+          </nav>
+          <div className="border-t p-4">
+            <SignOutButton />
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Header and Content */}
       <div className="flex flex-1 flex-col">
         <MobileHeader />
         <MainContent>{children}</MainContent>
       </div>
+
+      {/* Mobile Sidebar (Drawer) */}
+      {isMobile && (
+        <div
+          className={cn(
+            "fixed inset-0 z-50 transform transition-transform duration-300 ease-in-out",
+            isOpen ? "translate-x-0" : "-translate-x-full"
+          )}
+        >
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+          <nav className="relative h-full w-3/4 max-w-sm bg-background shadow-xl">
+            <div className="flex h-full flex-col">
+              <div className="flex h-16 items-center px-4">
+                <Link href="/admin/dashboard" className="flex items-center space-x-2">
+                  <span className="font-bold">ONNRIDES Admin</span>
+                </Link>
+              </div>
+              <div className="flex-1 overflow-y-auto py-4">
+                {menuItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium"
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+              <div className="border-t p-4">
+                <SignOutButton />
+              </div>
+            </div>
+          </nav>
+        </div>
+      )}
     </div>
   );
 } 

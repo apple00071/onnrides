@@ -6,6 +6,7 @@ import { Providers } from '../providers';
 import AdminDashboardClient from '@/app/admin/AdminDashboardClient';
 import logger from '@/lib/logger';
 import { Metadata } from 'next';
+import { headers } from 'next/headers';
 
 // Provide metadata for admin pages
 export function generateMetadata(): Metadata {
@@ -65,6 +66,7 @@ export function generateMetadata(): Metadata {
       width: 'device-width',
       initialScale: 1,
       maximumScale: 1,
+      userScalable: false,
     },
     icons: {
       icon: [
@@ -93,8 +95,9 @@ export default async function AdminLayout({
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
-      logger.warn('No session found, redirecting to admin login');
-      redirect('/admin-login');
+      const currentPath = new URL(headers().get('x-url') || '', 'http://localhost').pathname;
+      const searchParams = new URLSearchParams({ from: currentPath });
+      redirect(`/admin-login?${searchParams.toString()}`);
     }
 
     if (session.user.role.toLowerCase() !== 'admin') {
@@ -110,46 +113,6 @@ export default async function AdminLayout({
           </AdminDashboardClient>
           <SpeedInsights />
         </Providers>
-        {/* Service Worker Registration Script */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/admin/sw.js', { 
-                    scope: '/admin/'
-                  }).then(
-                    function(registration) {
-                      console.log('Admin Service Worker registration successful with scope:', registration.scope);
-                      
-                      // Check if we're on the admin root page
-                      if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
-                        // Redirect to dashboard if at admin root
-                        window.location.href = '/admin/dashboard';
-                      }
-                    },
-                    function(err) {
-                      console.error('Admin Service Worker registration failed: ', err);
-                    }
-                  );
-                  
-                  // Unregister any existing service workers outside our scope
-                  navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                    for(let registration of registrations) {
-                      // Skip our admin service worker
-                      if (registration.scope.includes('/admin/')) continue;
-                      
-                      // Unregister any other service workers
-                      registration.unregister().then(function() {
-                        console.log('ServiceWorker unregistered to avoid conflicts');
-                      });
-                    }
-                  });
-                });
-              }
-            `,
-          }}
-        />
       </>
     );
   } catch (error) {

@@ -137,7 +137,7 @@ export default function Navbar() {
 
   return (
     <>
-      <header className={`sticky top-0 z-50 w-full bg-white transition-all duration-300 ${scrolled ? 'shadow-md' : 'border-b'}`}>
+      <header className={`sticky top-0 z-50 w-full bg-white transition-all duration-300 ${scrolled ? 'shadow-md' : 'border-b'} m-0 p-0`}>
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
@@ -349,4 +349,4 @@ export default function Navbar() {
       </div>
     </>
   );
-} 
+}

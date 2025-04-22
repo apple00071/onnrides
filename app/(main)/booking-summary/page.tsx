@@ -18,13 +18,23 @@ import { formatRazorpayAmount } from '@/app/lib/razorpayAmount';
 interface BookingSummaryDetails {
   vehicleId: string;
   vehicleName: string;
-  vehicleImage: string;
+  vehicleImage?: string;
   location: string;
   pickupDate: string;
   pickupTime: string;
   dropoffDate: string;
   dropoffTime: string;
   pricePerHour: number;
+  price7Days?: number;
+  price15Days?: number;
+  price30Days?: number;
+}
+
+interface VehicleDetails {
+  id: string;
+  name: string;
+  images: string[];
+  // Add other vehicle fields as needed
 }
 
 function PendingPaymentAlert({ payment, onClose }: { 
@@ -99,6 +109,7 @@ export default function BookingSummaryPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const [bookingDetails, setBookingDetails] = useState<BookingSummaryDetails | null>(null);
+  const [vehicleDetails, setVehicleDetails] = useState<VehicleDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingPayment, setPendingPayment] = useState<any>(null);
 
@@ -111,19 +122,38 @@ export default function BookingSummaryPage() {
       router.push('/vehicles');
       return;
     }
+
+    // Fetch vehicle details including images
+    const fetchVehicleDetails = async () => {
+      try {
+        const response = await fetch(`/api/vehicles/${vehicleId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch vehicle details');
+        }
+        const data = await response.json();
+        setVehicleDetails(data);
+      } catch (error) {
+        console.error('Error fetching vehicle details:', error);
+        toast.error('Failed to load vehicle details');
+      }
+    };
+
+    fetchVehicleDetails();
   }, [searchParams, router]);
 
   useEffect(() => {
     const details: BookingSummaryDetails = {
       vehicleId: searchParams.get('vehicleId') || '',
       vehicleName: searchParams.get('vehicleName') || '',
-      vehicleImage: searchParams.get('vehicleImage') || '/placeholder-vehicle.jpg',
       location: searchParams.get('location') || '',
       pickupDate: searchParams.get('pickupDate') || '',
       pickupTime: searchParams.get('pickupTime') || '',
       dropoffDate: searchParams.get('dropoffDate') || '',
       dropoffTime: searchParams.get('dropoffTime') || '',
       pricePerHour: Number(searchParams.get('pricePerHour')) || 0,
+      price7Days: Number(searchParams.get('price7Days')) || undefined,
+      price15Days: Number(searchParams.get('price15Days')) || undefined,
+      price30Days: Number(searchParams.get('price30Days')) || undefined,
     };
 
     setBookingDetails(details);
@@ -256,20 +286,26 @@ export default function BookingSummaryPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          customerId: session.user.id,
           vehicleId: bookingDetails.vehicleId,
-          pickupDate: pickupDateISO,  // Changed from pickupDateIST to pickupDateISO
-          dropoffDate: dropoffDateISO, // Changed from dropoffDateIST to dropoffDateISO
+          pickupDate: pickupDateISO,
+          dropoffDate: dropoffDateISO,
           location: bookingDetails.location,
-          totalPrice: totalPrice,
-          advancePayment: advancePayment,
-          basePrice: basePrice,
-          gst: gst,
-          serviceFee: serviceFee,
-          customerDetails: {
-            name: session.user.name || 'Guest',
-            email: session.user.email || '',
-            phone: (session.user as any)?.phone || ''
-          }
+          totalAmount: totalPrice,
+          paymentId: '', // Will be updated after payment
+          paymentStatus: 'pending',
+          customerName: session.user.name || '',
+          customerEmail: session.user.email || '',
+          customerPhone: (session.user as any)?.phone || '',
+          vehicleName: bookingDetails.vehicleName,
+          pricePerHour: bookingDetails.pricePerHour,
+          specialPricing7Days: bookingDetails.price7Days || null,
+          specialPricing15Days: bookingDetails.price15Days || null,
+          specialPricing30Days: bookingDetails.price30Days || null,
+          basePrice,
+          gst,
+          serviceFee,
+          advancePayment
         }),
       });
 
@@ -419,7 +455,7 @@ export default function BookingSummaryPage() {
   const booking = {
     vehicle: {
       name: bookingDetails.vehicleName,
-      image: bookingDetails.vehicleImage,
+      image: vehicleDetails?.images?.[0] || '/images/placeholder-vehicle.png',
       location: bookingDetails.location,
     },
     start_date: `${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`,
@@ -443,10 +479,12 @@ export default function BookingSummaryPage() {
         />
       )}
       
-      <BookingSummary
-        booking={booking}
-        onProceedToPayment={handleProceedToPayment}
-      />
+      {booking && (
+        <BookingSummary
+          booking={booking}
+          onProceedToPayment={handleProceedToPayment}
+        />
+      )}
     </div>
   );
 }

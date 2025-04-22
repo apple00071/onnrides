@@ -139,33 +139,35 @@ export default function HeroSection() {
 
   return (
     <>
-      <div className="relative h-[50vh] sm:h-screen w-full overflow-hidden">
+      <div className="relative h-[50vh] sm:h-screen w-full">
         {/* Background Image */}
         <div className="absolute inset-0">
-          <div className="relative h-[50vh] sm:h-screen w-full sm:hidden flex items-start">
+          <div className="relative h-[50vh] sm:h-screen w-full sm:hidden">
             <Image
               src="/hero-mobile.png"
               alt="Hero Background"
               fill
-              className="object-contain object-top"
+              className="object-cover"
               priority
               quality={100}
             />
           </div>
-          <Image
-            src="/hero.png"
-            alt="Hero Background"
-            fill
-            className="hidden sm:block object-cover w-full h-full brightness-[0.85]"
-            priority
-            quality={100}
-          />
+          <div className="hidden sm:block h-full">
+            <Image
+              src="/hero.png"
+              alt="Hero Background"
+              fill
+              className="object-cover w-full h-full brightness-[0.85]"
+              priority
+              quality={100}
+            />
+          </div>
         </div>
 
         {/* Desktop Search Form */}
-        <div className="hidden sm:flex absolute inset-0 flex-col items-start justify-center translate-y-[10%] z-10">
-          <div className="relative z-10 w-full max-w-7xl mx-auto px-4 md:px-0">
-            <div className="w-[350px] md:w-[400px] ml-[5%]">
+        <div className="hidden sm:flex absolute inset-0 items-center justify-start z-10">
+          <div className="w-full max-w-7xl mx-auto px-4 md:px-6">
+            <div className="w-[350px] md:w-[400px]">
               <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 md:p-6">
                 <SearchFormContent
                   pickupDate={pickupDate}
@@ -183,23 +185,23 @@ export default function HeroSection() {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Mobile Search Form */}
-      <div className="sm:hidden w-full px-4 -mt-36">
-        <div className="bg-white rounded-xl shadow-lg p-4">
-          <SearchFormContent
-            pickupDate={pickupDate}
-            setPickupDate={setPickupDate}
-            pickupTime={pickupTime}
-            setPickupTime={setPickupTime}
-            dropoffDate={dropoffDate}
-            setDropoffDate={setDropoffDate}
-            dropoffTime={dropoffTime}
-            setDropoffTime={setDropoffTime}
-            handleSearch={handleSearch}
-            isLoading={isLoading}
-          />
+        {/* Mobile Search Form */}
+        <div className="sm:hidden absolute bottom-0 left-0 right-0 p-4 bg-transparent">
+          <div className="bg-white rounded-xl shadow-lg p-4">
+            <SearchFormContent
+              pickupDate={pickupDate}
+              setPickupDate={setPickupDate}
+              pickupTime={pickupTime}
+              setPickupTime={setPickupTime}
+              dropoffDate={dropoffDate}
+              setDropoffDate={setDropoffDate}
+              dropoffTime={dropoffTime}
+              setDropoffTime={setDropoffTime}
+              handleSearch={handleSearch}
+              isLoading={isLoading}
+            />
+          </div>
         </div>
       </div>
     </>
@@ -418,7 +420,7 @@ function SearchFormContent({
       <button
         onClick={handleSearch}
         disabled={isLoading}
-        className="w-full mt-4 bg-[#f26e24] text-white py-3 rounded-lg text-base font-medium hover:bg-[#e05d13] transition-colors disabled:opacity-50 disabled:cursor-not-allowed search-button"
+        className="w-full mt-4 bg-[#f26e24] text-white py-3 rounded-full text-base font-medium hover:bg-[#e05d13] transition-colors disabled:opacity-50 disabled:cursor-not-allowed search-button"
         style={{ color: 'white !important' }}
       >
         {isLoading ? 'Searching...' : 'Search'}

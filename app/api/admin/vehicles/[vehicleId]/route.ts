@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db, query } from '@/lib/db';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import type { Vehicle, VehicleStatus } from '@/lib/schema';
 import { revalidatePath } from 'next/cache';
@@ -14,28 +14,31 @@ export async function GET(
   { params }: { params: { vehicleId: string } }
 ) {
   try {
+    // Check authentication and admin role
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { vehicleId } = params;
 
-    const vehicle = await db
-      .selectFrom('vehicles')
-      .selectAll()
-      .where('id', '=', vehicleId)
-      .executeTakeFirst();
+    // Get vehicle details using query
+    const result = await query(
+      'SELECT * FROM vehicles WHERE id = $1',
+      [vehicleId]
+    );
 
-    if (!vehicle) {
+    if (result.rowCount === 0) {
       return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ vehicle });
+    logger.info('Vehicle fetched successfully:', { vehicleId });
+
+    return NextResponse.json(result.rows[0]);
   } catch (error) {
     logger.error('Error fetching vehicle:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch vehicle' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -46,95 +49,97 @@ export async function PUT(
   { params }: { params: { vehicleId: string } }
 ) {
   try {
+    // Check authentication and admin role
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const data = await request.json();
-    logger.info('Updating vehicle with data:', data);
+    const { vehicleId } = params;
+    const body = await request.json();
 
-    // Process numeric fields
-    const updateData: Record<string, any> = {
-      name: data.name,
-      type: data.type,
-      price_per_hour: Number(data.price_per_hour),
-      price_7_days: data.price_7_days ? Number(data.price_7_days) : null,
-      price_15_days: data.price_15_days ? Number(data.price_15_days) : null,
-      price_30_days: data.price_30_days ? Number(data.price_30_days) : null,
-      is_available: data.is_available,
-      quantity: data.quantity ? Number(data.quantity) : 1
-    };
+    // Log the received data
+    logger.info('Updating vehicle with data:', {
+      vehicleId,
+      body
+    });
 
-    // Ensure location is properly formatted
-    if (data.location) {
-      let location = data.location;
-      if (typeof location === 'string') {
-        location = [location];
-      } else if (Array.isArray(location)) {
-        location = location.map(loc => loc.trim()).filter(Boolean);
-      } else if (typeof location === 'object' && location.name) {
-        location = Array.isArray(location.name) ? location.name : [location.name];
-      }
-      updateData.location = JSON.stringify(location);
-    }
-
-    // Convert images to JSON if present
-    if (data.images) {
-      updateData.images = JSON.stringify(data.images);
-    }
-
-    // Update the vehicle
-    const [updatedVehicle] = await db
-      .updateTable('vehicles')
-      .set({
-        ...updateData,
-        updated_at: new Date()
-      })
-      .where('id', '=', params.vehicleId)
-      .returning([
-        'id',
-        'name',
-        'type',
-        'location',
-        'quantity',
-        'price_per_hour',
-        'price_7_days',
-        'price_15_days',
-        'price_30_days',
-        'min_booking_hours',
-        'images',
-        'status',
-        'is_available',
-        'created_at',
-        'updated_at'
-      ])
-      .execute();
-
-    if (!updatedVehicle) {
+    // Validate required fields based on our schema
+    if (!body.name || !body.type || !body.location || 
+        !body.quantity || !body.price_per_hour || !body.min_booking_hours) {
+      logger.warn('Missing required fields:', {
+        receivedFields: Object.keys(body),
+        missingFields: ['name', 'type', 'location', 'quantity', 'price_per_hour', 'min_booking_hours'].filter(field => !body[field])
+      });
       return NextResponse.json(
-        { error: 'Vehicle not found' },
-        { status: 404 }
+        { error: 'Missing required fields: name, type, location, quantity, price_per_hour, and min_booking_hours are required' },
+        { status: 400 }
       );
     }
 
-    // Format the response
-    const formattedVehicle = {
-      ...updatedVehicle,
-      location: JSON.parse(updatedVehicle.location),
-      images: JSON.parse(updatedVehicle.images)
-    };
+    // Ensure location is a string (not an array)
+    const location = Array.isArray(body.location) ? body.location.join(', ') : body.location;
+
+    // Update the vehicle using Prisma
+    const result = await prisma.vehicles.update({
+      where: { id: vehicleId },
+      data: {
+        name: body.name,
+        type: body.type,
+        location: location,
+        quantity: Number(body.quantity),
+        price_per_hour: Number(body.price_per_hour),
+        min_booking_hours: Number(body.min_booking_hours),
+        price_7_days: body.price_7_days ? Number(body.price_7_days) : null,
+        price_15_days: body.price_15_days ? Number(body.price_15_days) : null,
+        price_30_days: body.price_30_days ? Number(body.price_30_days) : null,
+        is_available: body.is_available ?? true,
+        images: Array.isArray(body.images) ? JSON.stringify(body.images) : body.images || '[]',
+        status: body.status || 'active'
+      }
+    });
+
+    logger.info('Vehicle updated successfully:', { vehicleId, result });
 
     return NextResponse.json({
       success: true,
       data: {
-        vehicle: formattedVehicle
+        vehicle: result
       }
     });
   } catch (error) {
-    logger.error('Error updating vehicle:', error);
+    // Improved error logging
+    logger.error('Error updating vehicle:', {
+      error: error instanceof Error ? {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      } : error,
+      vehicleId: params.vehicleId
+    });
+
+    // Check for specific Prisma errors
+    if (error instanceof Error) {
+      if (error.message.includes('Record to update not found')) {
+        return NextResponse.json(
+          { error: 'Vehicle not found' },
+          { status: 404 }
+        );
+      }
+      
+      if (error.message.includes('invalid input syntax')) {
+        return NextResponse.json(
+          { error: 'Invalid data format provided' },
+          { status: 400 }
+        );
+      }
+    }
+
     return NextResponse.json(
-      { error: 'Failed to update vehicle' },
+      { 
+        error: 'Failed to update vehicle',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
@@ -145,6 +150,7 @@ export async function DELETE(
   { params }: { params: { vehicleId: string } }
 ) {
   try {
+    // Check authentication and admin role
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -152,90 +158,29 @@ export async function DELETE(
 
     const { vehicleId } = params;
 
-    // Check for any active or pending bookings
-    const activeBookings = await db
-      .selectFrom('bookings')
-      .select(['id', 'status', 'start_date', 'end_date', 'payment_status'])
-      .where('vehicle_id', '=', vehicleId)
-      .where('status', 'in', ['pending', 'confirmed'])
-      .where('payment_status', 'in', ['pending', 'paid'])
-      .execute();
+    // Delete the vehicle using query
+    const result = await query(
+      'DELETE FROM vehicles WHERE id = $1 RETURNING id',
+      [vehicleId]
+    );
 
-    if (activeBookings.length > 0) {
-      logger.warn('Attempted to delete vehicle with active/pending bookings:', {
-        vehicleId,
-        activeBookings: activeBookings.map(b => ({
-          id: b.id,
-          status: b.status,
-          paymentStatus: b.payment_status
-        }))
-      });
-      
-      // Return detailed information about the active/pending bookings
+    if (result.rowCount === 0) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Cannot delete vehicle with active or pending bookings',
-          details: {
-            message: 'Vehicle has active or pending bookings that need to be handled first.',
-            activeBookings: activeBookings.map(booking => ({
-              id: booking.id,
-              status: booking.status,
-              paymentStatus: booking.payment_status,
-              startDate: booking.start_date,
-              endDate: booking.end_date
-            }))
-          }
-        },
-        { status: 400 }
+        { error: 'Vehicle not found' },
+        { status: 404 }
       );
     }
 
-    // Check if vehicle exists before attempting to update
-    const existingVehicle = await db
-      .selectFrom('vehicles')
-      .select(['id', 'status'])
-      .where('id', '=', vehicleId)
-      .executeTakeFirst();
-
-    if (!existingVehicle) {
-      return NextResponse.json({
-        success: false,
-        error: 'Vehicle not found'
-      }, { status: 404 });
-    }
-
-    // Instead of deleting, update the vehicle status to 'retired'
-    const [updatedVehicle] = await db
-      .updateTable('vehicles')
-      .set({
-        status: 'retired' as VehicleStatus,
-        is_available: false,
-        updated_at: new Date()
-      })
-      .where('id', '=', vehicleId)
-      .returning(['id', 'name', 'status', 'is_available'])
-      .execute();
-
-    logger.info('Vehicle retired successfully:', {
-      vehicleId,
-      newStatus: updatedVehicle.status
-    });
+    logger.info('Vehicle deleted successfully:', { vehicleId });
 
     return NextResponse.json({
       success: true,
-      message: 'Vehicle retired successfully',
-      vehicle: updatedVehicle
+      message: 'Vehicle deleted successfully'
     });
-
   } catch (error) {
-    logger.error('Error retiring vehicle:', error);
+    logger.error('Error deleting vehicle:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to retire vehicle',
-        details: process.env.NODE_ENV === 'development' ? error : undefined
-      },
+      { error: 'Failed to delete vehicle' },
       { status: 500 }
     );
   }

@@ -8,8 +8,12 @@ export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
 
+    // Log attempt
+    logger.info('Admin login attempt:', { email });
+
     // Validate required fields
     if (!email || !password) {
+      logger.warn('Missing credentials:', { email });
       return NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
@@ -17,21 +21,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user from database
-    const [user] = await query(
-      'SELECT * FROM users WHERE email = ? AND role = "admin" LIMIT 1',
-      [email]
+    const result = await query(
+      'SELECT id, email, role, password_hash FROM users WHERE email = $1 AND role = $2',
+      [email, 'admin']
     );
 
-    if (!user) {
+    logger.debug('Database query result:', {
+      found: result.rows.length > 0,
+      role: result.rows[0]?.role
+    });
+
+    if (result.rows.length === 0) {
+      logger.warn('User not found:', { email });
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
 
+    const user = result.rows[0];
+
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    
+    logger.debug('Password verification:', { 
+      isValid: isValidPassword,
+      hasPasswordHash: !!user.password_hash
+    });
+
     if (!isValidPassword) {
+      logger.warn('Invalid password for user:', { email });
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -51,9 +70,11 @@ export async function POST(request: NextRequest) {
 
     // Update last login
     await query(
-      'UPDATE users SET last_login = NOW() WHERE id = ?',
+      'UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
       [user.id]
     );
+
+    logger.info('Admin login successful:', { email });
 
     // Create response with cookie
     const response = NextResponse.json(

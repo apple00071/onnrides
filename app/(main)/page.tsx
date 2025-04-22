@@ -34,11 +34,11 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <main className="min-h-screen">
+    <div className="space-y-16 py-0">
       <HeroSection />
       <FleetSection />
       <ServicesSection />
       <TestimonialsSection />
-    </main>
+    </div>
   );
-} 
+}

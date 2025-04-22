@@ -7,105 +7,133 @@ import { FaTimes } from 'react-icons/fa';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { VEHICLE_TYPES, VehicleType } from '@/lib/schema';
-import { Vehicle } from '@/app/(main)/vehicles/types';
+import { VehicleFormData } from '@/app/(main)/vehicles/types';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
+import { X } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { LOCATIONS } from '@/lib/locations';
+
+// Define available locations
+const AVAILABLE_LOCATIONS = ['Madhapur', 'Erragadda'] as const;
+type AvailableLocation = typeof AVAILABLE_LOCATIONS[number];
 
 interface AddVehicleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (vehicle: Vehicle) => void;
+  onSuccess: (vehicle: VehicleFormData) => void;
 }
 
 interface FormData {
   name: string;
-  type: 'bike' | 'scooter';
-  location: string[];
-  quantity: number;
-  price_per_hour: number;
-  price_7_days: number;
-  price_15_days: number;
-  price_30_days: number;
-  images: File[];
-  is_available: boolean;
+  type: string;
+  location: AvailableLocation[];
+  quantity: string;
+  price_per_hour: string;
+  min_booking_hours: string;
+  price_7_days?: string;
+  price_15_days?: string;
+  price_30_days?: string;
+  description: string;
+  images: string[];
 }
 
-const LOCATIONS = [
-  'Madhapur',
-  'Eragadda'
-];
-
-export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalProps) {
-  const defaultFormData = {
+export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalProps) {
+  const [formData, setFormData] = useState<FormData>({
     name: '',
-    type: 'bike' as const,
-    location: [] as string[],
-    quantity: 1,
-    price_per_hour: 0,
-    price_7_days: 0,
-    price_15_days: 0,
-    price_30_days: 0,
-    images: [] as File[],
-    is_available: true,
-  } satisfies FormData;
+    type: 'bike',
+    location: [] as AvailableLocation[],
+    quantity: '1',
+    price_per_hour: '',
+    min_booking_hours: '1',
+    description: '',
+    images: []
+  });
 
-  const [formData, setFormData] = useState<FormData>(defaultFormData);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [objectUrls, setObjectUrls] = useState<string[]>([]);
 
-  // Cleanup object URLs when component unmounts or images change
-  useEffect(() => {
-    return () => {
-      objectUrls.forEach(url => URL.revokeObjectURL(url));
-    };
-  }, [objectUrls]);
-
-  const resetForm = () => {
-    setFormData(defaultFormData);
-    // Cleanup any existing object URLs
-    objectUrls.forEach(url => URL.revokeObjectURL(url));
-    setObjectUrls([]);
+  // Function to handle image URL validation
+  const isValidImageUrl = (url: string): boolean => {
+    return url.trim().length > 0 && (
+      url.startsWith('http://') || 
+      url.startsWith('https://') || 
+      url.startsWith('/') || 
+      url.startsWith('data:image/')
+    );
   };
 
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.length) return;
-    
-    const files = Array.from(e.target.files);
-    const newUrls = files.map(file => URL.createObjectURL(file));
-    
+  // Function to add a new image URL
+  const handleAddImageUrl = (url: string) => {
+    if (!isValidImageUrl(url)) {
+      toast.error('Please enter a valid image URL');
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
-      images: [...prev.images, ...files]
+      images: [...prev.images, url]
     }));
-    setObjectUrls(prev => [...prev, ...newUrls]);
-    
-    // Clear input value to allow selecting the same file again
-    e.target.value = '';
+    setImageUrls(prev => [...prev, url]);
   };
 
-  const removeImage = (index: number) => {
-    const urlToRemove = objectUrls[index];
-    URL.revokeObjectURL(urlToRemove);
+  // Function to handle image file uploads
+  const handleImageUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    // Here you would typically upload the files to your storage service
+    // For now, we'll convert them to data URLs as a temporary solution
+    const fileArray = Array.from(files);
     
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
-    setObjectUrls(prev => prev.filter((_, i) => i !== index));
+    for (const file of fileArray) {
+      if (!file.type.startsWith('image/')) {
+        toast.error(`File ${file.name} is not an image`);
+        continue;
+      }
+
+      try {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const dataUrl = e.target?.result as string;
+          if (dataUrl) {
+            handleAddImageUrl(dataUrl);
+          }
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        logger.error('Error reading file:', error);
+        toast.error(`Error processing file ${file.name}`);
+      }
+    }
   };
 
-  const handleLocationChange = (location: string) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleLocationChange = (location: AvailableLocation, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      location: [...prev.location, location]
+      location: checked 
+        ? [...prev.location, location]
+        : prev.location.filter(l => l !== location)
     }));
   };
 
@@ -114,221 +142,261 @@ export default function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehic
     setLoading(true);
 
     try {
-      const formDataToSend = new FormData();
-      
-      // Add all form fields except images
-      Object.entries(formData).forEach(([key, value]) => {
-        if (key !== 'images') {
-          if (Array.isArray(value)) {
-            formDataToSend.append(key, JSON.stringify(value));
-          } else {
-            formDataToSend.append(key, String(value));
-          }
-        }
-      });
-
-      // Add images
-      formData.images.forEach((image, index) => {
-        formDataToSend.append(`images[${index}]`, image);
-      });
+      // Convert form data to match the API expectations
+      const vehicleData = {
+        ...formData,
+        price_per_hour: Number(formData.price_per_hour),
+        quantity: Number(formData.quantity),
+        min_booking_hours: Number(formData.min_booking_hours),
+        price_7_days: formData.price_7_days ? Number(formData.price_7_days) : null,
+        price_15_days: formData.price_15_days ? Number(formData.price_15_days) : null,
+        price_30_days: formData.price_30_days ? Number(formData.price_30_days) : null
+      };
 
       const response = await fetch('/api/admin/vehicles', {
         method: 'POST',
-        body: formDataToSend
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(vehicleData),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to add vehicle');
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create vehicle');
       }
 
       const newVehicle = await response.json();
       onSuccess(newVehicle);
-      resetForm();
-      onClose();
-      toast.success('Vehicle added successfully');
+      resetForm(true);
+      toast.success('Vehicle created successfully');
     } catch (error) {
-      logger.error('Error adding vehicle:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to add vehicle');
+      logger.error('Error creating vehicle:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create vehicle');
     } finally {
       setLoading(false);
     }
   };
 
+  const resetForm = (shouldClose: boolean = false) => {
+    setFormData({
+      name: '',
+      type: 'bike',
+      location: [] as AvailableLocation[],
+      quantity: '1',
+      price_per_hour: '',
+      min_booking_hours: '1',
+      description: '',
+      images: []
+    });
+    setImageUrls([]);
+    if (shouldClose) onClose();
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="sticky top-0 bg-white z-10 pb-4 border-b">
-          <DialogTitle>Add New Vehicle</DialogTitle>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white p-6 rounded-lg">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-semibold">Add New Vehicle</DialogTitle>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-6 py-4">
-          <div>
-            <Label htmlFor="name">Vehicle Name</Label>
-            <Input
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="type">Vehicle Type</Label>
-            <Select
-              value={formData.type}
-              onValueChange={(value: VehicleType) => setFormData({ ...formData, type: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                {VEHICLE_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label>Availability</Label>
-            <div className="flex items-center space-x-2 mt-2">
-              <Switch
-                checked={formData.is_available}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_available: checked })}
-                aria-label="Toggle vehicle availability"
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Vehicle Name</Label>
+              <Input
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                required
               />
-              <span className="text-sm text-gray-600">
-                {formData.is_available ? 'Available' : 'Unavailable'}
-              </span>
+            </div>
+            <div className="space-y-2">
+              <Label>Vehicle Type</Label>
+              <Input
+                value="Bike"
+                disabled
+                className="bg-gray-100"
+              />
+              <input type="hidden" name="type" value="bike" />
             </div>
           </div>
 
-          <div>
-            <Label>Locations</Label>
-            <div className="grid grid-cols-2 gap-4 mt-2 max-h-[200px] overflow-y-auto pr-4">
-              {LOCATIONS.map((location) => (
-                <div key={location} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={location}
-                    checked={formData.location.includes(location)}
-                    onCheckedChange={() => handleLocationChange(location)}
+          <div className="space-y-2">
+            <Label>Location</Label>
+            <div className="grid grid-cols-2 gap-4 p-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="location-madhapur"
+                  checked={formData.location.includes('Madhapur')}
+                  onCheckedChange={(checked) => {
+                    handleLocationChange('Madhapur', checked as boolean);
+                  }}
+                  className="text-black border-gray-300 focus:ring-0"
+                />
+                <Label 
+                  htmlFor="location-madhapur"
+                  className="text-sm font-medium text-gray-700 cursor-pointer select-none"
+                >
+                  Madhapur
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="location-erragadda"
+                  checked={formData.location.includes('Erragadda')}
+                  onCheckedChange={(checked) => {
+                    handleLocationChange('Erragadda', checked as boolean);
+                  }}
+                  className="text-black border-gray-300 focus:ring-0"
+                />
+                <Label 
+                  htmlFor="location-erragadda"
+                  className="text-sm font-medium text-gray-700 cursor-pointer select-none"
+                >
+                  Erragadda
+                </Label>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <Label>Vehicle Images</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Enter image URL"
+                    className="flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const input = e.currentTarget;
+                        handleAddImageUrl(input.value);
+                        input.value = '';
+                      }
+                    }}
                   />
-                  <Label htmlFor={location}>{location}</Label>
+                  <span className="text-sm text-gray-500">or</span>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => handleImageUpload(e.target.files)}
+                    className="flex-1"
+                  />
                 </div>
-              ))}
+              </div>
+              {formData.images.length > 0 && (
+                <div className="col-span-2 grid grid-cols-4 gap-4">
+                  {formData.images.map((url, index) => (
+                    <div key={url} className="relative group">
+                      <img
+                        src={url}
+                        alt={`Vehicle preview ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-lg"
+                        onError={(e) => {
+                          logger.warn('Image failed to load:', { url });
+                          e.currentTarget.src = '/images/placeholder-vehicle.png';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({
+                            ...prev,
+                            images: prev.images.filter((_, i) => i !== index)
+                          }));
+                          setImageUrls(prev => prev.filter((_, i) => i !== index));
+                        }}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="quantity">Quantity</Label>
-            <Input
-              id="quantity"
-              name="quantity"
-              type="number"
-              min={1}
-              value={formData.quantity}
-              onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity</Label>
+              <Input
+                id="quantity"
+                name="quantity"
+                type="number"
+                min="1"
+                value={formData.quantity}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="price_per_hour">Price Per Hour (₹)</Label>
+              <Input
+                id="price_per_hour"
+                name="price_per_hour"
+                type="number"
+                min="0"
+                value={formData.price_per_hour}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
           </div>
 
-          <div>
-            <Label htmlFor="price_per_hour">Price (Per Hour)</Label>
-            <Input
-              id="price_per_hour"
-              name="price_per_hour"
-              type="number"
-              min={0}
-              step={0.01}
-              value={formData.price_per_hour}
-              onChange={(e) => setFormData({ ...formData, price_per_hour: Number(e.target.value) })}
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="price_7_days">7 Days Price</Label>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="price_7_days">7 Days Price (₹)</Label>
               <Input
                 id="price_7_days"
                 name="price_7_days"
                 type="number"
-                min={0}
-                step={0.01}
+                min="0"
                 value={formData.price_7_days}
-                onChange={(e) => setFormData({ ...formData, price_7_days: Number(e.target.value) })}
+                onChange={handleInputChange}
               />
-              <p className="text-sm text-gray-500 mt-1">Optional: Set special price for 7 days</p>
             </div>
-
-            <div>
-              <Label htmlFor="price_15_days">15 Days Price</Label>
+            <div className="space-y-2">
+              <Label htmlFor="price_15_days">15 Days Price (₹)</Label>
               <Input
                 id="price_15_days"
                 name="price_15_days"
                 type="number"
-                min={0}
-                step={0.01}
+                min="0"
                 value={formData.price_15_days}
-                onChange={(e) => setFormData({ ...formData, price_15_days: Number(e.target.value) })}
+                onChange={handleInputChange}
               />
-              <p className="text-sm text-gray-500 mt-1">Optional: Set special price for 15 days</p>
             </div>
-
-            <div>
-              <Label htmlFor="price_30_days">30 Days Price</Label>
+            <div className="space-y-2">
+              <Label htmlFor="price_30_days">30 Days Price (₹)</Label>
               <Input
                 id="price_30_days"
                 name="price_30_days"
                 type="number"
-                min={0}
-                step={0.01}
+                min="0"
                 value={formData.price_30_days}
-                onChange={(e) => setFormData({ ...formData, price_30_days: Number(e.target.value) })}
+                onChange={handleInputChange}
               />
-              <p className="text-sm text-gray-500 mt-1">Optional: Set special price for 30 days</p>
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="images">Vehicle Images</Label>
-            <Input
-              id="images"
-              name="images"
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageChange}
-              className="mt-1"
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              rows={3}
             />
-            
-            {formData.images.length > 0 && (
-              <div className="mt-4 grid grid-cols-4 gap-4">
-                {formData.images.map((file, index) => (
-                  <div key={index} className="relative">
-                    <img
-                      src={objectUrls[index]}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-24 object-cover rounded"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                    >
-                      <FaTimes className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
-          <div className="sticky bottom-0 bg-white pt-4 border-t flex justify-end space-x-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex justify-end space-x-4">
+            <Button type="button" variant="outline" onClick={() => resetForm(true)} disabled={loading}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>

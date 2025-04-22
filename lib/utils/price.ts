@@ -1,4 +1,7 @@
 import { Vehicle } from '@/app/(main)/vehicles/types';
+import { isWeekendIST } from './timezone';
+
+export { isWeekendIST };
 
 interface RentalPricing {
   price_per_hour: number;

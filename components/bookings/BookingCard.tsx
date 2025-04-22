@@ -103,7 +103,7 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
           {canCancel && (
             <button
               onClick={onCancel}
-              className="mt-4 w-full py-2 px-4 text-sm font-medium text-red-600 hover:text-red-800 border border-red-600 hover:border-red-800 rounded-md transition-colors"
+              className="mt-4 w-full py-2 px-4 text-sm font-medium text-red-600 hover:text-red-800 border border-red-600 hover:border-red-800 rounded-full transition-colors"
             >
               Cancel Booking
             </button>

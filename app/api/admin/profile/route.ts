@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import logger from '@/lib/logger';
 import { query } from '@/lib/db';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
 
 export async function POST(request: NextRequest) {
   try {
@@ -97,13 +97,15 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Get session token from cookies
-    const cookieStore = cookies();
-    const sessionToken = cookieStore.get('admin_session')?.value;
+    // Get session token from request headers
+    const authHeader = request.headers.get('Cookie');
+    const sessionToken = authHeader?.split(';')
+      .find(c => c.trim().startsWith('admin_session='))
+      ?.split('=')[1];
 
     if (!sessionToken) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Authentication required' }),
+      return NextResponse.json(
+        { error: 'Authentication required' },
         { 
           status: 401,
           headers: {
@@ -127,8 +129,8 @@ export async function GET(request: NextRequest) {
     );
 
     if (!profile) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Profile not found' }),
+      return NextResponse.json(
+        { error: 'Profile not found' },
         { 
           status: 404,
           headers: {
@@ -139,8 +141,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (profile.role !== 'admin') {
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized: Admin access required' }),
+      return NextResponse.json(
+        { error: 'Unauthorized: Admin access required' },
         { 
           status: 403,
           headers: {
@@ -160,8 +162,8 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Session verification error:', error);
-    return new NextResponse(
-      JSON.stringify({ error: 'Invalid or expired session' }),
+    return NextResponse.json(
+      { error: 'Invalid or expired session' },
       { 
         status: 401,
         headers: {

@@ -8,8 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn, formatCurrency } from "@/lib/utils";
-import { calculateRentalPrice } from "@/lib/utils/price";
+import { cn } from "@/lib/utils";
+import { calculateRentalPrice, isWeekendIST } from "@/lib/utils/price";
 import { useEffect, useCallback, useState } from "react";
 import { format } from "date-fns";
 import { toIST, formatDateTimeIST, formatDateIST, formatTimeIST } from "@/lib/utils/timezone";
@@ -28,6 +28,16 @@ interface VehicleCardProps {
   selected?: boolean;
 }
 
+interface PriceDetails {
+  totalAmount: number;
+  duration: string;
+}
+
+interface FormattedDateTime {
+  time: string;
+  date: string;
+}
+
 export function VehicleCard({
   vehicle,
   selectedLocation: initialSelectedLocation,
@@ -41,23 +51,56 @@ export function VehicleCard({
 }: VehicleCardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const timeZone = 'Asia/Kolkata'; // UTC+5:30
-
-  // Local state for selected location - independent for each card
+  const pathname = usePathname();
   const [selectedLocation, setSelectedLocation] = useState<string | undefined>(
-    vehicle.location.length === 1 ? vehicle.location[0] : undefined
+    initialSelectedLocation || (vehicle.location.length === 1 ? vehicle.location[0] : undefined)
   );
+  const [imageError, setImageError] = useState(false);
 
-  const handleLocationSelect = useCallback((location: string) => {
-    setSelectedLocation(location);
-  }, []);
+  // Format dates for display
+  const formatDateTime = (dateStr: string): FormattedDateTime => {
+    const date = new Date(dateStr);
+    return {
+      time: format(date, 'h:mm a'),
+      date: format(date, 'MMM d, yyyy')
+    };
+  };
 
-  // Remove the effect that syncs with parent location
-  useEffect(() => {
-    if (vehicle.location.length === 1) {
-      setSelectedLocation(vehicle.location[0]);
+  const pickupFormatted = pickupDateTime ? formatDateTime(pickupDateTime) : null;
+  const dropoffFormatted = dropoffDateTime ? formatDateTime(dropoffDateTime) : null;
+
+  // Calculate price based on duration
+  const calculatePrice = (): PriceDetails => {
+    if (!pickupDateTime || !dropoffDateTime) {
+      return {
+        totalAmount: vehicle.price_per_hour,
+        duration: '1 hour'
+      };
     }
-  }, [vehicle.location]);
+
+    const start = new Date(pickupDateTime);
+    const end = new Date(dropoffDateTime);
+    const durationInHours = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+    
+    const result = calculateRentalPrice({
+      price_per_hour: vehicle.price_per_hour,
+      price_7_days: vehicle.price_7_days,
+      price_15_days: vehicle.price_15_days,
+      price_30_days: vehicle.price_30_days
+    }, durationInHours, isWeekendIST(start));
+
+    return {
+      totalAmount: result,
+      duration: `${durationInHours} hours`
+    };
+  };
+
+  const priceDetails = calculatePrice();
+
+  const handleLocationSelect = (location: string) => {
+    setSelectedLocation(location);
+    onLocationSelect?.(location);
+  };
 
   const handleBookNow = () => {
     if (!selectedLocation) {
@@ -89,166 +132,80 @@ export function VehicleCard({
     // Add special pricing if available (ensure values are greater than 0)
     if (vehicle.price_7_days && vehicle.price_7_days > 0) {
       currentParams.set('price7Days', vehicle.price_7_days.toString());
-      logger.debug('Setting 7-day price:', vehicle.price_7_days);
     }
     if (vehicle.price_15_days && vehicle.price_15_days > 0) {
       currentParams.set('price15Days', vehicle.price_15_days.toString());
-      logger.debug('Setting 15-day price:', vehicle.price_15_days);
     }
     if (vehicle.price_30_days && vehicle.price_30_days > 0) {
       currentParams.set('price30Days', vehicle.price_30_days.toString());
-      logger.debug('Setting 30-day price:', vehicle.price_30_days);
     }
     
-    currentParams.set('vehicleImage', vehicle.images[0] || '/placeholder-vehicle.jpg');
+    // Calculate total price
+    currentParams.set('totalPrice', priceDetails.totalAmount.toString());
     
-    // Calculate the total price and add debug information
-    const priceDetails = calculatePrice();
-    const durationDays = priceDetails.totalHours / 24;
-    
-    logger.debug('Booking duration:', {
-      totalHours: priceDetails.totalHours,
-      durationDays,
-      price: priceDetails.totalAmount,
-      specialPricing: {
-        has7DayPrice: Boolean(vehicle.price_7_days),
-        has15DayPrice: Boolean(vehicle.price_15_days),
-        has30DayPrice: Boolean(vehicle.price_30_days)
-      }
-    });
-    
-    currentParams.set('totalAmount', priceDetails.totalAmount.toString());
-    
-    // Redirect directly to booking summary page
+    // Navigate to booking summary
     router.push(`/booking-summary?${currentParams.toString()}`);
   };
 
-  // Format date and time in IST
-  const formatDateTime = (dateTimeStr: string) => {
-    try {
-      // Parse and convert to IST
-      const date = new Date(dateTimeStr);
-      if (!isNaN(date.getTime())) {
-        return {
-          time: formatTimeIST(date),
-          date: formatDateIST(date)
-        };
-      }
-      return {
-        time: '',
-        date: ''
-      };
-    } catch (error) {
-      logger.error('Error formatting date:', error);
-      return {
-        time: '',
-        date: ''
-      };
+  // Function to get a valid image URL
+  const getValidImageUrl = (images: any): string => {
+    logger.debug('Processing images:', { images, type: typeof images });
+
+    // Handle undefined/null case
+    if (!images) {
+      logger.debug('No images provided');
+      return '/images/placeholder-vehicle.png';
     }
-  };
 
-  // Get formatted pickup and dropoff times
-  const pickupFormatted = pickupDateTime ? formatDateTime(pickupDateTime) : { date: '', time: '' };
-  const dropoffFormatted = dropoffDateTime ? formatDateTime(dropoffDateTime) : { date: '', time: '' };
-
-  // Calculate price based on duration and day of week
-  const calculatePrice = () => {
-    try {
-      const searchParams = new URLSearchParams(window.location.search);
-      const pickupDate = searchParams.get('pickupDate');
-      const pickupTime = searchParams.get('pickupTime');
-      const dropoffDate = searchParams.get('dropoffDate');
-      const dropoffTime = searchParams.get('dropoffTime');
-
-      if (!pickupDate || !pickupTime || !dropoffDate || !dropoffTime) {
-        logger.debug('Missing date/time parameters');
-        return {
-          baseAmount: vehicle.price_per_hour,
-          totalAmount: vehicle.price_per_hour,
-          totalHours: 1,
-          durationHours: 1,
-          isWeekend: false
-        };
-      }
-
-      const pickup = new Date(`${pickupDate}T${pickupTime}`);
-      const dropoff = new Date(`${dropoffDate}T${dropoffTime}`);
-      const durationHours = Math.ceil((dropoff.getTime() - pickup.getTime()) / (1000 * 60 * 60));
-      const isWeekend = pickup.getDay() === 0 || pickup.getDay() === 6;
-
-      logger.debug('Price calculation details:', {
-        vehicle: {
-          name: vehicle.name,
-          price_per_hour: vehicle.price_per_hour,
-          price_7_days: vehicle.price_7_days,
-          price_15_days: vehicle.price_15_days,
-          price_30_days: vehicle.price_30_days
-        },
-        duration: {
-          pickup: pickup.toISOString(),
-          dropoff: dropoff.toISOString(),
-          durationHours,
-          isWeekend
+    // If images is a string, try to parse it as JSON
+    if (typeof images === 'string') {
+      try {
+        const parsed = JSON.parse(images);
+        images = parsed;
+        logger.debug('Parsed JSON string:', { parsed });
+      } catch (e) {
+        // If parsing fails and it's a valid URL, use it directly
+        if (images.trim() && (
+          images.startsWith('http://') || 
+          images.startsWith('https://') || 
+          images.startsWith('/') || 
+          images.startsWith('data:image/')
+        )) {
+          logger.debug('Using string as direct URL');
+          return images;
         }
-      });
-
-      // Calculate total amount using the utility function with weekend/weekday logic
-      const totalAmount = calculateRentalPrice(vehicle, durationHours, isWeekend);
-      
-      // Calculate display hours based on weekend/weekday minimum
-      const displayHours = isWeekend ? 
-        Math.max(24, durationHours) : // Weekend minimum 24 hours
-        durationHours <= 12 ? 12 : durationHours; // Weekday minimum 12 hours
-
-      logger.debug('Final price:', {
-        totalAmount,
-        displayHours,
-        durationHours,
-        isWeekend
-      });
-
-      return {
-        totalAmount,
-        totalHours: displayHours,
-        durationHours,
-        isWeekend
-      };
-    } catch (error) {
-      logger.error('Error calculating price:', error);
-      return {
-        totalAmount: vehicle.price_per_hour,
-        totalHours: 1,
-        durationHours: 1,
-        isWeekend: false
-      };
-    }
-  };
-
-  const priceDetails = calculatePrice();
-
-  // Parse dates from URL format
-  const getDateTimeFromParams = () => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const pickupDate = params.get('pickupDate');
-      const pickupTime = params.get('pickupTime');
-      const dropoffDate = params.get('dropoffDate');
-      const dropoffTime = params.get('dropoffTime');
-
-      if (pickupDate && pickupTime && dropoffDate && dropoffTime) {
-        return {
-          pickup: formatDateTime(pickupDate + 'T' + pickupTime),
-          dropoff: formatDateTime(dropoffDate + 'T' + dropoffTime)
-        };
+        logger.debug('Failed to parse JSON string and not a valid URL');
+        return '/images/placeholder-vehicle.png';
       }
-      return null;
-    } catch (error) {
-      logger.error('Error parsing dates:', error);
-      return null;
     }
+
+    // Ensure images is an array
+    if (!Array.isArray(images)) {
+      logger.debug('Images is not an array:', { images });
+      return '/images/placeholder-vehicle.png';
+    }
+
+    // Find first valid image URL
+    const validImage = images.find(img => {
+      if (!img || typeof img !== 'string') return false;
+      const url = img.trim();
+      return url.length > 0 && (
+        url.startsWith('http://') || 
+        url.startsWith('https://') || 
+        url.startsWith('/') || 
+        url.startsWith('data:image/')
+      );
+    });
+
+    logger.debug('Found valid image:', { validImage });
+    return validImage || '/images/placeholder-vehicle.png';
   };
 
-  const dateTime = getDateTimeFromParams();
+  // Handle image error
+  const handleImageError = () => {
+    logger.warn('Image failed to load:', { vehicleId: vehicle.id, images: vehicle.images });
+    setImageError(true);
+  };
 
   return (
     <div className={cn(
@@ -260,15 +217,24 @@ export function VehicleCard({
       <h3 className="text-xl font-sans font-medium p-4">{vehicle.name}</h3>
 
       {/* Vehicle Image */}
-      <div className="relative h-48">
-        <Image
-          src={vehicle.images[0] || '/placeholder-vehicle.jpg'}
-          alt={vehicle.name}
-          fill
-          className="object-contain"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          priority
-        />
+      <div className="h-[200px] relative w-full bg-gray-100 flex items-center justify-center">
+        <div className="relative w-[80%] h-[80%]">
+          {!imageError ? (
+            <Image
+              src={getValidImageUrl(vehicle.images)}
+              alt={vehicle.name}
+              fill
+              className="object-contain"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              priority
+              onError={handleImageError}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gray-50">
+              <span className="text-gray-400">No image available</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="p-4">
@@ -278,13 +244,13 @@ export function VehicleCard({
             <div className="flex justify-between text-sm">
               <div>
                 <p className="text-gray-600">Pickup</p>
-                <p>{pickupFormatted.time}</p>
-                <p>{pickupFormatted.date}</p>
+                <p>{pickupFormatted?.time}</p>
+                <p>{pickupFormatted?.date}</p>
               </div>
               <div className="text-right">
                 <p className="text-gray-600">Drop-off</p>
-                <p>{dropoffFormatted.time}</p>
-                <p>{dropoffFormatted.date}</p>
+                <p>{dropoffFormatted?.time}</p>
+                <p>{dropoffFormatted?.date}</p>
               </div>
             </div>
           </div>
@@ -299,12 +265,12 @@ export function VehicleCard({
               {vehicle.location[0]}
             </div>
           ) : (
-            // Multiple locations dropdown - independent for each card
+            // Multiple locations dropdown
             <Select 
               value={selectedLocation} 
               onValueChange={handleLocationSelect}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full bg-white">
                 <SelectValue placeholder="Select location" />
               </SelectTrigger>
               <SelectContent>

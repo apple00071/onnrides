@@ -1,11 +1,11 @@
 'use client';
 
 import logger from '@/lib/logger';
-import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
+import { signIn } from 'next-auth/react';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -15,46 +15,36 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
 
   // Handle error from URL
-  const error = searchParams.get('error');
-  if (error === 'unauthorized') {
-    toast.error('You are not authorized to access the admin area');
-  }
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error === 'unauthorized') {
+      toast.error('You are not authorized to access the admin area');
+    }
+  }, [searchParams]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (loading) return;
     setLoading(true);
 
     try {
-      const callbackUrl = searchParams.get('from') || '/admin/dashboard';
       const result = await signIn('credentials', {
         email,
         password,
         isAdmin: 'true',
         redirect: false,
-        callbackUrl,
+        callbackUrl: '/admin/dashboard'
       });
 
-      if (!result) {
-        toast.error('An error occurred. Please try again.');
+      if (!result?.ok) {
+        toast.error('Invalid credentials');
         return;
       }
 
-      if (result.error) {
-        if (result.error === 'CredentialsSignin') {
-          toast.error('Invalid email or password');
-        } else if (result.error === 'AccessDenied') {
-          toast.error('You do not have permission to access the admin area');
-        } else {
-          toast.error('Failed to sign in. Please try again.');
-        }
-      } else if (result.ok) {
-        toast.success('Welcome back, admin!');
-        router.replace(callbackUrl);
-      }
+      // Use router.replace to prevent back button from returning to login
+      router.replace('/admin/dashboard');
     } catch (error) {
-      logger.error('Login error:', error);
-      toast.error('An error occurred. Please try again.');
+      console.error('Login error:', error);
+      toast.error('An error occurred during login');
     } finally {
       setLoading(false);
     }
@@ -65,7 +55,7 @@ export default function AdminLoginPage() {
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
         <div>
           <Link href="/" className="flex justify-center">
-            <h1 className="text-4xl font-bold text-[#f26e24] font-goodtimes">ONNRIDES</h1>
+            <h1 className="text-4xl font-bold text-[#f26e24]">ONNRIDES</h1>
           </Link>
           <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">
             Admin Login

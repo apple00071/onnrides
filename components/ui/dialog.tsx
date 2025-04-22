@@ -10,7 +10,28 @@ const Dialog = DialogPrimitive.Root
 
 const DialogTrigger = DialogPrimitive.Trigger
 
-const DialogPortal = DialogPrimitive.Portal
+const DialogPortal = React.forwardRef<HTMLDivElement, DialogPrimitive.DialogPortalProps>(
+  ({ children, ...props }, ref) => {
+    const portalId = React.useId();
+    const portalContext = React.useContext(PortalContext);
+
+    React.useEffect(() => {
+      portalContext.registerPortal(portalId);
+      return () => {
+        portalContext.unregisterPortal(portalId);
+      };
+    }, [portalId, portalContext]);
+
+    return (
+      <DialogPrimitive.Portal {...props}>
+        <div ref={ref} id={portalId} data-portal-root>
+          {children}
+        </div>
+      </DialogPrimitive.Portal>
+    );
+  }
+);
+DialogPortal.displayName = "DialogPortal"
 
 const DialogClose = DialogPrimitive.Close
 

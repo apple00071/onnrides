@@ -1,61 +1,104 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { db, query } from '@/lib/db';
+import { query } from '@/lib/db';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { randomUUID } from 'crypto';
 import type { NewVehicle, Vehicle } from '@/lib/schema';
 
+interface VehicleRow {
+  id: string;
+  name: string;
+  type: string;
+  location: string;
+  quantity: number;
+  price_per_hour: number;
+  price_7_days: number | null;
+  price_15_days: number | null;
+  price_30_days: number | null;
+  min_booking_hours: number;
+  images: string;
+  status: string;
+  is_available: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+// Helper function to normalize image data
+const normalizeImages = (images: any): string[] => {
+  logger.debug('Normalizing images input:', { images, type: typeof images });
+
+  // Handle undefined/null case
+  if (!images) {
+    logger.debug('No images to normalize');
+    return [];
+  }
+
+  // If images is a File array, convert to URLs (this would be handled by your upload service)
+  if (Array.isArray(images) && images[0] instanceof File) {
+    logger.debug('Converting File array to URLs');
+    // Here you would typically upload these files to your storage service
+    // For now, we'll just log this case
+    logger.warn('File upload detected but no storage service configured');
+    return [];
+  }
+
+  // If images is already an array of strings, filter out invalid entries
+  if (Array.isArray(images)) {
+    const validImages = images.filter(img => img && typeof img === 'string' && img.trim().length > 0);
+    logger.debug('Filtered array images:', { validImages });
+    return validImages;
+  }
+
+  // If images is a string, try to parse it as JSON
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images);
+      if (Array.isArray(parsed)) {
+        const validImages = parsed.filter(img => img && typeof img === 'string' && img.trim().length > 0);
+        logger.debug('Parsed and filtered JSON string images:', { validImages });
+        return validImages;
+      }
+      // If parsed result is a string, treat it as a single image URL
+      if (typeof parsed === 'string' && parsed.trim().length > 0) {
+        logger.debug('Single image URL from JSON:', { parsed });
+        return [parsed];
+      }
+    } catch (e) {
+      // If parsing fails, check if the string itself is a valid URL
+      if (images.trim().length > 0) {
+        logger.debug('Using string as single image URL:', { images });
+        return [images];
+      }
+    }
+  }
+
+  logger.debug('No valid images found');
+  return [];
+};
+
 export async function GET(_request: NextRequest) {
   try {
-    const vehicles = await db
-      .selectFrom('vehicles')
-      .selectAll()
-      .orderBy('created_at')
-      .execute();
+    const result = await query(`
+      SELECT * FROM vehicles 
+      ORDER BY created_at
+    `);
 
-    const formattedVehicles = vehicles.map(vehicle => {
+    const formattedVehicles = result.rows.map((vehicle: VehicleRow) => {
       // Clean up location data
-      let locations;
+      let locations = [];
       try {
-        if (typeof vehicle.location === 'string') {
-          // Try to parse if it's a JSON string
-          const parsed = JSON.parse(vehicle.location);
-          if (Array.isArray(parsed)) {
-            locations = parsed;
-          } else if (typeof parsed === 'object' && parsed.name) {
-            locations = Array.isArray(parsed.name) ? parsed.name : [parsed.name];
-          } else {
-            locations = [String(parsed)];
-          }
-        } else if (Array.isArray(vehicle.location)) {
-          locations = vehicle.location;
-        } else {
-          locations = [String(vehicle.location)];
-        }
-
-        // Clean up each location
-        locations = locations
-          .map((loc: string) => loc.trim())
-          .filter(Boolean)
-          .map((loc: string) => loc.replace(/^["']|["']$/g, '')) // Remove quotes
-          .map((loc: string) => loc.replace(/\\+/g, '')); // Remove backslashes
-      } catch (e) {
-        logger.error('Error parsing location:', e);
-        locations = [String(vehicle.location).replace(/[{}"\\]/g, '').trim()];
-      }
-
-      // Clean up images
-      let images;
-      try {
-        images = Array.isArray(vehicle.images) 
-          ? vehicle.images 
-          : typeof vehicle.images === 'string' 
-            ? JSON.parse(vehicle.images)
+        locations = Array.isArray(vehicle.location)
+          ? vehicle.location
+          : typeof vehicle.location === 'string'
+            ? JSON.parse(vehicle.location)
             : [];
       } catch (e) {
-        images = vehicle.images ? [vehicle.images] : [];
+        locations = typeof vehicle.location === 'string' ? [vehicle.location] : [];
       }
+
+      // Clean up images data
+      const images = normalizeImages(vehicle.images);
 
       return {
         ...vehicle,
@@ -93,6 +136,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Normalize images before saving
+    const normalizedImages = normalizeImages(data.images);
+    logger.debug('Normalized images:', { normalizedImages });
+
     // Ensure location is properly formatted
     let location = data.location;
     if (typeof location === 'string') {
@@ -110,52 +157,50 @@ export async function POST(request: NextRequest) {
     const locationJson = JSON.stringify(location);
 
     try {
-      // Create the vehicle
-      const [vehicle] = await db
-        .insertInto('vehicles')
-        .values({
-          id: randomUUID(),
-          name: data.name,
-          type: data.type as 'car' | 'bike',
-          location: locationJson,
-          quantity: Number(data.quantity) || 1,
-          price_per_hour: Number(data.price_per_hour),
-          price_7_days: data.price_7_days ? Number(data.price_7_days) : null,
-          price_15_days: data.price_15_days ? Number(data.price_15_days) : null,
-          price_30_days: data.price_30_days ? Number(data.price_30_days) : null,
-          min_booking_hours: Number(data.min_booking_hours) || 1,
-          images: JSON.stringify(data.images || []),
-          status: data.status || 'active',
-          is_available: true,
-          created_at: new Date(),
-          updated_at: new Date()
-        })
-        .returning([
-          'id',
-          'name',
-          'type',
-          'location',
-          'quantity',
-          'price_per_hour',
-          'price_7_days',
-          'price_15_days',
-          'price_30_days',
-          'min_booking_hours',
-          'images',
-          'status',
-          'is_available',
-          'created_at',
-          'updated_at'
-        ])
-        .execute();
+      // Create the vehicle with normalized images
+      const result = await query(`
+        INSERT INTO vehicles (
+          id, name, type, location, quantity, 
+          price_per_hour, price_7_days, price_15_days, price_30_days, 
+          min_booking_hours, images, status, is_available, 
+          created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        RETURNING 
+          id, name, type, location, quantity, 
+          price_per_hour, price_7_days, price_15_days, price_30_days, 
+          min_booking_hours, images, status, is_available, 
+          created_at, updated_at
+      `, [
+        randomUUID(),
+        data.name,
+        data.type,
+        locationJson,
+        Number(data.quantity) || 1,
+        Number(data.price_per_hour),
+        data.price_7_days ? Number(data.price_7_days) : null,
+        data.price_15_days ? Number(data.price_15_days) : null,
+        data.price_30_days ? Number(data.price_30_days) : null,
+        Number(data.min_booking_hours) || 1,
+        JSON.stringify(normalizedImages),
+        data.status || 'active',
+        true,
+        new Date(),
+        new Date()
+      ]);
 
-      logger.info('Vehicle created successfully:', { vehicleId: vehicle.id });
+      const vehicle = result.rows[0] as VehicleRow;
+
+      logger.info('Vehicle created successfully:', { 
+        vehicleId: vehicle.id,
+        imageCount: normalizedImages.length
+      });
 
       // Format the response
       const formattedVehicle = {
         ...vehicle,
         location: JSON.parse(vehicle.location),
-        images: JSON.parse(vehicle.images)
+        images: normalizedImages // Use normalized images directly
       };
 
       return NextResponse.json({

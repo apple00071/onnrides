@@ -30,25 +30,59 @@ export async function GET(
   try {
     const result = await query(`
       SELECT 
-        id, name, type, location, price_per_day, 
-        image_url, created_at, updated_at
+        id, 
+        name, 
+        type, 
+        location, 
+        price_per_hour,
+        price_7_days,
+        price_15_days,
+        price_30_days,
+        images,
+        created_at, 
+        updated_at
       FROM vehicles
       WHERE id = $1
     `, [params.vehicleId]);
 
     if (result.rowCount === 0) {
-      return NextResponse.json(
-        { error: 'Vehicle not found' },
-        { status: 404 }
+      return new NextResponse(
+        JSON.stringify({ error: 'Vehicle not found' }),
+        { 
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
       );
     }
 
-    return NextResponse.json(result.rows[0]);
+    // Parse JSON fields
+    const vehicle = {
+      ...result.rows[0],
+      location: JSON.parse(result.rows[0].location || '[]'),
+      images: JSON.parse(result.rows[0].images || '[]')
+    };
+
+    return new NextResponse(
+      JSON.stringify(vehicle),
+      { 
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
   } catch (error) {
-    logger.error('Error fetching vehicle:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch vehicle' },
-      { status: 500 }
+    console.error('Error fetching vehicle:', error);
+    return new NextResponse(
+      JSON.stringify({ error: 'Failed to fetch vehicle' }),
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
     );
   }
 }

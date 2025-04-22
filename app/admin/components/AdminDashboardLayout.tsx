@@ -1,10 +1,11 @@
 'use client';
 
-import { ReactNode } from 'react';
+import React from 'react';
+import { Container } from '@/components/layout/Container';
 import AdminNav from './AdminNav';
 
 interface AdminDashboardLayoutProps {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
 export default function AdminDashboardLayout({ children }: AdminDashboardLayoutProps) {
@@ -12,9 +13,9 @@ export default function AdminDashboardLayout({ children }: AdminDashboardLayoutP
     <div className="min-h-screen bg-gray-100">
       <AdminNav />
       <div className="pt-16">
-        <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <Container as="main" className="py-6">
           {children}
-        </main>
+        </Container>
       </div>
     </div>
   );

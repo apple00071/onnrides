@@ -4,72 +4,57 @@ import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
-    // Check if user is authenticated and is admin
+    // Check for admin authentication
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Begin transaction
+    // Start transaction
     await query('BEGIN');
 
-    try {
-      // Simply delete all records from both tables
-      // The order matters due to foreign key constraints
-      logger.info('Deleting all payment records...');
-      const deletePaymentsResult = await query('DELETE FROM payments');
-      logger.info('Deleted payment records:', deletePaymentsResult.rowCount);
+    logger.info('Deleting all payment records...');
+    const { rowCount: deletedPayments } = await query('DELETE FROM payments');
+    logger.info('Deleted payment records:', { count: deletedPayments });
 
-      logger.info('Deleting all booking records...');
-      const deleteBookingsResult = await query('DELETE FROM bookings');
-      logger.info('Deleted booking records:', deleteBookingsResult.rowCount);
+    logger.info('Deleting all booking records...');
+    const { rowCount: deletedBookings } = await query('DELETE FROM bookings');
+    logger.info('Deleted booking records:', { count: deletedBookings });
 
-      // Reset sequences if they exist
-      try {
-        logger.info('Resetting sequences...');
-        // Try a different approach to reset sequences
-        await query('TRUNCATE bookings RESTART IDENTITY CASCADE');
-        await query('TRUNCATE payments RESTART IDENTITY CASCADE');
-      } catch (seqError) {
-        logger.warn('Error resetting sequences (this is not critical):', seqError);
+    logger.info('Deleting all vehicle records...');
+    const { rowCount: deletedVehicles } = await query('DELETE FROM vehicles');
+    logger.info('Deleted vehicle records:', { count: deletedVehicles });
+
+    logger.info('Resetting sequences...');
+    await query('ALTER SEQUENCE IF EXISTS bookings_id_seq RESTART WITH 1');
+    await query('ALTER SEQUENCE IF EXISTS payments_id_seq RESTART WITH 1');
+
+    // Commit transaction
+    await query('COMMIT');
+
+    logger.info('Successfully cleaned up test data:', {
+      bookings: deletedBookings,
+      payments: deletedPayments,
+      vehicles: deletedVehicles
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Database cleaned up successfully',
+      data: {
+        deletedBookings,
+        deletedPayments,
+        deletedVehicles
       }
-
-      // Commit transaction
-      await query('COMMIT');
-
-      const message = `Successfully cleaned up test data:
-        - Deleted ${deleteBookingsResult.rowCount} bookings
-        - Deleted ${deletePaymentsResult.rowCount} payments`;
-
-      logger.info(message);
-
-      return NextResponse.json({
-        success: true,
-        message,
-        details: {
-          bookings: deleteBookingsResult.rowCount,
-          payments: deletePaymentsResult.rowCount
-        }
-      });
-    } catch (error) {
-      // Rollback on error
-      await query('ROLLBACK');
-      logger.error('Database error during cleanup:', error);
-      throw new Error(error instanceof Error ? error.message : 'Database error during cleanup');
-    }
+    });
   } catch (error) {
-    logger.error('Error cleaning up test data:', error);
+    // Rollback on error
+    await query('ROLLBACK');
+    logger.error('Error cleaning up database:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to clean up test data',
-        details: error
-      },
+      { error: 'Failed to clean up database' },
       { status: 500 }
     );
   }

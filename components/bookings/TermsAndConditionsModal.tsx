@@ -42,12 +42,12 @@ export function TermsAndConditionsModal({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto p-0 sm:p-6">
-        <DialogHeader className="sticky top-0 bg-white z-10 p-4 sm:p-0 border-b sm:border-none">
+      <DialogContent className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[95vw] sm:w-[550px] max-h-[85vh] overflow-y-auto bg-white rounded-lg shadow-lg">
+        <DialogHeader className="sticky top-0 bg-white z-10 p-4 sm:p-6 border-b">
           <DialogTitle className="text-lg sm:text-xl font-semibold">Terms & Conditions</DialogTitle>
         </DialogHeader>
         
-        <div className="p-4 sm:p-0 space-y-6">
+        <div className="p-4 sm:p-6">
           <div className="space-y-6">
             <div className="space-y-3">
               <h3 className="text-base font-semibold text-gray-900">1. Vehicle Rental Agreement Terms</h3>
@@ -79,7 +79,7 @@ export function TermsAndConditionsModal({
             </div>
           </div>
 
-          <div className="flex items-start sm:items-center space-x-2 border-t pt-4">
+          <div className="flex items-center space-x-2 mt-6">
             <Checkbox 
               id="terms" 
               checked={accepted}
@@ -98,7 +98,7 @@ export function TermsAndConditionsModal({
           </div>
         </div>
 
-        <DialogFooter className="sticky bottom-0 bg-white mt-0 p-4 sm:p-0 border-t sm:border-t-0">
+        <DialogFooter className="sticky bottom-0 bg-white mt-0 p-4 sm:p-6 border-t">
           <div className="flex flex-col-reverse sm:flex-row gap-3 w-full sm:w-auto">
             <Button
               type="button"

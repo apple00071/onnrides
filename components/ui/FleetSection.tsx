@@ -61,7 +61,7 @@ export default function FleetSection() {
                 </ul>
                 <Link 
                   href="/vehicles" 
-                  className="inline-block bg-[#f26e24] text-white px-4 py-2 rounded-lg hover:bg-[#e05d13] transition-colors text-xs"
+                  className="inline-block bg-[#f26e24] text-white px-4 py-2 rounded-full hover:bg-[#e05d13] transition-colors text-xs"
                   style={{ color: 'white !important' }}
                 >
                   Book Now

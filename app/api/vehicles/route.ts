@@ -98,6 +98,17 @@ async function getNextAvailableSlot(vehicleId: string, location: string) {
   };
 }
 
+// Add interface for booking row
+interface BookingRow {
+  id: string;
+  start_date: Date;
+  end_date: Date;
+  effective_location: string;
+  status: string;
+  vehicle_quantity: number;
+  concurrent_bookings: number;
+}
+
 // Helper function to get available locations for a vehicle
 async function getAvailableLocations(
   vehicleId: string,
@@ -151,7 +162,7 @@ async function getAvailableLocations(
     logger.info('Raw booking query results:', {
       vehicleId,
       rowCount: bookingsResult.rowCount,
-      rows: bookingsResult.rows.map(row => ({
+      rows: bookingsResult.rows.map((row: BookingRow) => ({
         id: row.id,
         start_date: row.start_date,
         end_date: row.end_date,
@@ -165,7 +176,7 @@ async function getAvailableLocations(
     // Create a set of unavailable locations
     const unavailableLocations = new Set<string>();
     
-    bookingsResult.rows.forEach(row => {
+    bookingsResult.rows.forEach((row: BookingRow) => {
       try {
         const locationValue = row.effective_location;
         if (locationValue) {
@@ -237,22 +248,12 @@ interface VehicleRow {
 // GET /api/vehicles - List all vehicles
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type');
-    const pickupDate = searchParams.get('pickupDate');
-    const pickupTime = searchParams.get('pickupTime');
-    const dropoffDate = searchParams.get('dropoffDate');
-    const dropoffTime = searchParams.get('dropoffTime');
+    const url = new URL(request.url);
+    const location = url.searchParams.get('location');
+    const pickupDate = url.searchParams.get('pickupDate');
+    const dropoffDate = url.searchParams.get('dropoffDate');
 
-    if (!pickupDate || !pickupTime || !dropoffDate || !dropoffTime) {
-      return NextResponse.json({ error: 'Missing date/time parameters' }, { status: 400 });
-    }
-
-    // Combine date and time into timestamps
-    const startTime = `${pickupDate} ${pickupTime}`;
-    const endTime = `${dropoffDate} ${dropoffTime}`;
-
-    // Base query with all necessary fields including special pricing
+    // Base query with sorting logic
     const baseQuery = `
       SELECT 
         v.id,
@@ -269,121 +270,63 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         v.min_booking_hours,
         v.is_available,
         v.created_at,
-        v.updated_at
+        v.updated_at,
+        COALESCE(
+          array_agg(DISTINCT b.pickup_location) FILTER (WHERE b.pickup_location IS NOT NULL),
+          '{}'
+        ) as booked_locations
+      FROM vehicles v
+      LEFT JOIN bookings b ON v.id = b.vehicle_id 
+        AND b.status NOT IN ('cancelled', 'failed')
+        AND b.payment_status != 'failed'
+      WHERE v.status = 'active'
+      GROUP BY v.id
+      ORDER BY 
+        -- First, prioritize Activa bikes
+        CASE WHEN LOWER(v.name) LIKE '%activa%' THEN 0 ELSE 1 END,
+        -- Then sort by price
+        v.price_per_hour ASC,
+        -- Finally sort by name for consistent ordering
+        v.name ASC
     `;
 
-    // Get vehicles with their available locations
-    const vehicles = await query(`
-      WITH booked_locations AS (
-        SELECT 
-          b.vehicle_id,
-          b.pickup_location,
-          COUNT(*) as booking_count
-        FROM bookings b
-        WHERE b.status NOT IN ('cancelled', 'failed')
-        AND (b.payment_status IS NULL OR b.payment_status != 'failed')
-        AND (
-          (b.start_date - interval '2 hours', b.end_date + interval '2 hours') OVERLAPS ($2::timestamp, $3::timestamp)
-          OR ($2::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
-          OR ($3::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
-        )
-        GROUP BY b.vehicle_id, b.pickup_location
-      )
-      SELECT 
-        v.id,
-        v.name,
-        v.type,
-        v.status,
-        v.price_per_hour,
-        v.price_7_days,
-        v.price_15_days,
-        v.price_30_days,
-        v.location,
-        v.images,
-        v.quantity,
-        v.min_booking_hours,
-        v.is_available,
-        v.created_at,
-        v.updated_at,
-        ARRAY_AGG(bl.pickup_location) FILTER (WHERE bl.booking_count >= v.quantity) as booked_locations
-      FROM vehicles v
-      LEFT JOIN booked_locations bl ON v.id = bl.vehicle_id
-      WHERE ($1::text IS NULL OR v.type = $1)
-        AND v.status = 'active'
-        AND v.is_available = true
-      GROUP BY 
-        v.id,
-        v.name,
-        v.type,
-        v.status,
-        v.price_per_hour,
-        v.price_7_days,
-        v.price_15_days,
-        v.price_30_days,
-        v.location,
-        v.images,
-        v.quantity,
-        v.min_booking_hours,
-        v.is_available,
-        v.created_at,
-        v.updated_at
-    `, [type || null, startTime, endTime]);
+    const result = await query(baseQuery, []);
 
     // Process vehicles
-    const processedVehicles = vehicles.rows
-      .map(vehicle => {
+    const processedVehicles = result.rows
+      .map((vehicle: VehicleRow) => {
         try {
-          // Parse location from JSON string
-          const locationArray = JSON.parse(vehicle.location || '[]');
+          // Parse location and images from JSON strings
+          const locationArray = Array.isArray(vehicle.location) 
+            ? vehicle.location 
+            : JSON.parse(vehicle.location || '[]');
           
-          // Get booked locations (will be null if no bookings)
-          const bookedLocations = vehicle.booked_locations ? 
-            (Array.isArray(vehicle.booked_locations) ? vehicle.booked_locations : []) : 
-            [];
-          
-          // Filter out booked locations
-          const availableLocations = Array.isArray(locationArray) ? 
-            locationArray.filter(loc => !bookedLocations.includes(loc)) : 
-            [];
-          
-          // Log for debugging
-          logger.info('Processing vehicle locations:', {
-            vehicleId: vehicle.id,
-            vehicleName: vehicle.name,
-            allLocations: locationArray,
-            bookedLocations,
-            availableLocations,
-            hasAvailableLocations: availableLocations.length > 0
-          });
-          
-          // Skip vehicles with no available locations
-          if (availableLocations.length === 0) {
-            return null;
-          }
+          const imagesArray = Array.isArray(vehicle.images)
+            ? vehicle.images
+            : JSON.parse(vehicle.images || '[]');
 
           return {
             ...vehicle,
-            location: availableLocations,
-            available: true,
-            images: JSON.parse(vehicle.images || '[]')
+            location: locationArray,
+            images: imagesArray,
+            booked_locations: vehicle.booked_locations || []
           };
         } catch (error) {
           logger.error('Error processing vehicle:', {
             vehicleId: vehicle.id,
-            error: error instanceof Error ? error.message : 'Unknown error',
-            location: vehicle.location
+            error: error instanceof Error ? error.message : 'Unknown error'
           });
           return null;
         }
       })
-      .filter(Boolean); // Remove null vehicles
+      .filter((v: VehicleRow | null): v is VehicleRow => v !== null);
 
     logger.info('Filtered vehicles:', {
-      totalVehicles: vehicles.rows.length,
+      totalVehicles: result.rows.length,
       availableVehicles: processedVehicles.length,
       requestedTimeRange: {
-        start: startTime,
-        end: endTime
+        start: pickupDate,
+        end: dropoffDate
       }
     });
 
