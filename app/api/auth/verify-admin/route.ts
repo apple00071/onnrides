@@ -1,26 +1,20 @@
 import logger from '@/lib/logger';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { headers } from 'next/headers';
 import { authOptions } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const headersList = headers();
     const session = await getServerSession(authOptions);
     
-    logger.debug('Request headers:', Object.fromEntries(headersList.entries()));
     logger.debug('Server session:', session); // Debug log
 
     if (!session?.user) {
       return new NextResponse(JSON.stringify({ 
         error: 'Unauthorized',
-        debug: { 
-          session: session,
-          headers: Object.fromEntries(headersList.entries())
-        }
+        debug: { session: session }
       }), { 
         status: 401,
         headers: { 

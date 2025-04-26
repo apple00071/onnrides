@@ -148,4 +148,33 @@ export const authOptions: NextAuthOptions = {
     signIn: "/admin-login",
     error: "/admin-login",
   },
-}; 
+};
+
+/**
+ * Retrieves the current authenticated user from the session
+ * @returns User object or null if not authenticated
+ */
+export async function getCurrentUser() {
+  try {
+    const session = await getServerSession(authOptions);
+    return session?.user || null;
+  } catch (error) {
+    logger.error('Error getting current user:', error);
+    return null;
+  }
+}
+
+/**
+ * Compares a plain text password with a hashed password
+ * @param plainPassword The plain text password to compare
+ * @param hashedPassword The hashed password to compare against
+ * @returns Boolean indicating if the passwords match
+ */
+export async function comparePasswords(plainPassword: string, hashedPassword: string): Promise<boolean> {
+  try {
+    return await bcrypt.compare(plainPassword, hashedPassword);
+  } catch (error) {
+    logger.error('Error comparing passwords:', error);
+    return false;
+  }
+} 

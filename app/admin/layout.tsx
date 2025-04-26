@@ -6,7 +6,6 @@ import { Providers } from '../providers';
 import AdminDashboardClient from '@/app/admin/AdminDashboardClient';
 import logger from '@/lib/logger';
 import { Metadata } from 'next';
-import { headers } from 'next/headers';
 
 // Provide metadata for admin pages
 export function generateMetadata(): Metadata {
@@ -95,9 +94,8 @@ export default async function AdminLayout({
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
-      const currentPath = new URL(headers().get('x-url') || '', 'http://localhost').pathname;
-      const searchParams = new URLSearchParams({ from: currentPath });
-      redirect(`/admin-login?${searchParams.toString()}`);
+      // Use a default login path instead of trying to extract from headers
+      redirect('/admin-login');
     }
 
     if (session.user.role.toLowerCase() !== 'admin') {

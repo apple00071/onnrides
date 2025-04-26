@@ -10,7 +10,6 @@ import { AuthProvider } from './providers/AuthProvider';
 import { ScriptLoader } from '@/components/ScriptLoader';
 import { NotificationBar } from '@/components/ui/NotificationBar';
 import JsonLd from './components/JsonLd';
-import { headers } from 'next/headers';
 import ClientOnly from './(main)/providers/ClientOnly';
 import logger from '@/lib/logger';
 import { cn, suppressHydrationWarning } from '@/lib/utils';
@@ -35,6 +34,12 @@ const inter = Inter({ subsets: ['latin'] });
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || '';
 // Only use Google Analytics in production
 const isProduction = process.env.NODE_ENV === 'production';
+
+// Default robot rules that are safe during build time
+const defaultRobotRules = {
+  index: process.env.VERCEL_ENV === 'production',
+  follow: process.env.VERCEL_ENV === 'production',
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com'),
@@ -85,14 +90,7 @@ export const metadata: Metadata = {
     images: ['/og-image.jpg'],
     creator: '@onnrides',
   },
-  robots: {
-    index: process.env.VERCEL_ENV === 'production' && !headers().get('host')?.includes('vercel.app'),
-    follow: process.env.VERCEL_ENV === 'production' && !headers().get('host')?.includes('vercel.app'),
-    googleBot: {
-      index: process.env.VERCEL_ENV === 'production' && !headers().get('host')?.includes('vercel.app'),
-      follow: process.env.VERCEL_ENV === 'production' && !headers().get('host')?.includes('vercel.app'),
-    },
-  },
+  robots: defaultRobotRules,
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
   },

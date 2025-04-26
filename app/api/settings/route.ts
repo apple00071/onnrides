@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import { randomUUID } from 'crypto';
 import logger from '@/lib/logger';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // Create a direct database connection
 const pool = new Pool({
@@ -151,6 +153,8 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/settings - Delete a setting (admin only)
 export async function DELETE(request: NextRequest) {
+  const client = await pool.connect();
+  
   try {
     // Check for admin privileges
     const session = await getServerSession(authOptions);
@@ -172,9 +176,17 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete the setting
-    await prisma.settings.delete({
-      where: { key }
-    });
+    const result = await client.query(
+      'DELETE FROM settings WHERE key = $1 RETURNING *',
+      [key]
+    );
+
+    if (result.rowCount === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'Setting not found'
+      }, { status: 404 });
+    }
 
     logger.info('Setting deleted:', { key });
 
@@ -190,5 +202,7 @@ export async function DELETE(request: NextRequest) {
       error: 'Failed to delete setting',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
+  } finally {
+    client.release();
   }
 } 
