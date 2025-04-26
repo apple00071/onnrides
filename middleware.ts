@@ -6,12 +6,15 @@ import { getToken } from 'next-auth/jwt';
 const ALWAYS_ACCESSIBLE_PATHS = [
   '/api/auth',
   '/login',
+  '/admin-login',
   '/favicon',
   '/images',
   '/fonts',
   '/maintenance',
   '/api/settings',
   '/api/maintenance',
+  '/admin',
+  '/api/admin',
 ];
 
 // Check if a path should bypass the maintenance check

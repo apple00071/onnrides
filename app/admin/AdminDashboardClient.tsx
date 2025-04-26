@@ -7,11 +7,13 @@ import { FaHome, FaCar, FaUsers, FaBookmark, FaEnvelope, FaWhatsapp, FaQrcode, F
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
-import { Menu } from 'lucide-react';
+import { Menu, X, AlertCircle } from 'lucide-react';
 import { useSidebar } from '@/hooks/use-sidebar';
+import { Logo } from '@/components/ui/Logo';
+import { toast } from 'react-hot-toast';
 
 // Hook to detect if the device is mobile
 function useIsMobile() {
@@ -130,6 +132,47 @@ function SignOutButton({ mobileView = false }: { mobileView?: boolean }) {
 export default function AdminDashboardClient({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile();
   const { isOpen } = useSidebar();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAdminMissing, setIsAdminMissing] = useState(false);
+  const pathname = usePathname();
+
+  // Check if admin account exists
+  useEffect(() => {
+    const checkAdminAccount = async () => {
+      try {
+        const response = await fetch('/api/auth/verify-admin', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          setIsAdminMissing(true);
+        }
+      } catch (error) {
+        console.error('Error checking admin account:', error);
+        setIsAdminMissing(true);
+      }
+    };
+    
+    checkAdminAccount();
+  }, []);
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const closeSidebar = () => {
+    setIsSidebarOpen(false);
+  };
+
+  const handleSignOut = async () => {
+    // This would typically use the signOut method from next-auth
+    toast.success('Successfully signed out');
+    // Redirect to login
+    window.location.href = '/admin-login';
+  };
 
   return (
     <div className="relative flex min-h-screen">
@@ -181,6 +224,14 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
             ))}
           </nav>
           <div className="border-t p-4">
+            {/* Add Recreate Admin link */}
+            <Link 
+              href="/admin/recreate"
+              className="flex items-center mb-4 space-x-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors bg-red-500 text-white hover:bg-red-600"
+            >
+              <AlertCircle className="h-4 w-4" />
+              {isOpen && <span>Recreate Admin</span>}
+            </Link>
             <SignOutButton />
           </div>
         </div>
@@ -227,6 +278,104 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
           </nav>
         </div>
       )}
+
+      {/* Mobile sidebar toggle */}
+      <button
+        onClick={toggleSidebar}
+        className="p-4 md:hidden fixed top-4 left-4 z-30 bg-white rounded-full shadow-md"
+        aria-label="Toggle sidebar"
+      >
+        {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+
+      {/* Sidebar Backdrop (Mobile) */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.5 }}
+            exit={{ opacity: 0 }}
+            onClick={closeSidebar}
+            className="fixed inset-0 bg-black z-20 md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar */}
+      <motion.aside
+        className={`fixed md:relative z-30 w-64 h-full bg-[#f26e24] text-white transition-all transform ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+        initial={false}
+      >
+        <div className="flex flex-col h-full">
+          {/* Logo */}
+          <div className="flex items-center justify-center h-20 shadow-md">
+            <Link href="/admin/dashboard" className="flex items-center">
+              <Logo className="h-9 w-auto" />
+              <span className="ml-2 text-xl font-bold">ADMIN</span>
+            </Link>
+          </div>
+
+          {/* Admin Missing Warning */}
+          {isAdminMissing && (
+            <div className="bg-red-600 text-white p-3 mx-3 mt-3 rounded-md shadow-sm flex items-center text-sm">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              <div>
+                <Link href="/admin/recreate" className="font-bold underline">
+                  Recreate Admin Account
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Navigation */}
+          <nav className="py-4 flex-grow">
+            <ul className="space-y-1">
+              {menuItems.map((item) => {
+                const isActive = pathname === item.href;
+                const Icon = item.icon;
+                
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={`flex items-center px-6 py-3 text-sm ${
+                        isActive
+                          ? 'bg-[#e05d13] font-medium'
+                          : 'hover:bg-[#e05d13]'
+                      }`}
+                      onClick={closeSidebar}
+                    >
+                      {item.icon}
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+
+          {/* Footer with Recreate Admin link */}
+          <div className="p-4">
+            <Link
+              href="/admin/recreate"
+              className="flex items-center justify-center w-full p-2 mb-4 text-sm bg-white text-[#f26e24] rounded hover:bg-gray-100"
+            >
+              <AlertCircle className="h-4 w-4 mr-2" />
+              Recreate Admin
+            </Link>
+            
+            <button
+              onClick={handleSignOut}
+              className="flex items-center px-6 py-3 text-sm w-full hover:bg-[#e05d13]"
+            >
+              <FaSignOutAlt className="h-5 w-5 mr-3" />
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </motion.aside>
     </div>
   );
 } 

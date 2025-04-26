@@ -13,6 +13,10 @@ export async function GET(req: NextRequest) {
     // Verify admin access
     const session = await getServerSession(authOptions);
     if (!session || session.user?.role !== 'admin') {
+      logger.warn('Unauthorized attempt to access admin users API', {
+        session: !!session,
+        userRole: session?.user?.role
+      });
       return NextResponse.json(
         { error: 'Unauthorized access' },
         { status: 403 }
@@ -26,10 +30,22 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
     
+    logger.info('Admin users API request parameters', {
+      page,
+      limit,
+      search: search || 'none',
+      url: req.url
+    });
+    
     // Calculate pagination
     const skip = (page - 1) * limit;
     
     // Create a database connection pool
+    logger.info('Creating database connection pool with DATABASE_URL', {
+      dbUrlDefined: !!process.env.DATABASE_URL,
+      dbUrlLength: process.env.DATABASE_URL?.length || 0
+    });
+    
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: {
@@ -37,7 +53,12 @@ export async function GET(req: NextRequest) {
       }
     });
     
+    let client;
     try {
+      logger.info('Connecting to database...');
+      client = await pool.connect();
+      logger.info('Database connection established successfully');
+      
       // Build the SQL query with search conditions if needed
       let query = `
         SELECT 
@@ -64,8 +85,19 @@ export async function GET(req: NextRequest) {
       queryParams.push(limit, skip);
       
       // Execute the query
-      logger.info('Executing direct SQL query for users:', { query, params: queryParams });
-      const result = await pool.query(query, queryParams);
+      logger.info('Executing users query', { 
+        query,
+        params: queryParams,
+        limit,
+        offset: skip
+      });
+      
+      const result = await client.query(query, queryParams);
+      logger.info('Users query result', { 
+        rowCount: result.rowCount,
+        firstUserId: result.rows[0]?.id || 'no users found',
+        firstUserEmail: result.rows[0]?.email || 'no users found'
+      });
       
       // Get total count for pagination
       const countQuery = `
@@ -74,7 +106,8 @@ export async function GET(req: NextRequest) {
         ${search ? `WHERE name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1` : ''}
       `;
       
-      const countResult = await pool.query(
+      logger.info('Executing count query', { countQuery });
+      const countResult = await client.query(
         countQuery, 
         search ? [`%${search}%`] : []
       );
@@ -82,8 +115,10 @@ export async function GET(req: NextRequest) {
       const totalCount = parseInt(countResult.rows[0].total);
       const totalPages = Math.ceil(totalCount / limit);
       
+      logger.info('Pagination info', { totalCount, totalPages, currentPage: page });
+      
       // Return the results
-      return NextResponse.json({
+      const response = {
         users: result.rows,
         pagination: {
           totalCount,
@@ -91,21 +126,34 @@ export async function GET(req: NextRequest) {
           currentPage: page,
           limit,
         }
+      };
+      
+      logger.info('Returning users API response', {
+        userCount: result.rows.length,
+        totalUsers: totalCount
       });
+      
+      return NextResponse.json(response);
     } catch (error) {
       logger.error('Database error in users API:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch users' },
+        { error: 'Failed to fetch users', details: error instanceof Error ? error.message : 'Unknown error' },
         { status: 500 }
       );
     } finally {
-      // Always release the pool
+      // Release the client back to the pool
+      if (client) {
+        logger.info('Releasing database client');
+        client.release();
+      }
+      // Close the pool
+      logger.info('Closing database pool');
       await pool.end();
     }
   } catch (error) {
     logger.error('Error fetching users:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch users' },
+      { error: 'Failed to fetch users', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
