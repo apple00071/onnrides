@@ -9,23 +9,6 @@ export const metadata: Metadata = {
 export default function MaintenancePage() {
   return (
     <>
-      {/* Phone notification bar */}
-      <div className="w-full bg-[#f26e24] text-white py-3 px-4 flex justify-between items-center">
-        <div className="flex items-center">
-          <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"></path>
-          </svg>
-          <span className="text-sm font-medium">+91 83090 31203 / +91 79934 99752</span>
-        </div>
-        <div className="flex items-center">
-          <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" />
-            <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
-          </svg>
-          <span className="text-sm font-medium">Chat Now</span>
-        </div>
-      </div>
-
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-4">
         <div className="w-full max-w-md py-8 px-8 bg-white rounded-lg shadow-lg text-center">
           <div className="relative h-[80px] w-full mb-6">

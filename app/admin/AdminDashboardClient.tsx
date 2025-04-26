@@ -7,13 +7,14 @@ import { FaHome, FaCar, FaUsers, FaBookmark, FaEnvelope, FaWhatsapp, FaQrcode, F
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
-import { Menu, X, AlertCircle } from 'lucide-react';
-import { useSidebar } from '@/hooks/use-sidebar';
+import { Menu, AlertCircle } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { toast } from 'react-hot-toast';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 // Hook to detect if the device is mobile
 function useIsMobile() {
@@ -39,72 +40,80 @@ const AdminPWA = dynamic(() => import('./components/AdminPWA'), {
 });
 
 const menuItems = [
-  { href: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="h-5 w-5" /> },
-  { href: '/admin/vehicles', label: 'Vehicles', icon: <FaCar className="h-5 w-5" /> },
-  { href: '/admin/users', label: 'Users', icon: <FaUsers className="h-5 w-5" /> },
-  { href: '/admin/bookings', label: 'Bookings', icon: <FaBookmark className="h-5 w-5" /> },
-  { href: '/admin/trip-initiation', label: 'Trip Initiation', icon: <FaQrcode className="h-5 w-5" /> },
-  { href: '/admin/coupons', label: 'Coupons', icon: <FaTicketAlt className="h-5 w-5" /> },
-  { href: '/admin/email-logs', label: 'Email Logs', icon: <FaEnvelope className="h-5 w-5" /> },
-  { href: '/admin/whatsapp-logs', label: 'WhatsApp Logs', icon: <FaWhatsapp className="h-5 w-5" /> },
-  { href: '/admin/cleanup', label: 'Clean Up Data', icon: <FaTrash className="h-5 w-5" /> },
-  { href: '/admin/settings', label: 'Settings', icon: <FaCog className="h-5 w-5" /> },
+  { href: '/admin/dashboard', label: 'Dashboard', icon: <FaHome className="h-4 w-4" /> },
+  { href: '/admin/vehicles', label: 'Vehicles', icon: <FaCar className="h-4 w-4" /> },
+  { href: '/admin/users', label: 'Users', icon: <FaUsers className="h-4 w-4" /> },
+  { href: '/admin/bookings', label: 'Bookings', icon: <FaBookmark className="h-4 w-4" /> },
+  { href: '/admin/trip-initiation', label: 'Trip Initiation', icon: <FaQrcode className="h-4 w-4" /> },
+  { href: '/admin/coupons', label: 'Coupons', icon: <FaTicketAlt className="h-4 w-4" /> },
+  { href: '/admin/email-logs', label: 'Email Logs', icon: <FaEnvelope className="h-4 w-4" /> },
+  { href: '/admin/whatsapp-logs', label: 'WhatsApp Logs', icon: <FaWhatsapp className="h-4 w-4" /> },
+  { href: '/admin/cleanup', label: 'Clean Up Data', icon: <FaTrash className="h-4 w-4" /> },
+  { href: '/admin/settings', label: 'Settings', icon: <FaCog className="h-4 w-4" /> },
 ];
 
-// Main content component that responds to sidebar state
-function MainContent({ children }: { children: React.ReactNode }) {
-  const { isOpen } = useSidebar();
-  
-  return (
-    <main className={cn(
-      "flex-1 overflow-y-auto bg-gray-50 transition-all duration-300 ease-in-out",
-      isOpen ? "md:ml-64" : "md:ml-20"
-    )}>
-      <div className="container mx-auto px-4 py-8 min-h-screen">
-        <div className="bg-white rounded-lg shadow-sm">
-          {children}
-        </div>
-      </div>
-    </main>
-  );
-}
+// Animation variants for the sidebar
+const sidebarVariants = {
+  open: {
+    width: "15rem",
+  },
+  closed: {
+    width: "3.05rem",
+  },
+};
+
+const contentVariants = {
+  open: { display: "block", opacity: 1 },
+  closed: { display: "block", opacity: 1 },
+};
+
+const variants = {
+  open: {
+    x: 0,
+    opacity: 1,
+    transition: {
+      x: { stiffness: 1000, velocity: -100 },
+    },
+  },
+  closed: {
+    x: -20,
+    opacity: 0,
+    transition: {
+      x: { stiffness: 100 },
+    },
+  },
+};
+
+const transitionProps = {
+  type: "tween",
+  ease: "easeOut",
+  duration: 0.2,
+  staggerChildren: 0.1,
+};
+
+const staggerVariants = {
+  open: {
+    transition: { staggerChildren: 0.03, delayChildren: 0.02 },
+  },
+};
 
 // Mobile header with toggle button
 function MobileHeader() {
-  const { toggle } = useSidebar();
-  const { data: session } = useSession();
+  const router = useRouter();
+  
+  const handleSignOut = async () => {
+    toast.success('Successfully signed out');
+    window.location.href = '/admin-login';
+  };
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background px-4 md:hidden">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="md:hidden"
-        onClick={toggle}
-      >
-        <Menu className="h-6 w-6" />
-        <span className="sr-only">Toggle menu</span>
-      </Button>
       <div className="flex-1">
         <Link href="/admin/dashboard" className="flex items-center space-x-2">
-          <span className="font-bold">Admin Dashboard</span>
+          <Logo className="h-8 w-auto mr-2" />
+          <span className="font-bold">OnnRides Admin</span>
         </Link>
       </div>
-      <SignOutButton mobileView />
-    </header>
-  );
-}
-
-// Sign out button component that uses the sidebar context
-function SignOutButton({ mobileView = false }: { mobileView?: boolean }) {
-  const { data: session } = useSession();
-
-  const handleSignOut = () => {
-    // Your existing sign out logic
-  };
-
-  if (mobileView) {
-    return (
       <Button
         variant="ghost"
         size="icon"
@@ -114,27 +123,16 @@ function SignOutButton({ mobileView = false }: { mobileView?: boolean }) {
         <FaSignOutAlt className="h-4 w-4" />
         <span className="sr-only">Sign out</span>
       </Button>
-    );
-  }
-
-  return (
-    <Button
-      variant="ghost"
-      onClick={handleSignOut}
-      className="w-full justify-start gap-2"
-    >
-      <FaSignOutAlt className="h-4 w-4" />
-      <span>Sign out</span>
-    </Button>
+    </header>
   );
 }
 
 export default function AdminDashboardClient({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile();
-  const { isOpen } = useSidebar();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isAdminMissing, setIsAdminMissing] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   // Check if admin account exists
   useEffect(() => {
@@ -159,223 +157,142 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
     checkAdminAccount();
   }, []);
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const closeSidebar = () => {
-    setIsSidebarOpen(false);
-  };
-
   const handleSignOut = async () => {
-    // This would typically use the signOut method from next-auth
     toast.success('Successfully signed out');
-    // Redirect to login
     window.location.href = '/admin-login';
   };
 
-  return (
-    <div className="relative flex min-h-screen">
-      {/* Desktop Sidebar */}
-      <div className={cn(
-        "fixed left-0 top-0 z-40 h-screen w-64 -translate-x-full border-r bg-background transition-transform md:translate-x-0",
-        isOpen ? "w-64" : "w-20",
-        "hidden md:block" // Hide on mobile
-      )}>
-        <div className="flex h-full flex-col">
-          <div className="flex h-16 items-center justify-between px-4 py-4">
-            <Link href="/admin/dashboard" className="flex items-center space-x-2">
-              {isOpen ? (
-                <>
-                  <Image
-                    src="/logo.png"
-                    alt="ONNRIDES"
-                    width={32}
-                    height={32}
-                    className="h-8 w-auto"
-                  />
-                  <span className="font-bold text-[#f26e24]">ONNRIDES</span>
-                </>
-              ) : (
-                <Image
-                  src="/logo.png"
-                  alt="ON"
-                  width={32}
-                  height={32}
-                  className="h-8 w-auto"
-                />
-              )}
-            </Link>
-          </div>
-          <nav className="flex-1 space-y-1 px-2 py-4">
-            {menuItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center space-x-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  "focus:bg-accent focus:text-accent-foreground focus:outline-none"
-                )}
-              >
-                {item.icon}
-                {isOpen && <span>{item.label}</span>}
-              </Link>
-            ))}
-          </nav>
-          <div className="border-t p-4">
-            {/* Add Recreate Admin link */}
-            <Link 
-              href="/admin/recreate"
-              className="flex items-center mb-4 space-x-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors bg-red-500 text-white hover:bg-red-600"
-            >
-              <AlertCircle className="h-4 w-4" />
-              {isOpen && <span>Recreate Admin</span>}
-            </Link>
-            <SignOutButton />
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Header and Content */}
-      <div className="flex flex-1 flex-col">
+  // Return mobile layout if on mobile device
+  if (isMobile) {
+    return (
+      <div className="flex flex-col min-h-screen">
         <MobileHeader />
-        <MainContent>{children}</MainContent>
+        <div className="flex-1 bg-gray-50 overflow-auto">
+          <div className="container mx-auto p-4">
+            <div className="bg-white rounded-lg shadow-sm min-h-[calc(100vh-6rem)]">
+              {children}
+            </div>
+          </div>
+        </div>
       </div>
+    );
+  }
 
-      {/* Mobile Sidebar (Drawer) */}
-      {isMobile && (
-        <div
-          className={cn(
-            "fixed inset-0 z-50 transform transition-transform duration-300 ease-in-out",
-            isOpen ? "translate-x-0" : "-translate-x-full"
-          )}
+  // Desktop layout with animated sidebar
+  return (
+    <div className="flex min-h-screen">
+      <motion.div
+        className="sidebar fixed left-0 z-40 h-full shrink-0 border-r bg-[#f26e24]"
+        initial={isCollapsed ? "closed" : "open"}
+        animate={isCollapsed ? "closed" : "open"}
+        variants={sidebarVariants}
+        transition={transitionProps}
+        onMouseEnter={() => setIsCollapsed(false)}
+        onMouseLeave={() => setIsCollapsed(true)}
+      >
+        <motion.div
+          className="relative z-40 flex h-full text-white shrink-0 flex-col transition-all"
+          variants={contentVariants}
         >
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
-          <nav className="relative h-full w-3/4 max-w-sm bg-background shadow-xl">
-            <div className="flex h-full flex-col">
-              <div className="flex h-16 items-center px-4">
-                <Link href="/admin/dashboard" className="flex items-center space-x-2">
-                  <span className="font-bold">ONNRIDES Admin</span>
+          <motion.ul variants={staggerVariants} className="flex h-full flex-col">
+            <div className="flex grow flex-col">
+              {/* Header with Logo */}
+              <div className="flex h-16 w-full shrink-0 items-center justify-center border-b border-[#e05d13]">
+                <Link href="/admin/dashboard" className={cn(
+                  "flex items-center", 
+                  isCollapsed ? "justify-center" : "justify-start w-full gap-3 px-4"
+                )}>
+                  {/* Fixed size logo container that doesn't change with sidebar state */}
+                  <div className="w-[32px] h-[32px] flex items-center justify-center bg-[#f26e24] rounded-sm">
+                    <Logo className="h-full w-full p-0.5" />
+                  </div>
+                  
+                  {/* Only show text when sidebar is open */}
+                  {!isCollapsed && (
+                    <span className="font-bold text-xl text-white">ADMIN</span>
+                  )}
                 </Link>
               </div>
-              <div className="flex-1 overflow-y-auto py-4">
-                {menuItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium"
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </Link>
-                ))}
+
+              {/* Admin Missing Warning */}
+              {isAdminMissing && (
+                <div className="bg-red-600 text-white p-3 mx-3 mt-3 rounded-md shadow-sm flex items-center text-sm">
+                  <AlertCircle className="h-5 w-5 mr-2" />
+                  <motion.div variants={variants}>
+                    {!isCollapsed && (
+                      <span className="font-bold">Admin account missing</span>
+                    )}
+                  </motion.div>
+                </div>
+              )}
+
+              {/* Navigation */}
+              <div className="flex grow flex-col">
+                <ScrollArea className="h-[calc(100vh-8rem)] grow p-2">
+                  <div className="flex w-full flex-col gap-1">
+                    {menuItems.map((item, index) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          "flex h-9 w-full flex-row items-center rounded-md px-2 py-1.5 transition-colors",
+                          pathname === item.href
+                            ? "bg-[#e05d13] text-white font-medium"
+                            : "text-white hover:bg-[#e05d13]",
+                          isCollapsed && "justify-center"
+                        )}
+                      >
+                        <div className={cn(
+                          "flex items-center justify-center",
+                          isCollapsed ? "w-full" : "w-6"
+                        )}>
+                          {item.icon}
+                        </div>
+                        <motion.li variants={variants}>
+                          {!isCollapsed && (
+                            <p className="ml-2 text-sm font-medium">{item.label}</p>
+                          )}
+                        </motion.li>
+                      </Link>
+                    ))}
+                  </div>
+                </ScrollArea>
               </div>
-              <div className="border-t p-4">
-                <SignOutButton />
-              </div>
-            </div>
-          </nav>
-        </div>
-      )}
 
-      {/* Mobile sidebar toggle */}
-      <button
-        onClick={toggleSidebar}
-        className="p-4 md:hidden fixed top-4 left-4 z-30 bg-white rounded-full shadow-md"
-        aria-label="Toggle sidebar"
-      >
-        {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-      </button>
-
-      {/* Sidebar Backdrop (Mobile) */}
-      <AnimatePresence>
-        {isSidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
-            exit={{ opacity: 0 }}
-            onClick={closeSidebar}
-            className="fixed inset-0 bg-black z-20 md:hidden"
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Sidebar */}
-      <motion.aside
-        className={`fixed md:relative z-30 w-64 h-full bg-[#f26e24] text-white transition-all transform ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
-        initial={false}
-      >
-        <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="flex items-center justify-center h-20 shadow-md">
-            <Link href="/admin/dashboard" className="flex items-center">
-              <Logo className="h-9 w-auto" />
-              <span className="ml-2 text-xl font-bold">ADMIN</span>
-            </Link>
-          </div>
-
-          {/* Admin Missing Warning */}
-          {isAdminMissing && (
-            <div className="bg-red-600 text-white p-3 mx-3 mt-3 rounded-md shadow-sm flex items-center text-sm">
-              <AlertCircle className="h-5 w-5 mr-2" />
-              <div>
-                <Link href="/admin/recreate" className="font-bold underline">
-                  Recreate Admin Account
-                </Link>
+              {/* Footer */}
+              <div className="border-t border-[#e05d13] p-3">
+                <Button
+                  variant="ghost"
+                  onClick={handleSignOut}
+                  className={cn(
+                    "w-full gap-2 text-white hover:bg-[#e05d13]",
+                    isCollapsed ? "justify-center" : "justify-start"
+                  )}
+                >
+                  <FaSignOutAlt className="h-4 w-4" />
+                  <motion.span variants={variants}>
+                    {!isCollapsed && "Sign out"}
+                  </motion.span>
+                </Button>
               </div>
             </div>
-          )}
+          </motion.ul>
+        </motion.div>
+      </motion.div>
 
-          {/* Navigation */}
-          <nav className="py-4 flex-grow">
-            <ul className="space-y-1">
-              {menuItems.map((item) => {
-                const isActive = pathname === item.href;
-                const Icon = item.icon;
-                
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={`flex items-center px-6 py-3 text-sm ${
-                        isActive
-                          ? 'bg-[#e05d13] font-medium'
-                          : 'hover:bg-[#e05d13]'
-                      }`}
-                      onClick={closeSidebar}
-                    >
-                      {item.icon}
-                      {item.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-
-          {/* Footer with Recreate Admin link */}
-          <div className="p-4">
-            <Link
-              href="/admin/recreate"
-              className="flex items-center justify-center w-full p-2 mb-4 text-sm bg-white text-[#f26e24] rounded hover:bg-gray-100"
-            >
-              <AlertCircle className="h-4 w-4 mr-2" />
-              Recreate Admin
-            </Link>
-            
-            <button
-              onClick={handleSignOut}
-              className="flex items-center px-6 py-3 text-sm w-full hover:bg-[#e05d13]"
-            >
-              <FaSignOutAlt className="h-5 w-5 mr-3" />
-              Sign Out
-            </button>
+      {/* Main Content */}
+      <div className="flex flex-col flex-1 ml-[3.05rem] transition-all duration-300">
+        <div className="sticky top-0 z-30 h-16 border-b bg-background px-6 flex items-center">
+          {/* Removed the OnnRides Admin Dashboard text as requested */}
+        </div>
+        <div className="flex-1 overflow-auto bg-gray-50 p-4">
+          <div className="container mx-auto">
+            <div className="bg-white rounded-lg shadow-sm min-h-[calc(100vh-6rem)] p-6">
+              {children}
+            </div>
           </div>
         </div>
-      </motion.aside>
+      </div>
     </div>
   );
 } 

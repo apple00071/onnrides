@@ -6,6 +6,7 @@ import { Providers } from '../providers';
 import AdminDashboardClient from '@/app/admin/AdminDashboardClient';
 import logger from '@/lib/logger';
 import { Metadata } from 'next';
+import { SidebarProvider } from '@/hooks/use-sidebar';
 
 // Provide metadata for admin pages
 export function generateMetadata(): Metadata {
@@ -23,10 +24,6 @@ export function generateMetadata(): Metadata {
       }
     },
     manifest: '/admin/manifest.json',
-    themeColor: [
-      { media: '(prefers-color-scheme: light)', color: '#f26e24' },
-      { media: '(prefers-color-scheme: dark)', color: '#f26e24' }
-    ],
     other: {
       'mobile-web-app-capable': 'yes',
       'apple-mobile-web-app-capable': 'yes',
@@ -60,12 +57,6 @@ export function generateMetadata(): Metadata {
           media: '(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)',
         }
       ]
-    },
-    viewport: {
-      width: 'device-width',
-      initialScale: 1,
-      maximumScale: 1,
-      userScalable: false,
     },
     icons: {
       icon: [
@@ -106,9 +97,11 @@ export default async function AdminLayout({
     return (
       <>
         <Providers session={session}>
-          <AdminDashboardClient>
-            {children}
-          </AdminDashboardClient>
+          <SidebarProvider>
+            <AdminDashboardClient>
+              {children}
+            </AdminDashboardClient>
+          </SidebarProvider>
           <SpeedInsights />
         </Providers>
       </>

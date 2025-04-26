@@ -71,12 +71,13 @@ export async function GET(req: NextRequest) {
           updated_at,
           CASE WHEN is_blocked IS TRUE THEN TRUE ELSE FALSE END as is_blocked
         FROM users
+        WHERE LOWER(role) != 'admin'
       `;
       
       const queryParams = [];
       
       if (search) {
-        query += ` WHERE name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1`;
+        query += ` AND (name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1)`;
         queryParams.push(`%${search}%`);
       }
       
@@ -94,16 +95,17 @@ export async function GET(req: NextRequest) {
       
       const result = await client.query(query, queryParams);
       logger.info('Users query result', { 
-        rowCount: result.rowCount,
-        firstUserId: result.rows[0]?.id || 'no users found',
-        firstUserEmail: result.rows[0]?.email || 'no users found'
+        rowCount: result.rowCount || 0,
+        firstUserId: result.rows && result.rows.length > 0 ? result.rows[0]?.id : 'no users found',
+        firstUserEmail: result.rows && result.rows.length > 0 ? result.rows[0]?.email : 'no users found'
       });
       
       // Get total count for pagination
       const countQuery = `
         SELECT COUNT(*) as total
         FROM users
-        ${search ? `WHERE name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1` : ''}
+        WHERE LOWER(role) != 'admin'
+        ${search ? `AND (name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1)` : ''}
       `;
       
       logger.info('Executing count query', { countQuery });

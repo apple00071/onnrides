@@ -5,6 +5,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 export interface SidebarContextType {
   isOpen: boolean;
   toggle: () => void;
+  close: () => void;
 }
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
@@ -19,9 +20,13 @@ export function SidebarProvider({ children }: SidebarProviderProps) {
   const toggle = () => {
     setIsOpen(!isOpen);
   };
+  
+  const close = () => {
+    setIsOpen(false);
+  };
 
   return (
-    <SidebarContext.Provider value={{ isOpen, toggle }}>
+    <SidebarContext.Provider value={{ isOpen, toggle, close }}>
       {children}
     </SidebarContext.Provider>
   );
