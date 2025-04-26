@@ -14,8 +14,8 @@ export interface VehicleFormData {
   quantity: number;
   min_booking_hours: number;
   status: 'active' | 'maintenance' | 'retired';
-  description: string | null;
-  features: string[];
+  description?: string | null;
+  features?: string[];
 }
 
 export interface Vehicle {
@@ -37,10 +37,24 @@ export interface Vehicle {
     until: string | null;
   } | null;
   status: 'active' | 'maintenance' | 'retired';
-  description: string | null;
-  features: string[];
+  description?: string | null;
+  features?: string[];
   created_at: string;
   updated_at: string;
+  pricing?: {
+    price_per_hour: number;
+    total_hours: number;
+    chargeable_hours: number;
+    total_price: number;
+  };
+  image_url?: string;
+  brand?: string;
+  model?: string;
+  year?: number;
+  color?: string;
+  transmission?: string;
+  fuel_type?: string;
+  seating_capacity?: number;
 }
 
 export interface VehicleDetailsProps {

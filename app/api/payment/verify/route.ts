@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
              END as payment_details,
              created_at 
            FROM bookings 
-           WHERE user_id = $1 
+           WHERE user_id = $1::uuid 
            OR id = $2::uuid
            AND created_at > NOW() - interval '1 day'
            ORDER BY created_at DESC`,
@@ -230,7 +230,7 @@ export async function POST(request: NextRequest) {
         const rawDebugResult = await query(
           `SELECT booking_id, id, payment_details::text 
            FROM bookings 
-           WHERE user_id = $1 
+           WHERE user_id = $1::uuid 
            AND payment_details IS NOT NULL 
            ORDER BY created_at DESC 
            LIMIT 5`,

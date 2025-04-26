@@ -38,7 +38,7 @@ export async function GET(
         v.price_per_hour
       FROM bookings b
       JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.user_id = $1
+      WHERE b.user_id = $1::uuid
       ORDER BY b.created_at DESC`,
       [userId]
     );

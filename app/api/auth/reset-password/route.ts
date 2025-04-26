@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       `SELECT u.*, pr.token, pr.expires_at
        FROM password_resets pr
        INNER JOIN users u ON u.id = pr.user_id
-       WHERE pr.token = $1 
+       WHERE pr.token = $1::uuid 
        AND pr.expires_at > NOW()
        LIMIT 1`,
       [token]
@@ -46,16 +46,16 @@ export async function POST(request: NextRequest) {
       // Update user's password
       await query(
         `UPDATE users 
-         SET password_hash = $1,
+         SET password_hash = $1::uuid,
              updated_at = NOW()
-         WHERE id = $2`,
+         WHERE id = $2::uuid`,
         [hashedPassword, resetData.id]
       );
 
       // Delete the used reset token
       await query(
         `DELETE FROM password_resets 
-         WHERE user_id = $1`,
+         WHERE user_id = $1::uuid`,
         [resetData.id]
       );
 

@@ -20,6 +20,10 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
+          logger.info('Attempting login with email:', { 
+            email: credentials.email
+          });
+
           const result = await query(
             'SELECT * FROM users WHERE email = $1 LIMIT 1',
             [credentials.email]

@@ -27,9 +27,37 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'images.pexels.com',
         pathname: '/**',
+      },
+      // Add more common image hosts
+      {
+        protocol: 'https',
+        hostname: 'img.freepik.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'image.shutterstock.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'plus.unsplash.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.rawpixel.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.imgur.com',
+        pathname: '/**',
       }
     ],
-    domains: ['images.unsplash.com', 'images.pexels.com'],
+    domains: ['images.unsplash.com', 'images.pexels.com', 'img.freepik.com', 'image.shutterstock.com', 'plus.unsplash.com', 'images.rawpixel.com', 'i.imgur.com'],
+    // Add unoptimized option to bypass image optimization for problematic URLs
+    unoptimized: process.env.NODE_ENV === 'development',
   },
   webpack: (config, { isServer, dev }) => {
     // Remove console.* calls in production

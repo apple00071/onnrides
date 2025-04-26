@@ -1,76 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
-import { hashPassword } from '@/lib/auth';
 import logger from '@/lib/logger';
-import { randomUUID } from 'crypto';
 
-interface RegisterBody {
-  email: string;
-  password: string;
-  name: string;
-  phone: string;
-}
-
-export async function POST(request: NextRequest) {
+/**
+ * Route handler for registration - redirects to signup
+ * This maintains backward compatibility with any existing code using the /register endpoint
+ */
+export async function POST(req: NextRequest) {
+  // Forward the request to the signup endpoint
+  const signupUrl = new URL('/api/auth/signup', req.url);
+  
   try {
-    const { email, password, name, phone } = await request.json();
+    // Clone the request to forward it
+    const body = await req.json();
+    
+    logger.info('Register endpoint called - redirecting to signup', {
+      email: body.email,
+      signupUrl: signupUrl.toString()
+    });
+    
+    // Forward the request to the signup endpoint
+    const response = await fetch(signupUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
 
-    // Validate required fields
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
+    // Get the response data
+    const data = await response.json();
+    
+    logger.info('Signup response received', {
+      status: response.status,
+      success: response.ok,
+      userId: data.user?.id
+    });
+    
+    // Return the response from the signup endpoint
+    return NextResponse.json(data, { status: response.status });
+  } catch (error: unknown) {
+    console.error("Database error during signup:", error);
+    // Check for type mismatch errors
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === "42804" || 
+        typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' && error.message.includes("type mismatch")) {
+      return NextResponse.json({ error: "Type mismatch in database operation" }, { status: 500 });
     }
-
-    // Check if user already exists
-    const existingUser = await query(
-      'SELECT * FROM users WHERE email = $1 LIMIT 1',
-      [email]
-    );
-
-    if (existingUser.rows.length > 0) {
-      return NextResponse.json(
-        { error: 'Email already registered' },
-        { status: 400 }
-      );
-    }
-
-    // Hash password
-    const hashedPassword = await hashPassword(password);
-
-    // Create new user with UUID
-    const userId = randomUUID();
-    const result = await query(
-      `INSERT INTO users (id, email, password_hash, name, phone, role) 
-       VALUES ($1, $2, $3, $4, $5, 'user') 
-       RETURNING id, email, name, role`,
-      [userId, email, hashedPassword, name || null, phone || null]
-    );
-
-    const user = result.rows[0];
-    logger.info('New user registered:', { 
-      userId: user.id, 
-      email: user.email,
-      name: user.name
-    });
-
-    return NextResponse.json({
-      message: 'Registration successful',
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
-    });
-  } catch (error) {
-    logger.error('Registration error:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
+    logger.error('Error forwarding request to signup:', error);
     return NextResponse.json(
-      { error: 'Failed to register user' },
+      { error: 'Failed to process registration' },
       { status: 500 }
     );
   }

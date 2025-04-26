@@ -65,7 +65,7 @@ export async function POST(request: NextRequest): Promise<Response> {
        FROM bookings b
        LEFT JOIN vehicles v ON b.vehicle_id = v.id
        LEFT JOIN users u ON b.user_id = u.id
-       WHERE payment_details->>'razorpay_order_id' = $1`,
+       WHERE payment_details->>'razorpay_order_id' = $1::uuid`,
       [orderEntity.id]
     );
 
@@ -93,10 +93,10 @@ export async function POST(request: NextRequest): Promise<Response> {
     // Update booking
     await query(
       `UPDATE bookings 
-       SET status = $1,
+       SET status = $1::uuid,
            payment_status = $2,
            payment_details = payment_details || $3::jsonb
-       WHERE id = $4`,
+       WHERE id = $4::uuid`,
       [
         bookingStatus,
         paymentStatus,

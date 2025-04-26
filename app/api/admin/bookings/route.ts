@@ -253,7 +253,7 @@ export async function PUT(request: NextRequest) {
             status = 'cancelled',
             payment_status = 'cancelled',
             updated_at = NOW()
-          WHERE booking_id = $1 
+          WHERE booking_id = $1::uuid 
           RETURNING *,
             start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_start_date,
             end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_end_date
@@ -276,7 +276,7 @@ export async function PUT(request: NextRequest) {
           FROM bookings b
           LEFT JOIN users u ON b.user_id = u.id
           LEFT JOIN vehicles v ON b.vehicle_id = v.id
-          WHERE b.booking_id = $1
+          WHERE b.booking_id = $1::uuid
         `, [bookingId]);
         
         const bookingDetails = detailsResult.rows[0];

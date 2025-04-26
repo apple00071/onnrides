@@ -25,7 +25,7 @@ export async function GET(req: Request) {
 
         // Get user's phone number from database
         const userResult = await query(
-            'SELECT phone FROM users WHERE id = $1',
+            'SELECT phone FROM users WHERE id = $1::uuid',
             [session.user.id]
         );
 

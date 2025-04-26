@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { toIST, formatDateTimeIST } from '@/lib/utils/timezone';
+import { formatDateTimeIST, toIST } from '@/lib/utils/timezone';
 import {
   Table,
   TableBody,
@@ -17,35 +17,7 @@ import { VehicleCard } from "@/components/VehicleCard";
 import { FaFilter, FaSort } from 'react-icons/fa';
 import { redirect } from 'next/navigation';
 import logger from '@/lib/logger';
-
-interface Vehicle {
-  id: string;
-  name: string;
-  type: string;
-  location: string[];
-  quantity: number;
-  price_per_hour: number;
-  min_booking_hours: number;
-  is_available: boolean;
-  images: string[];
-  status: 'active' | 'maintenance' | 'retired';
-  created_at: string;
-  updated_at: string;
-  pricing: {
-    price_per_hour: number;
-    total_hours: number;
-    chargeable_hours: number;
-    total_price: number;
-  };
-  image_url?: string;
-  brand?: string;
-  model?: string;
-  year?: number;
-  color?: string;
-  transmission?: string;
-  fuel_type?: string;
-  seating_capacity?: number;
-}
+import { Vehicle } from './types';
 
 export default function VehiclesPage() {
   const router = useRouter();
@@ -82,16 +54,23 @@ export default function VehiclesPage() {
     location: null
   });
 
-  // Parse and validate dates
-  const parseDate = (dateStr: string) => {
+  // Format date for display using centralized timezone utility
+  const formatDateForDisplay = (date: Date | string) => {
     try {
-      // Parse the date string in YYYY-MM-DD format
-      const [year, month, day] = dateStr.split('-').map(Number);
-      const date = new Date(year, month - 1, day);
-      return date;
+      return formatDateTimeIST(date);
     } catch (error) {
-      logger.error('Error parsing date:', error);
-      return null;
+      logger.error('Error formatting date for display', { date, error });
+      return String(date);
+    }
+  };
+
+  // Convert date to IST for comparison
+  const convertToIST = (date: Date | string) => {
+    try {
+      return toIST(date);
+    } catch (error) {
+      logger.error('Error converting date to IST', { date, error });
+      return new Date(date);
     }
   };
 
@@ -105,8 +84,8 @@ export default function VehiclesPage() {
     return redirect('/');
   }
 
-  const parsedPickupDate = parseDate(pickupDate);
-  const parsedDropoffDate = parseDate(dropoffDate);
+  const parsedPickupDate = convertToIST(pickupDate);
+  const parsedDropoffDate = convertToIST(dropoffDate);
 
   if (!parsedPickupDate || !parsedDropoffDate) {
     return redirect('/');
@@ -168,23 +147,6 @@ export default function VehiclesPage() {
   }
 
   // Format dates for display in IST
-  const formatDateForDisplay = (date: Date) => {
-    try {
-      return date.toLocaleString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-        timeZone: 'Asia/Kolkata'
-      });
-    } catch (error) {
-      logger.error('Error formatting date:', error);
-      return '';
-    }
-  };
-
   const displayPickupDate = formatDateForDisplay(parsedPickupDate);
   const displayDropoffDate = formatDateForDisplay(parsedDropoffDate);
 

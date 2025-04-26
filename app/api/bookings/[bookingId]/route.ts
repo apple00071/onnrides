@@ -57,7 +57,7 @@ export async function GET(
        INNER JOIN vehicles v ON b.vehicle_id = v.id
        WHERE b.booking_id = $1::text 
           OR b.id = CASE 
-            WHEN $1 ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            WHEN $1::uuid ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
             THEN $1::uuid 
             ELSE NULL 
           END
@@ -185,7 +185,7 @@ export async function PUT(
     }
 
     const result = await query(
-      'SELECT b.*, v.name as vehicle_name FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id WHERE b.id = $1 LIMIT 1',
+      'SELECT b.*, v.name as vehicle_name FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id WHERE b.id = $1::uuid LIMIT 1',
       [bookingId]
     );
     const booking = result.rows[0];
@@ -208,16 +208,16 @@ export async function PUT(
     // If booking is being cancelled, update vehicle availability
     if (status === 'cancelled') {
       await query(
-        'UPDATE vehicles SET is_available = true WHERE id = $1',
+        'UPDATE vehicles SET is_available = true WHERE id = $1::uuid',
         [booking.vehicle_id]
       );
     }
 
     const updateResult = await query(
       `UPDATE bookings 
-       SET status = $1, 
+       SET status = $1::uuid, 
            updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $2 
+       WHERE id = $2::uuid 
        RETURNING *`,
       [status, bookingId]
     );
@@ -260,7 +260,7 @@ export async function POST(
 
     // Get booking
     const result = await query(
-      'SELECT * FROM bookings WHERE id = $1 LIMIT 1',
+      'SELECT * FROM bookings WHERE id = $1::uuid LIMIT 1',
       [params.bookingId]
     );
     const booking = result.rows[0];
@@ -293,7 +293,7 @@ export async function POST(
       `UPDATE bookings 
        SET status = 'cancelled',
            updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $1 
+       WHERE id = $1::uuid 
        RETURNING *`,
       [params.bookingId]
     );

@@ -36,22 +36,22 @@ export async function middleware(request: NextRequest) {
   // Skip maintenance check for certain paths
   if (shouldBypassMaintenanceCheck(pathname)) {
     console.log(`[Middleware] Skipping maintenance check for: ${pathname}`);
-    return NextResponse.next();
+    return undefined; // Continue processing the request
   }
 
   try {
     // Use the maintenance API endpoint instead of calling Prisma directly
     // This resolves the Edge Runtime compatibility issue
-    const protocol = request.headers.get('x-forwarded-proto') || 'http';
-    const host = request.headers.get('host') || 'localhost:3000';
-    const baseUrl = `${protocol}://${host}`;
+      const protocol = request.headers.get('x-forwarded-proto') || 'http';
+      const host = request.headers.get('host') || 'localhost:3000';
+      const baseUrl = `${protocol}://${host}`;
     const maintCheckUrl = `${baseUrl}/api/maintenance/check?_t=${Date.now()}`;
     
     const response = await fetch(maintCheckUrl, {
-      method: 'GET',
-      headers: {
+        method: 'GET',
+        headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
+          'Pragma': 'no-cache',
         'Expires': '0'
       }
     });
@@ -69,7 +69,7 @@ export async function middleware(request: NextRequest) {
       // Allow admins to bypass maintenance mode
       if (isAdmin) {
         console.log('[Middleware] Admin access detected, bypassing maintenance mode');
-        return NextResponse.next();
+        return undefined; // Continue processing the request
       }
       
       // Redirect to maintenance page
@@ -80,11 +80,11 @@ export async function middleware(request: NextRequest) {
     console.log(`[Middleware] Maintenance check error: ${error instanceof Error ? error.message : 'Unknown error'}, isMobile: ${isMobile}, timestamp: ${Date.now()}`);
     
     // In case of an error, don't block access
-    return NextResponse.next();
+    return undefined; // Continue processing the request
   }
 
   // Continue with the request
-  return NextResponse.next();
+  return undefined; // Continue processing the request
 }
 
 // Configure which paths the middleware should run on

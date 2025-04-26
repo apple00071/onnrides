@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
             `SELECT d.*, u.email, u.name 
              FROM documents d 
              JOIN users u ON d.user_id = u.id 
-             WHERE d.id = $1`,
+             WHERE d.id = $1::uuid`,
             [documentId]
         );
 
@@ -45,10 +45,10 @@ export async function POST(request: NextRequest) {
         // Update document status
         const updateResult = await query(
             `UPDATE documents 
-             SET status = $1, 
+             SET status = $1::uuid, 
                  rejection_reason = $2,
                  updated_at = NOW()
-             WHERE id = $3
+             WHERE id = $3::uuid
              RETURNING *`,
             [status, rejectionReason || null, documentId]
         );

@@ -166,8 +166,7 @@ export async function POST(request: NextRequest) {
           created_at, updated_at
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-        RETURNING 
-          id, name, type, location, quantity, 
+        RETURNING id::text, name, type, location, quantity, 
           price_per_hour, price_7_days, price_15_days, price_30_days, 
           min_booking_hours, images, status, is_available, 
           created_at, updated_at

@@ -30,7 +30,7 @@ export async function GET(
        FROM bookings b 
        LEFT JOIN vehicles v ON b.vehicle_id = v.id
        LEFT JOIN users u ON b.user_id = u.id 
-       WHERE b.id = $1 AND b.user_id = $2 
+       WHERE b.id = $1::uuid AND b.user_id = $2 
        LIMIT 1`,
       [params.bookingId, session.user.id]
     );

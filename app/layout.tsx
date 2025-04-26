@@ -118,10 +118,6 @@ export const metadata: Metadata = {
       },
     ]
   },
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f26e24' },
-    { media: '(prefers-color-scheme: dark)', color: '#f26e24' }
-  ],
   appleWebApp: {
     title: 'OnnRides',
     statusBarStyle: 'black-translucent',

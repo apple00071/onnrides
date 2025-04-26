@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     const result = await query(
       `INSERT INTO documents (
         id, user_id, type, status, file_url, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7)
       RETURNING *`,
       [
         randomUUID(),

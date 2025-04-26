@@ -30,7 +30,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { SETTINGS } from '@/lib/settings';
+import { SETTINGS } from '@/lib/settings-client';
 import { redirectToLogin } from '@/lib/auth-utils';
 
 interface Setting {
@@ -48,6 +48,7 @@ export default function SettingsPage() {
   const [editingSetting, setEditingSetting] = useState<Setting | null>(null);
   const [newValue, setNewValue] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const isAdmin = session?.user?.role === 'admin';
 
@@ -59,24 +60,53 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (status === 'authenticated' && isAdmin) {
-      fetchSettings();
+      initializeAndFetchSettings();
     }
   }, [status, isAdmin]);
 
-  const fetchSettings = async () => {
+  const initializeAndFetchSettings = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
+      // First, call the initialization endpoint
+      console.log('Initializing settings table...');
+      const initResponse = await fetch('/api/settings/initialize');
+      const initData = await initResponse.json();
+      
+      if (!initResponse.ok) {
+        console.error('Failed to initialize settings:', initData);
+        setError('Failed to initialize settings');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Settings initialized successfully:', initData);
+      
+      // Then fetch settings using direct database connection
       const response = await fetch('/api/settings');
+      
+      if (!response.ok) {
+        const data = await response.json();
+        console.error('Failed to load settings:', data);
+        setError('Failed to load settings: ' + (data.error || 'Unknown error'));
+        setLoading(false);
+        return;
+      }
+      
       const data = await response.json();
       
       if (data.success) {
+        console.log('Settings loaded successfully:', data.data);
         setSettings(data.data);
       } else {
-        toast.error('Failed to load settings');
+        console.error('Failed to load settings:', data);
+        setError('Failed to load settings: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
+      console.error('Error loading settings:', error);
+      setError('Error loading settings: ' + (error instanceof Error ? error.message : 'Unknown error'));
       toast.error('Error loading settings');
-      console.error('Error fetching settings:', error);
     } finally {
       setLoading(false);
     }
@@ -107,7 +137,7 @@ export default function SettingsPage() {
       
       if (data.success) {
         toast.success('Setting updated successfully');
-        fetchSettings(); // Refresh the list
+        initializeAndFetchSettings(); // Refresh the list
         setIsDialogOpen(false);
       } else {
         toast.error(data.error || 'Failed to update setting');
@@ -145,6 +175,29 @@ export default function SettingsPage() {
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
           <p className="mt-4">Loading settings...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Error Loading Settings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              <p>{error}</p>
+              <Button 
+                className="mt-4"
+                onClick={initializeAndFetchSettings}
+              >
+                Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

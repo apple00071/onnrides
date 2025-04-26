@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { BookingsTable } from './components/BookingsTable';
 import CreateOfflineBookingModal from './components/CreateOfflineBookingModal';
 import { useToast } from '@/hooks/use-toast';
+import { formatDateTimeIST } from '@/lib/utils/timezone';
 
 interface Booking {
   id: string;
@@ -55,7 +56,7 @@ interface Booking {
   booking_type: string;
 }
 
-// Format date and time - using database formatted values when available
+// Format date and time using centralized timezone utility
 const formatDateTime = (dateString: string | null | undefined) => {
   if (!dateString) return 'Not available';
   try {
@@ -64,16 +65,8 @@ const formatDateTime = (dateString: string | null | undefined) => {
       return dateString;
     }
 
-    // For dates without AM/PM, parse and format with Indian locale and 12-hour time
-    const date = new Date(dateString);
-    return date.toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    // Use centralized utility for consistent formatting
+    return formatDateTimeIST(dateString) || 'Date error';
   } catch (error) {
     logger.error('Error formatting date', { dateString, error });
     return dateString || 'Date error';

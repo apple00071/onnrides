@@ -15,6 +15,12 @@ import { format } from "date-fns";
 import { toIST, formatDateTimeIST, formatDateIST, formatTimeIST } from "@/lib/utils/timezone";
 import { Vehicle } from "@/app/(main)/vehicles/types";
 import logger from '@/lib/logger';
+import {
+  DEFAULT_VEHICLE_IMAGE,
+  getValidImageUrl,
+  preloadImage,
+  isValidDataUrl
+} from '@/lib/utils/image-utils';
 
 interface VehicleCardProps {
   vehicle: Vehicle;
@@ -56,6 +62,42 @@ export function VehicleCard({
     initialSelectedLocation || (vehicle.location.length === 1 ? vehicle.location[0] : undefined)
   );
   const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageSource, setImageSource] = useState<string>(DEFAULT_VEHICLE_IMAGE);
+
+  // Preload and validate image on component mount
+  useEffect(() => {
+    const validateAndSetImage = () => {
+      const source = getValidImageUrl(vehicle.images);
+      logger.debug('Initial image source:', { source, vehicleId: vehicle.id });
+      
+      // If it's a data URL, we can use it directly
+      if (isValidDataUrl(source)) {
+        setImageSource(source);
+        setImageLoaded(true);
+        return;
+      }
+      
+      // For regular URLs, preload the image
+      preloadImage(source)
+        .then(() => {
+          setImageSource(source);
+          setImageLoaded(true);
+          setImageError(false);
+        })
+        .catch(() => {
+          logger.warn('Failed to load image:', { 
+            vehicleId: vehicle.id, 
+            imageUrl: source 
+          });
+          setImageError(true);
+          setImageSource(DEFAULT_VEHICLE_IMAGE);
+          setImageLoaded(true);
+        });
+    };
+
+    validateAndSetImage();
+  }, [vehicle.id, vehicle.images]);
 
   // Format dates for display
   const formatDateTime = (dateStr: string): FormattedDateTime => {
@@ -140,6 +182,14 @@ export function VehicleCard({
       currentParams.set('price30Days', vehicle.price_30_days.toString());
     }
     
+    // Add vehicle image if available
+    if (imageSource && imageSource !== DEFAULT_VEHICLE_IMAGE) {
+      // Only pass non-data URLs through URL params (data URLs are too large)
+      if (!isValidDataUrl(imageSource)) {
+        currentParams.set('vehicleImage', imageSource);
+      }
+    }
+    
     // Calculate total price
     currentParams.set('totalPrice', priceDetails.totalAmount.toString());
     
@@ -147,64 +197,15 @@ export function VehicleCard({
     router.push(`/booking-summary?${currentParams.toString()}`);
   };
 
-  // Function to get a valid image URL
-  const getValidImageUrl = (images: any): string => {
-    logger.debug('Processing images:', { images, type: typeof images });
-
-    // Handle undefined/null case
-    if (!images) {
-      logger.debug('No images provided');
-      return '/images/placeholder-vehicle.png';
-    }
-
-    // If images is a string, try to parse it as JSON
-    if (typeof images === 'string') {
-      try {
-        const parsed = JSON.parse(images);
-        images = parsed;
-        logger.debug('Parsed JSON string:', { parsed });
-      } catch (e) {
-        // If parsing fails and it's a valid URL, use it directly
-        if (images.trim() && (
-          images.startsWith('http://') || 
-          images.startsWith('https://') || 
-          images.startsWith('/') || 
-          images.startsWith('data:image/')
-        )) {
-          logger.debug('Using string as direct URL');
-          return images;
-        }
-        logger.debug('Failed to parse JSON string and not a valid URL');
-        return '/images/placeholder-vehicle.png';
-      }
-    }
-
-    // Ensure images is an array
-    if (!Array.isArray(images)) {
-      logger.debug('Images is not an array:', { images });
-      return '/images/placeholder-vehicle.png';
-    }
-
-    // Find first valid image URL
-    const validImage = images.find(img => {
-      if (!img || typeof img !== 'string') return false;
-      const url = img.trim();
-      return url.length > 0 && (
-        url.startsWith('http://') || 
-        url.startsWith('https://') || 
-        url.startsWith('/') || 
-        url.startsWith('data:image/')
-      );
-    });
-
-    logger.debug('Found valid image:', { validImage });
-    return validImage || '/images/placeholder-vehicle.png';
-  };
-
   // Handle image error
   const handleImageError = () => {
     logger.warn('Image failed to load:', { vehicleId: vehicle.id, images: vehicle.images });
     setImageError(true);
+  };
+
+  const handleImageLoaded = () => {
+    setImageLoaded(true);
+    setImageError(false);
   };
 
   return (
@@ -219,20 +220,37 @@ export function VehicleCard({
       {/* Vehicle Image */}
       <div className="h-[200px] relative w-full bg-gray-100 flex items-center justify-center">
         <div className="relative w-[80%] h-[80%]">
-          {!imageError ? (
-            <Image
-              src={getValidImageUrl(vehicle.images)}
-              alt={vehicle.name}
-              fill
-              className="object-contain"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              priority
-              onError={handleImageError}
-            />
-          ) : (
+          {/* Show loading spinner while image is loading */}
+          {!imageLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
+            </div>
+          )}
+          
+          {/* Show error state if image fails to load */}
+          {imageError && (
             <div className="w-full h-full flex items-center justify-center bg-gray-50">
               <span className="text-gray-400">No image available</span>
             </div>
+          )}
+          
+          {/* Show image if available and loaded */}
+          {!imageError && (
+            <Image
+              src={imageSource}
+              alt={vehicle.name}
+              fill
+              className={cn(
+                "object-contain",
+                !imageLoaded && "opacity-0",
+                imageLoaded && "opacity-100 transition-opacity duration-300"
+              )}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              priority
+              unoptimized={isValidDataUrl(imageSource)} // Disable optimization for data URLs
+              onError={handleImageError}
+              onLoad={handleImageLoaded}
+            />
           )}
         </div>
       </div>

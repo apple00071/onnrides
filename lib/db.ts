@@ -17,7 +17,9 @@ const RETRY_DELAY = 1000; // 1 second
 // Create a connection pool
 const pool = new Pool({
   connectionString,
-  ssl: true,
+  ssl: {
+    rejectUnauthorized: false
+  },
   // Connection pool configuration
   max: 10, // Reduce max connections
   idleTimeoutMillis: 60000, // 1 minute
@@ -79,20 +81,20 @@ setInterval(() => {
 // Initialize database connection
 async function initializeDatabase(): Promise<void> {
   try {
-    // Create users table
-    await query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        role VARCHAR(50) NOT NULL DEFAULT 'user',
-        is_blocked BOOLEAN DEFAULT false,
-        last_login TIMESTAMP,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-      )
-    `);
+    // Skip creating users table - we're using Prisma migrations instead
+    // await query(`
+    //   CREATE TABLE IF NOT EXISTS users (
+    //     id SERIAL PRIMARY KEY,
+    //     email VARCHAR(255) UNIQUE NOT NULL,
+    //     password_hash VARCHAR(255) NOT NULL,
+    //     name VARCHAR(255) NOT NULL,
+    //     role VARCHAR(50) NOT NULL DEFAULT 'user',
+    //     is_blocked BOOLEAN DEFAULT false,
+    //     last_login TIMESTAMP,
+    //     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    //     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    //   )
+    // `);
 
     logger.info('Database initialized successfully');
   } catch (error) {
@@ -147,6 +149,36 @@ async function queryWithRetry(
 // Query function for direct pool access
 async function query(text: string, params?: any[]): Promise<QueryResult> {
   try {
+    // Add debug logging for schema context
+    if (text.trim().toUpperCase().startsWith('INSERT INTO')) {
+      // Log detailed information about the query
+      console.log(`DEBUG - Query execution - ${new Date().toISOString()}`);
+      console.log(`Query: ${text}`);
+      console.log(`Parameters:`, params);
+      
+      // Check schema context
+      try {
+        const schemaContext = await pool.query(`
+          SELECT current_schema() as schema, 
+                 current_database() as database,
+                 current_schemas(true) as search_path
+        `);
+        console.log(`Schema context:`, schemaContext.rows[0]);
+        
+        // Check column type specifically
+        if (text.includes('users') && params && params[0]) {
+          const typeCheck = await pool.query(`
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'id'
+          `);
+          console.log(`Users.id column type:`, typeCheck.rows[0]);
+        }
+      } catch (contextError) {
+        console.error('Error getting schema context:', contextError);
+      }
+    }
+    
     return await queryWithRetry(text, params);
   } catch (error) {
     logger.error('Database query error:', {

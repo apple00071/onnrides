@@ -8,6 +8,12 @@ import bcrypt from 'bcrypt';
 import logger from '@/lib/logger';
 import type { JWT } from 'next-auth/jwt';
 
+// Add the missing hashPassword function
+export async function hashPassword(password: string): Promise<string> {
+  const saltRounds = 10;
+  return bcrypt.hash(password, saltRounds);
+}
+
 declare module "next-auth" {
   interface User {
     id: string;
@@ -43,7 +49,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
         isAdmin: { label: "Is Admin", type: "text" }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         try {
           if (!credentials?.email || !credentials?.password) {
             logger.warn('Missing credentials');
@@ -61,7 +67,9 @@ export const authOptions: NextAuthOptions = {
 
           // Check if this is an admin login attempt
           const isAdminLogin = credentials.isAdmin === 'true';
-          if (isAdminLogin && user.role.toLowerCase() !== 'admin') {
+          const userRole = user.role?.toLowerCase() || 'user';
+          
+          if (isAdminLogin && userRole !== 'admin') {
             logger.warn('Non-admin user attempted admin login:', credentials.email);
             return null;
           }
@@ -79,17 +87,17 @@ export const authOptions: NextAuthOptions = {
           logger.info('User logged in successfully:', {
             userId: user.id,
             email: user.email,
-            role: user.role
+            role: userRole
           });
 
           // Ensure name is always a string by using email as fallback
-          const name = user.name || user.email;
+          const name = user.name || user.email || '';
 
           return {
             id: user.id,
-            email: user.email,
+            email: user.email || '',
             name,
-            role: user.role.toLowerCase() as "user" | "admin"
+            role: userRole as "user" | "admin"
           };
         } catch (error) {
           logger.error('Auth error:', error);

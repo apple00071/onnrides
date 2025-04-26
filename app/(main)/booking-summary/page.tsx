@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { calculateDuration } from '@/lib/utils/duration-calculator';
 import { calculateRentalPrice } from '@/lib/utils/price';
 import { toast } from 'react-hot-toast';
 import { useSession } from 'next-auth/react';
@@ -14,27 +13,13 @@ import logger from '@/lib/logger';
 import { initializeRazorpayPayment } from '@/app/providers/RazorpayProvider';
 import { toIST, formatISOWithTZ, isWeekendIST } from '@/lib/utils/timezone';
 import { formatRazorpayAmount } from '@/app/lib/razorpayAmount';
+import { VehicleType, VehicleStatus, Vehicle, BookingSummaryDetails } from '@/app/types';
 
-interface BookingSummaryDetails {
-  vehicleId: string;
-  vehicleName: string;
-  vehicleImage?: string;
-  location: string;
-  pickupDate: string;
-  pickupTime: string;
-  dropoffDate: string;
-  dropoffTime: string;
-  pricePerHour: number;
-  price7Days?: number;
-  price15Days?: number;
-  price30Days?: number;
-}
-
-interface VehicleDetails {
-  id: string;
-  name: string;
-  images: string[];
-  // Add other vehicle fields as needed
+interface PriceDetails {
+  price_per_hour: number;
+  price_7_days?: number;
+  price_15_days?: number;
+  price_30_days?: number;
 }
 
 function PendingPaymentAlert({ payment, onClose }: { 
@@ -109,9 +94,13 @@ export default function BookingSummaryPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const [bookingDetails, setBookingDetails] = useState<BookingSummaryDetails | null>(null);
-  const [vehicleDetails, setVehicleDetails] = useState<VehicleDetails | null>(null);
+  const [vehicleDetails, setVehicleDetails] = useState<Vehicle | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingVehicle, setIsLoadingVehicle] = useState(false);
+  const [vehicleError, setVehicleError] = useState<string | null>(null);
   const [pendingPayment, setPendingPayment] = useState<any>(null);
+  const [vehicleImageUrl, setVehicleImageUrl] = useState<string>('');
+  const [showTerms, setShowTerms] = useState(true);
 
   useEffect(() => {
     const vehicleId = searchParams.get('vehicleId');
@@ -125,32 +114,236 @@ export default function BookingSummaryPage() {
 
     // Fetch vehicle details including images
     const fetchVehicleDetails = async () => {
+      setIsLoading(true);
+      setVehicleDetails(null);
+      setIsLoadingVehicle(true);
+      setVehicleError(null);
+
       try {
-        const response = await fetch(`/api/vehicles/${vehicleId}`);
-        if (!response.ok) {
+        logger.info('🔍 Fetching vehicle details', { vehicleId });
+        const vehicleResponse = await fetch(`/api/vehicles/${vehicleId}`);
+        
+        if (!vehicleResponse.ok) {
           throw new Error('Failed to fetch vehicle details');
         }
-        const data = await response.json();
-        
-        // More detailed logging to debug image issues
-        logger.info('Vehicle API response received', {
-          vehicleId,
-          hasImages: !!data.images,
-          imageCount: Array.isArray(data.images) ? data.images.length : 0
+
+        // Log the raw response for debugging
+        const responseText = await vehicleResponse.text();
+        logger.info('🛠️ RAW API RESPONSE INSPECTION:', {
+          rawResponseLength: responseText.length,
+          firstChars: responseText.substring(0, 50) + '...',
+          containsImages: responseText.includes('"images"'),
+          imagesRaw: responseText.includes('"images"') ? 
+            responseText.substring(
+              responseText.indexOf('"images"') + 10, 
+              responseText.indexOf('"images"') + 100
+            ) + '...' : 'not found'
         });
         
-        // Log the images specifically to see their format
-        logger.info('Vehicle images from API:', {
-          imagesType: typeof data.images,
-          isArray: Array.isArray(data.images),
-          firstImageType: Array.isArray(data.images) && data.images.length > 0 ? typeof data.images[0] : null,
-          firstImage: Array.isArray(data.images) && data.images.length > 0 ? data.images[0] : null
+        // Parse the response
+        const vehicleDetailsData = JSON.parse(responseText);
+        
+        const hasImages = vehicleDetailsData.images && 
+          (Array.isArray(vehicleDetailsData.images) ? 
+            vehicleDetailsData.images.length > 0 : 
+            typeof vehicleDetailsData.images === 'string');
+            
+        logger.info('🟢 Vehicle API response details:', {
+          vehicleId: vehicleDetailsData.id,
+          name: vehicleDetailsData.name,
+          hasImages: !!vehicleDetailsData.images,
+          imagesType: typeof vehicleDetailsData.images,
+          isImagesArray: Array.isArray(vehicleDetailsData.images),
+          imagesCount: Array.isArray(vehicleDetailsData.images) ? 
+            vehicleDetailsData.images.length : 'n/a',
         });
         
-        setVehicleDetails(data);
+        setVehicleDetails(vehicleDetailsData);
+        
+        // Process vehicle image 
+        // This is where we need to fix the image processing
+        let imageUrl = '';
+        
+        const processVehicleImage = () => {
+          try {
+            // Use vehicleDetailsData directly, not vehicleDetails (which may not be updated yet due to state batching)
+            const vehicleData = vehicleDetailsData;
+            
+            if (!vehicleData) {
+              logger.warn('No vehicle data available for image processing');
+              return ''; // Return empty string instead of fallback
+            }
+            
+            // Log debug information about the vehicle details
+            logger.info('🔍 Processing vehicle image for booking', {
+              vehicleId,
+              vehicleName: vehicleData.name,
+              vehicleHasImages: !!vehicleData.images,
+              imagesIsArray: Array.isArray(vehicleData.images),
+              imagesCount: Array.isArray(vehicleData.images) ? vehicleData.images.length : 0
+            });
+            
+            let imageSource = null;
+            
+            // Process vehicleData.images which can be an array, JSON string, or regular string
+            if (vehicleData.images) {
+              // If it's already an array of image URLs
+              if (Array.isArray(vehicleData.images) && vehicleData.images.length > 0) {
+                imageSource = vehicleData.images[0];
+                logger.info('✅ Using first image from array', {
+                  source: typeof imageSource === 'string' ? imageSource.substring(0, 50) + '...' : 'non-string value'
+                });
+              }
+              // If it's a string, check if it's a single URL or a JSON string
+              else if (typeof vehicleData.images === 'string') {
+                const imgStr = vehicleData.images;
+                
+                // Direct URL (data URL or http URL)
+                if (imgStr.startsWith('data:image/') || imgStr.startsWith('http')) {
+                  logger.info('✅ Valid direct image URL found', {
+                    source: imgStr.substring(0, 50) + '...',
+                    type: imgStr.startsWith('data:image/') ? 'data URL' : 'HTTP URL'
+                  });
+                  imageSource = imgStr;
+                } 
+                // Try to parse as JSON
+                else {
+                  try {
+                    const parsedImages = JSON.parse(imgStr);
+                    if (Array.isArray(parsedImages) && parsedImages.length > 0) {
+                      imageSource = parsedImages[0];
+                      logger.info('✅ Parsed JSON array image source', {
+                        source: typeof imageSource === 'string' ? imageSource.substring(0, 50) + '...' : 'non-string value'
+                      });
+                    } else {
+                      logger.warn('❌ Parsed JSON is not an array or is empty');
+                    }
+                  } catch (e) {
+                    logger.error('❌ Failed to parse image JSON string', {
+                      error: e instanceof Error ? e.message : String(e),
+                      rawData: imgStr.substring(0, 100) + '...'
+                    });
+                    // Use the string directly as a last resort
+                    if (imgStr.length > 0) {
+                      logger.warn('⚠️ Using image string directly as fallback');
+                      imageSource = imgStr;
+                    }
+                  }
+                }
+              }
+              // For any other type of value, log it
+              else {
+                logger.warn('❓ Unexpected images format', { type: typeof vehicleData.images });
+              }
+            } else {
+              logger.warn('❌ No images found in vehicle data');
+            }
+            
+            // Validate image source is a proper URL string
+            const isValidImage = (src: any): boolean => {
+              if (!src) return false;
+              
+              if (typeof src !== 'string') {
+                logger.warn('❌ Image source is not a string', { type: typeof src });
+                return false;
+              }
+              
+              // Consider data URLs and HTTP URLs as valid
+              return src.startsWith('data:image/') || src.startsWith('http') || src.startsWith('/');
+            };
+            
+            // Use the image if it's valid
+            if (isValidImage(imageSource)) {
+              setVehicleImageUrl(imageSource);
+              logger.info('🎯 FINAL BOOKING IMAGE SELECTION', {
+                vehicleName: vehicleData.name,
+                selectedImage: imageSource.substring(0, 50) + '...',
+                imageType: typeof imageSource,
+                imageLength: imageSource.length,
+                isHttp: imageSource.startsWith('http'),
+                isDataUrl: imageSource.startsWith('data:')
+              });
+              return imageSource;
+            }
+            
+            // Return empty string if no valid image found
+            logger.info('⚠️ No valid image found, returning empty string');
+            setVehicleImageUrl('');
+            return '';
+          } catch (error) {
+            logger.error('❌ Error processing vehicle image', {
+              error: error instanceof Error ? error.message : String(error),
+              stack: error instanceof Error ? error.stack : 'No stack trace'
+            });
+            setVehicleImageUrl('');
+            return '';
+          }
+        };
+        
+        // Process the image
+        imageUrl = processVehicleImage();
+        
+        // Update state directly with the processed image
+        setVehicleImageUrl(imageUrl);
+        
+        // Log final selection
+        logger.info('🎯 FINAL BOOKING IMAGE SELECTION:', {
+          vehicleName: vehicleDetailsData?.name || 'Unknown Vehicle',
+          selectedImage: imageUrl.substring(0, 100) + '...',
+          imageType: typeof imageUrl,
+          imageLength: imageUrl.length,
+          isHttp: imageUrl.startsWith('http'),
+          isDataUrl: imageUrl.startsWith('data:'),
+          isFallback: imageUrl === ''
+        });
+        
+        // Force update the bookingData with the image
+        setBookingDetails(prevData => {
+          if (!prevData) return prevData;
+          return {
+            ...prevData,
+            vehicleImage: imageUrl, // Use the processed image URL
+            vehicle: {
+              name: vehicleDetailsData?.name || '',
+              images: imageUrl,
+              location: vehicleDetailsData?.location || '',
+            }
+          };
+        });
+
+        // Extract pickup and dropoff dates from the query parameters
+        const pickupDateStr = searchParams.get('pickupDate') || '';
+        const pickupTimeStr = searchParams.get('pickupTime') || '';
+        const dropoffDateStr = searchParams.get('dropoffDate') || '';
+        const dropoffTimeStr = searchParams.get('dropoffTime') || '';
+
+        // Parse the dates
+        const pickupDateTime = new Date(`${pickupDateStr}T${pickupTimeStr}`);
+        const dropoffDateTime = new Date(`${dropoffDateStr}T${dropoffTimeStr}`);
+
+        // Calculate duration in hours if dates are valid
+        if (!isNaN(pickupDateTime.getTime()) && !isNaN(dropoffDateTime.getTime())) {
+          const durationInHours = Math.ceil(
+            (dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60)
+          );
+          
+          // Log the duration calculation
+          logger.info('Duration calculation:', {
+            pickupDateTime: pickupDateTime.toISOString(),
+            dropoffDateTime: dropoffDateTime.toISOString(),
+            durationInHours
+          });
+        }
       } catch (error) {
-        logger.error('Error fetching vehicle details:', error);
-        toast.error('Failed to load vehicle details');
+        logger.error('🔴 Error fetching vehicle details:', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : 'No stack trace'
+        });
+        setVehicleError(error instanceof Error ? error.message : 'Failed to load vehicle details');
+        toast.error('Failed to load vehicle details. Please try again later.');
+      } finally {
+        setIsLoading(false);
+        setIsLoadingVehicle(false);
       }
     };
 
@@ -158,22 +351,39 @@ export default function BookingSummaryPage() {
   }, [searchParams, router]);
 
   useEffect(() => {
-    const details: BookingSummaryDetails = {
-      vehicleId: searchParams.get('vehicleId') || '',
-      vehicleName: searchParams.get('vehicleName') || '',
-      location: searchParams.get('location') || '',
-      pickupDate: searchParams.get('pickupDate') || '',
-      pickupTime: searchParams.get('pickupTime') || '',
-      dropoffDate: searchParams.get('dropoffDate') || '',
-      dropoffTime: searchParams.get('dropoffTime') || '',
-      pricePerHour: Number(searchParams.get('pricePerHour')) || 0,
-      price7Days: Number(searchParams.get('price7Days')) || undefined,
-      price15Days: Number(searchParams.get('price15Days')) || undefined,
-      price30Days: Number(searchParams.get('price30Days')) || undefined,
-    };
+    if (searchParams) {
+      const vehicleId = searchParams.get('vehicleId') || '';
+      const vehicleName = searchParams.get('vehicleName') || '';
+      const location = searchParams.get('location') || '';
+      const pickupDate = searchParams.get('pickupDate') || '';
+      const pickupTime = searchParams.get('pickupTime') || '';
+      const dropoffDate = searchParams.get('dropoffDate') || '';
+      const dropoffTime = searchParams.get('dropoffTime') || '';
+      const pricePerHour = Number(searchParams.get('pricePerHour')) || 0;
+      const price7Days = Number(searchParams.get('price7Days')) || 0;
+      const price15Days = Number(searchParams.get('price15Days')) || 0;
+      const price30Days = Number(searchParams.get('price30Days')) || 0;
 
-    setBookingDetails(details);
-  }, [searchParams]);
+      setBookingDetails({
+        vehicleId,
+        vehicleName,
+        location,
+        pickupDate,
+        pickupTime,
+        dropoffDate,
+        dropoffTime,
+        pricePerHour,
+        price7Days,
+        price15Days,
+        price30Days,
+        vehicle: {
+          name: vehicleName,
+          images: vehicleImageUrl || '',
+          location: location
+        }
+      });
+    }
+  }, [searchParams, vehicleImageUrl]);
 
   useEffect(() => {
     // Check for pending payment in localStorage
@@ -198,6 +408,66 @@ export default function BookingSummaryPage() {
       }
     }
   }, []);
+
+  // Add an effect to update the vehicleImageUrl when vehicleDetails change
+  useEffect(() => {
+    if (vehicleDetails && vehicleDetails.images) {
+      let processedImageUrl = '';
+      
+      // Log the raw data we're working with for debugging
+      console.log('Processing vehicleDetails images:', {
+        imagesType: typeof vehicleDetails.images,
+        isArray: Array.isArray(vehicleDetails.images),
+        dataLook: Array.isArray(vehicleDetails.images) 
+          ? `Array with ${vehicleDetails.images.length} items` 
+          : typeof vehicleDetails.images === 'string'
+            ? (vehicleDetails.images as string).substring(0, 30) + '...'
+            : typeof vehicleDetails.images
+      });
+      
+      if (Array.isArray(vehicleDetails.images) && vehicleDetails.images.length > 0) {
+        // If it's an array, use the first item
+        const firstImage = vehicleDetails.images[0];
+        processedImageUrl = firstImage;
+        console.log('Using first image from array:', firstImage);
+      } else if (typeof vehicleDetails.images === 'string') {
+        // If it's a string, check if it's JSON
+        const imagesStr = vehicleDetails.images as string;
+        try {
+          if (imagesStr.startsWith('[')) {
+            const parsedImages = JSON.parse(imagesStr);
+            if (Array.isArray(parsedImages) && parsedImages.length > 0) {
+              processedImageUrl = parsedImages[0];
+              console.log('Using first image from parsed JSON string:', processedImageUrl);
+            }
+          } else if (imagesStr.startsWith('http') || imagesStr.startsWith('/')) {
+            // Direct URL
+            processedImageUrl = imagesStr;
+            console.log('Using direct image URL:', processedImageUrl);
+          }
+        } catch (e) {
+          console.error('Error parsing images JSON:', e);
+          if (imagesStr.includes('https:') || imagesStr.includes('http:')) {
+            // It might be a URL string with quoting issues, try to extract it
+            const urlMatch = imagesStr.match(/(https?:\/\/[^"']+)/);
+            if (urlMatch && urlMatch[1]) {
+              processedImageUrl = urlMatch[1];
+              console.log('Extracted URL from string:', processedImageUrl);
+            }
+          }
+        }
+      }
+      
+      // Validate the URL format
+      if (processedImageUrl && (processedImageUrl.startsWith('http') || processedImageUrl.startsWith('/'))) {
+        console.log('Setting valid vehicle image URL:', processedImageUrl);
+        setVehicleImageUrl(processedImageUrl);
+      } else {
+        console.warn('No valid image URL found, using fallback');
+        setVehicleImageUrl('');
+      }
+    }
+  }, [vehicleDetails]);
 
   const handleProceedToPayment = async () => {
     setIsLoading(true);
@@ -228,7 +498,9 @@ export default function BookingSummaryPage() {
       // Calculate duration only if both dates are valid
       let duration = 0;
       if (!isNaN(pickupDateTime.getTime()) && !isNaN(dropoffDateTime.getTime())) {
-        duration = calculateDuration(pickupDateTime, dropoffDateTime);
+        duration = Math.ceil(
+          (dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60)
+        );
       } else {
         logger.warn('Invalid dates for duration calculation', {
           pickupDateTime,
@@ -437,6 +709,30 @@ export default function BookingSummaryPage() {
     }
   };
 
+  // Calculate total amount based on booking details
+  const totalAmount = useMemo(() => {
+    if (!bookingDetails) return 0;
+
+    const pickupDateTime = new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`);
+    const dropoffDateTime = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`);
+    
+    // Calculate duration in hours
+    const durationInHours = Math.ceil(
+      (dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60)
+    );
+
+    return calculateRentalPrice(
+      {
+        price_per_hour: bookingDetails.pricePerHour,
+        price_7_days: bookingDetails.price7Days,
+        price_15_days: bookingDetails.price15Days,
+        price_30_days: bookingDetails.price30Days
+      },
+      durationInHours,
+      isWeekendIST(pickupDateTime)
+    );
+  }, [bookingDetails]);
+
   if (!bookingDetails) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -447,7 +743,9 @@ export default function BookingSummaryPage() {
 
   const pickupDateTime = new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`);
   const dropoffDateTime = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`);
-  const duration = calculateDuration(pickupDateTime, dropoffDateTime);
+  const duration = Math.ceil(
+    (dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60)
+  );
   
   // Calculate base price with minimum duration rules and special pricing
   const isWeekend = pickupDateTime.getDay() === 0 || pickupDateTime.getDay() === 6;
@@ -468,55 +766,70 @@ export default function BookingSummaryPage() {
   const serviceFee = basePrice * 0.05;
   const totalPrice = basePrice + gst + serviceFee;
 
-  // Create booking object with properly extracted image from vehicle details
+  // Create booking object with properly processed image from vehicle details
   const booking = {
     vehicle: {
-      name: bookingDetails.vehicleName,
-      // Use the first image from vehicleDetails if available, with proper validation
-      image: vehicleDetails && Array.isArray(vehicleDetails.images) && vehicleDetails.images.length > 0 
-        ? vehicleDetails.images[0] 
-        : '/images/placeholder-vehicle.png',
-      location: bookingDetails.location,
+      name: vehicleDetails?.name || 'Vehicle',
+      image: vehicleImageUrl || '', // Don't use fallback image
+      location: bookingDetails.location || 'Unknown'
     },
-    start_date: `${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`,
-    end_date: `${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`,
+    start_date: pickupDateTime?.toISOString() || '',
+    end_date: dropoffDateTime?.toISOString() || '',
     duration: duration,
     total_price: totalPrice,
     base_price: basePrice,
     gst: gst,
-    service_fee: serviceFee,
+    service_fee: serviceFee
   };
 
-  // Add more detailed logging for image debugging
-  logger.info('Booking being passed to BookingSummary:', {
+  // Add this debug log to see the final image being used
+  console.log('FINAL BOOKING OBJECT IMAGE:', {
+    vehicleImageUrl,
+    urlType: typeof vehicleImageUrl,
+    urlLength: vehicleImageUrl?.length || 0,
+    isDataUrl: vehicleImageUrl?.startsWith('data:') || false,
+    isHttp: vehicleImageUrl?.startsWith('http') || false,
+    isLocal: vehicleImageUrl?.startsWith('/') || false
+  });
+
+  // Enhanced debugging of final image choice
+  logger.info('🎯 FINAL BOOKING IMAGE SELECTION:', {
     vehicleName: booking.vehicle.name,
-    vehicleImageUrl: booking.vehicle.image,
-    vehicleImageType: typeof booking.vehicle.image,
-    isImageDataUrl: booking.vehicle.image?.startsWith('data:'),
-    isImageHttp: booking.vehicle.image?.startsWith('http'),
-    vehicleDetailsAvailable: !!vehicleDetails,
-    imagesArrayExists: vehicleDetails && Array.isArray(vehicleDetails.images),
-    imagesArrayLength: vehicleDetails && Array.isArray(vehicleDetails.images) ? vehicleDetails.images.length : 0
+    selectedImage: booking.vehicle.image,
+    imageType: typeof booking.vehicle.image,
+    imageLength: booking.vehicle.image?.length,
+    isHttp: booking.vehicle.image?.startsWith('http'),
+    isHttps: booking.vehicle.image?.startsWith('https'),
+    isDataUrl: booking.vehicle.image?.startsWith('data:'),
+    isRelativePath: booking.vehicle.image && !booking.vehicle.image.startsWith('http') && !booking.vehicle.image.startsWith('data:'),
+    isFallback: booking.vehicle.image === ''
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 relative">
-      {pendingPayment && !isLoading && (
-        <PendingPaymentAlert
-          payment={pendingPayment}
-          onClose={() => {
-            setPendingPayment(null);
-            localStorage.removeItem('pendingPayment');
-          }}
+    <div className="container mx-auto px-4 py-8">
+      {pendingPayment && (
+        <PendingPaymentAlert 
+          payment={pendingPayment} 
+          onClose={() => setPendingPayment(null)} 
         />
       )}
-      
-      {booking && (
+
+      {isLoading ? (
+        <div className="flex justify-center items-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin" />
+        </div>
+      ) : vehicleError ? (
+        <div className="text-center text-red-600">{vehicleError}</div>
+      ) : vehicleDetails && bookingDetails ? (
         <BookingSummary
-          booking={booking}
-          onProceedToPayment={handleProceedToPayment}
+          vehicle={vehicleDetails}
+          startDate={`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`}
+          endDate={`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`}
+          totalAmount={totalAmount}
+          onPaymentClick={handleProceedToPayment}
+          onTermsAccept={() => setShowTerms(false)}
         />
-      )}
+      ) : null}
     </div>
   );
 }

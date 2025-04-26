@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     // Get user's current password hash
     const userResult = await query(
-      'SELECT password_hash FROM users WHERE id = $1',
+      'SELECT password_hash FROM users WHERE id = $1::uuid',
       [session.user.id]
     );
 
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     // Update password
     await query(
-      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+      'UPDATE users SET password_hash = $1::uuid, updated_at = NOW() WHERE id = $2::uuid',
       [newPasswordHash, session.user.id]
     );
 

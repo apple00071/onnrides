@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     // Save reset token
     await query(
       `INSERT INTO password_resets (user_id, token, expires_at)
-       VALUES ($1, $2, $3)
+       VALUES ($1::uuid, $2, $3)
        ON CONFLICT (user_id) 
        DO UPDATE SET token = EXCLUDED.token, expires_at = EXCLUDED.expires_at`,
       [user.id, resetToken, expiresAt]

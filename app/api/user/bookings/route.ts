@@ -40,7 +40,7 @@ const getBookingsHandler = async (request: NextRequest) => {
     const countSql = `
       SELECT COUNT(*) 
       FROM bookings 
-      WHERE user_id = $1
+      WHERE user_id = $1::uuid
     `;
     const countResult = await query(countSql, [userId]);
     const totalItems = parseInt(countResult.rows[0].count);
@@ -68,7 +68,7 @@ const getBookingsHandler = async (request: NextRequest) => {
         TO_CHAR(${toISTSql('b.end_date')}, 'DD Mon YYYY, HH12:MI AM') as formatted_dropoff
       FROM bookings b
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.user_id = $1
+      WHERE b.user_id = $1::uuid
       ORDER BY b.created_at DESC
       LIMIT $2 OFFSET $3
     `;
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
 
     // Get vehicle details for the notification
     const vehicleResult = await query(
-      'SELECT name FROM vehicles WHERE id = $1',
+      'SELECT name FROM vehicles WHERE id = $1::uuid',
       [vehicle_id]
     );
 
@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
           payment_status,
           created_at,
           updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+        ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
         RETURNING *
       `, insertValues);
 

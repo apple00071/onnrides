@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
            payment_status = 'completed',
            payment_details = payment_details || $1::jsonb
        WHERE id = $2
-       RETURNING id`,
+       RETURNING id::text`,
       [
         JSON.stringify({
           razorpay_order_id,

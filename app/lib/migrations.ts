@@ -1,8 +1,11 @@
 import logger from '@/lib/logger';
-import { pool } from './db';
+// Migrations system is disabled, so we don't need the pool import
+// import { pool } from '@/lib/db';
 
+// Commenting out migrations that might conflict with Prisma schema
 const migrations = [
-  // Add your SQL migrations here
+  // Do not create these tables - they are handled by Prisma migrations
+  /*
   `
   CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -52,10 +55,14 @@ const migrations = [
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
   );
   `
+  */
 ];
 
 export async function runMigrations() {
   try {
+    logger.debug('Migration system disabled - using Prisma migrations instead');
+    // Skip running migrations to avoid conflicts with Prisma
+    /*
     logger.debug('Running migrations...');
     
     for (const migration of migrations) {
@@ -63,6 +70,7 @@ export async function runMigrations() {
     }
     
     logger.debug('Migrations completed successfully');
+    */
   } catch (error) {
     logger.error('Error running migrations:', error);
     throw error;

@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       FROM bookings b
       LEFT JOIN users u ON u.id = b.user_id
       LEFT JOIN vehicles v ON v.id = b.vehicle_id
-      WHERE b.user_id = $1
+      WHERE b.user_id = $1::uuid
       ORDER BY b.created_at DESC
     `;
 

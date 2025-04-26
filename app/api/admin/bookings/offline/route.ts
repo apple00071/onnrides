@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       // Create or get user
       let userId;
       const existingUser = await query(
-        'SELECT id FROM users WHERE phone = $1',
+        'SELECT id FROM users WHERE phone = $1::uuid',
         [customerPhone]
       );
 
@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
       } else {
         const newUser = await query(
           `INSERT INTO users (name, phone, email, role, created_at, updated_at)
-           VALUES ($1, $2, $3, 'user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-           RETURNING id`,
+           VALUES ($1::uuid, $2, $3, 'user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           RETURNING id::text`,
           [customerName, customerPhone, customerEmail]
         );
         userId = newUser.rows[0].id;
@@ -94,8 +94,8 @@ export async function POST(request: NextRequest) {
           created_by,
           created_at,
           updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        RETURNING id`,
+        ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $1::uuid0, $1::uuid1, $1::uuid2, $1::uuid3, $1::uuid4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING id::text`,
         [
           bookingId,
           userId,
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
 
       // Get vehicle details for notifications
       const vehicleResult = await query(
-        'SELECT name FROM vehicles WHERE id = $1',
+        'SELECT name FROM vehicles WHERE id = $1::uuid',
         [vehicleId]
       );
 

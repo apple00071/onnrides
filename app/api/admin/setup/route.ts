@@ -101,8 +101,8 @@ export async function POST(request: NextRequest) {
         is_blocked,
         is_verified
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, email, role
+      VALUES ($1::uuid, $2, $3, $4, $5, $6)
+      RETURNING id::text, email, role
     `, [
       'Admin User',
       adminEmail,

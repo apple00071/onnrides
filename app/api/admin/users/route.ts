@@ -1,165 +1,109 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import logger from '@/lib/logger';
-import { sql } from 'kysely';
+import { Pool } from 'pg';
 
-export async function GET(_request: NextRequest) {
+// Simple API endpoint to get users data for admin panel
+export async function GET(req: NextRequest) {
   try {
+    // Verify admin access
     const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({
-        success: false,
-        error: 'Not authenticated'
-      }, { status: 401 });
+    if (!session || session.user?.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized access' },
+        { status: 403 }
+      );
     }
 
-    // Get all non-admin users
-    const users = await db
-      .selectFrom('users')
-      .select(['id', 'name', 'email', 'phone', 'role', 'created_at'])
-      .where('role', '!=', 'admin')
-      .execute();
-
-    const usersWithDetails = await Promise.all(
-      users.map(async (user) => {
-        try {
-          // Get document counts
-          const documentCounts = await db
-            .selectFrom('documents')
-            .select([
-              sql<number>`count(*)`.as('total'),
-              sql<number>`sum(case when status = 'approved' then 1 else 0 end)`.as('approved')
-            ])
-            .where('user_id', '=', user.id)
-            .executeTakeFirst();
-
-          // Get booking counts
-          const bookingCounts = await db
-            .selectFrom('bookings')
-            .select([
-              sql<number>`count(*)`.as('total'),
-              sql<number>`sum(case when status = 'completed' then 1 else 0 end)`.as('completed'),
-              sql<number>`sum(case when status = 'cancelled' then 1 else 0 end)`.as('cancelled')
-            ])
-            .where('user_id', '=', user.id)
-            .executeTakeFirst();
-
-          return {
-            ...user,
-            documents: documentCounts,
-            bookings: bookingCounts
-          };
-        } catch (error) {
-          logger.error('Error fetching details for user:', {
-            userId: user.id,
-            error: error instanceof Error ? error.message : 'Unknown error'
-          });
-          // Return user with empty counts on error
-          return {
-            ...user,
-            documents: { total: 0, approved: 0 },
-            bookings: { total: 0, completed: 0, cancelled: 0 }
-          };
+    // Get query parameters
+    const url = new URL(req.url);
+    const searchParams = url.searchParams;
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+    
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+    
+    // Create a database connection pool
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false
+      }
+    });
+    
+    try {
+      // Build the SQL query with search conditions if needed
+      let query = `
+        SELECT 
+          id::text as id, 
+          name, 
+          email, 
+          phone, 
+          role,
+          created_at,
+          updated_at,
+          CASE WHEN is_blocked IS TRUE THEN TRUE ELSE FALSE END as is_blocked
+        FROM users
+      `;
+      
+      const queryParams = [];
+      
+      if (search) {
+        query += ` WHERE name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1`;
+        queryParams.push(`%${search}%`);
+      }
+      
+      // Add order by, limit and offset
+      query += ` ORDER BY created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      queryParams.push(limit, skip);
+      
+      // Execute the query
+      logger.info('Executing direct SQL query for users:', { query, params: queryParams });
+      const result = await pool.query(query, queryParams);
+      
+      // Get total count for pagination
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM users
+        ${search ? `WHERE name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1` : ''}
+      `;
+      
+      const countResult = await pool.query(
+        countQuery, 
+        search ? [`%${search}%`] : []
+      );
+      
+      const totalCount = parseInt(countResult.rows[0].total);
+      const totalPages = Math.ceil(totalCount / limit);
+      
+      // Return the results
+      return NextResponse.json({
+        users: result.rows,
+        pagination: {
+          totalCount,
+          totalPages,
+          currentPage: page,
+          limit,
         }
-      })
+      });
+    } catch (error) {
+      logger.error('Database error in users API:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch users' },
+        { status: 500 }
+      );
+    } finally {
+      // Always release the pool
+      await pool.end();
+    }
+  } catch (error) {
+    logger.error('Error fetching users:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch users' },
+      { status: 500 }
     );
-
-    return NextResponse.json({
-      success: true,
-      data: usersWithDetails
-    });
-
-  } catch (error) {
-    logger.error('Error fetching users:', {
-      error: error instanceof Error ? {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      } : error
-    });
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to fetch users',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
-  }
-}
-
-export async function DELETE(_request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
-      logger.debug('Unauthorized delete attempt');
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(_request.url);
-    const userId = searchParams.get('id');
-
-    if (!userId) {
-      return NextResponse.json({
-        success: false,
-        error: 'User ID is required'
-      }, { status: 400 });
-    }
-
-    // Check if user exists and is not an admin
-    const userCheck = await db
-      .selectFrom('users')
-      .select('role')
-      .where('id', '=', userId)
-      .executeTakeFirst();
-
-    if (!userCheck) {
-      return NextResponse.json({
-        success: false,
-        error: 'User not found'
-      }, { status: 404 });
-    }
-
-    if (userCheck.role === 'admin') {
-      return NextResponse.json({
-        success: false,
-        error: 'Cannot delete admin users'
-      }, { status: 403 });
-    }
-
-    // Use a transaction to ensure all deletes succeed or none do
-    await db.transaction().execute(async (trx) => {
-      // Delete user's documents
-      await trx
-        .deleteFrom('documents')
-        .where('user_id', '=', userId)
-        .execute();
-      
-      // Delete user's bookings
-      await trx
-        .deleteFrom('bookings')
-        .where('user_id', '=', userId)
-        .execute();
-      
-      // Delete the user
-      await trx
-        .deleteFrom('users')
-        .where('id', '=', userId)
-        .execute();
-    });
-
-    logger.debug(`Successfully deleted user ${userId}`);
-    return NextResponse.json({
-      success: true,
-      message: 'User deleted successfully'
-    });
-  } catch (error) {
-    logger.error('Error deleting user:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to delete user'
-    }, { status: 500 });
   }
 } 

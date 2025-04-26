@@ -5,7 +5,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
 
     // Get user profile
     const { rows: [profile] } = await query(
-      'SELECT id, email, role FROM users WHERE id = $1',
+      'SELECT id, email, role FROM users WHERE id = $1::uuid',
       [decoded.userId]
     );
 

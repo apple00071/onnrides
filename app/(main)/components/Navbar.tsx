@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import UserNav from './UserNav';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
@@ -239,6 +239,7 @@ export default function Navbar() {
                   fill
                   className="object-contain"
                   priority
+                  sizes="112px"
                 />
               </div>
             </Link>
@@ -251,99 +252,97 @@ export default function Navbar() {
             </button>
           </div>
 
-          {/* User Info Section */}
-          {session?.user ? (
-            <div className="p-4 border-b bg-gray-50">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-full bg-[#f26e24] flex items-center justify-center text-white shadow-sm">
-                  <User className="w-6 h-6" />
+          {/* Mobile Menu Links */}
+          <div className="px-4 py-6 space-y-6 flex-1 overflow-y-auto">
+            {session?.user ? (
+              <>
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="h-10 w-10 rounded-full bg-[#f26e24] flex items-center justify-center text-white font-semibold">
+                    {session.user.name?.charAt(0) || 'U'}
+                  </div>
+                  <div>
+                    <div className="font-goodtimes text-gray-900">{session.user.name || 'User'}</div>
+                    <div className="text-sm text-gray-500">{session.user.email || ''}</div>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-gray-900">{session.user.name}</p>
-                  <p className="text-sm text-gray-500">{session.user.email}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="p-4 border-b">
-              <div className="grid grid-cols-2 gap-3">
-                <Link
-                  href="/auth/signin"
-                  className="flex justify-center items-center bg-[#f26e24] text-white py-2.5 rounded-md font-medium text-sm transition-colors hover:bg-[#e05d13]"
+                <Link 
+                  href="/profile" 
                   onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
                 >
-                  Sign In
+                  <UserCircle className="h-5 w-5 text-[#f26e24]" />
+                  <span className="font-goodtimes text-gray-700">Profile</span>
                 </Link>
-                <Link
-                  href="/auth/signup"
-                  className="flex justify-center items-center border border-[#f26e24] text-[#f26e24] py-2.5 rounded-md font-medium text-sm transition-colors hover:bg-orange-50"
+                <Link 
+                  href="/bookings" 
                   onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
                 >
-                  Sign Up
+                  <Car className="h-5 w-5 text-[#f26e24]" />
+                  <span className="font-goodtimes text-gray-700">My Rides</span>
                 </Link>
-              </div>
-            </div>
-          )}
+                <div className="border-t border-gray-200 my-4"></div>
+              </>
+            ) : null}
 
-          {/* Navigation Links */}
-          <nav className="pt-2 pb-4 flex flex-col">
-            <Link
+            {/* Common menu links */}
+            <Link 
               href="/"
-              className="flex items-center py-3 px-4 text-gray-600 hover:bg-gray-50 hover:text-[#f26e24] transition-colors active:bg-gray-100"
-              onClick={() => setIsMenuOpen(false)}
+              onClick={() => setIsMenuOpen(false)} 
+              className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
             >
-              <Home className="w-5 h-5 mr-3 flex-shrink-0" />
-              <span className="text-base font-medium">Home</span>
+              <Home className="h-5 w-5 text-[#f26e24]" />
+              <span className="font-goodtimes text-gray-700">Home</span>
             </Link>
-            <Link
+            <Link 
               href="/about"
-              className="flex items-center py-3 px-4 text-gray-600 hover:bg-gray-50 hover:text-[#f26e24] transition-colors active:bg-gray-100"
-              onClick={() => setIsMenuOpen(false)}
+              onClick={() => setIsMenuOpen(false)} 
+              className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
             >
-              <Info className="w-5 h-5 mr-3 flex-shrink-0" />
-              <span className="text-base font-medium">About Us</span>
+              <Info className="h-5 w-5 text-[#f26e24]" />
+              <span className="font-goodtimes text-gray-700">About</span>
             </Link>
-            <Link
+            <Link 
               href="/contact"
-              className="flex items-center py-3 px-4 text-gray-600 hover:bg-gray-50 hover:text-[#f26e24] transition-colors active:bg-gray-100"
-              onClick={() => setIsMenuOpen(false)}
+              onClick={() => setIsMenuOpen(false)} 
+              className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
             >
-              <Phone className="w-5 h-5 mr-3 flex-shrink-0" />
-              <span className="text-base font-medium">Contact Us</span>
+              <Phone className="h-5 w-5 text-[#f26e24]" />
+              <span className="font-goodtimes text-gray-700">Contact Us</span>
             </Link>
             
-            {/* Rest of navigation links... */}
-            
-            {session?.user && (
-              <Link
-                href="/profile"
-                className="flex items-center py-3 px-4 text-gray-600 hover:bg-gray-50 hover:text-[#f26e24] transition-colors active:bg-gray-100"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <UserCircle className="w-5 h-5 mr-3 flex-shrink-0" />
-                <span className="text-base font-medium">My Profile</span>
-              </Link>
-            )}
-            
-            {/* Logout button if user is logged in */}
-            {session?.user && (
-              <button
+            {/* Auth buttons */}
+            <div className="border-t border-gray-200 my-4"></div>
+            {session?.user ? (
+              <button 
                 onClick={() => {
                   setIsMenuOpen(false);
-                  // Add your logout function here
+                  signOut({ callbackUrl: '/auth/signin' });
                 }}
-                className="flex items-center py-3 px-4 text-gray-600 hover:bg-gray-50 hover:text-red-500 w-full text-left transition-colors active:bg-gray-100"
+                className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-red-50 text-red-600 transition-colors w-full"
               >
-                <LogOut className="w-5 h-5 mr-3 flex-shrink-0" />
-                <span className="text-base font-medium">Logout</span>
+                <LogOut className="h-5 w-5" />
+                <span className="font-goodtimes">Sign Out</span>
               </button>
+            ) : (
+              <div className="space-y-4">
+                <Link 
+                  href="/auth/signin"
+                  onClick={() => setIsMenuOpen(false)} 
+                  className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700 transition-colors w-full"
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  <span className="font-goodtimes">Sign In</span>
+                </Link>
+                <Link 
+                  href="/auth/signup"
+                  onClick={() => setIsMenuOpen(false)} 
+                  className="flex items-center justify-center px-4 py-2 bg-[#f26e24] text-white rounded-md hover:bg-[#e05d13] transition-colors w-full"
+                >
+                  <span className="font-goodtimes">Sign Up</span>
+                </Link>
+              </div>
             )}
-          </nav>
-          
-          {/* Footer for mobile menu */}
-          <div className="mt-auto p-4 border-t text-center text-xs text-gray-500">
-            <p>© {new Date().getFullYear()} OnnRides</p>
-            <p className="mt-1">Best vehicle rental service in Hyderabad</p>
           </div>
         </div>
       </div>

@@ -41,7 +41,7 @@ export async function GET(
         created_at,
         updated_at
        FROM documents 
-       WHERE user_id = $1 
+       WHERE user_id = $1::uuid 
        ORDER BY created_at DESC`,
       [userId]
     );
@@ -127,7 +127,7 @@ export async function PATCH(
     }
 
     const result = await query(
-      'UPDATE documents SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+      'UPDATE documents SET status = $1::uuid, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
       [status, documentId]
     );
 
@@ -139,7 +139,7 @@ export async function PATCH(
     }
 
     const userDocuments = await query(
-      'SELECT * FROM documents WHERE user_id = $1',
+      'SELECT * FROM documents WHERE user_id = $1::uuid',
       [userId]
     );
     const allDocsApproved = userDocuments.rows.every(doc => doc.status === 'approved');

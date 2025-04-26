@@ -70,19 +70,17 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Check if email is already taken
-    if (email) {
-      const { rows: existingUser } = await query(
-        'SELECT id FROM users WHERE email = $1 AND id != $2',
-        [email, session.user.id]
-      );
+    // Check if email is already taken by another user
+    const emailCheckResult = await query(
+      'SELECT id FROM users WHERE email = $1 AND id != $2',
+      [email, session.user.id]
+    );
 
-      if (existingUser.length > 0) {
-        return NextResponse.json(
-          { error: 'Email is already in use' },
-          { status: 400 }
-        );
-      }
+    if (emailCheckResult.rows.length > 0) {
+      return NextResponse.json(
+        { error: 'Email is already in use' },
+        { status: 400 }
+      );
     }
 
     // Update user profile

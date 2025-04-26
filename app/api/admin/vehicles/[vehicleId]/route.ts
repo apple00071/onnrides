@@ -160,7 +160,7 @@ export async function DELETE(
 
     // Delete the vehicle using query
     const result = await query(
-      'DELETE FROM vehicles WHERE id = $1 RETURNING id',
+      'DELETE FROM vehicles WHERE id = $1 RETURNING id::text',
       [vehicleId]
     );
 

@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     const result = await query(
       `SELECT id, name, email, phone, role, created_at, updated_at 
        FROM users 
-       WHERE id = $1`,
+       WHERE id = $1::uuid`,
       [session.user.id]
     );
 
@@ -82,9 +82,9 @@ export async function PUT(request: NextRequest) {
     // Update user profile
     const result = await query(
       `UPDATE users 
-       SET name = $1, updated_at = NOW() 
-       WHERE id = $2 
-       RETURNING id, name, email, phone, role`,
+       SET name = $1::uuid, updated_at = NOW() 
+       WHERE id = $2::uuid 
+       RETURNING id::text, name, email, phone, role`,
       [name, session.user.id]
     );
 

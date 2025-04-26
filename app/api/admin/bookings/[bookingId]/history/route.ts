@@ -29,7 +29,7 @@ export async function GET(
         COALESCE(u.name, bh.created_by) as created_by
       FROM booking_history bh
       LEFT JOIN users u ON bh.created_by = u.id
-      WHERE bh.booking_id = $1
+      WHERE bh.booking_id = $1::uuid
       ORDER BY bh.created_at DESC`,
       [params.bookingId]
     );

@@ -30,7 +30,7 @@ export async function GET() {
         b.created_at
       FROM bookings b
       INNER JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.user_id = $1
+      WHERE b.user_id = $1::uuid
       ORDER BY b.created_at DESC
       LIMIT 5
     `, [session.user.id]);
@@ -39,14 +39,14 @@ export async function GET() {
     const bookingsCount = await query(`
       SELECT COUNT(id) as count
       FROM bookings
-      WHERE user_id = $1
+      WHERE user_id = $1::uuid
     `, [session.user.id]);
 
     // Get total amount spent
     const totalSpent = await query(`
       SELECT SUM(total_price) as total
       FROM bookings
-      WHERE user_id = $1
+      WHERE user_id = $1::uuid
     `, [session.user.id]);
 
     return NextResponse.json({

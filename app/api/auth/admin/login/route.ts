@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     // Update last login
     await query(
-      'UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      'UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = $1::uuid',
       [user.id]
     );
 

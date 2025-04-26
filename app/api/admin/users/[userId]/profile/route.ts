@@ -30,7 +30,7 @@ export async function GET(
 
     // User query
     const userResult = await query<User>(
-      'SELECT id, name, email, phone, role, created_at FROM users WHERE id = $1',
+      'SELECT id, name, email, phone, role, created_at FROM users WHERE id = $1::uuid',
       [userId]
     );
     const user = userResult.rows[0];
@@ -48,7 +48,7 @@ export async function GET(
         COUNT(*) as total,
         SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved
       FROM documents
-      WHERE user_id = $1
+      WHERE user_id = $1::uuid
     `, [userId]);
     const documentCounts = documentCountsResult.rows[0];
 
@@ -59,7 +59,7 @@ export async function GET(
         SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
         SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled
       FROM bookings
-      WHERE user_id = $1
+      WHERE user_id = $1::uuid
     `, [userId]);
     const bookingCounts = bookingCountsResult.rows[0];
 

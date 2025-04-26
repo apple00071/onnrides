@@ -6,11 +6,11 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+// Replace the deprecated config with the new format
+export const dynamic = 'force-dynamic';
+export const preferredRegion = 'auto';
+export const runtime = 'nodejs';
+export const bodyParser = false;
 
 export async function POST(request: NextRequest) {
   try {

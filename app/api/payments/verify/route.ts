@@ -5,7 +5,8 @@ import crypto from 'crypto';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { EmailService } from '@/lib/email/service';
-import { formatDate, formatCurrency } from '@/lib/utils';
+import { formatDateTimeIST } from '@/lib/utils/timezone';
+import { formatCurrency } from '@/lib/utils/currency';
 import type { QueryResult } from 'pg';
 import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import Razorpay from 'razorpay';
@@ -49,17 +50,25 @@ function formatTimeIST(date: Date | string): string {
   return formatTimeIST(date);
 }
 
-// Helper function to format date only in IST
-function formatShortDateIST(date: Date | string): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  const istDate = new Date(dateObj.getTime() + (5.5 * 60 * 60 * 1000));
-  
-  return istDate.toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
+// Update formatShortDateIST to use centralized utility
+const formatShortDateIST = (date: Date | string) => {
+  try {
+    return formatDateTimeIST(date);
+  } catch (error) {
+    logger.error('Error formatting short date IST', { date, error });
+    return String(date);
+  }
+};
+
+interface PaymentDetails {
+  payment_capture?: Record<string, unknown>;
+  razorpay_payment_id?: string;
+  razorpay_order_id?: string;
+  direct_capture?: boolean;
+  payment_status?: string;
+  payment_completed_at?: string;
+  amount_paid?: number;
+  currency?: string;
 }
 
 interface BookingRow {
@@ -75,73 +84,43 @@ interface BookingRow {
   total_price: number;
   status: string;
   payment_status: string;
-  payment_details: any;
+  payment_details: PaymentDetails;
   pickup_location: string;
 }
 
-// Helper to safely serialize error objects
-function serializeError(error: any): Record<string, any> {
-  if (!error) return { message: 'Unknown error' };
-  
-  const serializedError: Record<string, any> = {};
-  
-  // Extract basic error properties
+interface SerializedError {
+  name?: string;
+  message?: string;
+  stack?: string;
+  code?: string | number;
+  [key: string]: unknown;
+}
+
+function serializeError(error: unknown): SerializedError {
   if (error instanceof Error) {
-    serializedError.name = error.name;
-    serializedError.message = error.message;
-    serializedError.stack = error.stack;
-  } else if (typeof error === 'string') {
-    serializedError.message = error;
-  } else if (typeof error === 'object') {
-    try {
-      // Try to safely copy properties from error object
-      Object.keys(error).forEach(key => {
-        const value = error[key];
-        // Avoid circular references
-        if (typeof value !== 'function' && key !== 'toJSON') {
-          serializedError[key] = value;
-        }
-      });
-    } catch (e) {
-      serializedError.message = 'Error object could not be serialized';
-      serializedError.originalError = String(error);
+    const serialized: SerializedError = {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    };
+    // Safely copy any additional properties
+    for (const [key, value] of Object.entries(error)) {
+      if (key !== 'name' && key !== 'message' && key !== 'stack') {
+        serialized[key] = value;
+      }
     }
-  } else {
-    serializedError.message = 'Unknown error type';
-    serializedError.originalError = String(error);
+    return serialized;
   }
-  
-  // Handle Axios errors specifically
-  if (error.isAxiosError || error.request || error.response) {
-    serializedError.isAxiosError = true;
-    
-    if (error.response) {
-      serializedError.response = {
-        status: error.response.status,
-        statusText: error.response.statusText,
-        data: error.response.data
-      };
-    }
-    
-    if (error.config) {
-      serializedError.request = {
-        url: error.config.url,
-        method: error.config.method,
-        baseURL: error.config.baseURL
-      };
-    }
-  }
-  
-  return serializedError;
+  return typeof error === 'object' ? { ...(error as Record<string, unknown>) } : { message: String(error) };
 }
 
 // Find booking by ID and user ID with more robust error handling
-async function findBooking(bookingId: string, userId: string): Promise<any> {
+async function findBooking(bookingId: string, userId: string): Promise<BookingRow | null> {
   try {
     logger.info('Attempting to find booking', { bookingId, userId });
     
     const result = await query(
-      `SELECT * FROM bookings WHERE booking_id = $1 AND user_id = $2`,
+      `SELECT * FROM bookings WHERE booking_id = $1::uuid AND user_id = $2`,
       [bookingId, userId]
     );
     
@@ -173,7 +152,7 @@ async function findOrderIdForBooking(bookingId: string, paymentId: string): Prom
     // Method 1: Check booking record
     try {
       const result = await query(
-        `SELECT payment_details->>'razorpay_order_id' as order_id FROM bookings WHERE booking_id = $1`,
+        `SELECT payment_details->>'razorpay_order_id' as order_id FROM bookings WHERE booking_id = $1::uuid`,
         [bookingId]
       );
       
@@ -255,7 +234,7 @@ async function findOrderIdForBooking(bookingId: string, paymentId: string): Prom
       
       // First get booking details to determine amount
       const bookingResult = await query(
-        `SELECT total_price FROM bookings WHERE booking_id = $1`,
+        `SELECT total_price FROM bookings WHERE booking_id = $1::uuid`,
         [bookingId]
       );
       
@@ -303,6 +282,40 @@ async function findOrderIdForBooking(bookingId: string, paymentId: string): Prom
   }
 }
 
+interface RazorpayPayment {
+  id: string;
+  entity: string;
+  amount: string | number;
+  currency: string;
+  status: string;
+  order_id: string;
+  invoice_id: string | null;
+  international: boolean;
+  method: string;
+  amount_refunded?: number;
+  refund_status: string | null;
+  captured: boolean;
+  description?: string;
+  card_id: string | null;
+  bank: string | null;
+  wallet: string | null;
+  vpa: string | null;
+  email: string;
+  contact: string | number;
+  notes: Record<string, any>;
+  fee: number;
+  tax: number;
+  error_code: string | null;
+  error_description: string | null;
+  error_source: string | null;
+  error_step: string | null;
+  error_reason: string | null;
+  acquirer_data?: {
+    auth_code?: string;
+  };
+  created_at: number;
+}
+
 // Update booking status after payment
 async function updateBookingAfterPayment(
   bookingId: string, 
@@ -310,36 +323,49 @@ async function updateBookingAfterPayment(
   orderId: string, 
   captureAmount: number, 
   currency: string,
-  captureResponse: any
-): Promise<any> {
+  captureResponse: RazorpayPayment
+): Promise<BookingRow> {
   try {
-    const updateResult = await query(
+    // Convert amount to number if it's a string
+    const amount = typeof captureResponse.amount === 'string' 
+      ? parseFloat(captureResponse.amount) 
+      : captureResponse.amount;
+
+    // Convert contact to string if it's a number
+    const contact = typeof captureResponse.contact === 'number'
+      ? captureResponse.contact.toString()
+      : captureResponse.contact;
+
+    // Update booking with payment details
+    const result = await query(
       `UPDATE bookings 
-       SET status = 'confirmed',
-           payment_status = 'completed',
-           payment_details = jsonb_build_object(
-             'payment_capture', $1::jsonb,
-             'razorpay_payment_id', $2::text,
-             'razorpay_order_id', $3::text,
-             'payment_status', 'completed',
-             'payment_completed_at', CURRENT_TIMESTAMP,
-             'amount_paid', $4::numeric,
-             'currency', $5::text
-           ),
-           updated_at = CURRENT_TIMESTAMP
-       WHERE booking_id = $6::text
-       RETURNING id, booking_id, status, payment_status, payment_details`,
+       SET payment_status = $1::uuid,
+           payment_details = $2,
+           status = $3,
+           updated_at = NOW()
+       WHERE id = $4::uuid
+       RETURNING *`,
       [
-        JSON.stringify(captureResponse),
-        paymentId,
-        orderId,
-        Number(captureAmount) / 100,
-        currency,
+        'completed',
+        JSON.stringify({
+          payment_capture: {
+            ...captureResponse,
+            contact // Use the converted contact value
+          },
+          razorpay_payment_id: paymentId,
+          razorpay_order_id: orderId,
+          direct_capture: true,
+          payment_status: 'completed',
+          payment_completed_at: new Date().toISOString(),
+          amount_paid: amount,
+          currency: currency
+        }),
+        'confirmed',
         bookingId
       ]
     );
-    
-    return updateResult.rows[0];
+
+    return result.rows[0];
   } catch (error) {
     logger.error('Error updating booking after payment:', error);
     throw error;
@@ -501,7 +527,7 @@ export async function POST(request: NextRequest) {
                        ),
                        updated_at = CURRENT_TIMESTAMP
                    WHERE booking_id = $5::text
-                   RETURNING id, booking_id, status, payment_status, payment_details`,
+                   RETURNING id::text, booking_id, status, payment_status, payment_details`,
                   [
                     JSON.stringify(payment),
                     razorpay_payment_id,
@@ -741,7 +767,7 @@ export async function POST(request: NextRequest) {
              ),
              updated_at = CURRENT_TIMESTAMP
              WHERE booking_id = $5::text
-         RETURNING id, booking_id, status, payment_status, payment_details`,
+         RETURNING id::text, booking_id, status, payment_status, payment_details`,
         [
           razorpay_payment_id,
               orderId,
@@ -803,7 +829,7 @@ export async function POST(request: NextRequest) {
            FROM bookings b
            JOIN users u ON b.user_id = u.id
            JOIN vehicles v ON b.vehicle_id = v.id
-           WHERE b.booking_id = $1`,
+           WHERE b.booking_id = $1::uuid`,
           [booking_id]
         );
 

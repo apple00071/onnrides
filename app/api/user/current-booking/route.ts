@@ -62,7 +62,7 @@ const getCurrentBookingHandler = async (request: NextRequest) => {
         TO_CHAR(${toISTSql('b.end_date')}, 'DD Mon YYYY, HH12:MI AM') as formatted_dropoff
       FROM bookings b
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.user_id = $1
+      WHERE b.user_id = $1::uuid
       AND b.status = 'confirmed'
       AND b.end_date > NOW()
       ORDER BY b.start_date ASC

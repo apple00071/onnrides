@@ -31,7 +31,7 @@ export async function GET(
       `SELECT d.*, u.id as user_id 
        FROM documents d
        INNER JOIN users u ON d.user_id = u.id
-       WHERE d.id = $1 
+       WHERE d.id = $1::uuid 
        LIMIT 1`,
       [documentId]
     );

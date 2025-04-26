@@ -78,7 +78,7 @@ async function updateBookingAfterPayment(
            ),
            updated_at = CURRENT_TIMESTAMP
        WHERE booking_id = $5::text
-       RETURNING id, booking_id, status, payment_status, payment_details`,
+       RETURNING id::text, booking_id, status, payment_status, payment_details`,
       [
         JSON.stringify(paymentData),
         paymentId,

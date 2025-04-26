@@ -28,7 +28,7 @@ export async function POST(
 
     // Get user's phone number
     const userResult = await query(
-      'SELECT phone FROM users WHERE id = $1',
+      'SELECT phone FROM users WHERE id = $1::uuid',
       [params.userId]
     );
 

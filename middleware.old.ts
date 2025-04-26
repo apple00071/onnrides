@@ -44,7 +44,7 @@ export async function middleware(request: NextRequest) {
       pathname.includes('/admin') ||
       pathname.match(/\.[^/]+$/) // Skip files with extensions
   ) {
-    return new NextResponse(null);
+    return undefined;
   }
 
   // Check maintenance mode
@@ -60,7 +60,7 @@ export async function middleware(request: NextRequest) {
 
       // If user is admin, let them through
       if (token?.role === 'admin') {
-        return new NextResponse(null);
+        return undefined;
       }
 
       // Otherwise redirect to maintenance page
@@ -73,7 +73,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return new NextResponse(null);
+  return undefined;
 }
 
 export const config = {

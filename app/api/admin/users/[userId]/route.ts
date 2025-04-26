@@ -11,7 +11,7 @@ export async function GET(
 ) {
   try {
     const result = await query(
-      'SELECT * FROM users WHERE id = $1',
+      'SELECT * FROM users WHERE id = $1::uuid',
       [params.userId]
     );
 
@@ -40,7 +40,7 @@ export async function PUT(
     const { status, message } = await request.json();
     
     const result = await query(
-      'UPDATE users SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+      'UPDATE users SET status = $1::uuid, updated_at = CURRENT_TIMESTAMP WHERE id = $2::uuid RETURNING *',
       [status, params.userId]
     );
 
@@ -87,7 +87,7 @@ export async function DELETE(
 ) {
   try {
     const result = await query(
-      'DELETE FROM users WHERE id = $1 RETURNING *',
+      'DELETE FROM users WHERE id = $1::uuid RETURNING *',
       [params.userId]
     );
 

@@ -85,7 +85,7 @@ export async function POST(
     try {
       // First, check if the booking exists and its current status
       const bookingCheck = await query(
-        'SELECT status, user_id, payment_status FROM bookings WHERE id = $1',
+        'SELECT status, user_id, payment_status FROM bookings WHERE id = $1::uuid',
         [bookingId]
       );
 
@@ -110,13 +110,13 @@ export async function POST(
          SET status = 'initiated', 
              notes = CASE WHEN $1::text IS NULL OR $1::text = '' THEN notes ELSE $1::text END,
              updated_at = CURRENT_TIMESTAMP
-         WHERE id = $2`,
+         WHERE id = $2::uuid`,
         [notes, bookingId]
       );
 
       // Update or create trip initiation record
       const existingInitiation = await query(
-        'SELECT id FROM trip_initiations WHERE booking_id = $1',
+        'SELECT id FROM trip_initiations WHERE booking_id = $1::uuid',
         [bookingId]
       );
 
@@ -124,7 +124,7 @@ export async function POST(
         // Update existing trip initiation
         await query(
           `UPDATE trip_initiations 
-           SET checklist_completed = $1, 
+           SET checklist_completed = $1::uuid, 
                customer_name = $2,
                customer_phone = $3,
                customer_email = $4,
@@ -133,12 +133,12 @@ export async function POST(
                emergency_contact = $7,
                emergency_name = $8,
                customer_aadhaar_number = $9,
-               customer_dob = $10,
-               vehicle_number = $11,
-               documents = $12,
-               terms_accepted = $13,
+               customer_dob = $1::uuid0,
+               vehicle_number = $1::uuid1,
+               documents = $1::uuid2,
+               terms_accepted = $1::uuid3,
                updated_at = CURRENT_TIMESTAMP
-           WHERE booking_id = $14`,
+           WHERE booking_id = $1::uuid4`,
           [
             checklistCompleted,
             customer.name,
@@ -198,7 +198,7 @@ export async function POST(
             vehicle_number,
             documents,
             terms_accepted
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+          ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $1::uuid0, $1::uuid1, $1::uuid2, $1::uuid3, $1::uuid4)`,
           [
             bookingId,
             checklistCompleted,
@@ -220,34 +220,34 @@ export async function POST(
 
       // If the user ID in the booking doesn't match a user's profile, update or create it
       const userCheck = await query(
-        'SELECT id, phone FROM users WHERE id = $1',
+        'SELECT id, phone FROM users WHERE id = $1::uuid',
         [booking.user_id]
       );
 
       if (userCheck.rows.length === 0 || userCheck.rows[0].phone !== customer.phone) {
         // Check if user exists with the provided phone number
         const existingUser = await query(
-          'SELECT id FROM users WHERE phone = $1',
+          'SELECT id FROM users WHERE phone = $1::uuid',
           [customer.phone]
         );
 
         if (existingUser.rows.length > 0) {
           // Update the booking to use the existing user
           await query(
-            'UPDATE bookings SET user_id = $1 WHERE id = $2',
+            'UPDATE bookings SET user_id = $1::uuid WHERE id = $2::uuid',
             [existingUser.rows[0].id, bookingId]
           );
         } else {
           // Create a new user and update the booking
           const newUser = await query(
             `INSERT INTO users (name, phone, email, role, created_at, updated_at)
-             VALUES ($1, $2, $3, 'user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-             RETURNING id`,
+             VALUES ($1::uuid, $2, $3, 'user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+             RETURNING id::text`,
             [customer.name, customer.phone, customer.email || null]
           );
           
           await query(
-            'UPDATE bookings SET user_id = $1 WHERE id = $2',
+            'UPDATE bookings SET user_id = $1::uuid WHERE id = $2::uuid',
             [newUser.rows[0].id, bookingId]
           );
         }
