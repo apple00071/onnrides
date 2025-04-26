@@ -1,5 +1,5 @@
-import Image from 'next/image';
 import { Metadata } from 'next';
+import Image from 'next/image';
 
 export const metadata: Metadata = {
   title: 'Site Maintenance - OnnRides',
@@ -11,12 +11,13 @@ export default function MaintenancePage() {
     <>
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-4">
         <div className="w-full max-w-md py-8 px-8 bg-white rounded-lg shadow-lg text-center">
-          <div className="relative h-[80px] w-full mb-6">
+          <div className="flex justify-center mb-6">
             <Image 
               src="/logo.png" 
               alt="OnnRides Logo" 
-              fill
-              className="object-contain"
+              width={90} 
+              height={60} 
+              className="h-auto w-auto max-w-[90px]" 
               priority
             />
           </div>

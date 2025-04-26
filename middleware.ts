@@ -15,6 +15,7 @@ const ALWAYS_ACCESSIBLE_PATHS = [
   '/api/maintenance',
   '/admin',
   '/api/admin',
+  '/logo.png',
 ];
 
 // Check if a path should bypass the maintenance check
