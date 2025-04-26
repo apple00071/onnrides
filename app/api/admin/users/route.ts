@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import logger from '@/lib/logger';
 import { Pool } from 'pg';
+
+// Mark route as dynamic to prevent static generation
+export const dynamic = 'force-dynamic';
 
 // Simple API endpoint to get users data for admin panel
 export async function GET(req: NextRequest) {
