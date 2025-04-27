@@ -41,7 +41,8 @@ export async function GET(request: NextRequest) {
     // Check for essential settings and create if missing
     const requiredSettings = [
       { key: 'maintenance_mode', value: 'false' },
-      { key: 'site_name', value: 'OnnRides' }
+      { key: 'site_name', value: 'OnnRides' },
+      { key: 'gst_enabled', value: 'false' }
     ];
     
     for (const setting of requiredSettings) {

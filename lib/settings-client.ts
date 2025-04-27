@@ -150,5 +150,6 @@ export const SETTINGS = {
   SUPPORT_PHONE: 'support_phone',
   BOOKING_ADVANCE_PAYMENT_PERCENTAGE: 'booking_advance_payment_percentage',
   BOOKING_GST_PERCENTAGE: 'booking_gst_percentage',
-  BOOKING_SERVICE_FEE_PERCENTAGE: 'booking_service_fee_percentage'
+  BOOKING_SERVICE_FEE_PERCENTAGE: 'booking_service_fee_percentage',
+  GST_ENABLED: 'gst_enabled'
 }; 

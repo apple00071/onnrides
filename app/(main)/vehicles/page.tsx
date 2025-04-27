@@ -183,6 +183,13 @@ export default function VehiclesPage() {
     return `${days} day${days === 1 ? '' : 's'} ${remainingHours} hour${remainingHours === 1 ? '' : 's'}`;
   };
 
+  const getDurationPrice = (vehicle: Vehicle) => {
+    const durationInDays = parseInt(calculateDuration().split(' ')[0]);
+    if (durationInDays <= 7) return vehicle.price_7_days;
+    if (durationInDays <= 15) return vehicle.price_15_days;
+    return vehicle.price_30_days;
+  };
+
   const handleLocationSelect = useCallback((location: string) => {
     // Clear any existing timeout
     if (timeoutRef.current) {
@@ -557,6 +564,9 @@ export default function VehiclesPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {getSortedVehicles().map(vehicle => {
+                  const durationInDays = parseInt(calculateDuration().split(' ')[0]);
+                  const packagePrice = getDurationPrice(vehicle);
+                  
                   return (
                     <VehicleCard
                       key={vehicle.id}
@@ -566,9 +576,19 @@ export default function VehiclesPage() {
                       }}
                       selectedLocation={currentLocation}
                       onLocationSelect={handleLocationSelect}
-                      pickupDateTime={`${urlParams.pickupDate}T${urlParams.pickupTime}`}
-                      dropoffDateTime={`${urlParams.dropoffDate}T${urlParams.dropoffTime}`}
-                    />
+                      pickupDateTime={pickupDateTime?.toISOString()}
+                      dropoffDateTime={dropoffDateTime?.toISOString()}
+                      showBookingButton={true}
+                    >
+                      <div>
+                        <p className="text-2xl font-semibold">₹{packagePrice}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {durationInDays <= 7 ? '7-day package' : 
+                           durationInDays <= 15 ? '15-day package' : 
+                           '30-day package'}
+                        </p>
+                      </div>
+                    </VehicleCard>
                   );
                 })}
               </div>

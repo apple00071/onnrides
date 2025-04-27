@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getNumericSetting, SETTINGS } from '@/lib/settings';
+import { getNumericSetting, getBooleanSetting, SETTINGS } from '@/lib/settings';
 import logger from '@/lib/logger';
 
 // Handle OPTIONS request for CORS preflight
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     const vehicleId = searchParams.get('vehicleId');
     const vehicleName = searchParams.get('vehicleName');
     const pricePerHour = parseFloat(searchParams.get('pricePerHour') || '0');
-    const price7Days = parseFloat(searchParams.get('price7Days') || '0');
+    const price7Days = parseFloat(searchParams.get('price7Days') || '2399'); // Default 7-day price
     const price15Days = parseFloat(searchParams.get('price15Days') || '0');
     const price30Days = parseFloat(searchParams.get('price30Days') || '0');
 
@@ -60,19 +60,23 @@ export async function GET(request: NextRequest) {
       basePrice = pricePerHour * durationInHours;
     }
 
-    // Fetch configurable rates from settings with defaults as fallback
-    const gstPercentage = await getNumericSetting(SETTINGS.BOOKING_GST_PERCENTAGE, 18);
-    const serviceFeePercentage = await getNumericSetting(SETTINGS.BOOKING_SERVICE_FEE_PERCENTAGE, 5);
-    const advancePaymentPercentage = await getNumericSetting(SETTINGS.BOOKING_ADVANCE_PAYMENT_PERCENTAGE, 5);
+    // Fetch configurable rates and settings
+    const [gstEnabled, gstPercentage, serviceFeePercentage, advancePaymentPercentage] = await Promise.all([
+      getBooleanSetting(SETTINGS.GST_ENABLED, false),
+      getNumericSetting(SETTINGS.BOOKING_GST_PERCENTAGE, 18),
+      getNumericSetting(SETTINGS.BOOKING_SERVICE_FEE_PERCENTAGE, 5),
+      getNumericSetting(SETTINGS.BOOKING_ADVANCE_PAYMENT_PERCENTAGE, 5)
+    ]);
 
     logger.debug('Using configurable rates:', {
+      gstEnabled,
       gstPercentage,
       serviceFeePercentage,
       advancePaymentPercentage
     });
 
     // Calculate fees and taxes
-    const gst = Math.round(basePrice * (gstPercentage / 100));
+    const gst = gstEnabled ? Math.round(basePrice * (gstPercentage / 100)) : 0;
     const serviceFee = Math.round(basePrice * (serviceFeePercentage / 100));
     const totalAmount = basePrice + gst + serviceFee;
     const advancePayment = Math.round(totalAmount * (advancePaymentPercentage / 100));
@@ -92,7 +96,7 @@ export async function GET(request: NextRequest) {
         totalAmount,
         advancePayment,
         percentages: {
-          gst: gstPercentage,
+          gst: gstEnabled ? gstPercentage : 0,
           serviceFee: serviceFeePercentage,
           advancePayment: advancePaymentPercentage
         },

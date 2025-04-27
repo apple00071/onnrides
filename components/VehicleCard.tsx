@@ -32,6 +32,7 @@ interface VehicleCardProps {
   showBookingButton?: boolean;
   onSelect?: (vehicle: Vehicle) => void;
   selected?: boolean;
+  children?: React.ReactNode;
 }
 
 interface PriceDetails {
@@ -54,6 +55,7 @@ export function VehicleCard({
   showBookingButton,
   onSelect,
   selected,
+  children,
 }: VehicleCardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
