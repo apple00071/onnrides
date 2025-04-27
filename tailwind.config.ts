@@ -58,7 +58,8 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['var(--font-inter)'],
-        timegood: ['Timegood', 'sans-serif']
+        timegood: ['Timegood', 'sans-serif'],
+        goodtimes: ['Goodtimes', 'sans-serif'],
       },
       keyframes: {
         "accordion-down": {

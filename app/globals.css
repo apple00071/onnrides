@@ -1,3 +1,20 @@
+@font-face {
+  font-family: 'Good Times';
+  src: url('/fonts/Good Times Rg.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Timegood';
+  src: url('/fonts/Timegood.woff2') format('woff2'),
+       url('/fonts/Timegood.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

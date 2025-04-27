@@ -282,7 +282,7 @@ export default async function RootLayout({
           <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
           <link 
             rel="preload" 
-            href="/fonts/Good Times Rg.woff2" 
+            href="/fonts/goodtimes.woff2" 
             as="font" 
             type="font/woff2" 
             crossOrigin="anonymous"

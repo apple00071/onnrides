@@ -74,11 +74,11 @@ export function BookingSummary({
   // Calculate prices including service charges and advance payment
   const priceCalculation = useMemo(() => {
     const basePrice = totalAmount;
-    const gst = gstEnabled ? Math.round(basePrice * 0.18) : 0; // Only calculate GST if enabled
-    const serviceFee = Math.round(basePrice * 0.05); // 5% Service Fee
+    const gst = gstEnabled ? Math.round(basePrice * 0.18) : 0;
+    const serviceFee = Math.round(basePrice * 0.05);
     const subtotal = basePrice + gst + serviceFee;
     const discountedTotal = subtotal - (couponDiscount || 0);
-    const advancePayment = Math.round(discountedTotal * 0.05); // 5% advance payment
+    const advancePayment = Math.round(discountedTotal * 0.05);
     const remainingPayment = discountedTotal - advancePayment;
     
     return {
@@ -119,7 +119,6 @@ export function BookingSummary({
   }, [vehicle]);
 
   const formatDate = (dateString: string) => {
-    // First convert to IST, then format
     const istDate = toIST(new Date(dateString));
     return istDate ? formatDateTimeIST(istDate) : 'Invalid date';
   };
@@ -148,96 +147,121 @@ export function BookingSummary({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-fit">
-      {/* Vehicle Image and Booking Period Container */}
-      <div className="bg-white rounded-lg shadow-md p-6 h-fit">
-        <div className="relative aspect-video w-full overflow-hidden rounded-lg">
-          {isImageLoading ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-              <LoadingSpinner size="lg" />
-            </div>
-          ) : (
-            <Image
-              src={imageUrl}
-              alt={vehicle?.name || "Vehicle"}
-              fill
-              className="object-cover"
-              priority
-            />
-          )}
-        </div>
-        <div className="mt-4">
-          <h3 className="text-lg font-semibold">{vehicle?.name}</h3>
+      {/* Vehicle Details and Booking Time Container */}
+      <div className="bg-white rounded-xl shadow-lg p-6 h-fit border border-gray-100">
+        {/* Vehicle Details */}
+        <div className="flex flex-col">
+          {/* Vehicle Name and Location */}
+          <h3 className="text-xl font-medium text-gray-900">{vehicle?.name}</h3>
           {vehicle?.location && (
-            <div className="flex items-center mt-2 text-gray-600">
-              <MapPinIcon className="h-5 w-5 mr-1" />
-              <span>{Array.isArray(vehicle.location) ? vehicle.location[0] : vehicle.location}</span>
+            <div className="flex items-center mt-1 text-gray-600">
+              <MapPinIcon className="h-4 w-4 mr-1" />
+              <span className="text-sm">{Array.isArray(vehicle.location) ? vehicle.location[0] : vehicle.location}</span>
             </div>
           )}
-        </div>
 
-        <div className="mt-4 border-t pt-3">
-          <h4 className="font-medium text-gray-900 mb-2">Booking Period</h4>
-          <div className="space-y-1.5">
-            <div className="grid grid-cols-[4rem,1fr] gap-4 items-center">
-              <span className="text-gray-600 text-sm">From:</span>
-              <span className="text-sm font-medium text-right">{formatDate(startDate)}</span>
+          {/* Vehicle Image */}
+          <div className="relative w-full h-[280px] mt-4">
+            {isImageLoading ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                <LoadingSpinner size="lg" />
+              </div>
+            ) : (
+              <Image
+                src={imageUrl}
+                alt={vehicle?.name || "Vehicle"}
+                fill
+                className="object-contain"
+                priority
+              />
+            )}
+          </div>
+
+          {/* Pickup and Dropoff Times */}
+          <div className="mt-6 space-y-2">
+            <div className="flex items-center gap-2">
+              <FaCalendarAlt className="text-gray-400 w-4 h-4" />
+              <span className="text-gray-600 text-sm">Pickup:</span>
+              <span className="text-sm text-gray-900">{formatDate(startDate)}</span>
             </div>
-            <div className="grid grid-cols-[4rem,1fr] gap-4 items-center">
-              <span className="text-gray-600 text-sm">To:</span>
-              <span className="text-sm font-medium text-right">{formatDate(endDate)}</span>
+            <div className="flex items-center gap-2">
+              <FaCalendarAlt className="text-gray-400 w-4 h-4" />
+              <span className="text-gray-600 text-sm">Drop-off:</span>
+              <span className="text-sm text-gray-900">{formatDate(endDate)}</span>
+            </div>
+          </div>
+
+          {/* Additional Details */}
+          <div className="mt-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <span className="text-gray-700">Km limit</span>
+                <span className="text-blue-500 text-sm">(?)
+                </span>
+              </div>
+              <span className="text-gray-900">240 km</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <span className="text-gray-700">Excess km charges</span>
+                <span className="text-blue-500 text-sm">(?)
+                </span>
+              </div>
+              <span className="text-gray-900">₹7.0/km</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Payment Details Container */}
-      <div className="bg-white rounded-lg shadow-md p-4 h-fit">
-        <h4 className="font-medium text-gray-900 mb-2">Payment Details</h4>
-        <div className="space-y-2">
+      <div className="bg-white rounded-xl shadow-lg p-6 h-fit border border-gray-100">
+        <h4 className="font-medium text-gray-900 mb-4">Payment Details</h4>
+        <div className="space-y-3">
           <div className="flex justify-between text-sm">
-            <span>Base Amount</span>
-            <span>{formatCurrency(priceCalculation.basePrice)}</span>
+            <span className="text-gray-600">Base Amount</span>
+            <span className="text-gray-900">{formatCurrency(priceCalculation.basePrice)}</span>
           </div>
           {gstEnabled && (
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>GST (18%)</span>
-              <span>{formatCurrency(priceCalculation.gst)}</span>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">GST (18%)</span>
+              <span className="text-gray-900">{formatCurrency(priceCalculation.gst)}</span>
             </div>
           )}
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>Service Fee (5%)</span>
-            <span>{formatCurrency(priceCalculation.serviceFee)}</span>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Service Fee (5%)</span>
+            <span className="text-gray-900">{formatCurrency(priceCalculation.serviceFee)}</span>
           </div>
           {couponDiscount > 0 && (
-            <div className="flex justify-between text-sm text-green-600">
-              <span>Coupon Discount</span>
-              <span>-{formatCurrency(couponDiscount)}</span>
+            <div className="flex justify-between text-sm">
+              <span className="text-green-600">Coupon Discount</span>
+              <span className="text-green-600">-{formatCurrency(couponDiscount)}</span>
             </div>
           )}
-          <div className="flex justify-between font-semibold text-gray-900 pt-1 border-t">
+          <div className="flex justify-between font-medium text-gray-900 pt-2 border-t">
             <span>Total Amount</span>
             <span>{formatCurrency(priceCalculation.discountedTotal)}</span>
           </div>
 
-          <div className="pt-1 space-y-1">
-            <div className="flex justify-between text-sm text-orange-600">
-              <span>Online Payment (5%)</span>
-              <span>{formatCurrency(priceCalculation.advancePayment)}</span>
+          <div className="pt-2 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-orange-500">Online Payment (5%)</span>
+              <span className="text-orange-500">{formatCurrency(priceCalculation.advancePayment)}</span>
             </div>
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>Remaining Payment (At Pickup)</span>
-              <span>{formatCurrency(priceCalculation.remainingPayment)}</span>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Remaining Payment (At Pickup)</span>
+              <span className="text-gray-900">{formatCurrency(priceCalculation.remainingPayment)}</span>
             </div>
           </div>
 
-          <div className="pt-3">
+          <div className="pt-4">
             <div className="flex gap-2">
               <Input
                 type="text"
                 placeholder="Enter coupon code"
                 value={couponInput}
                 onChange={(e) => handleCouponChange(e.target.value)}
-                className="border-gray-200 focus:ring-orange-500 focus:border-orange-500"
+                className="rounded-full border-gray-200 focus:ring-orange-500 focus:border-orange-500"
               />
               <Button 
                 onClick={handleApplyCoupon} 
@@ -249,14 +273,14 @@ export function BookingSummary({
             </div>
           </div>
 
-          <div className="pt-3">
+          <div className="pt-4">
             <Button 
               onClick={handlePaymentClick} 
               className="w-full bg-orange-500 hover:bg-orange-600 text-white"
             >
               Pay {formatCurrency(priceCalculation.advancePayment)}
             </Button>
-            <p className="text-xs text-gray-500 text-center mt-1">
+            <p className="text-xs text-gray-500 text-center mt-2">
               By proceeding, you agree to our terms and conditions
             </p>
           </div>
