@@ -147,9 +147,9 @@ export function BookingSummary({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-fit">
       {/* Vehicle Image and Booking Period Container */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-lg shadow-md p-6 h-fit">
         <div className="relative aspect-video w-full overflow-hidden rounded-lg">
           {isImageLoading ? (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
@@ -175,25 +175,25 @@ export function BookingSummary({
           )}
         </div>
 
-        <div className="mt-6 border-t pt-4">
-          <h4 className="font-medium text-gray-900">Booking Period</h4>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">From:</span>
-              <span className="font-medium">{formatDate(startDate)}</span>
+        <div className="mt-4 border-t pt-3">
+          <h4 className="font-medium text-gray-900 mb-2">Booking Period</h4>
+          <div className="space-y-1.5">
+            <div className="grid grid-cols-[4rem,1fr] gap-4 items-center">
+              <span className="text-gray-600 text-sm">From:</span>
+              <span className="text-sm font-medium text-right">{formatDate(startDate)}</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">To:</span>
-              <span className="font-medium">{formatDate(endDate)}</span>
+            <div className="grid grid-cols-[4rem,1fr] gap-4 items-center">
+              <span className="text-gray-600 text-sm">To:</span>
+              <span className="text-sm font-medium text-right">{formatDate(endDate)}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Payment Details Container */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h4 className="font-medium text-gray-900 mb-4">Payment Details</h4>
-        <div className="space-y-3">
+      <div className="bg-white rounded-lg shadow-md p-4 h-fit">
+        <h4 className="font-medium text-gray-900 mb-2">Payment Details</h4>
+        <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span>Base Amount</span>
             <span>{formatCurrency(priceCalculation.basePrice)}</span>
@@ -214,12 +214,12 @@ export function BookingSummary({
               <span>-{formatCurrency(couponDiscount)}</span>
             </div>
           )}
-          <div className="flex justify-between font-semibold text-gray-900 pt-2 border-t">
+          <div className="flex justify-between font-semibold text-gray-900 pt-1 border-t">
             <span>Total Amount</span>
             <span>{formatCurrency(priceCalculation.discountedTotal)}</span>
           </div>
 
-          <div className="pt-2 space-y-2">
+          <div className="pt-1 space-y-1">
             <div className="flex justify-between text-sm text-orange-600">
               <span>Online Payment (5%)</span>
               <span>{formatCurrency(priceCalculation.advancePayment)}</span>
@@ -230,7 +230,7 @@ export function BookingSummary({
             </div>
           </div>
 
-          <div className="pt-4">
+          <div className="pt-3">
             <div className="flex gap-2">
               <Input
                 type="text"
@@ -249,14 +249,14 @@ export function BookingSummary({
             </div>
           </div>
 
-          <div className="pt-4">
+          <div className="pt-3">
             <Button 
               onClick={handlePaymentClick} 
               className="w-full bg-orange-500 hover:bg-orange-600 text-white"
             >
               Pay {formatCurrency(priceCalculation.advancePayment)}
             </Button>
-            <p className="text-xs text-gray-500 text-center mt-2">
+            <p className="text-xs text-gray-500 text-center mt-1">
               By proceeding, you agree to our terms and conditions
             </p>
           </div>
