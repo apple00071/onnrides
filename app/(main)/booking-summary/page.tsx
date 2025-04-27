@@ -101,6 +101,22 @@ export default function BookingSummaryPage() {
   const [pendingPayment, setPendingPayment] = useState<any>(null);
   const [vehicleImageUrl, setVehicleImageUrl] = useState<string>('');
   const [showTerms, setShowTerms] = useState(true);
+  const [gstEnabled, setGstEnabled] = useState(false);
+
+  useEffect(() => {
+    const fetchGstSetting = async () => {
+      try {
+        const response = await fetch('/api/settings/gst-enabled');
+        const data = await response.json();
+        setGstEnabled(data.enabled);
+      } catch (error) {
+        console.error('Error fetching GST setting:', error);
+        setGstEnabled(false);
+      }
+    };
+
+    fetchGstSetting();
+  }, []);
 
   useEffect(() => {
     const vehicleId = searchParams.get('vehicleId');
@@ -524,7 +540,7 @@ export default function BookingSummaryPage() {
       const basePrice = calculateRentalPrice(pricing, duration, isWeekend);
       
       // Calculate additional charges
-      const gst = basePrice * 0.18;
+      const gst = gstEnabled ? basePrice * 0.18 : 0;
       const serviceFee = basePrice * 0.05;
       const totalPrice = basePrice + gst + serviceFee;
 
@@ -657,7 +673,7 @@ export default function BookingSummaryPage() {
           paymentData.amount !== undefined && 
           paymentData.razorpayAmount !== paymentData.amount) {
         toast.custom(
-          () => (
+          (
             <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded shadow-md">
               <div className="flex">
                 <div className="flex-shrink-0">
@@ -762,7 +778,7 @@ export default function BookingSummaryPage() {
   const basePrice = calculateRentalPrice(pricing, duration, isWeekend);
   
   // Calculate additional charges
-  const gst = basePrice * 0.18;
+  const gst = gstEnabled ? basePrice * 0.18 : 0;
   const serviceFee = basePrice * 0.05;
   const totalPrice = basePrice + gst + serviceFee;
 
@@ -828,6 +844,7 @@ export default function BookingSummaryPage() {
           totalAmount={totalAmount}
           onPaymentClick={handleProceedToPayment}
           onTermsAccept={() => setShowTerms(false)}
+          gstEnabled={gstEnabled}
         />
       ) : null}
     </div>

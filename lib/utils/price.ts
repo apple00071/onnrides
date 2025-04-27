@@ -23,6 +23,10 @@ export function calculateRentalPrice(pricing: RentalPricing, durationHours: numb
 
   // If duration is 30 days or more and 30-day price is set
   if (durationDays >= 30 && pricing.price_30_days && pricing.price_30_days > 0) {
+    // For durations close to 30 days, use the 30-day price
+    if (durationDays <= 31) {
+      return pricing.price_30_days;
+    }
     const fullMonths = Math.floor(durationDays / 30);
     const remainingDays = durationDays % 30;
     return (fullMonths * pricing.price_30_days) + 
@@ -31,6 +35,10 @@ export function calculateRentalPrice(pricing: RentalPricing, durationHours: numb
 
   // If duration is 15 days or more and 15-day price is set
   if (durationDays >= 15 && pricing.price_15_days && pricing.price_15_days > 0) {
+    // For durations close to 15 days, use the 15-day price
+    if (durationDays <= 16) {
+      return pricing.price_15_days;
+    }
     const full15Days = Math.floor(durationDays / 15);
     const remainingDays = durationDays % 15;
     return (full15Days * pricing.price_15_days) + 
@@ -39,6 +47,10 @@ export function calculateRentalPrice(pricing: RentalPricing, durationHours: numb
 
   // If duration is 7 days or more and 7-day price is set
   if (durationDays >= 7 && pricing.price_7_days && pricing.price_7_days > 0) {
+    // For durations close to 7 days, use the 7-day price
+    if (durationDays <= 8) {
+      return pricing.price_7_days;
+    }
     const fullWeeks = Math.floor(durationDays / 7);
     const remainingDays = durationDays % 7;
     return (fullWeeks * pricing.price_7_days) + 

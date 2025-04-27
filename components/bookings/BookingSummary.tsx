@@ -49,6 +49,7 @@ interface BookingSummaryProps {
   onCouponApply?: (code: string) => void;
   onPaymentClick?: () => void;
   onTermsAccept?: () => void;
+  gstEnabled?: boolean;
 }
 
 export function BookingSummary({
@@ -61,6 +62,7 @@ export function BookingSummary({
   onCouponApply,
   onPaymentClick,
   onTermsAccept,
+  gstEnabled = false,
 }: BookingSummaryProps) {
   const { data: session } = useSession();
   const [showTerms, setShowTerms] = useState(false);
@@ -72,7 +74,7 @@ export function BookingSummary({
   // Calculate prices including service charges and advance payment
   const priceCalculation = useMemo(() => {
     const basePrice = totalAmount;
-    const gst = Math.round(basePrice * 0.18); // 18% GST
+    const gst = gstEnabled ? Math.round(basePrice * 0.18) : 0; // Only calculate GST if enabled
     const serviceFee = Math.round(basePrice * 0.05); // 5% Service Fee
     const subtotal = basePrice + gst + serviceFee;
     const discountedTotal = subtotal - (couponDiscount || 0);
@@ -88,7 +90,7 @@ export function BookingSummary({
       advancePayment,
       remainingPayment
     };
-  }, [totalAmount, couponDiscount]);
+  }, [totalAmount, couponDiscount, gstEnabled]);
 
   useEffect(() => {
     const loadImage = async () => {
@@ -196,10 +198,12 @@ export function BookingSummary({
             <span>Base Amount</span>
             <span>{formatCurrency(priceCalculation.basePrice)}</span>
           </div>
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>GST (18%)</span>
-            <span>{formatCurrency(priceCalculation.gst)}</span>
-          </div>
+          {gstEnabled && (
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>GST (18%)</span>
+              <span>{formatCurrency(priceCalculation.gst)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm text-gray-600">
             <span>Service Fee (5%)</span>
             <span>{formatCurrency(priceCalculation.serviceFee)}</span>
