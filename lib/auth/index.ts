@@ -1,2 +1,2 @@
-export * from './config';
-export * from './utils'; 
+export { authOptions } from './auth-options';
+export { verifyAuth, verifyAdmin } from './verify'; 

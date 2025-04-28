@@ -25,11 +25,16 @@ model bookings {
   dropoff_location  String?
   booking_id        String?
   payment_intent_id String?   @unique
+  trip_initiation   TripInitiation?
+
+  user    users    @relation(fields: [user_id], references: [id])
+  vehicle vehicles @relation(fields: [vehicle_id], references: [id])
 
   @@index([user_id, status], map: "idx_booking_user_status")
   @@index([vehicle_id, start_date, end_date], map: "idx_booking_vehicle_dates")
   @@index([payment_status], map: "idx_booking_payment_status")
   @@index([payment_intent_id], map: "idx_bookings_payment_intent_id")
+  @@map("bookings")
 }
 
 model documents {
@@ -56,6 +61,8 @@ model users {
   created_at         DateTime? @default(now()) @db.Timestamp(6)
   updated_at         DateTime? @default(now()) @db.Timestamp(6)
 
+  bookings bookings[]
+
   @@index([email], map: "idx_users_email")
   @@index([role], map: "idx_users_role")
 }
@@ -76,6 +83,8 @@ model vehicles {
   price_15_days     Float?    @db.Real
   price_30_days     Float?    @db.Real
   price_7_days      Float?    @db.Real
+
+  bookings bookings[]
 
   @@index([status, is_available], map: "idx_vehicle_status_availability")
   @@index([location, type], map: "idx_vehicle_location_type")
@@ -230,4 +239,28 @@ enum vehicle_status {
   active
   maintenance
   retired
+}
+
+model TripInitiation {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  booking_id           String    @unique @db.Uuid
+  checklist_completed  Boolean   @default(false)
+  customer_name        String
+  customer_phone       String
+  customer_email       String?
+  customer_dl_number   String?
+  customer_address     String?
+  emergency_contact    String?
+  emergency_name       String?
+  customer_aadhaar_number String?
+  customer_dob         String?
+  vehicle_number       String?
+  documents            Json?
+  terms_accepted       Boolean   @default(false)
+  notes               String?
+  created_at          DateTime  @default(now()) @db.Timestamp(6)
+  updated_at          DateTime  @default(now()) @db.Timestamp(6)
+  booking             bookings  @relation(fields: [booking_id], references: [id])
+
+  @@map("trip_initiations")
 }

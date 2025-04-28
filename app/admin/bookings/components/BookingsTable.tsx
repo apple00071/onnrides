@@ -41,6 +41,18 @@ interface BookingWithRelations {
   };
 }
 
+interface ViewBookingModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  booking: BookingWithRelations;
+}
+
+interface ViewHistoryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  booking: BookingWithRelations;
+}
+
 export function BookingsTable() {
   const [bookings, setBookings] = useState<BookingWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,7 +169,7 @@ export function BookingsTable() {
 
   if (error) {
     return (
-      <div className="text-center py-6 text-red-500">
+      <div className="text-center py-4 text-red-500">
         <p>{error}</p>
         <Button onClick={fetchBookings} className="mt-2">
           Retry
@@ -168,122 +180,97 @@ export function BookingsTable() {
 
   return (
     <>
-      <Card>
-        <CardHeader>
+      <Card className="shadow-none border-0">
+        <CardHeader className="px-4 py-3 space-y-1">
           <div className="flex justify-between items-center">
             <div>
-              <CardTitle>Booking Management</CardTitle>
-              <CardDescription>{totalItems} bookings found</CardDescription>
+              <CardTitle className="text-lg">Booking Management</CardTitle>
+              <CardDescription className="text-sm">{totalItems} bookings found</CardDescription>
             </div>
           </div>
         </CardHeader>
 
-        <div className="w-full overflow-x-auto max-h-[calc(100vh-250px)] overflow-y-auto">
-          <table className="w-full table-auto">
-            <thead className="bg-gray-50">
+        <div className="w-full overflow-x-auto max-h-[calc(100vh-200px)] overflow-y-auto">
+          <table className="w-full table-auto border-collapse">
+            <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vehicle</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Start</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">End</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
+            <tbody className="bg-white divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-4 text-center">
-                    <div className="flex justify-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
+                  <td colSpan={10} className="px-3 py-3 text-center">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                   </td>
                 </tr>
-              ) : !bookings || bookings.length === 0 ? (
+              ) : bookings.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-4 text-center text-gray-500">
+                  <td colSpan={10} className="px-3 py-3 text-center text-gray-500">
                     No bookings found
                   </td>
                 </tr>
               ) : (
                 bookings.map((booking) => (
                   <tr key={booking.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-4 text-sm text-gray-900">
-                      {booking.booking_id}
+                    <td className="px-3 py-2 text-sm whitespace-nowrap">{booking.booking_id}</td>
+                    <td className="px-3 py-2 text-sm whitespace-nowrap">{booking.vehicle?.name}</td>
+                    <td className="px-3 py-2 text-sm">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{booking.user?.name}</span>
+                        <span className="text-xs text-gray-500">{booking.user?.phone}</span>
+                      </div>
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-900">
-                      {booking.vehicle?.name || 'N/A'}
-                    </td>
-                    <td className="px-4 py-4 text-sm">
-                      <div>{booking.user?.name || 'N/A'}</div>
-                      <div className="text-xs text-gray-500">{booking.user?.phone || 'N/A'}</div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-900">
-                      {formatDateTime(booking.start_date)}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-900">
-                      {formatDateTime(booking.end_date)}
-                    </td>
-                    <td className="px-4 py-4 text-sm font-medium text-gray-900">
-                      {formatCurrency(booking.total_price)}
-                    </td>
-                    <td className="px-4 py-4 text-sm">
-                      <Badge variant={booking.booking_type === 'offline' ? 'secondary' : 'default'}>
+                    <td className="px-3 py-2 text-sm whitespace-nowrap">{formatDateTime(booking.start_date)}</td>
+                    <td className="px-3 py-2 text-sm whitespace-nowrap">{formatDateTime(booking.end_date)}</td>
+                    <td className="px-3 py-2 text-sm whitespace-nowrap">{formatCurrency(booking.total_price)}</td>
+                    <td className="px-3 py-2 text-sm">
+                      <Badge variant={booking.booking_type === 'online' ? 'default' : 'secondary'} className="rounded-full text-xs">
                         {booking.booking_type}
                       </Badge>
                     </td>
-                    <td className="px-4 py-4 text-sm">
-                      <Badge
-                        variant={
-                          booking.status === 'cancelled'
-                            ? 'destructive'
-                            : booking.status === 'confirmed'
-                            ? 'success'
-                            : 'warning'
-                        }
-                      >
+                    <td className="px-3 py-2 text-sm">
+                      <Badge variant={booking.status === 'confirmed' ? 'default' : booking.status === 'cancelled' ? 'destructive' : 'secondary'} className="rounded-full text-xs">
                         {booking.status}
                       </Badge>
                     </td>
-                    <td className="px-4 py-4 text-sm">
-                      <Badge
-                        variant={
-                          booking.payment_status === 'completed'
-                            ? 'success'
-                            : booking.payment_status === 'cancelled'
-                            ? 'destructive'
-                            : 'warning'
-                        }
-                      >
+                    <td className="px-3 py-2 text-sm">
+                      <Badge variant={booking.payment_status === 'completed' ? 'default' : booking.payment_status === 'cancelled' ? 'destructive' : 'secondary'} className="rounded-full text-xs">
                         {booking.payment_status}
                       </Badge>
                     </td>
-                    <td className="px-4 py-4 text-sm">
-                      <div className="flex space-x-2">
+                    <td className="px-3 py-2 text-sm whitespace-nowrap">
+                      <div className="flex items-center gap-2">
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
+                          className="h-8 w-8 p-0"
                           onClick={() => handleViewBooking(booking)}
                         >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
+                          <Eye className="h-4 w-4" />
                         </Button>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
+                          className="h-8 w-8 p-0"
                           onClick={() => handleViewHistory(booking)}
                         >
-                          <History className="h-4 w-4 mr-1" />
-                          History
+                          <History className="h-4 w-4" />
                         </Button>
                         {booking.status !== 'cancelled' && (
                           <Button
-                            variant="destructive"
+                            variant="ghost"
                             size="sm"
+                            className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
                             onClick={() => handleCancelBooking(booking)}
                           >
                             Cancel
@@ -298,58 +285,46 @@ export function BookingsTable() {
           </table>
         </div>
 
-        {/* Pagination */}
-        {!loading && bookings.length > 0 && (
-          <div className="px-4 py-3 flex items-center justify-between border-t border-gray-200">
-            <div className="flex-1 flex justify-between items-center">
-              <p className="text-sm text-gray-700">
-                Showing page {currentPage} of {totalPages}
-              </p>
-              <div className="space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-t">
+            <div className="flex-1 text-sm text-gray-700">
+              Showing page {currentPage} of {totalPages}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
             </div>
           </div>
         )}
       </Card>
 
-      {/* View Booking Modal */}
       {selectedBooking && (
-        <ViewBookingModal
-          booking={selectedBooking}
-          isOpen={isViewModalOpen}
-          onClose={() => {
-            setIsViewModalOpen(false);
-            setSelectedBooking(null);
-          }}
-        />
-      )}
-
-      {/* View History Modal */}
-      {selectedBooking && (
-        <ViewHistoryModal
-          booking={selectedBooking}
-          isOpen={isHistoryModalOpen}
-          onClose={() => {
-            setIsHistoryModalOpen(false);
-            setSelectedBooking(null);
-          }}
-        />
+        <>
+          <ViewBookingModal
+            isOpen={isViewModalOpen}
+            onClose={() => setIsViewModalOpen(false)}
+            booking={selectedBooking}
+          />
+          <ViewHistoryModal
+            isOpen={isHistoryModalOpen}
+            onClose={() => setIsHistoryModalOpen(false)}
+            booking={selectedBooking}
+          />
+        </>
       )}
     </>
   );

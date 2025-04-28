@@ -1,13 +1,8 @@
-import { SignJWT, jwtVerify } from 'jose';
-import prisma from '@/lib/prisma';
-import type { User as DbUser } from './schema';
-import { findUserById } from './db';
-import { NextResponse } from 'next/server';
-import { getServerSession, type DefaultSession, type NextAuthOptions } from 'next-auth';
+import { type DefaultSession, type NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcrypt';
 import logger from '@/lib/logger';
-import type { JWT } from 'next-auth/jwt';
+import prisma from '@/lib/prisma';
 
 declare module "next-auth" {
   interface User {
@@ -19,15 +14,6 @@ declare module "next-auth" {
 
   interface Session extends DefaultSession {
     user: User & DefaultSession["user"];
-  }
-}
-
-declare module 'next-auth/jwt' {
-  interface JWT {
-    id: string;
-    email: string;
-    name: string;
-    role: "user" | "admin";
   }
 }
 
@@ -134,33 +120,4 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
     error: "/login",
   },
-};
-
-export async function verifyAuth() {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return null;
-    return session.user;
-  } catch {
-    return null;
-  }
-}
-
-export async function hashPassword(password: string): Promise<string> {
-  const salt = await bcrypt.genSalt(10);
-  return bcrypt.hash(password, salt);
-}
-
-export async function comparePasswords(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
-}
-
-export async function verifyAdmin(request: Request): Promise<boolean> {
-  const session = await getServerSession(authOptions);
-  
-  if (!session) {
-    return false;
-  }
-
-  return session.user?.role === 'admin';
-} 
+}; 

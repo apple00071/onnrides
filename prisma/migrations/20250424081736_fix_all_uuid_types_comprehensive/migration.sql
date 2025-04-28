@@ -14,8 +14,8 @@
 
 */
 -- AlterTable
-ALTER TABLE "users" RENAME CONSTRAINT "users_new_pkey1" TO "users_pkey",
-ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
+ALTER TABLE "users" RENAME CONSTRAINT "users_new_pkey1" TO "users_pkey";
+ALTER TABLE "users" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
 
 -- DropTable
 DROP TABLE "AdminNotification";

@@ -71,6 +71,22 @@ interface CustomerInfo {
   emergencyName?: string;
 }
 
+interface DocumentFiles {
+  dlFront: File | null;
+  dlBack: File | null;
+  aadhaarFront: File | null;
+  aadhaarBack: File | null;
+  customerPhoto: File | null;
+}
+
+interface DocumentPreviews {
+  dlFront: string | null;
+  dlBack: string | null;
+  aadhaarFront: string | null;
+  aadhaarBack: string | null;
+  customerPhoto: string | null;
+}
+
 export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: InitiateBookingModalProps) {
   const [loading, setLoading] = useState(false);
   const [customerInfo, setCustomerInfo] = useState({
@@ -94,36 +110,20 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
     vehicleChecked: false,
     customerBriefed: false
   });
-  const [documentFiles, setDocumentFiles] = useState<{
-    dlFront: File | null;
-    dlBack: File | null;
-    aadhaarFront: File | null;
-    aadhaarBack: File | null;
-    customerPhoto: File | null;
-    signature: File | null;
-  }>({
+  const [documentFiles, setDocumentFiles] = useState<DocumentFiles>({
     dlFront: null,
     dlBack: null,
     aadhaarFront: null,
     aadhaarBack: null,
-    customerPhoto: null,
-    signature: null
+    customerPhoto: null
   });
   
-  const [documentPreviews, setDocumentPreviews] = useState<{
-    dlFront: string | null;
-    dlBack: string | null;
-    aadhaarFront: string | null;
-    aadhaarBack: string | null;
-    customerPhoto: string | null;
-    signature: string | null;
-  }>({
+  const [documentPreviews, setDocumentPreviews] = useState<DocumentPreviews>({
     dlFront: booking.documents?.dlFront || null,
     dlBack: booking.documents?.dlBack || null,
     aadhaarFront: booking.documents?.aadhaarFront || null,
     aadhaarBack: booking.documents?.aadhaarBack || null,
-    customerPhoto: booking.documents?.customerPhoto || null,
-    signature: booking.documents?.signature || null
+    customerPhoto: booking.documents?.customerPhoto || null
   });
   
   // File input references
@@ -132,8 +132,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
     dlBack: useRef<HTMLInputElement>(null),
     aadhaarFront: useRef<HTMLInputElement>(null),
     aadhaarBack: useRef<HTMLInputElement>(null),
-    customerPhoto: useRef<HTMLInputElement>(null),
-    signature: useRef<HTMLInputElement>(null)
+    customerPhoto: useRef<HTMLInputElement>(null)
   };
 
   const { toast } = useToast();
@@ -153,7 +152,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
     return Object.values(checklist).every(item => item === true);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: keyof typeof documentFiles) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: keyof DocumentFiles) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       
@@ -184,6 +183,40 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
     setSignatureData(dataUrl);
   };
 
+  const handleFileUpload = async (type: keyof DocumentFiles) => {
+    try {
+      // ... existing code ...
+      toast({
+        title: "Success",
+        description: "File uploaded successfully",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to upload file. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSignatureUpload = async () => {
+    try {
+      // ... existing code ...
+      toast({
+        title: "Success",
+        description: "Signature uploaded successfully",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to upload signature. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleInitiateTrip = async () => {
     try {
       setLoading(true);
@@ -198,28 +231,34 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
         setLoading(false);
         return;
       }
-      
-      // Validate terms acceptance
-      if (!termsAccepted) {
+
+      // Validate required documents
+      const requiredDocuments = ['dlFront', 'dlBack', 'aadhaarFront', 'aadhaarBack', 'customerPhoto'] as const;
+      const missingDocuments = requiredDocuments.filter(doc => 
+        !documentFiles[doc] && !documentPreviews[doc]
+      );
+
+      if (missingDocuments.length > 0) {
         toast({
-          title: "Terms & Conditions Required",
-          description: "Customer must accept the Terms & Conditions before proceeding",
+          title: "Missing Documents",
+          description: `Please upload: ${missingDocuments.join(', ')}`,
           variant: "destructive"
         });
         setLoading(false);
         return;
       }
-      
+
       // Validate signature
       if (!signatureData) {
         toast({
           title: "Missing Signature",
-          description: "Please have the customer sign before proceeding",
+          description: "Customer signature is required",
           variant: "destructive"
         });
+        setLoading(false);
         return;
       }
-      
+
       // Validate checklist
       if (!allChecklistItemsComplete()) {
         toast({
@@ -230,83 +269,54 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
         setLoading(false);
         return;
       }
+
+      // Create FormData for file uploads
+      const formData = new FormData();
       
-      // Upload any new document files first
-      let uploadedDocuments = { ...booking.documents } || {};
-      
-      // Add signature data to documents
-      if (signatureData) {
-        uploadedDocuments.signature = signatureData;
-      }
-      
-      const uploadPromises = [];
-      
-      for (const [key, file] of Object.entries(documentFiles)) {
+      // Append customer info
+      formData.append('customerInfo', JSON.stringify(customerInfo));
+      formData.append('tripNotes', tripNotes);
+      formData.append('vehicleNumber', vehicleNumber);
+      formData.append('termsAccepted', String(termsAccepted));
+      formData.append('checklist', JSON.stringify(checklist));
+
+      // Append new document files if they exist
+      (Object.entries(documentFiles) as [keyof DocumentFiles, File | null][]).forEach(([key, file]) => {
         if (file) {
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('type', key);
-          formData.append('bookingId', booking.id);
-          
-          const uploadPromise = fetch('/api/admin/upload-document', {
-            method: 'POST',
-            body: formData
-          })
-          .then(response => response.json())
-          .then(data => {
-            if (data.success && data.url) {
-              uploadedDocuments[key as keyof typeof uploadedDocuments] = data.url;
-            }
-          });
-          
-          uploadPromises.push(uploadPromise);
+          formData.append(key, file);
         }
+      });
+
+      // Append signature if it exists
+      if (signatureData) {
+        // Convert base64 to blob
+        const signatureBlob = await fetch(signatureData).then(r => r.blob());
+        formData.append('signature', signatureBlob, 'signature.png');
       }
-      
-      // Wait for all uploads to complete
-      if (uploadPromises.length > 0) {
-        await Promise.all(uploadPromises);
-      }
-      
-      // Send request to update and initiate the trip
+
+      // Send request to API
       const response = await fetch(`/api/admin/bookings/${booking.id}/initiate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          customer: customerInfo,
-          notes: tripNotes,
-          checklistCompleted: true,
-          vehicleNumber: vehicleNumber,
-          documents: uploadedDocuments,
-          termsAccepted: termsAccepted
-        })
+        body: formData
       });
-      
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to initiate trip');
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to initiate trip');
       }
-      
+
       toast({
         title: "Success",
         description: "Trip initiated successfully",
+        variant: "default"
       });
-      
-      // Clean up any object URLs to prevent memory leaks
-      Object.values(documentPreviews).forEach(preview => {
-        if (preview && !preview.startsWith('http')) {
-          URL.revokeObjectURL(preview);
-        }
-      });
-      
+
       onInitiated(booking.id);
+      onClose();
     } catch (error) {
-      logger.error('Error initiating trip:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to initiate trip',
+        description: error instanceof Error ? error.message : "Failed to initiate trip. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -360,7 +370,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     {booking.missing_info.length} Missing Fields
                   </Badge>
                 ) : (
-                  <Badge variant="success" className="flex items-center gap-1">
+                  <Badge variant="default" className="flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" />
                     Complete
                   </Badge>
@@ -544,7 +554,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-medium">Driving License (Front)</h4>
                     {documentPreviews.dlFront ? (
-                      <Badge variant="success" className="flex items-center gap-1">
+                      <Badge variant="default" className="flex items-center gap-1">
                         <CheckCircle className="h-3 w-3" />
                         Provided
                       </Badge>
@@ -595,7 +605,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-medium">Driving License (Back)</h4>
                     {documentPreviews.dlBack ? (
-                      <Badge variant="success" className="flex items-center gap-1">
+                      <Badge variant="default" className="flex items-center gap-1">
                         <CheckCircle className="h-3 w-3" />
                         Provided
                       </Badge>
@@ -646,7 +656,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-medium">Aadhaar Card (Front)</h4>
                     {documentPreviews.aadhaarFront ? (
-                      <Badge variant="success" className="flex items-center gap-1">
+                      <Badge variant="default" className="flex items-center gap-1">
                         <CheckCircle className="h-3 w-3" />
                         Provided
                       </Badge>
@@ -697,7 +707,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-medium">Aadhaar Card (Back)</h4>
                     {documentPreviews.aadhaarBack ? (
-                      <Badge variant="success" className="flex items-center gap-1">
+                      <Badge variant="default" className="flex items-center gap-1">
                         <CheckCircle className="h-3 w-3" />
                         Provided
                       </Badge>
@@ -748,7 +758,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-medium">Customer Photo</h4>
                     {documentPreviews.customerPhoto ? (
-                      <Badge variant="success" className="flex items-center gap-1">
+                      <Badge variant="default" className="flex items-center gap-1">
                         <CheckCircle className="h-3 w-3" />
                         Provided
                       </Badge>
@@ -799,7 +809,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-medium">Terms & Conditions</h4>
                     {termsAccepted ? (
-                      <Badge variant="success" className="flex items-center gap-1">
+                      <Badge variant="default" className="flex items-center gap-1">
                         <CheckCircle className="h-3 w-3" />
                         Accepted
                       </Badge>

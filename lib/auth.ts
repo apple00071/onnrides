@@ -1,17 +1,9 @@
-import { SignJWT, jwtVerify } from 'jose';
-import prisma from '@/lib/prisma';
-import { NextResponse } from 'next/server';
 import { getServerSession, type DefaultSession, type NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcrypt';
 import logger from '@/lib/logger';
 import type { JWT } from 'next-auth/jwt';
-
-// Add the missing hashPassword function
-export async function hashPassword(password: string): Promise<string> {
-  const saltRounds = 10;
-  return bcrypt.hash(password, saltRounds);
-}
+import prisma from '@/lib/prisma';
 
 declare module "next-auth" {
   interface User {
@@ -38,7 +30,6 @@ declare module 'next-auth/jwt' {
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 hours
   },
   providers: [
     CredentialsProvider({
@@ -127,53 +118,54 @@ export const authOptions: NextAuthOptions = {
       };
     },
     async redirect({ url, baseUrl }) {
-      // Always allow internal URLs
-      if (url.startsWith('/')) {
-        // Ensure admin URLs redirect properly
-        if (url.startsWith('/admin')) {
-          return `${baseUrl}${url}`;
-        }
-        return url;
-      }
-      // Allow URLs on the same origin
-      if (url.startsWith(baseUrl)) {
-        return url;
-      }
-      // Default to admin dashboard for admin users
-      return `${baseUrl}/admin/dashboard`;
+      // If the url is relative, prefix it with the base URL
+      if (url.startsWith('/')) return `${baseUrl}${url}`;
+      // If the url is on the same domain, allow it
+      if (new URL(url).origin === baseUrl) return url;
+      // Default to the base URL
+      return baseUrl;
     },
   },
   pages: {
-    signIn: "/admin-login",
-    error: "/admin-login",
+    signIn: "/login",
+    error: "/login",
   },
 };
 
 /**
- * Retrieves the current authenticated user from the session
- * @returns User object or null if not authenticated
+ * Verifies if a user is authenticated and optionally checks their role
  */
-export async function getCurrentUser() {
+export const verifyAuth = async (session: any | null, allowedRoles?: string[]): Promise<boolean> => {
   try {
-    const session = await getServerSession(authOptions);
-    return session?.user || null;
-  } catch (error) {
-    logger.error('Error getting current user:', error);
-    return null;
-  }
-}
+    if (!session?.user) return false;
+    
+    // If no roles specified, just check if user is authenticated
+    if (!allowedRoles || allowedRoles.length === 0) {
+      return true;
+    }
 
-/**
- * Compares a plain text password with a hashed password
- * @param plainPassword The plain text password to compare
- * @param hashedPassword The hashed password to compare against
- * @returns Boolean indicating if the passwords match
- */
-export async function comparePasswords(plainPassword: string, hashedPassword: string): Promise<boolean> {
-  try {
-    return await bcrypt.compare(plainPassword, hashedPassword);
-  } catch (error) {
-    logger.error('Error comparing passwords:', error);
+    // Check if user's role is in allowed roles
+    return allowedRoles.includes(session.user.role?.toUpperCase());
+  } catch {
     return false;
   }
-} 
+};
+
+export const hashPassword = async (password: string): Promise<string> => {
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(password, salt);
+};
+
+export const comparePasswords = async (password: string, hash: string): Promise<boolean> => {
+  return bcrypt.compare(password, hash);
+};
+
+export const verifyAdmin = async (request: Request): Promise<boolean> => {
+  const session = await getServerSession(authOptions);
+  
+  if (!session) {
+    return false;
+  }
+
+  return session.user?.role === 'admin';
+}; 
