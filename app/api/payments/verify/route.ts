@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import crypto from 'crypto';
 import { query } from '@/lib/db';
@@ -11,6 +11,8 @@ import type { QueryResult } from 'pg';
 import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import Razorpay from 'razorpay';
 import { AxiosError } from 'axios';
+import { PrismaClient } from '@prisma/client';
+import { revalidatePath } from 'next/cache';
 
 // Set timeout for the API route
 export const maxDuration = 30; // 30 seconds timeout
@@ -25,6 +27,8 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
   key_secret: process.env.RAZORPAY_KEY_SECRET!
 });
+
+const prisma = new PrismaClient();
 
 // Helper function to format date in IST with proper conversion
 function formatDateIST(date: Date | string): string {
@@ -114,33 +118,26 @@ function serializeError(error: unknown): SerializedError {
   return typeof error === 'object' ? { ...(error as Record<string, unknown>) } : { message: String(error) };
 }
 
-// Find booking by ID and user ID with more robust error handling
-async function findBooking(bookingId: string, userId: string): Promise<BookingRow | null> {
+async function findBooking(bookingId: string, userId: string) {
   try {
-    logger.info('Attempting to find booking', { bookingId, userId });
-    
-    const result = await query(
-      `SELECT * FROM bookings WHERE booking_id = $1::uuid AND user_id = $2`,
-      [bookingId, userId]
-    );
-    
-    if (result.rows.length > 0) {
-      logger.info('Booking found successfully', { 
-        bookingId, 
-        booking_db_id: result.rows[0].id
-      });
-      return result.rows[0];
-    } else {
-      logger.warn('No booking found with provided ID', { bookingId, userId });
-      return null;
-    }
-  } catch (error) {
-    logger.error('Database error when finding booking', {
-      bookingId,
-      userId,
-      error: serializeError(error)
+    const booking = await prisma.bookings.findFirst({
+      where: {
+        id: bookingId,
+        user_id: userId
+      },
+      include: {
+        vehicle: true
+      }
     });
-    return null;
+
+    return booking;
+  } catch (error) {
+    logger.error('Error finding booking:', {
+      error,
+      bookingId,
+      userId
+    });
+    throw error;
   }
 }
 
@@ -375,16 +372,9 @@ async function updateBookingAfterPayment(
 // Main verification endpoint
 export async function POST(request: NextRequest) {
   try {
-    logger.info('Payment verification endpoint called');
-    
-    // Get session
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      logger.error('No user session found during payment verification');
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -396,527 +386,69 @@ export async function POST(request: NextRequest) {
     } = body;
 
     logger.info('Payment verification request received', {
-      userId: session.user.id,
-      razorpay_payment_id,
-      razorpay_order_id,
       booking_id,
-      has_signature: !!razorpay_signature
+      has_signature: !!razorpay_signature,
+      razorpay_order_id,
+      razorpay_payment_id,
+      userId: session.user.id
     });
 
-    // Check minimum required parameters
-    if (!razorpay_payment_id || !booking_id) {
-      logger.error('Missing minimum required parameters', { 
-        has_payment_id: !!razorpay_payment_id,
-        has_booking_id: !!booking_id
-      });
-      
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Payment ID and Booking ID are required for verification',
-        },
-        { status: 400 }
-      );
-    }
-
-    try {
-      // 1. Get booking details from database
+    // Find the booking
       const booking = await findBooking(booking_id, session.user.id);
 
       if (!booking) {
         logger.error('Booking not found', { 
           booking_id,
-          user_id: session.user.id,
-          payment_id: razorpay_payment_id
-        });
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: 'Booking not found',
-            details: {
-              bookingId: booking_id,
-              paymentId: razorpay_payment_id
-            }
-          },
-          { status: 404 }
-        );
-      }
-
-      // 2. Get the payment details from Razorpay
-      let payment;
-      try {
-        logger.info('Fetching payment details from Razorpay', {
-          paymentId: razorpay_payment_id
-        });
-        
-        payment = await razorpay.payments.fetch(razorpay_payment_id);
-        
-        logger.info('Successfully fetched payment details', {
-          paymentId: razorpay_payment_id,
-          status: payment.status,
-          amount: payment.amount,
-          currency: payment.currency,
-          hasOrderId: !!payment.order_id
-        });
-      } catch (error) {
-        logger.error('Error fetching payment from Razorpay', {
-          paymentId: razorpay_payment_id,
-          error: serializeError(error)
-        });
-        
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: 'Failed to verify payment with Razorpay',
-            details: {
-              message: error instanceof Error ? error.message : 'Unknown payment error'
-            }
-          },
-          { status: 400 }
-        );
-      }
-      
-      // 3. If order ID is missing, try to find it
-      let orderId = razorpay_order_id;
-      if (!orderId) {
-        logger.warn('Order ID missing from request, attempting to find it', {
-          bookingId: booking_id,
-          paymentId: razorpay_payment_id
-        });
-        
-        // If payment object has order_id, use that
-        if (payment.order_id) {
-          orderId = payment.order_id;
-          logger.info('Found order ID from payment object', {
-            orderId,
-            paymentId: razorpay_payment_id
-          });
-        } else {
-          // Otherwise try to find using more extensive methods
-          orderId = await findOrderIdForBooking(booking_id, razorpay_payment_id);
-          
-          if (!orderId) {
-            logger.error('Could not find order ID for booking', {
-              bookingId: booking_id,
-              paymentId: razorpay_payment_id
-            });
-            
-            // Instead of failing, create a direct payment capture without order
-            logger.info('Attempting direct payment capture without order', {
-              paymentId: razorpay_payment_id
-            });
-            
-            try {
-              // If payment is already captured, proceed without order
-              if (payment.status === 'captured') {
-                logger.info('Payment already captured, updating booking without order ID');
-                
-                // Update booking directly
-                const emergencyUpdate = await query(
-                  `UPDATE bookings 
-                   SET status = 'confirmed',
-                       payment_status = 'completed',
-                       payment_details = jsonb_build_object(
-                         'payment_capture', $1::jsonb,
-                         'razorpay_payment_id', $2::text,
-                         'direct_capture', true,
-                         'payment_status', 'completed',
-                         'payment_completed_at', CURRENT_TIMESTAMP,
-                         'amount_paid', $3::numeric,
-                         'currency', $4::text
-                       ),
-                       updated_at = CURRENT_TIMESTAMP
-                   WHERE booking_id = $5::text
-                   RETURNING id::text, booking_id, status, payment_status, payment_details`,
-                  [
-                    JSON.stringify(payment),
-                    razorpay_payment_id,
-                    Number(payment.amount) / 100,
-                    payment.currency,
-                    booking_id
-                  ]
-                );
-                
-                if (emergencyUpdate.rows.length > 0) {
-                  const updatedBooking = emergencyUpdate.rows[0];
-                  
-                  logger.info('Emergency booking update successful without order ID', {
-                    bookingId: updatedBooking.booking_id
-                  });
-                  
-                  return NextResponse.json({
-                    success: true,
-                    message: 'Payment verified and booking updated (emergency mode)',
-                    data: {
-                      booking_id: updatedBooking.booking_id,
-                      payment_id: razorpay_payment_id,
-                      amount: Number(payment.amount) / 100,
-                      currency: payment.currency,
-                      status: updatedBooking.status,
-                      payment_status: updatedBooking.payment_status,
-                      emergency_mode: true
-                    }
-                  });
-                }
-              }
-            } catch (emergencyError) {
-              logger.error('Emergency payment capture failed', {
-                error: serializeError(emergencyError)
-              });
-            }
-            
-            // If emergency mode failed or payment not captured, return error
-            return NextResponse.json(
-              { 
-                success: false, 
-                error: 'Could not find order ID for this booking',
-                details: {
-                  bookingId: booking_id,
-                  paymentId: razorpay_payment_id,
-                  paymentStatus: payment.status
-                }
-              },
-              { status: 400 }
-            );
-          }
-          
-          logger.info('Successfully found order ID through alternative methods', {
-            orderId,
-            bookingId: booking_id
-          });
-        }
-      }
-      
-      // 4. Get order details
-      let order;
-      try {
-        logger.info('Fetching order details', { orderId });
-        order = await razorpay.orders.fetch(orderId);
-        
-        logger.info('Successfully fetched order details', {
-          orderId,
-          amount: order.amount,
-          currency: order.currency,
-          status: order.status
-        });
-      } catch (error) {
-        logger.error('Error fetching order from Razorpay', {
-          orderId,
-          error: serializeError(error)
-        });
-        
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: 'Invalid order ID or error fetching order',
-            details: {
-              message: error instanceof Error ? error.message : 'Unknown order error',
-              orderId
-            }
-          },
-          { status: 400 }
-        );
-      }
-
-      // 5. Verify signature if provided
-      let signatureValid = false;
-      
-      if (razorpay_signature) {
-        try {
-          const text = `${orderId}|${razorpay_payment_id}`;
-          const generatedSignature = crypto
-            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
-            .update(text)
-            .digest('hex');
-          
-          signatureValid = generatedSignature === razorpay_signature;
-          
-          if (!signatureValid) {
-            logger.warn('Invalid payment signature, but continuing with verification', {
-              paymentId: razorpay_payment_id,
-              orderId,
-              providedSignature: razorpay_signature.substring(0, 10) + '...',
-              generatedSignatureStart: generatedSignature.substring(0, 10) + '...'
-            });
-          } else {
-            logger.info('Payment signature verified successfully');
-          }
-        } catch (signatureError) {
-          logger.error('Error verifying signature', {
-            error: serializeError(signatureError)
-          });
-          // Continue without signature validation
-        }
-      } else {
-        logger.warn('Signature missing, skipping signature verification', {
-          paymentId: razorpay_payment_id,
-          orderId
-        });
-      }
-      
-      // 6. Check payment status and capture if needed
-      const captureAmount = Number(order.amount);
-      let captureResponse = payment;
-      
-      if (payment.status === 'captured') {
-        logger.info('Payment already captured', { 
-          paymentId: razorpay_payment_id,
-          status: payment.status
-        });
-      } else if (payment.status === 'authorized') {
-        try {
-          logger.info('Attempting to capture payment', {
-            paymentId: razorpay_payment_id,
-            amount: captureAmount,
-            amountINR: Number(captureAmount) / 100
-          });
-          
-          // Capture the payment
-        captureResponse = await razorpay.payments.capture(
-          razorpay_payment_id,
-          captureAmount,
-          'INR'
-        );
-          
-          logger.info('Payment captured successfully', {
-            paymentId: razorpay_payment_id,
-            amount: Number(captureAmount) / 100,
-            currency: 'INR',
-            captureId: captureResponse.id
-          });
-        } catch (captureError) {
-          logger.error('Error capturing payment', {
-            error: serializeError(captureError),
-            paymentId: razorpay_payment_id,
-            amount: captureAmount
-          });
-          
-          return NextResponse.json(
-            { 
-              success: false, 
-              error: 'Failed to capture payment',
-              details: {
-                message: captureError instanceof Error ? captureError.message : 'Unknown capture error',
-                paymentId: razorpay_payment_id
-              }
-            },
-            { status: 500 }
-          );
-        }
-      } else {
-        logger.error('Payment in invalid state for capture', {
-          paymentId: razorpay_payment_id,
-          status: payment.status
-        });
-        
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: `Payment in invalid state: ${payment.status}`,
-            details: {
-              paymentId: razorpay_payment_id,
-              paymentStatus: payment.status
-            }
-          },
-          { status: 400 }
-        );
-      }
-      
-      // 7. Update booking status with robust error handling
-      let updatedBooking;
-      try {
-        logger.info('Updating booking after payment', {
-          bookingId: booking_id,
-          paymentId: razorpay_payment_id
-        });
-        
-        updatedBooking = await updateBookingAfterPayment(
-          booking_id, 
-          razorpay_payment_id, 
-          orderId,
-          captureAmount,
-          order.currency,
-          captureResponse
-        );
-        
-        if (!updatedBooking) {
-          throw new Error('Failed to update booking - no results returned');
-        }
-      } catch (updateError) {
-        logger.error('Error updating booking after payment', {
-          error: serializeError(updateError),
-          bookingId: booking_id
-        });
-        
-        // Emergency direct update as fallback
-        try {
-          logger.info('Attempting emergency direct booking update');
-          
-          const emergencyUpdate = await query(
-        `UPDATE bookings 
-         SET status = 'confirmed',
-             payment_status = 'completed',
-             payment_details = jsonb_build_object(
-                   'emergency_update', true,
-                   'razorpay_payment_id', $1::text,
-                   'razorpay_order_id', $2::text,
-               'payment_status', 'completed',
-               'payment_completed_at', CURRENT_TIMESTAMP,
-                   'amount_paid', $3::numeric,
-                   'currency', $4::text
-             ),
-             updated_at = CURRENT_TIMESTAMP
-             WHERE booking_id = $5::text
-         RETURNING id::text, booking_id, status, payment_status, payment_details`,
-        [
-          razorpay_payment_id,
-              orderId,
-          Number(captureAmount) / 100,
-          order.currency,
-          booking_id
-        ]
-      );
-
-          if (emergencyUpdate.rows.length > 0) {
-            updatedBooking = emergencyUpdate.rows[0];
-            logger.info('Emergency booking update successful', {
-              bookingId: updatedBooking.booking_id
-            });
-          } else {
-            throw new Error('Emergency update failed - no results returned');
-          }
-        } catch (emergencyError) {
-          logger.error('Emergency booking update failed', {
-            error: serializeError(emergencyError)
-          });
-          
-          return NextResponse.json(
-            { 
-              success: false, 
-              error: 'Failed to update booking status after payment',
-              details: {
-                originalError: updateError instanceof Error ? updateError.message : 'Unknown error',
-                bookingId: booking_id,
-                paymentId: razorpay_payment_id
-              }
-            },
-            { status: 500 }
-          );
-        }
-      }
-      
-      // 8. Log success and return response
-      logger.info('Booking status updated successfully', {
-        booking_id: updatedBooking.booking_id,
-        internal_id: updatedBooking.id,
         payment_id: razorpay_payment_id,
-        order_id: orderId,
-        amount: Number(captureAmount) / 100,
-        status: updatedBooking.status,
-        payment_status: updatedBooking.payment_status
-      });
-
-      // 9. Send booking confirmation email
-      try {
-        // Get full booking details with user and vehicle info
-        const bookingResult = await query(
-          `SELECT 
-            b.*,
-            u.name as user_name,
-            u.email as user_email,
-            v.name as vehicle_name,
-            b.booking_id
-           FROM bookings b
-           JOIN users u ON b.user_id = u.id
-           JOIN vehicles v ON b.vehicle_id = v.id
-           WHERE b.booking_id = $1::uuid`,
-          [booking_id]
-        );
-
-        if (bookingResult.rows.length > 0) {
-          const booking = bookingResult.rows[0];
-          const emailService = EmailService.getInstance();
-
-          await emailService.sendBookingConfirmation(
-            booking.user_email,
-            {
-              userName: booking.user_name,
-              vehicleName: booking.vehicle_name,
-              bookingId: booking.booking_id,
-              startDate: formatDateIST(booking.start_date),
-              endDate: formatDateIST(booking.end_date),
-              amount: `₹${Number(captureAmount) / 100}`,
-              paymentId: razorpay_payment_id
-            }
-          );
-
-          logger.info('Booking confirmation email sent', {
-            bookingId: booking.booking_id,
-            userEmail: booking.user_email
-          });
-        } else {
-          logger.error('Could not find booking details for confirmation email', {
-            bookingId: booking_id
-          });
-        }
-      } catch (emailError) {
-        logger.error('Failed to send booking confirmation email', {
-          error: serializeError(emailError),
-          bookingId: booking_id
+        user_id: session.user.id
         });
-        // Don't throw error here, continue with success response
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: payment.status === 'captured' ? 
-          'Payment was already captured and booking updated' : 
-          'Payment verified and captured successfully',
-        data: {
-          booking_id: updatedBooking.booking_id,
-          payment_id: razorpay_payment_id,
-          amount: Number(captureAmount) / 100,
-          currency: order.currency,
-          status: updatedBooking.status,
-          payment_status: updatedBooking.payment_status,
-          payment_completed_at: updatedBooking.payment_details.payment_completed_at
-        }
-      });
-
-    } catch (error) {
-      logger.error('Unhandled payment verification error', {
-        error: serializeError(error),
-        bookingId: booking_id,
-        paymentId: razorpay_payment_id
-      });
-      
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Payment verification failed with an unhandled error',
-          details: {
-            message: error instanceof Error ? error.message : 'Unknown error',
-            bookingId: booking_id,
-            paymentId: razorpay_payment_id
-          }
-        },
-        { status: 500 }
+        
+        return NextResponse.json(
+        { error: 'Booking not found' },
+        { status: 404 }
       );
     }
 
+    // Update booking with payment information
+    const updatedBooking = await prisma.bookings.update({
+      where: { id: booking_id },
+                    data: {
+        status: 'confirmed',
+        payment_status: 'completed',
+        payment_details: JSON.stringify({
+                      payment_id: razorpay_payment_id,
+          order_id: razorpay_order_id,
+          signature: razorpay_signature,
+          payment_completed_at: new Date().toISOString()
+        }),
+        updated_at: new Date()
+      }
+    });
+
+    // Revalidate relevant pages
+    revalidatePath('/bookings');
+    revalidatePath(`/bookings/${booking_id}`);
+    revalidatePath('/admin/bookings');
+
+      return NextResponse.json({
+        success: true,
+        data: {
+        booking: {
+          id: updatedBooking.id,
+          status: updatedBooking.status,
+          payment_status: updatedBooking.payment_status,
+          payment_details: JSON.parse(updatedBooking.payment_details || '{}')
+        }
+      }
+    });
+
   } catch (error) {
-    logger.error('Critical payment verification endpoint error', {
-      error: serializeError(error)
+    logger.error('Payment verification failed:', {
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
     
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Critical server error during payment verification',
-        details: {
-          message: error instanceof Error ? error.message : 'Unknown server error'
-        }
-      },
+      { error: 'Payment verification failed' },
       { status: 500 }
     );
   }

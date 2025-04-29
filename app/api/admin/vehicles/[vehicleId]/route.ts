@@ -64,51 +64,56 @@ export async function PUT(
       body
     });
 
-    // Validate required fields based on our schema
-    if (!body.name || !body.type || !body.location || 
-        !body.quantity || !body.price_per_hour || !body.min_booking_hours) {
-      logger.warn('Missing required fields:', {
-        receivedFields: Object.keys(body),
-        missingFields: ['name', 'type', 'location', 'quantity', 'price_per_hour', 'min_booking_hours'].filter(field => !body[field])
-      });
+    // Validate required fields
+    const requiredFields = ['name', 'type', 'location', 'price_per_hour'];
+    const missingFields = requiredFields.filter(field => !body[field]);
+    
+    if (missingFields.length > 0) {
       return NextResponse.json(
-        { error: 'Missing required fields: name, type, location, quantity, price_per_hour, and min_booking_hours are required' },
+        { error: `Missing required fields: ${missingFields.join(', ')}` },
         { status: 400 }
       );
     }
 
-    // Ensure location is a string (not an array)
-    const location = Array.isArray(body.location) ? body.location.join(', ') : body.location;
+    // Prepare update data
+    const updateData = {
+      name: body.name,
+      type: body.type,
+      location: Array.isArray(body.location) ? body.location.join(', ') : body.location,
+      price_per_hour: Number(body.price_per_hour),
+      min_booking_hours: body.min_booking_hours ? Number(body.min_booking_hours) : 1,
+      quantity: body.quantity ? Number(body.quantity) : 1,
+      price_7_days: body.price_7_days ? Number(body.price_7_days) : null,
+      price_15_days: body.price_15_days ? Number(body.price_15_days) : null,
+      price_30_days: body.price_30_days ? Number(body.price_30_days) : null,
+      is_available: typeof body.is_available === 'boolean' ? body.is_available : true,
+      images: body.images ? (Array.isArray(body.images) ? body.images : [body.images]) : [],
+      status: ['active', 'maintenance', 'retired'].includes(body.status) ? body.status : 'active'
+    };
 
     // Update the vehicle using Prisma
-    const result = await prisma.vehicles.update({
+    const updatedVehicle = await prisma.vehicles.update({
       where: { id: vehicleId },
       data: {
-        name: body.name,
-        type: body.type,
-        location: location,
-        quantity: Number(body.quantity),
-        price_per_hour: Number(body.price_per_hour),
-        min_booking_hours: Number(body.min_booking_hours),
-        price_7_days: body.price_7_days ? Number(body.price_7_days) : null,
-        price_15_days: body.price_15_days ? Number(body.price_15_days) : null,
-        price_30_days: body.price_30_days ? Number(body.price_30_days) : null,
-        is_available: body.is_available ?? true,
-        images: Array.isArray(body.images) ? JSON.stringify(body.images) : body.images || '[]',
-        status: body.status || 'active'
+        ...updateData,
+        updated_at: new Date()
       }
     });
 
-    logger.info('Vehicle updated successfully:', { vehicleId, result });
+    // Revalidate the vehicles page
+    revalidatePath('/admin/vehicles');
+    revalidatePath('/vehicles');
+    revalidatePath(`/vehicles/${vehicleId}`);
+
+    logger.info('Vehicle updated successfully:', { vehicleId, updatedVehicle });
 
     return NextResponse.json({
       success: true,
       data: {
-        vehicle: result
+        vehicle: updatedVehicle
       }
     });
   } catch (error) {
-    // Improved error logging
     logger.error('Error updating vehicle:', {
       error: error instanceof Error ? {
         message: error.message,
@@ -118,7 +123,6 @@ export async function PUT(
       vehicleId: params.vehicleId
     });
 
-    // Check for specific Prisma errors
     if (error instanceof Error) {
       if (error.message.includes('Record to update not found')) {
         return NextResponse.json(

@@ -2,17 +2,249 @@ import { Pool, QueryResult } from 'pg';
 import { Kysely, PostgresDialect } from 'kysely';
 import type { Database } from './schema';
 import logger from './logger';
-import { configureGlobalTimezone, configureDatabaseTimezone } from './utils/timezone-config';
+import { PrismaClient, Prisma } from '@prisma/client';
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
+const CONNECTION_TIMEOUT = 60000; // 60 seconds
+
+// Prisma client configuration
+const prismaClientConfig: Prisma.PrismaClientOptions = {
+  log: [
+    { emit: 'event', level: 'error' },
+    { emit: 'event', level: 'warn' }
+  ],
+  errorFormat: 'minimal' as const,
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL
+    }
+  },
+  // Add connection pooling configuration
+  __internal: {
+    engine: {
+      cwd: process.cwd(),
+      binaryPath: process.env.PRISMA_QUERY_ENGINE_BINARY,
+      datamodelPath: './prisma/schema.prisma',
+      enableDebugLogs: true,
+    },
+  }
+};
+
+async function wait(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+class PrismaClientManager {
+  private static instance: PrismaClient | undefined;
+  private static isConnecting: boolean = false;
+  private static connectionPromise: Promise<void> | null = null;
+  private static lastReconnectAttempt: number = 0;
+  private static reconnectCooldown: number = 5000; // 5 seconds cooldown between reconnects
+  private static queryTimeoutIds: Set<NodeJS.Timeout> = new Set();
+
+  static async getInstance(): Promise<PrismaClient> {
+    if (!this.instance) {
+      this.instance = new PrismaClient(prismaClientConfig);
+
+      // Add event listeners for the Prisma Client
+      this.instance.$on('query', (e: any) => {
+        logger.debug('Prisma Query:', {
+          query: e.query,
+          params: e.params,
+          duration: e.duration,
+          timestamp: new Date().toISOString()
+        });
+      });
+
+      this.instance.$on('error', (e: any) => {
+        logger.error('Prisma Error:', {
+          message: e.message,
+          target: e.target,
+          timestamp: new Date().toISOString()
+        });
+      });
+
+      await this.connect();
+    }
+    return this.instance;
+  }
+
+  private static async connect(): Promise<void> {
+    if (this.isConnecting) {
+      return this.connectionPromise!;
+    }
+
+    const now = Date.now();
+    if (now - this.lastReconnectAttempt < this.reconnectCooldown) {
+      await wait(this.reconnectCooldown - (now - this.lastReconnectAttempt));
+    }
+
+    this.isConnecting = true;
+    this.lastReconnectAttempt = now;
+
+    this.connectionPromise = (async () => {
+      try {
+        await this.instance!.$connect();
+        
+        // Test the connection with a simple query
+        await this.instance!.$queryRaw`SELECT 1`;
+        
+        logger.info('Successfully connected to database');
+      } catch (error) {
+        logger.error('Failed to connect to database:', error);
+        this.instance = undefined;
+        throw error;
+      } finally {
+        this.isConnecting = false;
+        this.connectionPromise = null;
+      }
+    })();
+
+    return this.connectionPromise;
+  }
+
+  static async disconnect(): Promise<void> {
+    // Clear any pending query timeouts
+    for (const timeoutId of this.queryTimeoutIds) {
+      clearTimeout(timeoutId);
+    }
+    this.queryTimeoutIds.clear();
+
+    if (this.instance) {
+      try {
+        await this.instance.$disconnect();
+      } catch (error) {
+        logger.error('Error during disconnect:', error);
+      } finally {
+        this.instance = undefined;
+      }
+    }
+  }
+
+  static async retry<T>(operation: () => Promise<T>): Promise<T> {
+    let lastError: any;
+    let delay = RETRY_DELAY;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        // Ensure we have a valid connection before attempting the operation
+        const client = await this.getInstance();
+
+        // Create a timeout promise
+        const timeoutPromise = new Promise((_, reject) => {
+          const timeoutId = setTimeout(() => {
+            this.queryTimeoutIds.delete(timeoutId);
+            reject(new Error('Query timeout'));
+          }, CONNECTION_TIMEOUT);
+          this.queryTimeoutIds.add(timeoutId);
+        });
+
+        // Execute the operation with timeout
+        const result = await Promise.race([
+          operation(),
+          timeoutPromise
+        ]) as T;
+
+        // Clear the timeout if the operation succeeds
+        for (const timeoutId of this.queryTimeoutIds) {
+          clearTimeout(timeoutId);
+        }
+        this.queryTimeoutIds.clear();
+
+        return result;
+      } catch (error: any) {
+        lastError = error;
+        logger.error(`Attempt ${attempt} failed:`, {
+          error: error.message,
+          code: error.code,
+          name: error.name,
+          attempt,
+          maxRetries: MAX_RETRIES
+        });
+
+        const shouldRetry = 
+          error.code === 'P1001' || 
+          error.code === 'P1002' ||
+          error.message.includes('insufficient data') ||
+          error.message.includes('Query timeout') ||
+          error.message.includes('Connection lost');
+
+        if (shouldRetry && attempt < MAX_RETRIES) {
+          await this.disconnect();
+          
+          // Exponential backoff with jitter
+          delay = Math.min(delay * 2, 10000) * (0.75 + Math.random() * 0.5);
+          await wait(delay);
+          
+          this.instance = new PrismaClient(prismaClientConfig);
+          continue;
+        }
+        
+        throw error;
+      }
+    }
+    throw lastError;
+  }
+}
+
+// Initialize Prisma client with connection handling
+export const prisma = new Proxy({} as PrismaClient, {
+  get: (target, prop) => {
+    return async (...args: any[]) => {
+      const client = await PrismaClientManager.getInstance();
+      const operation = () => (client as any)[prop](...args);
+      return PrismaClientManager.retry(operation);
+    };
+  }
+});
+
+// Export the prisma instance as db for backward compatibility
+export const db = prisma;
+
+// Ensure clean shutdown
+process.on('beforeExit', async () => {
+  await PrismaClientManager.disconnect();
+});
+
+// Handle unexpected errors
+process.on('unhandledRejection', async (error: Error) => {
+  logger.error('Unhandled rejection:', error);
+  if (error.message.includes('insufficient data') || error.message.includes('Connection lost')) {
+    logger.warn('Attempting to reconnect due to unhandled database error...');
+    await PrismaClientManager.disconnect();
+    await wait(RETRY_DELAY);
+    await PrismaClientManager.getInstance();
+  }
+});
+
+// Export everything needed
+export {
+  pool,
+  initializeDatabase,
+  query,
+  closePool,
+  dbKysely
+};
+
+export interface Vehicle {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  isAvailable: boolean;
+  location: string;
+  price: number;
+  image: string;
+  popularityScore: number;
+  updatedAt: Date;
+}
 
 // Parse and validate the connection string
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
   throw new Error('DATABASE_URL environment variable is not set');
 }
-
-// Retry configuration
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // 1 second
 
 // Create a connection pool
 const pool = new Pool({
@@ -104,7 +336,7 @@ async function initializeDatabase(): Promise<void> {
 }
 
 // Create Kysely instance
-const db = new Kysely<Database>({
+const dbKysely = new Kysely<Database>({
   dialect: new PostgresDialect({
     pool
   }),
@@ -206,13 +438,4 @@ async function closePool(): Promise<void> {
 initializeDatabase().catch(error => {
   logger.error('Failed to initialize database on startup:', error);
   process.exit(1);
-});
-
-// Export everything needed
-export {
-  pool,
-  initializeDatabase,
-  query,
-  closePool,
-  db
-}; 
+}); 

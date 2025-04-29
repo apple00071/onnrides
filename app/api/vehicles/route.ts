@@ -296,14 +296,41 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const processedVehicles = result.rows
       .map((vehicle: VehicleRow) => {
         try {
-          // Parse location and images from JSON strings
-          const locationArray = Array.isArray(vehicle.location) 
-            ? vehicle.location 
-            : JSON.parse(vehicle.location || '[]');
-          
-          const imagesArray = Array.isArray(vehicle.images)
-            ? vehicle.images
-            : JSON.parse(vehicle.images || '[]');
+          // Handle location - could be string, array, or JSON string
+          let locationArray: string[];
+          if (typeof vehicle.location === 'string') {
+            // If it's a comma-separated string, split it
+            if (vehicle.location.includes(',')) {
+              locationArray = vehicle.location.split(',').map(loc => loc.trim());
+            } else {
+              // Single location
+              locationArray = [vehicle.location];
+            }
+          } else if (Array.isArray(vehicle.location)) {
+            locationArray = vehicle.location;
+          } else {
+            try {
+              // Try parsing as JSON, fallback to empty array
+              locationArray = JSON.parse(vehicle.location || '[]');
+            } catch {
+              locationArray = [];
+            }
+          }
+
+          // Handle images - could be string, array, or JSON string
+          let imagesArray: string[];
+          if (typeof vehicle.images === 'string') {
+            try {
+              imagesArray = JSON.parse(vehicle.images);
+            } catch {
+              // If not valid JSON, treat as comma-separated string
+              imagesArray = vehicle.images.split(',').map(img => img.trim());
+            }
+          } else if (Array.isArray(vehicle.images)) {
+            imagesArray = vehicle.images;
+          } else {
+            imagesArray = [];
+          }
 
           return {
             ...vehicle,
@@ -313,8 +340,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           };
         } catch (error) {
           logger.error('Error processing vehicle:', {
+            error: error instanceof Error ? error.message : 'Unknown error',
             vehicleId: vehicle.id,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            location: vehicle.location,
+            images: vehicle.images
           });
           return null;
         }
