@@ -5,7 +5,10 @@ import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import bcrypt from 'bcrypt';
 import logger from '@/lib/logger';
 import type { JWT } from 'next-auth/jwt';
-import prisma from '@/lib/prisma';
+import { PrismaClient } from '@prisma/client';
+
+// Initialize Prisma Client
+const prisma = new PrismaClient();
 
 declare module "next-auth" {
   interface User {
@@ -36,35 +39,23 @@ export const authOptions: NextAuthOptions = {
   },
   providers: [
     CredentialsProvider({
-      name: "credentials",
+      name: 'credentials',
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-        isAdmin: { label: "Is Admin", type: "text" }
+        password: { label: "Password", type: "password" }
       },
       async authorize(credentials, req) {
-        try {
-          if (!credentials?.email || !credentials?.password) {
-            logger.warn('Missing credentials');
-            return null;
-          }
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Please enter your email and password');
+        }
 
-          const user = await prisma.users.findUnique({
+        try {
+          const user = await prisma.users.findFirst({
             where: { email: credentials.email }
           });
-          
-          if (!user || !user.password_hash) {
-            logger.warn('User not found or no password:', credentials.email);
-            return null;
-          }
 
-          // Check if this is an admin login attempt
-          const isAdminLogin = credentials.isAdmin === 'true';
-          const userRole = user.role?.toLowerCase() || 'user';
-          
-          if (isAdminLogin && userRole !== 'admin') {
-            logger.warn('Non-admin user attempted admin login:', credentials.email);
-            return null;
+          if (!user || !user.password_hash) {
+            throw new Error('No user found with this email');
           }
 
           const isPasswordValid = await bcrypt.compare(
@@ -73,98 +64,67 @@ export const authOptions: NextAuthOptions = {
           );
 
           if (!isPasswordValid) {
-            logger.warn('Invalid password for user:', credentials.email);
-            return null;
+            throw new Error('Invalid password');
           }
 
-          logger.info('User logged in successfully:', {
-            userId: user.id,
-            email: user.email,
-            role: userRole
-          });
+          if (user.is_blocked) {
+            throw new Error('Your account has been blocked');
+          }
 
-          // Ensure name is always a string by using email as fallback
-          const name = user.name || user.email || '';
+          // Ensure all required fields are non-null
+          if (!user.email || !user.name) {
+            throw new Error('Invalid user data');
+          }
 
           return {
             id: user.id,
-            email: user.email || '',
-            name,
-            role: userRole as "user" | "admin"
+            email: user.email,
+            name: user.name,
+            role: (user.role as "user" | "admin") || "user"
           };
         } catch (error) {
-          logger.error('Auth error:', error);
-          return null;
+          logger.error('Error in authorize:', error);
+          throw error;
         }
       },
     }),
-    // Add Google Provider if environment variables are available
-    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? [
-      GoogleProvider({
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      })
-    ] : []),
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      if (!token.email) {
-        return token;
-      }
-
-      // If we have a user from the credentials provider
+    async jwt({ token, user, trigger, session }) {
       if (user) {
+        // Initial sign in
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
         token.role = user.role;
-        return token;
+      } else if (trigger === "update" && session) {
+        // Session update
+        return { ...token, ...session.user };
       }
-
-      // For other providers or subsequent requests, check the database
-      const dbUser = await prisma.users.findFirst({
-        where: {
-          email: token.email,
-        },
-      });
-
-      if (!dbUser) {
-        return {
-          ...token,
-          role: 'user',
-        };
-      }
-
-      return {
-        ...token,
-        id: dbUser.id,
-        role: dbUser.role || 'user',
-      };
+      return token;
     },
     async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          id: token.id,
-          email: token.email,
-          name: token.name,
-          role: token.role
-        }
-      };
+      if (token) {
+        session.user.id = token.id;
+        session.user.email = token.email;
+        session.user.name = token.name;
+        session.user.role = token.role;
+      }
+      return session;
     },
     async redirect({ url, baseUrl }) {
-      // If the url is relative, prefix it with the base URL
-      if (url.startsWith('/')) return `${baseUrl}${url}`;
-      // If the url is on the same domain, allow it
-      if (new URL(url).origin === baseUrl) return url;
-      // Default to the base URL
-      return baseUrl;
+      return url.startsWith(baseUrl) ? url : baseUrl;
     },
   },
   pages: {
-    signIn: "/login",
-    error: "/login",
+    signIn: '/auth/signin',
+    error: '/auth/error',
   },
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
 /**

@@ -85,11 +85,11 @@ export default async function AdminLayout({
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
-      // Use a default login path instead of trying to extract from headers
-      redirect('/admin-login');
+      // Redirect to the configured auth signin page
+      redirect('/auth/signin?callbackUrl=/admin/dashboard');
     }
 
-    if (session.user.role.toLowerCase() !== 'admin') {
+    if (session.user.role?.toLowerCase() !== 'admin') {
       logger.warn('Non-admin user attempted to access admin area:', session.user.email);
       redirect('/');
     }
@@ -108,6 +108,6 @@ export default async function AdminLayout({
     );
   } catch (error) {
     logger.error('Error in admin layout:', error);
-    redirect('/admin-login');
+    redirect('/auth/signin?callbackUrl=/admin/dashboard');
   }
 } 
