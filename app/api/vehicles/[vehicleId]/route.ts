@@ -7,7 +7,6 @@ import prisma from '@/lib/prisma';
 
 interface UpdateVehicleBody {
   name?: string;
-  description?: string;
   type?: string;
   brand?: string;
   model?: string;
@@ -187,70 +186,50 @@ export async function PUT(
     const body = await request.json();
     const {
       name,
-      description,
       type,
-      brand,
-      model,
-      year,
-      color,
-      transmission,
-      fuel_type,
-      mileage,
-      seating_capacity,
-      price_per_day,
+      location,
+      quantity,
+      price_per_hour,
+      min_booking_hours,
       is_available,
-      image_url,
-      location
+      images,
+      status,
+      vehicle_category,
+      price_7_days,
+      price_15_days,
+      price_30_days,
+      delivery_price_7_days,
+      delivery_price_15_days,
+      delivery_price_30_days,
     } = body;
 
-    const result = await query(`
-      UPDATE vehicles
-      SET 
-        name = COALESCE($1, name),
-        description = COALESCE($2, description),
-        type = COALESCE($3, type),
-        brand = COALESCE($4, brand),
-        model = COALESCE($5, model),
-        year = COALESCE($6, year),
-        color = COALESCE($7, color),
-        transmission = COALESCE($8, transmission),
-        fuel_type = COALESCE($9, fuel_type),
-        mileage = COALESCE($10, mileage),
-        seating_capacity = COALESCE($11, seating_capacity),
-        price_per_day = COALESCE($12, price_per_day),
-        is_available = COALESCE($13, is_available),
-        image_url = COALESCE($14, image_url),
-        location = COALESCE($15, location),
-        updated_at = NOW()
-      WHERE id = $16
-      RETURNING *
-    `, [
-      name,
-      description,
-      type,
-      brand,
-      model,
-      year,
-      color,
-      transmission,
-      fuel_type,
-      mileage,
-      seating_capacity,
-      price_per_day,
-      is_available,
-      image_url,
-      location,
-      params.vehicleId
-    ]);
+    // Update vehicle using Prisma
+    const updatedVehicle = await prisma.vehicles.update({
+      where: {
+        id: params.vehicleId,
+      },
+      data: {
+        ...(name && { name }),
+        ...(type && { type }),
+        ...(location && { location }),
+        ...(typeof quantity === 'number' && { quantity }),
+        ...(typeof price_per_hour === 'number' && { price_per_hour }),
+        ...(typeof min_booking_hours === 'number' && { min_booking_hours }),
+        ...(typeof is_available === 'boolean' && { is_available }),
+        ...(images && { images: JSON.stringify(images) }),
+        ...(status && { status }),
+        ...(vehicle_category && { vehicle_category }),
+        ...(typeof price_7_days === 'number' && { price_7_days }),
+        ...(typeof price_15_days === 'number' && { price_15_days }),
+        ...(typeof price_30_days === 'number' && { price_30_days }),
+        ...(typeof delivery_price_7_days === 'number' && { delivery_price_7_days }),
+        ...(typeof delivery_price_15_days === 'number' && { delivery_price_15_days }),
+        ...(typeof delivery_price_30_days === 'number' && { delivery_price_30_days }),
+        updated_at: new Date(),
+      },
+    });
 
-    if (result.rowCount === 0) {
-      return NextResponse.json(
-        { error: 'Vehicle not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(result.rows[0]);
+    return NextResponse.json(updatedVehicle);
   } catch (error) {
     logger.error('Error updating vehicle:', error);
     return NextResponse.json(

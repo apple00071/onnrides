@@ -15,7 +15,7 @@ export interface Booking {
 export interface Vehicle {
   id: string;
   name: string;
-  type: 'car' | 'bike' | 'scooter';
+  type: 'bike';
   model: string;
   year: number;
   daily_rate: number;
@@ -258,7 +258,7 @@ export function seedVehicles() {
     const initialVehicles: Omit<Vehicle, 'id'>[] = [
       {
         name: 'City Cruiser',
-        type: 'car',
+        type: 'bike',
         model: 'Sedan',
         year: 2022,
         daily_rate: 50,
@@ -278,7 +278,7 @@ export function seedVehicles() {
       },
       {
         name: 'Urban Glider',
-        type: 'scooter',
+        type: 'bike',
         model: 'Electric Scooter',
         year: 2023,
         daily_rate: 20,

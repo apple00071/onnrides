@@ -7,7 +7,7 @@ import { useSession, signOut } from 'next-auth/react';
 import UserNav from './UserNav';
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { User, LogOut, Home, Phone, Info, Car, UserCircle, Menu, X } from 'lucide-react';
+import { User, LogOut, Home, Phone, Info, Car, UserCircle, Menu, X, Truck, MapPin } from 'lucide-react';
 
 export default function Navbar() {
   const { data: session, status } = useSession();
@@ -173,7 +173,25 @@ export default function Navbar() {
             {status === 'loading' ? (
               <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
             ) : session?.user ? (
-              <UserNav user={session.user} />
+              <>
+                {session.user.role === 'delivery_partner' && (
+                  <nav className="flex items-center space-x-6 mr-4">
+                    <Link
+                      href="/delivery-bookings"
+                      className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24] transition-colors"
+                    >
+                      Deliveries
+                    </Link>
+                    <Link
+                      href="/delivery-partners"
+                      className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24] transition-colors"
+                    >
+                      Partner Dashboard
+                    </Link>
+                  </nav>
+                )}
+                <UserNav user={session.user} />
+              </>
             ) : (
               <>
                 <Link
@@ -265,6 +283,26 @@ export default function Navbar() {
                     <div className="text-sm text-gray-500">{session.user.email || ''}</div>
                   </div>
                 </div>
+                {session.user.role === 'delivery_partner' && (
+                  <>
+                    <Link 
+                      href="/delivery-bookings" 
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
+                    >
+                      <Truck className="h-5 w-5 text-[#f26e24]" />
+                      <span className="font-goodtimes text-gray-700">Deliveries</span>
+                    </Link>
+                    <Link 
+                      href="/delivery-partners" 
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
+                    >
+                      <MapPin className="h-5 w-5 text-[#f26e24]" />
+                      <span className="font-goodtimes text-gray-700">Partner Dashboard</span>
+                    </Link>
+                  </>
+                )}
                 <Link 
                   href="/profile" 
                   onClick={() => setIsMenuOpen(false)}

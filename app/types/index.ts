@@ -1,6 +1,6 @@
 import { VEHICLE_STATUS } from '@/lib/db/schema';
 
-export type VehicleType = 'car' | 'bike' | 'scooter';
+export type VehicleType = 'bike';
 export type VehicleStatus = 'active' | 'maintenance' | 'retired';
 
 export interface Vehicle {

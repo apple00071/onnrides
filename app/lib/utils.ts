@@ -5,12 +5,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: Date | string) {
-  return new Date(date).toLocaleDateString('en-US', {
-    month: 'long',
+export function formatDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    month: 'short',
     day: 'numeric',
-    year: 'numeric',
-  });
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true
+  }).format(date);
 }
 
 export function formatPrice(price: number) {

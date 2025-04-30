@@ -75,30 +75,83 @@ export async function PUT(
       );
     }
 
-    // Prepare update data
-    const updateData = {
-      name: body.name,
-      type: body.type,
-      location: Array.isArray(body.location) ? body.location.join(', ') : body.location,
-      price_per_hour: Number(body.price_per_hour),
-      min_booking_hours: body.min_booking_hours ? Number(body.min_booking_hours) : 1,
-      quantity: body.quantity ? Number(body.quantity) : 1,
-      price_7_days: body.price_7_days ? Number(body.price_7_days) : null,
-      price_15_days: body.price_15_days ? Number(body.price_15_days) : null,
-      price_30_days: body.price_30_days ? Number(body.price_30_days) : null,
-      is_available: typeof body.is_available === 'boolean' ? body.is_available : true,
-      images: body.images ? (Array.isArray(body.images) ? body.images : [body.images]) : [],
-      status: ['active', 'maintenance', 'retired'].includes(body.status) ? body.status : 'active'
-    };
+    // Validate vehicle_category
+    const validCategories = ['normal', 'delivery', 'both'];
+    if (body.vehicle_category && !validCategories.includes(body.vehicle_category)) {
+      return NextResponse.json(
+        { error: 'Invalid vehicle category. Must be one of: normal, delivery, both' },
+        { status: 400 }
+      );
+    }
 
-    // Update the vehicle using Prisma
-    const updatedVehicle = await prisma.vehicles.update({
-      where: { id: vehicleId },
-      data: {
-        ...updateData,
-        updated_at: new Date()
-      }
-    });
+    // Ensure location is an array
+    if (!Array.isArray(body.location)) {
+      return NextResponse.json(
+        { error: 'Location must be an array' },
+        { status: 400 }
+      );
+    }
+
+    // Convert numeric fields
+    const pricePerHour = Number(body.price_per_hour);
+    if (isNaN(pricePerHour)) {
+      return NextResponse.json(
+        { error: 'Invalid price_per_hour value' },
+        { status: 400 }
+      );
+    }
+
+    const minBookingHours = body.min_booking_hours ? Number(body.min_booking_hours) : 1;
+    const quantity = body.quantity ? Number(body.quantity) : 1;
+
+    // Convert optional price fields
+    const price7Days = body.price_7_days ? parseFloat(body.price_7_days) : null;
+    const price15Days = body.price_15_days ? parseFloat(body.price_15_days) : null;
+    const price30Days = body.price_30_days ? parseFloat(body.price_30_days) : null;
+
+    // Update using raw query - only using fields that exist in the schema
+    const result = await query(`
+      UPDATE vehicles 
+      SET 
+        name = $1,
+        type = $2,
+        location = $3,
+        quantity = $4,
+        price_per_hour = $5,
+        min_booking_hours = $6,
+        is_available = $7,
+        images = $8,
+        status = $9,
+        price_7_days = $10,
+        price_15_days = $11,
+        price_30_days = $12,
+        updated_at = NOW()
+      WHERE id = $13
+      RETURNING *
+    `, [
+      body.name,
+      body.type,
+      JSON.stringify(body.location), // Convert array to JSON string
+      quantity,
+      pricePerHour,
+      minBookingHours,
+      true,
+      JSON.stringify(body.images), // Convert array to JSON string
+      'active',
+      price7Days,
+      price15Days,
+      price30Days,
+      vehicleId
+    ]);
+
+    if (result.rowCount === 0) {
+      return NextResponse.json(
+        { error: 'Vehicle not found' },
+        { status: 404 }
+      );
+    }
+
+    const updatedVehicle = result.rows[0];
 
     // Revalidate the vehicles page
     revalidatePath('/admin/vehicles');
@@ -109,9 +162,7 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
-      data: {
-        vehicle: updatedVehicle
-      }
+      data: updatedVehicle
     });
   } catch (error) {
     logger.error('Error updating vehicle:', {
@@ -133,7 +184,7 @@ export async function PUT(
       
       if (error.message.includes('invalid input syntax')) {
         return NextResponse.json(
-          { error: 'Invalid data format provided' },
+          { error: 'Invalid data format provided', details: error.message },
           { status: 400 }
         );
       }

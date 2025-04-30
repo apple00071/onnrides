@@ -1,7 +1,7 @@
 'use client';
 
 import logger from '@/lib/logger';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
@@ -9,6 +9,8 @@ import { FaCalendar, FaClock } from 'react-icons/fa';
 import DatePicker from 'react-datepicker';
 import '@/styles/datepicker.css';
 import { cn } from "@/lib/utils";
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 export default function HeroSection() {
   const router = useRouter();
@@ -17,6 +19,8 @@ export default function HeroSection() {
   const [dropoffDate, setDropoffDate] = useState<Date | null>(null);
   const [dropoffTime, setDropoffTime] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeliveryPartner, setIsDeliveryPartner] = useState(false);
+  const [selectedDuration, setSelectedDuration] = useState<'7' | '15' | '30'>('7');
 
   const handleSearch = async () => {
     try {
@@ -109,8 +113,15 @@ export default function HeroSection() {
           type: 'bike'
         });
 
-        // Construct the full URL
-        const searchUrl = `/vehicles?${params.toString()}`;
+        // Add duration parameter for delivery partner mode
+        if (isDeliveryPartner) {
+          params.append('duration', selectedDuration);
+        }
+
+        // Construct the full URL based on mode
+        const searchUrl = isDeliveryPartner 
+          ? `/delivery-partners?${params.toString()}`
+          : `/vehicles?${params.toString()}`;
         
         // Debug log the URL
         logger.debug('Navigation URL:', {
@@ -119,7 +130,8 @@ export default function HeroSection() {
             pickupDate: formatDateForUrl(pickupDateTime),
             pickupTime,
             dropoffDate: formatDateForUrl(dropoffDateTime),
-            dropoffTime
+            dropoffTime,
+            type: 'bike'
           }
         });
 
@@ -127,7 +139,7 @@ export default function HeroSection() {
         await router.push(searchUrl);
       } catch (navigationError) {
         logger.error('Navigation error:', navigationError);
-        toast.error('Failed to navigate to vehicles page. Please try again.');
+        toast.error('Failed to navigate to search results page. Please try again.');
       }
     } catch (error) {
       logger.error('Search error:', error);
@@ -136,6 +148,27 @@ export default function HeroSection() {
       setIsLoading(false);
     }
   };
+
+  // When duration changes or delivery partner mode changes, update dropoff date
+  useEffect(() => {
+    if (isDeliveryPartner && pickupDate) {
+      const newDropoffDate = new Date(pickupDate);
+      newDropoffDate.setDate(newDropoffDate.getDate() + parseInt(selectedDuration));
+      setDropoffDate(newDropoffDate);
+      // Set dropoff time same as pickup time
+      setDropoffTime(pickupTime || '');
+    }
+  }, [selectedDuration, pickupDate, pickupTime, isDeliveryPartner]);
+
+  // When switching modes, reset dropoff date/time if switching to delivery partner mode
+  useEffect(() => {
+    if (isDeliveryPartner && pickupDate) {
+      const newDropoffDate = new Date(pickupDate);
+      newDropoffDate.setDate(newDropoffDate.getDate() + parseInt(selectedDuration));
+      setDropoffDate(newDropoffDate);
+      setDropoffTime(pickupTime || '');
+    }
+  }, [isDeliveryPartner]);
 
   return (
     <>
@@ -180,6 +213,10 @@ export default function HeroSection() {
                   setDropoffTime={setDropoffTime}
                   handleSearch={handleSearch}
                   isLoading={isLoading}
+                  isDeliveryPartner={isDeliveryPartner}
+                  setIsDeliveryPartner={setIsDeliveryPartner}
+                  selectedDuration={selectedDuration}
+                  setSelectedDuration={setSelectedDuration}
                 />
               </div>
             </div>
@@ -200,6 +237,10 @@ export default function HeroSection() {
               setDropoffTime={setDropoffTime}
               handleSearch={handleSearch}
               isLoading={isLoading}
+              isDeliveryPartner={isDeliveryPartner}
+              setIsDeliveryPartner={setIsDeliveryPartner}
+              selectedDuration={selectedDuration}
+              setSelectedDuration={setSelectedDuration}
             />
           </div>
         </div>
@@ -219,6 +260,10 @@ interface SearchFormContentProps {
   setDropoffTime: (time: string) => void;
   handleSearch: () => void;
   isLoading: boolean;
+  isDeliveryPartner: boolean;
+  setIsDeliveryPartner: (value: boolean) => void;
+  selectedDuration: '7' | '15' | '30';
+  setSelectedDuration: (duration: '7' | '15' | '30') => void;
 }
 
 function SearchFormContent({
@@ -231,7 +276,11 @@ function SearchFormContent({
   dropoffTime,
   setDropoffTime,
   handleSearch,
-  isLoading
+  isLoading,
+  isDeliveryPartner,
+  setIsDeliveryPartner,
+  selectedDuration,
+  setSelectedDuration
 }: SearchFormContentProps) {
   const minDate = new Date();
   minDate.setHours(0, 0, 0, 0);
@@ -338,14 +387,21 @@ function SearchFormContent({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-        Find your perfect ride
-      </h2>
-      
-      {/* Pickup Section */}
+      <div className="flex items-center justify-between">
+        <Label htmlFor="delivery-partner" className="text-sm font-medium text-gray-700">
+          Delivery Partner Mode
+        </Label>
+        <Switch
+          id="delivery-partner"
+          checked={isDeliveryPartner}
+          onCheckedChange={setIsDeliveryPartner}
+          className="data-[state=checked]:bg-[#f26e24]"
+        />
+      </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Pickup
+          {isDeliveryPartner ? 'Start Date' : 'Pickup Date'}
         </label>
         <div className="grid grid-cols-2 gap-2">
           <div className="relative">
@@ -379,51 +435,66 @@ function SearchFormContent({
         </div>
       </div>
 
-      {/* Dropoff Section */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Dropoff
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="relative">
-            <DatePicker
-              selected={dropoffDate}
-              onChange={handleDropoffDateChange}
-              dateFormat="dd/MM/yyyy"
-              minDate={pickupDate || minDate}
-              placeholderText="Select date"
-              className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] cursor-pointer outline-none transition-colors"
-              showPopperArrow={false}
-              popperClassName="date-picker-popper"
-              calendarClassName="shadow-lg border border-gray-200 rounded-lg"
-              onChangeRaw={(event) => {
-                if (event) event.preventDefault();
-              }}
-            />
-          </div>
-          <div className="relative">
-            <select
-              value={dropoffTime}
-              onChange={(e) => setDropoffTime(e.target.value)}
-              className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] appearance-none cursor-pointer outline-none transition-colors"
-            >
-              <option value="">Select time</option>
-              {getTimeOptions(false).map(({ value, label }) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
+      {isDeliveryPartner ? (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Rental Duration
+          </label>
+          <select
+            value={selectedDuration}
+            onChange={(e) => setSelectedDuration(e.target.value as '7' | '15' | '30')}
+            className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] appearance-none cursor-pointer outline-none transition-colors"
+          >
+            <option value="7">7 Days</option>
+            <option value="15">15 Days</option>
+            <option value="30">30 Days</option>
+          </select>
+        </div>
+      ) : (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Return Date
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="relative">
+              <DatePicker
+                selected={dropoffDate}
+                onChange={handleDropoffDateChange}
+                dateFormat="dd/MM/yyyy"
+                minDate={minDate}
+                placeholderText="Select date"
+                className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] cursor-pointer outline-none transition-colors"
+                showPopperArrow={false}
+                popperClassName="date-picker-popper"
+                calendarClassName="shadow-lg border border-gray-200 rounded-lg"
+                onChangeRaw={(event) => {
+                  if (event) event.preventDefault();
+                }}
+              />
+            </div>
+            <div className="relative">
+              <select
+                value={dropoffTime}
+                onChange={(e) => setDropoffTime(e.target.value)}
+                className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] appearance-none cursor-pointer outline-none transition-colors"
+              >
+                <option value="">Select time</option>
+                {getTimeOptions(false).map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Search Button */}
       <button
         onClick={handleSearch}
         disabled={isLoading}
         className="w-full mt-4 bg-[#f26e24] text-white py-3 rounded-full text-base font-medium hover:bg-[#e05d13] transition-colors disabled:opacity-50 disabled:cursor-not-allowed search-button"
         style={{ color: 'white !important' }}
       >
-        {isLoading ? 'Searching...' : 'Search'}
+        {isLoading ? 'Searching...' : isDeliveryPartner ? 'Find Available Bikes' : 'Search Bikes'}
       </button>
     </div>
   );

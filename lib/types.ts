@@ -32,7 +32,7 @@ export interface User {
   };
 }
 
-export type UserRole = 'user' | 'admin';
+export type UserRole = 'user' | 'admin' | 'delivery_partner';
 
 export interface AuthUser {
   id: string;

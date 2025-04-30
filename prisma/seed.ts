@@ -11,7 +11,7 @@ async function main() {
     where: { email: 'admin@onnrides.com' },
     update: {},
     create: {
-      id: 'admin_' + Date.now().toString(),
+      id: crypto.randomUUID(),
       email: 'admin@onnrides.com',
       name: 'Admin',
       password_hash: adminPassword,
@@ -22,10 +22,10 @@ async function main() {
 
   // Create sample vehicle
   const sampleVehicle = await prisma.vehicles.upsert({
-    where: { id: 'sample_vehicle_1' },
+    where: { id: crypto.randomUUID() },
     update: {},
     create: {
-      id: 'sample_vehicle_1',
+      id: crypto.randomUUID(),
       name: 'Sample Car',
       type: 'car',
       location: 'Hyderabad',
@@ -40,10 +40,10 @@ async function main() {
 
   // Create location
   const hyderabadLocation = await prisma.locations.upsert({
-    where: { id: '550e8400-e29b-41d4-a716-446655440000' },
+    where: { id: crypto.randomUUID() },
     update: {},
     create: {
-      id: '550e8400-e29b-41d4-a716-446655440000',
+      id: crypto.randomUUID(),
       name: 'Hyderabad Central',
       address: 'Hyderabad, Telangana, India'
     },

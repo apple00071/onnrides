@@ -6,7 +6,7 @@ declare module 'next-auth' {
     id: string;
     email: string;
     name: string;
-    role: 'user' | 'admin';
+    role: 'user' | 'admin' | 'delivery_partner';
     phone?: string | null;
     created_at?: string;
     is_blocked?: boolean;
@@ -22,7 +22,7 @@ declare module 'next-auth/jwt' {
     id: string;
     email: string;
     name: string;
-    role: 'user' | 'admin';
+    role: 'user' | 'admin' | 'delivery_partner';
     phone?: string | null;
     created_at?: string;
     is_blocked?: boolean;

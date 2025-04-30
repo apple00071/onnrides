@@ -47,11 +47,14 @@ interface FormData {
   quantity: string;
   price_per_hour: string;
   min_booking_hours: string;
+  images: string[];
+  is_delivery_enabled: boolean;
   price_7_days?: string;
   price_15_days?: string;
   price_30_days?: string;
-  description: string;
-  images: string[];
+  delivery_price_7_days?: string;
+  delivery_price_15_days?: string;
+  delivery_price_30_days?: string;
 }
 
 export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalProps) {
@@ -62,8 +65,8 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
     quantity: '1',
     price_per_hour: '',
     min_booking_hours: '1',
-    description: '',
-    images: []
+    images: [],
+    is_delivery_enabled: false
   });
 
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -150,7 +153,12 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
         min_booking_hours: Number(formData.min_booking_hours),
         price_7_days: formData.price_7_days ? Number(formData.price_7_days) : null,
         price_15_days: formData.price_15_days ? Number(formData.price_15_days) : null,
-        price_30_days: formData.price_30_days ? Number(formData.price_30_days) : null
+        price_30_days: formData.price_30_days ? Number(formData.price_30_days) : null,
+        delivery_price_7_days: formData.delivery_price_7_days ? Number(formData.delivery_price_7_days) : null,
+        delivery_price_15_days: formData.delivery_price_15_days ? Number(formData.delivery_price_15_days) : null,
+        delivery_price_30_days: formData.delivery_price_30_days ? Number(formData.delivery_price_30_days) : null,
+        location: formData.location[0] || 'Madhapur',
+        vehicle_category: formData.is_delivery_enabled ? 'both' : 'normal'
       };
 
       const response = await fetch('/api/admin/vehicles', {
@@ -186,8 +194,8 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
       quantity: '1',
       price_per_hour: '',
       min_booking_hours: '1',
-      description: '',
-      images: []
+      images: [],
+      is_delivery_enabled: false
     });
     setImageUrls([]);
     if (shouldClose) onClose();
@@ -348,52 +356,101 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="price_7_days">7 Days Price (₹)</Label>
-              <Input
-                id="price_7_days"
-                name="price_7_days"
-                type="number"
-                min="0"
-                value={formData.price_7_days}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="price_15_days">15 Days Price (₹)</Label>
-              <Input
-                id="price_15_days"
-                name="price_15_days"
-                type="number"
-                min="0"
-                value={formData.price_15_days}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="price_30_days">30 Days Price (₹)</Label>
-              <Input
-                id="price_30_days"
-                name="price_30_days"
-                type="number"
-                min="0"
-                value={formData.price_30_days}
-                onChange={handleInputChange}
-              />
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="is_delivery_enabled"
+              checked={formData.is_delivery_enabled}
+              onCheckedChange={(checked) => {
+                setFormData(prev => ({
+                  ...prev,
+                  is_delivery_enabled: checked as boolean
+                }));
+              }}
+            />
+            <Label 
+              htmlFor="is_delivery_enabled"
+              className="text-sm font-medium cursor-pointer"
+            >
+              Enable for Delivery Partners
+            </Label>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Regular User Pricing</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>7 Days Price</Label>
+                <Input
+                  type="number"
+                  name="price_7_days"
+                  value={formData.price_7_days}
+                  onChange={handleInputChange}
+                  placeholder="Enter 7 days price"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>15 Days Price</Label>
+                <Input
+                  type="number"
+                  name="price_15_days"
+                  value={formData.price_15_days}
+                  onChange={handleInputChange}
+                  placeholder="Enter 15 days price"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>30 Days Price</Label>
+                <Input
+                  type="number"
+                  name="price_30_days"
+                  value={formData.price_30_days}
+                  onChange={handleInputChange}
+                  placeholder="Enter 30 days price"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              rows={3}
-            />
-          </div>
+          {formData.is_delivery_enabled && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Delivery Partner Pricing</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>7 Days Price (Delivery)</Label>
+                  <Input
+                    type="number"
+                    name="delivery_price_7_days"
+                    value={formData.delivery_price_7_days}
+                    onChange={handleInputChange}
+                    placeholder="Enter 7 days price"
+                    required={formData.is_delivery_enabled}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>15 Days Price (Delivery)</Label>
+                  <Input
+                    type="number"
+                    name="delivery_price_15_days"
+                    value={formData.delivery_price_15_days}
+                    onChange={handleInputChange}
+                    placeholder="Enter 15 days price"
+                    required={formData.is_delivery_enabled}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>30 Days Price (Delivery)</Label>
+                  <Input
+                    type="number"
+                    name="delivery_price_30_days"
+                    value={formData.delivery_price_30_days}
+                    onChange={handleInputChange}
+                    placeholder="Enter 30 days price"
+                    required={formData.is_delivery_enabled}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end space-x-4">
             <Button type="button" variant="outline" onClick={() => resetForm(true)} disabled={loading}>

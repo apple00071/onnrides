@@ -17,10 +17,7 @@ export const DOCUMENT_TYPE = {
 } as const;
 
 export const VEHICLE_TYPE = {
-  CAR: 'car',
-  BIKE: 'bike',
-  SCOOTER: 'scooter',
-  BICYCLE: 'bicycle'
+  BIKE: 'bike'
 } as const;
 
 export const BOOKING_STATUS = {

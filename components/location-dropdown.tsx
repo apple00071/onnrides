@@ -16,7 +16,6 @@ interface LocationDropdownProps {
   startDate?: Date;
   endDate?: Date;
   className?: string;
-  vehicleType?: string;
 }
 
 export function LocationDropdown({
@@ -26,8 +25,7 @@ export function LocationDropdown({
   vehicleId,
   startDate,
   endDate,
-  className,
-  vehicleType = 'car'
+  className
 }: LocationDropdownProps) {
   const [availableLocations, setAvailableLocations] = useState<string[]>(locations);
   const isInitialMountRef = useRef(true);
@@ -57,7 +55,6 @@ export function LocationDropdown({
         pickupTime: startDate.toISOString().split('T')[1].split('.')[0],
         dropoffDate: endDate.toISOString().split('T')[0],
         dropoffTime: endDate.toISOString().split('T')[1].split('.')[0],
-        type: vehicleType
       });
 
       const response = await fetch(`/api/vehicles?${params.toString()}`);
@@ -79,7 +76,7 @@ export function LocationDropdown({
     } finally {
       isFetchingRef.current = false;
     }
-  }, [vehicleId, startDate, endDate, vehicleType]);
+  }, [vehicleId, startDate, endDate]);
 
   const handleLocationChange = useCallback((location: string) => {
     // Clear any existing timeout

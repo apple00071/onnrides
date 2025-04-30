@@ -17,11 +17,11 @@ export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 export type DocumentType = 'license' | 'id_proof' | 'address_proof';
 export type DocumentStatus = 'pending' | 'approved' | 'rejected';
-export type UserRole = 'user' | 'admin';
+export type UserRole = 'user' | 'admin' | 'delivery_partner';
 
 // Define role enum
 export const roleEnum = {
-  enumValues: ['user', 'admin'] as const,
+  enumValues: ['user', 'admin', 'delivery_partner'] as const,
 } as const;
 
 // WhatsApp logs table interface

@@ -27,8 +27,6 @@ export default function VehiclesPage() {
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('price-low-high');
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  const [vehicleType, setVehicleType] = useState<'bike'>('bike');
-  const [previousType, setPreviousType] = useState<'bike'>('bike');
   const [searchDuration, setSearchDuration] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<string | undefined>(undefined);
@@ -43,14 +41,12 @@ export default function VehiclesPage() {
     pickupTime: string;
     dropoffDate: string;
     dropoffTime: string;
-    type: 'bike';
     location: string | null;
   }>({
     pickupDate: '',
     pickupTime: '',
     dropoffDate: '',
     dropoffTime: '',
-    type: 'bike',
     location: null
   });
 
@@ -243,7 +239,7 @@ export default function VehiclesPage() {
         timeoutRef.current = null;
       }
     }, 100);
-  }, [currentLocation, vehicleType, router]);
+  }, [currentLocation, router]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -261,12 +257,10 @@ export default function VehiclesPage() {
     const pickupTime = searchParams.get('pickupTime') || '';
     const dropoffDate = searchParams.get('dropoffDate') || '';
     const dropoffTime = searchParams.get('dropoffTime') || '';
-    const type = (searchParams.get('type') as 'bike') || 'bike';
 
     // Only update on initial mount
     if (isInitialMount.current) {
       isInitialMount.current = false;
-      setVehicleType(type);
       if (locationFromUrl) {
         setCurrentLocation(locationFromUrl);
         lastLocationUpdateRef.current = locationFromUrl;
@@ -277,7 +271,6 @@ export default function VehiclesPage() {
         pickupTime,
         dropoffDate,
         dropoffTime,
-        type,
         location: locationFromUrl
       });
       return;
@@ -294,7 +287,6 @@ export default function VehiclesPage() {
         pickupTime,
         dropoffDate,
         dropoffTime,
-        type,
         location: locationFromUrl
       };
 
@@ -325,7 +317,6 @@ export default function VehiclesPage() {
         pickupTime: urlParams.pickupTime,
         dropoffDate: urlParams.dropoffDate,
         dropoffTime: urlParams.dropoffTime,
-        type: vehicleType
       };
 
       const query = new URLSearchParams(Object.entries(params).filter(([_, value]) => value != null) as [string, string][]);
@@ -340,9 +331,9 @@ export default function VehiclesPage() {
     } finally {
       setLoading(false);
     }
-  }, [vehicleType, urlParams]);
+  }, [urlParams]);
 
-  // Only fetch when URL params or vehicle type changes
+  // Only fetch when URL params changes
   useEffect(() => {
     const shouldFetch = 
       urlParams.pickupDate && 
@@ -357,25 +348,6 @@ export default function VehiclesPage() {
       return () => clearTimeout(timer);
     }
   }, [urlParams, fetchVehicles]);
-
-  // Handle vehicle type change
-  useEffect(() => {
-    if (!isInitialMount.current && vehicleType !== previousType) {
-      // Reset location when vehicle type changes
-      setCurrentLocation(undefined);
-      setPreviousType(vehicleType);
-      
-      // Update URL with new type and remove location
-      const currentParams = new URLSearchParams(window.location.search);
-      currentParams.delete('location');
-      currentParams.set('type', vehicleType);
-      
-      // Use replace to prevent history stack buildup
-      router.replace(`/vehicles?${currentParams.toString()}`, { 
-        scroll: false 
-      });
-    }
-  }, [vehicleType, previousType, router]);
 
   const handleLocationChange = (location: string) => {
     setSelectedLocations(prev => {
@@ -430,16 +402,6 @@ export default function VehiclesPage() {
   return (
     <div className="container mx-auto px-4 py-8 pb-20 md:pb-8">
       <div className="flex flex-col gap-6">
-        <div className="flex justify-center">
-          <div className="inline-flex rounded-lg border border-gray-200 p-1 bg-white shadow-sm">
-            <button
-              className="px-8 py-2 text-sm font-medium rounded-md transition-colors bg-orange-500 text-white"
-            >
-              Bikes
-            </button>
-          </div>
-        </div>
-
         <div className="flex flex-col md:flex-row gap-8">
           {/* Filter Section - Hidden on mobile */}
           <div className="hidden md:block w-1/5">
@@ -559,7 +521,7 @@ export default function VehiclesPage() {
 
             {vehicles.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-gray-500">No {vehicleType}s available for the selected criteria.</p>
+                <p className="text-gray-500">No bikes available for the selected criteria.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

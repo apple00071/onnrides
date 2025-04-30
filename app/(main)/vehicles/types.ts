@@ -26,6 +26,10 @@ export interface Vehicle {
   price_7_days?: number | null;
   price_15_days?: number | null;
   price_30_days?: number | null;
+  delivery_price_7_days?: number | null;
+  delivery_price_15_days?: number | null;
+  delivery_price_30_days?: number | null;
+  vehicle_category: 'normal' | 'delivery' | 'both';
   location: string[];
   images: string[];
   quantity: number;
