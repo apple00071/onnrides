@@ -18,6 +18,8 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Toaster as UiToaster } from '@/components/ui/toaster';
 import nextDynamic from 'next/dynamic';
 import { SidebarProvider } from '@/hooks/use-sidebar';
+import { Analytics } from '@vercel/analytics/react'
+import { goodTimes } from './fonts'
 
 // Import ErrorBoundary dynamically with no SSR
 const ErrorBoundary = nextDynamic(
@@ -281,7 +283,7 @@ export default async function RootLayout({
     ];
 
     return (
-      <html lang="en" {...suppressHydrationWarning()}>
+      <html lang="en" className={`${goodTimes.variable}`} {...suppressHydrationWarning()}>
         <head>
           <meta charSet="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -296,13 +298,6 @@ export default async function RootLayout({
           <link rel="icon" href="/favicon/android-chrome-192x192.png" type="image/png" sizes="192x192" />
           <link rel="icon" href="/favicon/android-chrome-512x512.png" type="image/png" sizes="512x512" />
           <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
-          <link 
-            rel="preload" 
-            href="/fonts/goodtimes.woff2" 
-            as="font" 
-            type="font/woff2" 
-            crossOrigin="anonymous"
-          />
           {/* Only include Google Analytics in production */}
           {isProduction && GA_MEASUREMENT_ID && <GoogleAnalytics GA_MEASUREMENT_ID={GA_MEASUREMENT_ID} />}
         </head>
@@ -324,6 +319,7 @@ export default async function RootLayout({
           <JsonLd data={structuredDataItems} />
           <SpeedInsights />
           <UiToaster />
+          <Analytics />
         </body>
       </html>
     );
@@ -332,7 +328,7 @@ export default async function RootLayout({
     logger.error('Error in root layout:', error);
     
     return (
-      <html lang="en">
+      <html lang="en" className={`${goodTimes.variable}`}>
         <body className={cn(inter.className)}>
           <div className="flex min-h-screen flex-col items-center justify-center p-24">
             <div className="max-w-5xl w-full">
