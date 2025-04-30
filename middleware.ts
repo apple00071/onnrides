@@ -5,11 +5,13 @@ import { getToken } from 'next-auth/jwt';
 // Paths that are always accessible, even in maintenance mode
 const ALWAYS_ACCESSIBLE_PATHS = [
   '/api/auth',
+  '/api/auth/signin',  // Add NextAuth signin path
+  '/api/auth/session', // Add session check path
   '/login',
   '/admin-login',
-  '/admin',           // Add explicit admin path
-  '/admin/dashboard', // Add admin dashboard
-  '/admin/settings',  // Add admin settings
+  '/admin',           
+  '/admin/dashboard', 
+  '/admin/settings',  
   '/favicon',
   '/images',
   '/fonts',
@@ -20,6 +22,7 @@ const ALWAYS_ACCESSIBLE_PATHS = [
   '/logo.png',
   '/_next',
   '/static',
+  '/api/health',
 ];
 
 // Check if a path should bypass the maintenance check
@@ -47,7 +50,9 @@ const shouldBypassMaintenanceCheck = (path: string): boolean => {
     normalizedPath.match(/\.[^/]+$/) || // Static files
     normalizedPath.startsWith('/_next') || // Next.js files
     normalizedPath.startsWith('/api/admin') || // Admin API routes
-    normalizedPath.startsWith('/api/auth') // Auth API routes
+    normalizedPath.startsWith('/api/auth') || // Auth API routes
+    normalizedPath.startsWith('/public/') || // Public files
+    normalizedPath.startsWith('/static/') // Static files
   ) {
     return true;
   }
@@ -76,25 +81,27 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    // Check for admin access with proper secret
+    // Check for admin access first, before any other checks
     const token = await getToken({ 
       req: request,
-      secret: process.env.NEXTAUTH_SECRET // Explicitly pass the secret
+      secret: process.env.NEXTAUTH_SECRET
     });
 
     const isAdmin = token?.role === 'admin';
-    console.log(`[Middleware] Token check - isAdmin: ${isAdmin}, path: ${pathname}`);
     
-    // If user is admin, let them through immediately
+    // If user is admin, let them through immediately regardless of device type
     if (isAdmin) {
       console.log('[Middleware] Admin access granted');
       return undefined;
     }
 
-    // Use the maintenance API endpoint
-    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const host = request.headers.get('host') || process.env.NEXTAUTH_URL || 'localhost:3000';
-    const baseUrl = `${protocol}://${host}`;
+    // Use the maintenance API endpoint with absolute URL
+    const baseUrl = process.env.NEXTAUTH_URL || (
+      process.env.NODE_ENV === 'production' 
+        ? `https://${request.headers.get('host')}` 
+        : `http://${request.headers.get('host')}`
+    );
+    
     const maintCheckUrl = `${baseUrl}/api/maintenance/check?_t=${Date.now()}`;
     
     console.log(`[Middleware] Checking maintenance status at: ${maintCheckUrl}`);
@@ -108,6 +115,11 @@ export async function middleware(request: NextRequest) {
       }
     });
     
+    if (!response.ok) {
+      // If maintenance check fails, let the request through
+      return undefined;
+    }
+
     const maintenanceCheck = await response.json();
     
     // If maintenance mode is enabled and user is not admin, redirect to maintenance page
@@ -135,6 +147,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     // Match all paths except static files and images
-    '/((?!_next/static|_next/image|favicon\\.ico|public/|assets/|images/).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|public/|assets/|images/|static/).*)',
   ],
 }; 

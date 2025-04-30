@@ -84,3 +84,29 @@ model payments {
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
 }
+
+model email_logs {
+  id              String    @id @default(uuid())
+  recipient       String
+  subject         String
+  message_content String    @db.Text
+  booking_id      String?
+  status          String
+  error           String?   @db.Text
+  message_id      String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+}
+
+model whatsapp_logs {
+  id              String    @id @default(uuid())
+  recipient       String
+  message         String    @db.Text
+  booking_id      String?
+  status          String
+  error           String?   @db.Text
+  message_id      String?
+  template_name   String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+}

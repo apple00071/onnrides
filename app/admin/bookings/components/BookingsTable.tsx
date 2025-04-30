@@ -144,24 +144,62 @@ export function BookingsTable() {
 
   const handleCancelBooking = async (booking: BookingWithRelations) => {
     try {
-      const response = await fetch(`/api/admin/bookings/${booking.id}/cancel`, {
-        method: 'POST',
+      // Store the original booking state
+      const originalBooking = { ...booking };
+      
+      // Optimistically update the UI
+      setBookings(prevBookings =>
+        prevBookings.map(b =>
+          b.booking_id === booking.booking_id
+            ? { 
+                ...b, 
+                status: 'cancelled', 
+                payment_status: 'cancelled',
+                updated_at: new Date().toISOString() 
+              }
+            : b
+        )
+      );
+
+      const response = await fetch(`/api/admin/bookings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          bookingId: booking.booking_id,
+          action: 'cancel'
+        })
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to cancel booking');
+        // Revert the optimistic update on error
+        setBookings(prevBookings =>
+          prevBookings.map(b =>
+            b.booking_id === booking.booking_id
+              ? originalBooking
+              : b
+          )
+        );
+        throw new Error(data.error || 'Failed to cancel booking');
       }
 
-      await fetchBookings();
       toast({
         title: "Success",
         description: "Booking cancelled successfully"
       });
+
+      // Refresh the data to ensure consistency with server state
+      await fetchBookings();
+
     } catch (error) {
-      logger.error('Error cancelling booking:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to cancel booking';
+      logger.error('Error cancelling booking:', { error: errorMessage, bookingId: booking.booking_id });
       toast({
         title: "Error",
-        description: "Failed to cancel booking",
+        description: errorMessage,
         variant: "destructive"
       });
     }

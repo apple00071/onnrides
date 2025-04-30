@@ -223,8 +223,8 @@ export default function TripInitiationPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="flex flex-col min-h-screen w-full">
+      <div className="flex justify-between items-center h-16 px-4 border-b bg-white w-full">
         <h1 className="text-2xl font-bold">Trip Initiation</h1>
         <Button onClick={handleRefresh} variant="outline" className="gap-2">
           <RefreshCw className="h-4 w-4" />
@@ -232,121 +232,122 @@ export default function TripInitiationPage() {
         </Button>
       </div>
       
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center flex-col sm:flex-row gap-4">
-            <div>
-              <CardTitle>Manage Trip Initiations</CardTitle>
-              <CardDescription>
-                Review and initiate trips for confirmed bookings
-              </CardDescription>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <div className="relative w-full sm:w-auto">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search bookings..."
-                  className="pl-8 w-full sm:w-auto min-w-[200px]"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+      <div className="flex-1 flex flex-col w-full">
+        <div className="bg-white border-b w-full">
+          <div className="px-4 py-3">
+            <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:justify-between sm:items-center">
+              <div>
+                <h2 className="text-lg font-semibold">Manage Trip Initiations</h2>
+                <p className="text-sm text-gray-500">
+                  Review and initiate trips for confirmed bookings
+                </p>
               </div>
               
-              <div className="flex gap-2">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[130px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="initiated">Initiated</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:space-x-4">
+                <div className="relative w-full sm:w-[200px]">
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search bookings..."
+                    className="pl-8 w-full"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
                 
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-[130px]">
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="online">Online</SelectItem>
-                    <SelectItem value="offline">Offline</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:space-x-2">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-full sm:w-[130px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="initiated">Initiated</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-full sm:w-[130px]">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="online">Online</SelectItem>
+                      <SelectItem value="offline">Offline</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </div>
-        </CardHeader>
+        </div>
         
-        <CardContent>
-          <Tabs defaultValue="pending" className="w-full">
+        <div className="p-4 flex-1 overflow-hidden">
+          <Tabs defaultValue="pending" className="w-full h-full flex flex-col">
             <TabsList className="mb-4">
               <TabsTrigger value="pending">Pending Initiation</TabsTrigger>
               <TabsTrigger value="initiated">Initiated</TabsTrigger>
               <TabsTrigger value="all">All Bookings</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="pending" className="mt-0">
-              <BookingsTable 
-                bookings={filteredBookings.filter(b => 
-                  b.status === 'confirmed' && b.payment_status === 'completed'
-                )}
-                loading={loading}
-                onInitiate={handleInitiateTrip}
-              />
-            </TabsContent>
-            
-            <TabsContent value="initiated" className="mt-0">
-              <BookingsTable 
-                bookings={filteredBookings.filter(b => b.status === 'initiated')}
-                loading={loading}
-                onInitiate={handleInitiateTrip}
-              />
-            </TabsContent>
-            
-            <TabsContent value="all" className="mt-0">
-              <BookingsTable 
-                bookings={filteredBookings}
-                loading={loading}
-                onInitiate={handleInitiateTrip}
-              />
-            </TabsContent>
+            <div className="flex-1 min-h-0">
+              <TabsContent value="pending" className="mt-0 h-full">
+                <BookingsTable 
+                  bookings={filteredBookings.filter(b => 
+                    b.status === 'confirmed' && b.payment_status === 'completed'
+                  )}
+                  loading={loading}
+                  onInitiate={handleInitiateTrip}
+                />
+              </TabsContent>
+              
+              <TabsContent value="initiated" className="mt-0 h-full">
+                <BookingsTable 
+                  bookings={filteredBookings.filter(b => b.status === 'initiated')}
+                  loading={loading}
+                  onInitiate={handleInitiateTrip}
+                />
+              </TabsContent>
+              
+              <TabsContent value="all" className="mt-0 h-full">
+                <BookingsTable 
+                  bookings={filteredBookings}
+                  loading={loading}
+                  onInitiate={handleInitiateTrip}
+                />
+              </TabsContent>
+            </div>
           </Tabs>
           
-          {/* Pagination */}
-          {!loading && filteredBookings.length > 0 && (
-            <div className="px-4 py-3 flex items-center justify-between border-t border-gray-200 mt-4">
-              <div className="flex-1 flex justify-between items-center">
-                <p className="text-sm text-gray-700">
-                  Showing page {currentPage} of {totalPages}
-                </p>
-                <div className="space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
+          <div className="flex items-center justify-between border-t border-gray-200 mt-4 pt-4">
+            <div className="flex-1 flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-2 sm:space-y-0">
+              <p className="text-sm text-gray-700">
+                Showing page {currentPage} of {totalPages}
+              </p>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </div>
       
       {/* Initiate Booking Modal */}
       {selectedBooking && (
@@ -385,14 +386,13 @@ function BookingsTable({
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Start</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Missing Info</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200 bg-white">
           {loading ? (
             <tr>
-              <td colSpan={8} className="px-4 py-4 text-center">
+              <td colSpan={7} className="px-4 py-4 text-center">
                 <div className="flex justify-center">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
@@ -400,7 +400,7 @@ function BookingsTable({
             </tr>
           ) : bookings.length === 0 ? (
             <tr>
-              <td colSpan={8} className="px-4 py-4 text-center text-gray-500">
+              <td colSpan={7} className="px-4 py-4 text-center text-gray-500">
                 No bookings found
               </td>
             </tr>
@@ -439,15 +439,6 @@ function BookingsTable({
                   >
                     {booking.status}
                   </Badge>
-                </td>
-                <td className="px-4 py-4 text-sm">
-                  {booking.missing_info && booking.missing_info.length > 0 ? (
-                    <Badge variant="destructive">
-                      {booking.missing_info.length} item{booking.missing_info.length > 1 ? 's' : ''}
-                    </Badge>
-                  ) : (
-                    <Badge variant="success">Complete</Badge>
-                  )}
                 </td>
                 <td className="px-4 py-4 text-sm">
                   <div className="flex space-x-2">

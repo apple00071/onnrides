@@ -279,20 +279,22 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
           </motion.ul>
         </motion.div>
       </motion.div>
-
-      {/* Main Content */}
-      <div className="flex flex-col flex-1 ml-[3.05rem] transition-all duration-300">
-        <div className="sticky top-0 z-30 h-16 border-b bg-background px-6 flex items-center">
-          {/* Removed the OnnRides Admin Dashboard text as requested */}
-        </div>
-        <div className="flex-1 overflow-auto bg-gray-50 p-4">
-          <div className="container mx-auto">
-            <div className="bg-white rounded-lg shadow-sm min-h-[calc(100vh-6rem)] p-6">
-              {children}
-            </div>
-          </div>
-        </div>
-      </div>
+      
+      <motion.main 
+        className="flex-1"
+        initial={isCollapsed ? "closed" : "open"}
+        animate={isCollapsed ? "closed" : "open"}
+        variants={{
+          open: { marginLeft: "15rem" },
+          closed: { marginLeft: "3.05rem" }
+        }}
+        transition={transitionProps}
+      >
+        {children}
+      </motion.main>
+      
+      {/* PWA Install Prompt */}
+      <AdminPWA key="admin-pwa" />
     </div>
   );
 } 

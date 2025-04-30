@@ -17,6 +17,57 @@ export async function GET(req: Request) {
       );
     }
 
+    // Create email_logs table if it doesn't exist
+    await query(`
+      CREATE TABLE IF NOT EXISTS email_logs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        recipient TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        message_content TEXT NOT NULL,
+        booking_id TEXT,
+        status TEXT NOT NULL,
+        error TEXT,
+        message_id TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Create indexes if they don't exist
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_email_logs_status') THEN
+          CREATE INDEX idx_email_logs_status ON email_logs(status);
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_email_logs_recipient') THEN
+          CREATE INDEX idx_email_logs_recipient ON email_logs(recipient);
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_email_logs_booking_id') THEN
+          CREATE INDEX idx_email_logs_booking_id ON email_logs(booking_id);
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_email_logs_created_at') THEN
+          CREATE INDEX idx_email_logs_created_at ON email_logs(created_at);
+        END IF;
+      END $$;
+
+      -- Create trigger for updated_at if it doesn't exist
+      CREATE OR REPLACE FUNCTION update_updated_at_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          NEW.updated_at = CURRENT_TIMESTAMP;
+          RETURN NEW;
+      END;
+      $$ language 'plpgsql';
+
+      DROP TRIGGER IF EXISTS update_email_logs_updated_at ON email_logs;
+      CREATE TRIGGER update_email_logs_updated_at
+          BEFORE UPDATE ON email_logs
+          FOR EACH ROW
+          EXECUTE FUNCTION update_updated_at_column();
+    `);
+
     // Get query parameters
     const url = new URL(req.url);
     const page = parseInt(url.searchParams.get('page') || '1');
@@ -76,7 +127,18 @@ export async function GET(req: Request) {
     const result = await query(sqlQuery, [limit, offset]);
 
     // Format the response data
-    const formattedData = result.rows.map(row => ({
+    const formattedData = result.rows.map((row: {
+      id: string;
+      recipient: string;
+      subject: string;
+      message_content: string;
+      booking_id: string | null;
+      status: string;
+      error: string | null;
+      message_id: string | null;
+      ist_created_at: string;
+      vehicle_name: string | null;
+    }) => ({
       ...row,
       created_at: row.ist_created_at,
       ist_created_at: undefined // Remove the extra field

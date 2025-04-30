@@ -253,7 +253,7 @@ export async function PUT(request: NextRequest) {
             status = 'cancelled',
             payment_status = 'cancelled',
             updated_at = NOW()
-          WHERE booking_id = $1::uuid 
+          WHERE booking_id = $1::text 
           RETURNING *,
             start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_start_date,
             end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_end_date
@@ -274,10 +274,23 @@ export async function PUT(request: NextRequest) {
             u.phone as user_phone,
             v.name as vehicle_name
           FROM bookings b
-          LEFT JOIN users u ON b.user_id = u.id
-          LEFT JOIN vehicles v ON b.vehicle_id = v.id
-          WHERE b.booking_id = $1::uuid
+          LEFT JOIN users u ON b.user_id::text = u.id::text
+          LEFT JOIN vehicles v ON b.vehicle_id::text = v.id::text
+          WHERE b.booking_id = $1::text
         `, [bookingId]);
+
+        if (detailsResult.rowCount === 0) {
+          throw new Error('Booking details not found');
+        }
+
+        // Make vehicle available again
+        if (booking.vehicle_id) {
+          await query(`
+            UPDATE vehicles 
+            SET is_available = true 
+            WHERE id::text = $1::text
+          `, [booking.vehicle_id]);
+        }
         
         const bookingDetails = detailsResult.rows[0];
 
