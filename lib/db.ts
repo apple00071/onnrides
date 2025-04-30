@@ -438,4 +438,4 @@ async function closePool(): Promise<void> {
 initializeDatabase().catch(error => {
   logger.error('Failed to initialize database on startup:', error);
   process.exit(1);
-}); 
+});

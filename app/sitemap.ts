@@ -1,5 +1,5 @@
 import { MetadataRoute } from 'next';
-import { db } from '@/lib/db';
+import prisma from '@/lib/prisma';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.onnrides.com';
@@ -38,6 +38,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const bikeCategoryUrls = bikeCategories.map(category => ({
     url: `${baseUrl}/bikes/${category}`,
     lastModified: new Date(),
+    changeFrequency: 'daily' as const,
+    priority: 0.8
+  }));
+
+  // Get all available bikes from database
+  const bikes = await prisma.vehicles.findMany({
+    where: {
+      type: 'bike',
+      is_available: true
+    },
+    select: {
+      id: true,
+      updated_at: true
+    }
+  });
+
+  // Generate URLs for individual bike pages
+  const bikeUrls = bikes.map(bike => ({
+    url: `${baseUrl}/vehicles/${bike.id}`,
+    lastModified: bike.updated_at || new Date(),
     changeFrequency: 'daily' as const,
     priority: 0.8
   }));
@@ -104,29 +124,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly' as const,
       priority: 0.4,
     }
-  ];
+  ] satisfies MetadataRoute.Sitemap;
 
-  // Get all available bikes from database
-  const bikes = await db.query.vehicles.findMany({
-    where: {
-      category: 'bike',
-      isAvailable: true
-    }
-  });
-
-  // Generate URLs for individual bike pages
-  const bikeUrls = bikes.map(bike => ({
-    url: `${baseUrl}/vehicles/${bike.id}`,
-    lastModified: new Date(bike.updatedAt),
-    changeFrequency: 'daily' as const,
-    priority: 0.8
-  }));
-
-  // Combine all URLs
-  return [
-    ...staticRoutes,
-    ...locationUrls,
-    ...bikeCategoryUrls,
-    ...bikeUrls
-  ];
+  // Combine all URLs and ensure they match the Sitemap type
+  return [...staticRoutes, ...locationUrls, ...bikeCategoryUrls, ...bikeUrls] satisfies MetadataRoute.Sitemap;
 } 

@@ -1,5 +1,7 @@
 import { getServerSession, type DefaultSession, type NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import GoogleProvider from 'next-auth/providers/google';
+import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import bcrypt from 'bcrypt';
 import logger from '@/lib/logger';
 import type { JWT } from 'next-auth/jwt';
@@ -28,6 +30,7 @@ declare module 'next-auth/jwt' {
 }
 
 export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
   },
@@ -95,16 +98,48 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
+    // Add Google Provider if environment variables are available
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? [
+      GoogleProvider({
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      })
+    ] : []),
   ],
   callbacks: {
     async jwt({ token, user }) {
+      if (!token.email) {
+        return token;
+      }
+
+      // If we have a user from the credentials provider
       if (user) {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
         token.role = user.role;
+        return token;
       }
-      return token;
+
+      // For other providers or subsequent requests, check the database
+      const dbUser = await prisma.users.findFirst({
+        where: {
+          email: token.email,
+        },
+      });
+
+      if (!dbUser) {
+        return {
+          ...token,
+          role: 'user',
+        };
+      }
+
+      return {
+        ...token,
+        id: dbUser.id,
+        role: dbUser.role || 'user',
+      };
     },
     async session({ session, token }) {
       return {
@@ -168,4 +203,42 @@ export const verifyAdmin = async (request: Request): Promise<boolean> => {
   }
 
   return session.user?.role === 'admin';
-}; 
+};
+
+export async function getCurrentUser() {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.email) {
+      return null;
+    }
+
+    const currentUser = await prisma.users.findUnique({
+      where: {
+        email: session.user.email
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        created_at: true,
+        updated_at: true
+      }
+    });
+
+    if (!currentUser) {
+      return null;
+    }
+
+    return {
+      ...currentUser,
+      createdAt: currentUser.created_at,
+      updatedAt: currentUser.updated_at
+    };
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
+  }
+} 

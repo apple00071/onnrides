@@ -1,73 +1,71 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
-import { query } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-options';
+import prisma from '@/lib/prisma';
 import logger from '@/lib/logger';
-import { 
-  User, 
-  DocumentCounts, 
-  BookingCounts,
-  ApiResponse 
-} from '@/lib/types';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { userId: string } }
-): Promise<NextResponse<ApiResponse<User & {
-  documents: DocumentCounts;
-  bookings: BookingCounts;
-}>>> {
+) {
   try {
-    // ... authentication check ...
-    const session = await getCurrentUser();
-    if (!session) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json(
-        { success: false, error: 'Not authenticated' },
-        { status: 401 }
+        { error: 'Admin access required' },
+        { status: 403 }
       );
     }
 
     const { userId } = params;
 
-    // User query
-    const userResult = await query<User>(
-      'SELECT id, name, email, phone, role, created_at FROM users WHERE id = $1::uuid',
-      [userId]
-    );
-    const user = userResult.rows[0];
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        created_at: true,
+        _count: {
+          select: {
+            documents: true,
+            bookings: true
+          }
+        },
+        bookings: {
+          select: {
+            status: true
+          }
+        }
+      }
+    });
 
     if (!user) {
       return NextResponse.json(
-        { success: false, error: 'User not found' },
+        { error: 'User not found' },
         { status: 404 }
       );
     }
 
-    // ... document counts query ...
-    const documentCountsResult = await query<DocumentCounts>(`
-      SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved
-      FROM documents
-      WHERE user_id = $1::uuid
-    `, [userId]);
-    const documentCounts = documentCountsResult.rows[0];
+    // Calculate booking counts
+    const bookingCounts = {
+      total: user._count.bookings,
+      completed: user.bookings.filter(b => b.status === 'completed').length,
+      cancelled: user.bookings.filter(b => b.status === 'cancelled').length
+    };
 
-    // ... booking counts query ...
-    const bookingCountsResult = await query<BookingCounts>(`
-      SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled
-      FROM bookings
-      WHERE user_id = $1::uuid
-    `, [userId]);
-    const bookingCounts = bookingCountsResult.rows[0];
+    // Remove the raw bookings data from response
+    const { bookings, _count, ...userData } = user;
 
     return NextResponse.json({
       success: true,
       data: {
-        ...user,
-        documents: documentCounts,
+        ...userData,
+        documents: {
+          total: user._count.documents
+        },
         bookings: bookingCounts
       }
     });
@@ -75,7 +73,7 @@ export async function GET(
   } catch (error) {
     logger.error('Error fetching user profile:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch user profile' },
+      { error: 'Failed to fetch user profile' },
       { status: 500 }
     );
   }

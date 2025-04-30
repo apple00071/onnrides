@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import logger from '@/lib/logger';
+import { authOptions } from '@/lib/auth-options';
 import prisma from '@/lib/prisma';
-import { authOptions } from '@/lib/auth';
+import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -57,79 +57,97 @@ interface DashboardData {
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.role || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session?.user || session.user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
     }
 
-    logger.info('Fetching dashboard data...');
-
-    try {
-      // Get total revenue
-      const revenueResult = await prisma.$queryRaw<[{ total: string }]>`
-        SELECT COALESCE(SUM(total_price), 0) as total FROM bookings
-      `;
-      const totalRevenue = parseFloat(revenueResult[0].total);
-      logger.info('Revenue data fetched:', { totalRevenue });
-
-      // Get total bookings count
-      const totalBookings = await prisma.bookings.count();
-      logger.info('Total bookings fetched:', { totalBookings });
-
-      // Get recent bookings with related data using raw query
-      const recentBookings = await prisma.$queryRaw<RawBookingResult[]>`
-        SELECT 
-          b.id,
-          b.user_id,
-          b.vehicle_id,
-          b.start_date,
-          b.end_date,
-          b.total_hours,
-          b.total_price,
-          b.status,
-          b.payment_status,
-          b.created_at,
-          u.name as user_name,
-          u.email as user_email,
-          v.name as vehicle_name,
-          v.model as vehicle_model,
-          v.brand as vehicle_brand
-        FROM bookings b
-        LEFT JOIN users u ON b.user_id = u.id
-        LEFT JOIN vehicles v ON b.vehicle_id = v.id
-        ORDER BY b.created_at DESC
-        LIMIT 10
-      `;
-      logger.info('Recent bookings fetched:', { count: recentBookings.length });
-
-      const data: DashboardData = {
-        totalRevenue,
-        totalBookings,
-        recentBookings
-      };
-
-      logger.info('Dashboard data prepared successfully');
-      
-      return NextResponse.json(data);
-    } catch (dbError) {
-      logger.error('Database operation failed:', {
-        error: dbError instanceof Error ? dbError.message : 'Unknown database error',
-        stack: dbError instanceof Error ? dbError.stack : undefined
-      });
-      
-      throw new Error('Database operation failed');
-    }
-  } catch (error) {
-    logger.error('Dashboard Error:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
-    
-    return NextResponse.json(
-      { 
-        error: "Failed to fetch dashboard data",
-        details: error instanceof Error ? error.message : 'Unknown error'
+    // Get booking stats
+    const bookingStats = await prisma.bookings.aggregate({
+      _count: {
+        id: true
       },
+      where: {
+        OR: [
+          { status: 'active' },
+          { status: 'completed' },
+          { status: 'cancelled' }
+        ]
+      }
+    });
+
+    const activeBookings = await prisma.bookings.count({
+      where: { status: 'active' }
+    });
+
+    const completedBookings = await prisma.bookings.count({
+      where: { status: 'completed' }
+    });
+
+    const cancelledBookings = await prisma.bookings.count({
+      where: { status: 'cancelled' }
+    });
+
+    // Get recent bookings
+    const recentBookings = await prisma.bookings.findMany({
+      take: 5,
+      orderBy: { created_at: 'desc' },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true
+          }
+        },
+        vehicle: {
+          select: {
+            name: true,
+            type: true
+          }
+        }
+      }
+    });
+
+    // Get revenue data
+    const revenueData = await prisma.bookings.groupBy({
+      by: ['created_at'],
+      where: {
+        status: 'completed'
+      },
+      _sum: {
+        total_price: true
+      },
+      orderBy: {
+        created_at: 'asc'
+      },
+      take: 30
+    });
+
+    const formattedRevenueData = revenueData.map(data => ({
+      date: data.created_at,
+      revenue: data._sum.total_price || 0
+    }));
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        stats: {
+          total: bookingStats._count.id,
+          active: activeBookings,
+          completed: completedBookings,
+          cancelled: cancelledBookings
+        },
+        recentBookings,
+        revenueData: formattedRevenueData
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error fetching dashboard data:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch dashboard data' },
       { status: 500 }
     );
   }
