@@ -157,11 +157,6 @@ export default function PaymentStatusPage({ searchParams }: PaymentStatusPagePro
 
           <div className="flex flex-col gap-3">
             <Button asChild variant="default" className="w-full">
-              <Link href={`/checkout/${bookingId}`}>
-                Try Payment Again
-              </Link>
-            </Button>
-            <Button asChild variant="secondary" className="w-full">
               <Link href="/bookings">
                 View Your Bookings
               </Link>

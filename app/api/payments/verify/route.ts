@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import crypto from 'crypto';
-import { query } from '@/lib/db';
-import logger from '@/lib/logger';
-import { EmailService } from '@/lib/email/service';
-import { formatDateTimeIST } from '@/lib/utils/timezone';
-import { formatCurrency } from '@/lib/utils/currency';
-import type { QueryResult } from 'pg';
-import { WhatsAppService } from '@/app/lib/whatsapp/service';
-import Razorpay from 'razorpay';
-import { AxiosError } from 'axios';
-import { PrismaClient } from '@prisma/client';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { revalidatePath } from 'next/cache';
+import { EmailService } from '@/lib/email/service';
+import { WhatsAppService } from '@/lib/whatsapp/service';
+import { formatDateTimeIST } from '@/lib/utils/timezone';
+import logger from '@/lib/logger';
+import Razorpay from 'razorpay';
+import { query } from '@/lib/db';
+import { validatePaymentVerification } from '@/lib/razorpay';
+import { prisma } from '@/lib/prisma';
 
 // Set timeout for the API route
 export const maxDuration = 30; // 30 seconds timeout
@@ -27,8 +24,6 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
   key_secret: process.env.RAZORPAY_KEY_SECRET!
 });
-
-const prisma = new PrismaClient();
 
 // Helper function to format date in IST with proper conversion
 function formatDateIST(date: Date | string): string {
@@ -92,37 +87,32 @@ interface BookingRow {
   pickup_location: string;
 }
 
-interface SerializedError {
-  name?: string;
-  message?: string;
-  stack?: string;
-  code?: string | number;
-  [key: string]: unknown;
-}
-
-function serializeError(error: unknown): SerializedError {
+// Helper function to safely serialize errors
+function serializeError(error: unknown): Record<string, any> {
   if (error instanceof Error) {
-    const serialized: SerializedError = {
+    return {
       name: error.name,
       message: error.message,
       stack: error.stack
     };
-    // Safely copy any additional properties
-    for (const [key, value] of Object.entries(error)) {
-      if (key !== 'name' && key !== 'message' && key !== 'stack') {
-        serialized[key] = value;
-      }
-    }
-    return serialized;
   }
-  return typeof error === 'object' ? { ...(error as Record<string, unknown>) } : { message: String(error) };
+  return { message: String(error) };
 }
 
 async function findBooking(bookingId: string, userId: string) {
   try {
+    logger.info('Finding booking:', {
+      bookingId,
+      userId
+    });
+
+    // Try to find the booking by either UUID or short ID
     const booking = await prisma.bookings.findFirst({
       where: {
-        id: bookingId,
+        OR: [
+          { id: bookingId },
+          { booking_id: bookingId }
+        ],
         user_id: userId
       },
       include: {
@@ -130,10 +120,25 @@ async function findBooking(bookingId: string, userId: string) {
       }
     });
 
+    if (!booking) {
+      logger.warn('No booking found:', {
+        bookingId,
+        userId
+      });
+      return null;
+    }
+
+    logger.info('Found booking:', {
+      id: booking.id,
+      bookingId: booking.booking_id,
+      status: booking.status,
+      paymentStatus: booking.payment_status
+    });
+
     return booking;
   } catch (error) {
     logger.error('Error finding booking:', {
-      error,
+      error: serializeError(error),
       bookingId,
       userId
     });
@@ -370,86 +375,284 @@ async function updateBookingAfterPayment(
 }
 
 // Main verification endpoint
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
+  const startTime = Date.now();
+  const requestId = `pv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
   try {
+    logger.info('Payment verification started', {
+      requestId,
+      timestamp: new Date().toISOString()
+    });
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      logger.error('Unauthorized access attempt in payment verification', {
+        requestId,
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        timestamp: new Date().toISOString()
+      });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    const body = await request.json();
+    const userId = session.user.id;
+    const data = await req.json();
     const { 
-      razorpay_payment_id, 
-      razorpay_order_id, 
-      razorpay_signature, 
-      booking_id 
-    } = body;
-
-    logger.info('Payment verification request received', {
-      booking_id,
-      has_signature: !!razorpay_signature,
-      razorpay_order_id,
       razorpay_payment_id,
-      userId: session.user.id
+      razorpay_order_id,
+      razorpay_signature,
+      booking_id 
+    } = data;
+
+    logger.info('Payment verification request details', {
+      requestId,
+      booking_id,
+      userId,
+      has_payment_id: !!razorpay_payment_id,
+      has_order_id: !!razorpay_order_id,
+      has_signature: !!razorpay_signature,
+      timestamp: new Date().toISOString()
     });
 
     // Find the booking
-      const booking = await findBooking(booking_id, session.user.id);
-
-      if (!booking) {
-        logger.error('Booking not found', { 
-          booking_id,
-        payment_id: razorpay_payment_id,
-        user_id: session.user.id
-        });
-        
-        return NextResponse.json(
-        { error: 'Booking not found' },
-        { status: 404 }
-      );
-    }
-
-    // Update booking with payment information
-    const updatedBooking = await prisma.bookings.update({
-      where: { id: booking_id },
-                    data: {
-        status: 'confirmed',
-        payment_status: 'completed',
-        payment_details: JSON.stringify({
-                      payment_id: razorpay_payment_id,
-          order_id: razorpay_order_id,
-          signature: razorpay_signature,
-          payment_completed_at: new Date().toISOString()
-        }),
-        updated_at: new Date()
-      }
+    logger.info('Finding booking record', {
+      requestId,
+      booking_id,
+      userId
     });
 
-    // Revalidate relevant pages
-    revalidatePath('/bookings');
-    revalidatePath(`/bookings/${booking_id}`);
-    revalidatePath('/admin/bookings');
-
-      return NextResponse.json({
-        success: true,
-        data: {
-        booking: {
-          id: updatedBooking.id,
-          status: updatedBooking.status,
-          payment_status: updatedBooking.payment_status,
-          payment_details: JSON.parse(updatedBooking.payment_details || '{}')
+    const booking = await prisma.bookings.findFirst({
+      where: {
+        OR: [
+          { id: booking_id },
+          { booking_id: booking_id }
+        ],
+        user_id: userId
+      },
+      include: {
+        vehicle: true,
+        user: {
+          select: {
+            name: true,
+            email: true,
+            phone: true
+          }
         }
       }
     });
 
-  } catch (error) {
-    logger.error('Payment verification failed:', {
-      error: error instanceof Error ? error.message : 'Unknown error'
+    if (!booking) {
+      logger.error('Booking not found during payment verification', {
+        requestId,
+        booking_id,
+        userId,
+        timestamp: new Date().toISOString()
+      });
+      return new Response(JSON.stringify({ error: 'Booking not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    logger.info('Found booking record', {
+      requestId,
+      booking_id: booking.id,
+      booking_short_id: booking.booking_id,
+      current_status: booking.status,
+      current_payment_status: booking.payment_status,
+      vehicle_id: booking.vehicle_id,
+      timestamp: new Date().toISOString()
     });
-    
-    return NextResponse.json(
-      { error: 'Payment verification failed' },
-      { status: 500 }
-    );
+
+    // Verify payment signature
+    logger.info('Verifying payment signature', {
+      requestId,
+      order_id: razorpay_order_id,
+      payment_id: razorpay_payment_id,
+      has_signature: !!razorpay_signature
+    });
+
+    const isValid = validatePaymentVerification({
+      order_id: razorpay_order_id,
+      payment_id: razorpay_payment_id,
+      signature: razorpay_signature
+    });
+
+    if (!isValid) {
+      logger.error('Invalid payment signature', {
+        requestId,
+        booking_id,
+        razorpay_order_id,
+        razorpay_payment_id,
+        timestamp: new Date().toISOString()
+      });
+      return new Response(JSON.stringify({ error: 'Invalid payment signature' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    logger.info('Payment signature verified successfully', {
+      requestId,
+      booking_id: booking.id,
+      payment_id: razorpay_payment_id
+    });
+
+    // Fetch payment details from Razorpay
+    try {
+      const paymentDetails = await razorpay.payments.fetch(razorpay_payment_id);
+      logger.info('Fetched Razorpay payment details', {
+        requestId,
+        payment_id: razorpay_payment_id,
+        amount: paymentDetails.amount,
+        status: paymentDetails.status,
+        method: paymentDetails.method,
+        bank: paymentDetails.bank,
+        card_id: paymentDetails.card_id,
+        wallet: paymentDetails.wallet,
+        vpa: paymentDetails.vpa,
+        error_code: paymentDetails.error_code,
+        error_description: paymentDetails.error_description,
+        acquirer_data: paymentDetails.acquirer_data
+      });
+    } catch (error) {
+      logger.error('Error fetching Razorpay payment details', {
+        requestId,
+        error: serializeError(error),
+        payment_id: razorpay_payment_id
+      });
+    }
+
+    // Update booking status
+    try {
+      const updatedBooking = await prisma.bookings.update({
+        where: { id: booking.id },
+        data: {
+          payment_status: 'PAID',
+          status: 'CONFIRMED',
+          payment_details: JSON.stringify({
+            payment_id: razorpay_payment_id,
+            order_id: razorpay_order_id,
+            signature: razorpay_signature,
+            payment_completed_at: new Date().toISOString(),
+            verification_request_id: requestId
+          })
+        }
+      });
+
+      logger.info('Booking updated successfully', {
+        requestId,
+        booking_id: booking.id,
+        new_status: updatedBooking.status,
+        new_payment_status: updatedBooking.payment_status,
+        timestamp: new Date().toISOString()
+      });
+
+      // Send notifications
+      try {
+        // Send email notification
+        const emailData = {
+          userName: booking.user.name || 'Customer',
+          vehicleName: booking.vehicle.name,
+          bookingId: booking.booking_id || booking.id,
+          startDate: booking.start_date.toISOString(),
+          endDate: booking.end_date.toISOString(),
+          amount: booking.total_price.toString(),
+          paymentId: razorpay_payment_id
+        };
+        await EmailService.getInstance().sendBookingConfirmation(booking.user.email!, emailData);
+        logger.info('Email notification sent successfully', {
+          requestId,
+          bookingId: booking.booking_id || booking.id,
+          email: booking.user.email,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        logger.error('Failed to send email notification', {
+          requestId,
+          bookingId: booking.booking_id || booking.id,
+          error: serializeError(error),
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Send WhatsApp notification
+      if (booking.user.phone) {
+        try {
+          const whatsappData = {
+            customerName: booking.user.name || 'Customer',
+            customerPhone: booking.user.phone,
+            vehicleType: booking.vehicle.type || 'Vehicle',
+            vehicleModel: booking.vehicle.name,
+            startDate: booking.start_date.toISOString(),
+            endDate: booking.end_date.toISOString(),
+            bookingId: booking.booking_id || booking.id,
+            totalAmount: booking.total_price.toString()
+          };
+          await WhatsAppService.getInstance().sendBookingConfirmation(whatsappData);
+          logger.info('WhatsApp notification sent successfully', {
+            requestId,
+            bookingId: booking.booking_id || booking.id,
+            phone: booking.user.phone,
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          logger.error('Failed to send WhatsApp notification', {
+            requestId,
+            bookingId: booking.booking_id || booking.id,
+            error: serializeError(error),
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      // Calculate and log processing time
+      const processingTime = Date.now() - startTime;
+      logger.info('Payment verification completed', {
+        requestId,
+        booking_id: booking.id,
+        processing_time_ms: processingTime,
+        timestamp: new Date().toISOString()
+      });
+
+      // Return success response
+      return new Response(JSON.stringify({ 
+        success: true,
+        booking_id: booking.booking_id || booking.id,
+        processing_time_ms: processingTime
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+    } catch (error) {
+      logger.error('Error updating booking after payment verification', {
+        requestId,
+        error: serializeError(error),
+        booking_id: booking.id,
+        processing_time_ms: Date.now() - startTime
+      });
+      return new Response(JSON.stringify({ error: 'Failed to update booking status' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+  } catch (error) {
+    const processingTime = Date.now() - startTime;
+    logger.error('Payment verification failed:', {
+      requestId,
+      error: serializeError(error),
+      processing_time_ms: processingTime,
+      timestamp: new Date().toISOString()
+    });
+    return new Response(JSON.stringify({ error: 'Payment verification failed' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 } 
