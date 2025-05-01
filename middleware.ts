@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import type { UserRole } from '@/lib/types';
 
 // Paths that are always accessible, even in maintenance mode
 const ALWAYS_ACCESSIBLE_PATHS = [
   '/api/auth',
-  '/api/auth/signin',  // Add NextAuth signin path
-  '/api/auth/session', // Add session check path
+  '/api/auth/signin',
+  '/api/auth/session',
+  '/api/auth/callback',
+  '/api/auth/signout',
   '/login',
   '/admin-login',
   '/admin',           
@@ -23,6 +26,7 @@ const ALWAYS_ACCESSIBLE_PATHS = [
   '/_next',
   '/static',
   '/api/health',
+  '/api/trpc',  // Add if you're using tRPC
 ];
 
 // Check if a path should bypass the maintenance check
@@ -36,28 +40,9 @@ const shouldBypassMaintenanceCheck = (path: string): boolean => {
   }
   
   // Then check path starts with
-  if (ALWAYS_ACCESSIBLE_PATHS.some(accessible => normalizedPath.startsWith(accessible.toLowerCase()))) {
-    return true;
-  }
-
-  // Check for admin paths explicitly
-  if (normalizedPath.includes('/admin')) {
-    return true;
-  }
-
-  // Check for static files and API routes
-  if (
-    normalizedPath.match(/\.[^/]+$/) || // Static files
-    normalizedPath.startsWith('/_next') || // Next.js files
-    normalizedPath.startsWith('/api/admin') || // Admin API routes
-    normalizedPath.startsWith('/api/auth') || // Auth API routes
-    normalizedPath.startsWith('/public/') || // Public files
-    normalizedPath.startsWith('/static/') // Static files
-  ) {
-    return true;
-  }
-
-  return false;
+  return ALWAYS_ACCESSIBLE_PATHS.some(accessible => 
+    normalizedPath.startsWith(accessible.toLowerCase())
+  ) || normalizedPath.match(/\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/i) !== null;
 };
 
 // Check if request is coming from a mobile device
@@ -67,63 +52,57 @@ const isMobileDevice = (userAgent: string | null): boolean => {
 };
 
 export async function middleware(request: NextRequest) {
-  const pathname = new URL(request.url).pathname;
+  const url = new URL(request.url);
+  const pathname = url.pathname;
   const userAgent = request.headers.get('user-agent');
   const isMobile = isMobileDevice(userAgent);
 
   // Log information about the request (useful for debugging)
   console.log(`[Middleware] Processing request: ${pathname}, isMobile: ${isMobile}`);
 
-  // Skip maintenance check for certain paths
+  // Skip maintenance check for bypassed paths
   if (shouldBypassMaintenanceCheck(pathname)) {
     console.log(`[Middleware] Skipping maintenance check for: ${pathname}`);
     return undefined;
   }
 
   try {
-    // Check for admin access first, before any other checks
+    // Check for admin access first
     const token = await getToken({ 
       req: request,
       secret: process.env.NEXTAUTH_SECRET
     });
 
-    const isAdmin = token?.role === 'admin';
-    
-    // If user is admin, let them through immediately regardless of device type
-    if (isAdmin) {
+    // If user is admin, let them through immediately
+    if (token?.role === 'admin') {
       console.log('[Middleware] Admin access granted');
       return undefined;
     }
 
-    // Use the maintenance API endpoint with absolute URL
-    const baseUrl = process.env.NEXTAUTH_URL || (
-      process.env.NODE_ENV === 'production' 
-        ? `https://${request.headers.get('host')}` 
-        : `http://${request.headers.get('host')}`
-    );
-    
+    // Check maintenance mode status
+    const baseUrl = process.env.NEXTAUTH_URL || `${url.protocol}//${url.host}`;
     const maintCheckUrl = `${baseUrl}/api/maintenance/check?_t=${Date.now()}`;
     
     console.log(`[Middleware] Checking maintenance status at: ${maintCheckUrl}`);
     
     const response = await fetch(maintCheckUrl, {
-      method: 'GET',
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0'
       }
     });
-    
+
     if (!response.ok) {
       // If maintenance check fails, let the request through
       return undefined;
     }
 
-    const maintenanceCheck = await response.json();
+    const { maintenance } = await response.json();
     
     // If maintenance mode is enabled and user is not admin, redirect to maintenance page
-    if (maintenanceCheck.maintenance && !isAdmin) {
+    const userRole = token?.role as UserRole | undefined;
+    if (maintenance && userRole !== 'admin') {
       console.log(`[Middleware] Redirecting to maintenance page from: ${pathname}`);
       return NextResponse.redirect(new URL('/maintenance', request.url));
     }
@@ -135,7 +114,7 @@ export async function middleware(request: NextRequest) {
       console.error('[Middleware] Request URL:', request.url);
       console.error('[Middleware] Request headers:', Object.fromEntries(request.headers.entries()));
     }
-    // In case of an error, don't block access
+    // In case of error, don't block access
     return undefined;
   }
 

@@ -30,7 +30,10 @@ const ErrorBoundary = nextDynamic(
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ 
+  subsets: ['latin'],
+  variable: '--font-inter',
+});
 
 // GA Measurement ID - replace with your actual Google Analytics ID
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || '';
@@ -283,7 +286,7 @@ export default async function RootLayout({
     ];
 
     return (
-      <html lang="en" className={`${goodTimes.variable}`} {...suppressHydrationWarning()}>
+      <html lang="en" className={`${inter.variable} ${goodTimes.variable}`} {...suppressHydrationWarning()}>
         <head>
           <meta charSet="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -301,7 +304,7 @@ export default async function RootLayout({
           {/* Only include Google Analytics in production */}
           {isProduction && GA_MEASUREMENT_ID && <GoogleAnalytics GA_MEASUREMENT_ID={GA_MEASUREMENT_ID} />}
         </head>
-        <body className={cn(inter.className)} {...suppressHydrationWarning()}>
+        <body className="min-h-screen bg-background font-sans antialiased">
           <ErrorBoundary>
             <Providers session={session}>
               <AuthProvider>
@@ -328,8 +331,8 @@ export default async function RootLayout({
     logger.error('Error in root layout:', error);
     
     return (
-      <html lang="en" className={`${goodTimes.variable}`}>
-        <body className={cn(inter.className)}>
+      <html lang="en" className={`${inter.variable} ${goodTimes.variable}`}>
+        <body className="min-h-screen bg-background font-sans antialiased">
           <div className="flex min-h-screen flex-col items-center justify-center p-24">
             <div className="max-w-5xl w-full">
               <h1 className="text-4xl font-bold mb-4">OnnRides</h1>

@@ -377,11 +377,32 @@ function SearchFormContent({
   const handleDropoffDateChange = (date: Date | null) => {
     if (date) {
       // Convert the selected date to IST
-      const istOffset = 5.5 * 60 * 60 * 1000;
       const dateInIST = new Date(date.getTime());
+      
+      // If there's a pickup date, ensure dropoff date is not before it
+      if (pickupDate) {
+        const pickupDateTime = new Date(pickupDate.getTime());
+        pickupDateTime.setHours(0, 0, 0, 0);
+        const dropoffDateTime = new Date(dateInIST.getTime());
+        dropoffDateTime.setHours(0, 0, 0, 0);
+
+        if (dropoffDateTime < pickupDateTime) {
+          // If selected date is before pickup date, set it to pickup date
+          setDropoffDate(new Date(pickupDate.getTime()));
+          setDropoffTime('');
+          return;
+        }
+      }
+      
       setDropoffDate(dateInIST);
+      
+      // If it's the same day as pickup, reset the time
+      if (pickupDate && dateInIST.toDateString() === pickupDate.toDateString()) {
+        setDropoffTime('');
+      }
     } else {
       setDropoffDate(null);
+      setDropoffTime('');
     }
   };
 
@@ -453,7 +474,7 @@ function SearchFormContent({
       ) : (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Return Date
+            {isDeliveryPartner ? 'End Date' : 'Return Date'}
           </label>
           <div className="grid grid-cols-2 gap-2">
             <div className="relative">
@@ -461,7 +482,7 @@ function SearchFormContent({
                 selected={dropoffDate}
                 onChange={handleDropoffDateChange}
                 dateFormat="dd/MM/yyyy"
-                minDate={minDate}
+                minDate={pickupDate || minDate}
                 placeholderText="Select date"
                 className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] cursor-pointer outline-none transition-colors"
                 showPopperArrow={false}
