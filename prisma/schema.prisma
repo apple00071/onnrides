@@ -127,3 +127,12 @@ model BookingHistory {
   @@index([booking_id])
   @@index([created_at])
 }
+
+model settings {
+  key         String    @id
+  value       String
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  @@map("settings")
+}
