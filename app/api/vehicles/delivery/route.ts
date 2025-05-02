@@ -19,6 +19,8 @@ interface DeliveryVehicle {
 
 type Duration = '7' | '15' | '30';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);

@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import prisma from '@/lib/prisma';
 import logger from '@/lib/logger';
+
+export const dynamic = 'force-dynamic';
 
 export const revalidate = 60; // Cache for 60 seconds
 
 export async function GET() {
   try {
-    const setting = await db
-      .selectFrom('settings')
-      .selectAll()
-      .where('key', '=', 'maintenance_mode')
-      .executeTakeFirst();
+    const setting = await prisma.settings.findUnique({
+      where: {
+        key: 'maintenance_mode'
+      }
+    });
 
     return NextResponse.json({
       maintenanceMode: setting?.value === 'true'

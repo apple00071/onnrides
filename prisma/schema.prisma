@@ -24,6 +24,7 @@ model bookings {
   updated_at         DateTime   @updatedAt
   user               users      @relation(fields: [user_id], references: [id])
   vehicle            vehicles   @relation(fields: [vehicle_id], references: [id])
+  history            BookingHistory[]
 }
 
 model documents {
@@ -50,6 +51,7 @@ model users {
   updated_at        DateTime    @updatedAt
   bookings          bookings[]
   documents         documents[]
+  history           BookingHistory[]
 }
 
 model vehicles {
@@ -109,4 +111,19 @@ model whatsapp_logs {
   template_name   String?
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
+}
+
+model BookingHistory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  booking_id  String   @db.Uuid
+  action      String
+  details     String
+  created_by  String
+  created_at  DateTime @default(now()) @db.Timestamp(6)
+  updated_at  DateTime @updatedAt @db.Timestamp(6)
+  booking     bookings @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+  user        users?   @relation(fields: [created_by], references: [id])
+
+  @@index([booking_id])
+  @@index([created_at])
 }

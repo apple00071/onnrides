@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { query } from '@/lib/db';
+import prisma from '@/lib/prisma';
 import logger from '@/lib/logger';
+
+export const dynamic = 'force-dynamic';
+
+interface BookingHistoryEntry {
+  id: string;
+  booking_id: string;
+  action: string;
+  details: string;
+  created_at: Date;
+  created_by: string;
+  user?: {
+    name: string | null;
+  } | null;
+}
 
 export async function GET(
   request: NextRequest,
@@ -18,25 +32,36 @@ export async function GET(
       );
     }
 
-    // Fetch booking history
-    const history = await query(
-      `SELECT 
-        bh.id,
-        bh.booking_id,
-        bh.action,
-        bh.details,
-        bh.created_at,
-        COALESCE(u.name, bh.created_by) as created_by
-      FROM booking_history bh
-      LEFT JOIN users u ON bh.created_by = u.id
-      WHERE bh.booking_id = $1::uuid
-      ORDER BY bh.created_at DESC`,
-      [params.bookingId]
-    );
+    // Fetch booking history using Prisma
+    const history = await prisma.BookingHistory.findMany({
+      where: {
+        booking_id: params.bookingId
+      },
+      include: {
+        user: {
+          select: {
+            name: true
+          }
+        }
+      },
+      orderBy: {
+        created_at: 'desc'
+      }
+    });
+
+    // Format the history entries
+    const formattedHistory = history.map((entry: BookingHistoryEntry) => ({
+      id: entry.id,
+      booking_id: entry.booking_id,
+      action: entry.action,
+      details: entry.details,
+      created_at: entry.created_at,
+      created_by: entry.user?.name || entry.created_by
+    }));
 
     return NextResponse.json({
       success: true,
-      history: history.rows
+      history: formattedHistory
     });
   } catch (error) {
     logger.error('Error fetching booking history:', error);

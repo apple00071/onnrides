@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import logger from '@/lib/logger';
 import prisma from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -15,22 +17,22 @@ export async function GET() {
       );
     }
 
-    const coupons = await prisma.coupon.findMany({
+    const coupons = await prisma.coupons.findMany({
       where: {
-        active: true,
-        expiryDate: {
+        is_active: true,
+        end_date: {
           gte: new Date()
         }
       },
       select: {
         id: true,
         code: true,
-        discountType: true,
-        discountValue: true,
+        discount_type: true,
+        discount_value: true,
         description: true,
-        expiryDate: true,
-        minBookingAmount: true,
-        maxDiscountAmount: true
+        end_date: true,
+        min_booking_amount: true,
+        max_discount_amount: true
       }
     });
 
