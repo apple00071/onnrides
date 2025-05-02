@@ -22,7 +22,12 @@ const prismaClientSingleton = () => {
   return new PrismaClient({
     log: ['error', 'warn'],
     errorFormat: 'minimal',
-  });
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL
+      }
+    }
+  }).$extends(withAccelerate());
 }
 
 // PrismaClient is attached to the `global` object in development to prevent
@@ -47,13 +52,59 @@ if (globalThis.prisma) {
   }
 }
 
+// Add connection management with retry logic
+let isConnected = false;
 const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 500; // 500ms initial delay
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+
+export async function connectPrisma(retryCount = 0): Promise<typeof prisma> {
+  try {
+    if (!isConnected) {
+      await prisma.$connect();
+      isConnected = true;
+      logger.info('Successfully connected to database');
+    }
+    return prisma;
+  } catch (error) {
+    if (retryCount < MAX_RETRIES) {
+      const delay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount);
+      logger.warn(`Connection attempt ${retryCount + 1} failed, retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return connectPrisma(retryCount + 1);
+    }
+    logger.error('Failed to connect to database after retries:', error);
+    throw error;
+  }
+}
+
+// Export a safe disconnect function with retry logic
+export async function disconnectPrisma(retryCount = 0): Promise<void> {
+  try {
+    if (isConnected) {
+      await prisma.$disconnect();
+      isConnected = false;
+      logger.info('Prisma client disconnected successfully');
+    }
+  } catch (error) {
+    if (retryCount < MAX_RETRIES) {
+      const delay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount);
+      logger.warn(`Disconnect attempt ${retryCount + 1} failed, retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return disconnectPrisma(retryCount + 1);
+    }
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('Error disconnecting Prisma client:', { error: errorMessage });
+    throw error;
+  }
+}
 
 // Function to directly query users from the database
 async function getUsersDirectly() {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
+    max: 4, // Maximum number of clients in the pool
+    idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+    connectionTimeoutMillis: 60000, // Return an error after 60 seconds if connection could not be established
   });
 
   try {
@@ -132,17 +183,5 @@ async function getUserByIdDirectly(id: string) {
     return null;
   } finally {
     await pool.end();
-  }
-}
-
-// Export a safe disconnect function
-export async function disconnectPrisma(): Promise<void> {
-  try {
-    await prisma.$disconnect();
-    logger.info('Prisma client disconnected successfully');
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error('Error disconnecting Prisma client:', { error: errorMessage });
-    throw error;
   }
 } 

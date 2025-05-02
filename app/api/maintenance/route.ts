@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, connectPrisma, disconnectPrisma } from '@/lib/prisma';
 import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -7,6 +7,9 @@ export const fetchCache = 'force-no-store';
 
 export async function GET() {
   try {
+    // Ensure database connection
+    await connectPrisma();
+    
     // Fetch maintenance mode status using Prisma
     const setting = await prisma.settings.findUnique({
       where: {
@@ -28,5 +31,8 @@ export async function GET() {
       error: 'Error checking maintenance mode',
       timestamp: Date.now()
     });
+  } finally {
+    // Always disconnect after the operation
+    await disconnectPrisma();
   }
 } 
