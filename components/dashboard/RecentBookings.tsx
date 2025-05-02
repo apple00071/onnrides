@@ -2,11 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Booking {
   id: string;
-  user: {
+  users: {
     name: string | null;
     email: string | null;
   };
-  vehicle: {
+  vehicles: {
     name: string;
     type: string;
   };
@@ -32,10 +32,10 @@ export function RecentBookings({ data }: RecentBookingsProps) {
             <div key={booking.id} className="flex items-center">
               <div className="ml-4 space-y-1">
                 <p className="text-sm font-medium leading-none">
-                  {booking.user.name || 'Anonymous User'}
+                  {booking.users.name || 'Anonymous User'}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {booking.vehicle.name} ({booking.vehicle.type})
+                  {booking.vehicles.name} ({booking.vehicles.type})
                 </p>
                 <div className="flex items-center pt-2">
                   <div className="ml-auto flex items-center gap-2">

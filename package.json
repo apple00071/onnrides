@@ -8,7 +8,7 @@
     "build:production": "node scripts/build-production.js",
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
-    "postinstall": "prisma generate && node -e \"const fs=require('fs');['postcss.config.js','tailwind.config.js'].forEach(f=>!fs.existsSync(f)&&fs.writeFileSync(f,''))\"",
+    "postinstall": "prisma generate",
     "migrate": "node -r dotenv/config scripts/run-migration.js",
     "cleanup:logs": "ts-node scripts/replace-console-logs.ts",
     "test:db": "ts-node -r dotenv/config scripts/test-db-connection.ts",

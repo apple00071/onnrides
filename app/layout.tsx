@@ -20,6 +20,12 @@ import nextDynamic from 'next/dynamic';
 import { SidebarProvider } from '@/hooks/use-sidebar';
 import { Analytics } from '@vercel/analytics/react'
 import { goodTimes } from './fonts'
+import { useSession } from 'next-auth/react';
+import { redirect } from 'next/navigation';
+import prisma from '@/lib/prisma';
+import { ThemeProvider } from '@/components/providers/theme-provider';
+import { SessionProvider } from '@/components/providers/session-provider';
+import { MaintenanceCheck } from '@/components/MaintenanceCheck';
 
 // Import ErrorBoundary dynamically with no SSR
 const ErrorBoundary = nextDynamic(
@@ -175,6 +181,20 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest'
 };
 
+async function checkMaintenanceMode() {
+  try {
+    const maintenanceStatus = await prisma.settings.findFirst({
+      where: {
+        key: 'maintenance_mode'
+      }
+    });
+    return maintenanceStatus?.value === 'true';
+  } catch (error) {
+    console.error('Error checking maintenance mode:', error);
+    return false;
+  }
+}
+
 export default async function RootLayout({
   children,
 }: {
@@ -317,6 +337,8 @@ export default async function RootLayout({
       }
     ];
 
+    const isMaintenanceMode = await checkMaintenanceMode();
+
     return (
       <html lang="en" className={`${inter.variable} ${goodTimes.variable}`} {...suppressHydrationWarning()}>
         <head>
@@ -345,10 +367,21 @@ export default async function RootLayout({
                 <ClientOnly>
                   <NotificationBar />
                   <SidebarProvider>
-                    {children}
+                    <ThemeProvider
+                      attribute="class"
+                      defaultTheme="system"
+                      enableSystem
+                      disableTransitionOnChange
+                    >
+                      <SessionProvider>
+                        <MaintenanceCheck isMaintenanceMode={isMaintenanceMode}>
+                          {children}
+                        </MaintenanceCheck>
+                        <Toaster position="top-center" />
+                        <ScriptLoader />
+                      </SessionProvider>
+                    </ThemeProvider>
                   </SidebarProvider>
-                  <Toaster position="top-center" />
-                  <ScriptLoader />
                 </ClientOnly>
               </AuthProvider>
             </Providers>

@@ -85,7 +85,7 @@ export default function SettingsPage() {
         setMaintenanceMode(checked);
         toast.success(checked ? 'Maintenance mode enabled' : 'Maintenance mode disabled');
       } else {
-        toast.error('Failed to update maintenance mode');
+        toast.error(data.error || 'Failed to update maintenance mode');
       }
     } catch (error) {
       toast.error('Error updating maintenance mode');
@@ -112,7 +112,7 @@ export default function SettingsPage() {
         setGstEnabled(checked);
         toast.success(checked ? 'GST enabled' : 'GST disabled');
       } else {
-        toast.error('Failed to update GST setting');
+        toast.error(data.error || 'Failed to update GST setting');
       }
     } catch (error) {
       toast.error('Error updating GST setting');

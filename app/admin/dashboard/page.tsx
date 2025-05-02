@@ -99,8 +99,8 @@ async function getRecentBookings() {
         created_at: 'desc',
       },
       include: {
-        vehicle: true,
-        user: true,
+        vehicles: true,
+        users: true,
       },
     });
   } catch (error) {

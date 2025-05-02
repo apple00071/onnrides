@@ -1,30 +1,29 @@
+import { PrismaClient } from '@prisma/client';
 import { withAccelerate } from '@prisma/extension-accelerate';
 import logger from './logger';
-import { PrismaClient } from '@prisma/client';
-
-// Force a new instance with clean import
-import { Pool } from 'pg';
-
-export { PrismaClient };
 
 declare global {
-  var prisma: PrismaClient | undefined
+  var prisma: PrismaClient | undefined;
 }
 
-const prisma = global.prisma || new PrismaClient({
-  log: ['query', 'error', 'warn']
-})
+const prismaClientSingleton = () => {
+  return new PrismaClient().$extends(withAccelerate());
+}
+
+const prisma = globalThis.prisma ?? prismaClientSingleton();
 
 if (process.env.NODE_ENV !== 'production') {
-  global.prisma = prisma
+  globalThis.prisma = prisma;
 }
 
+export default prisma;
+
 // Force reset of global instance to fix UUID type issues
-if (global.prisma) {
+if (globalThis.prisma) {
   try {
     logger.info('Disconnecting existing Prisma client...');
-    global.prisma.$disconnect();
-    global.prisma = undefined;
+    globalThis.prisma.$disconnect();
+    globalThis.prisma = undefined;
     logger.info('Existing Prisma client disconnected');
   } catch (error) {
     logger.warn('Failed to disconnect existing client, continuing with new instance');
@@ -129,7 +128,4 @@ export async function disconnectPrisma(): Promise<void> {
     logger.error('Error disconnecting Prisma client:', { error: errorMessage });
     throw error;
   }
-}
-
-// Export the client with accelerate extension
-export default prisma.$extends(withAccelerate()); 
+} 
