@@ -6,7 +6,6 @@ import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { format, parseISO, isValid } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { formatDateToIST, formatBookingDateTime } from '@/lib/utils';
 import { formatDateTimeIST } from '@/lib/utils/timezone';
 
 interface Booking {
@@ -77,6 +76,16 @@ export default function BookingsPage() {
         throw new Error(data.error || 'Failed to fetch bookings');
       }
 
+      logger.debug('Received bookings from API:', {
+        totalBookings: data.data.length,
+        bookings: data.data.map((b: Booking) => ({
+          bookingId: b.booking_id,
+          status: b.status,
+          paymentStatus: b.payment_status,
+          endDate: b.end_date
+        }))
+      });
+
       setBookings(data.data);
       setPagination(data.pagination);
     } catch (error) {
@@ -138,21 +147,58 @@ export default function BookingsPage() {
     );
   }
 
-  const currentBookings = bookings.filter(booking => 
-    booking.status === 'confirmed' && 
-    booking.payment_status === 'completed' && 
-    new Date(booking.end_date) > new Date()
-  );
+  const currentBookings = bookings.filter(booking => {
+    const isConfirmed = booking.status === 'confirmed';
+    const isPaymentCompleted = booking.payment_status === 'completed';
+    const endDate = new Date(booking.end_date);
+    const isEndDateFuture = endDate > new Date();
+    
+    logger.debug('Current booking filter:', {
+      bookingId: booking.booking_id,
+      isConfirmed,
+      isPaymentCompleted,
+      endDate: endDate.toISOString(),
+      isEndDateFuture,
+      status: booking.status,
+      paymentStatus: booking.payment_status
+    });
+    
+    return isConfirmed && isPaymentCompleted && isEndDateFuture;
+  });
 
-  const pendingBookings = bookings.filter(booking => 
-    booking.status === 'pending' || 
-    (booking.status === 'confirmed' && booking.payment_status === 'pending')
-  );
+  const pendingBookings = bookings.filter(booking => {
+    const isPending = booking.status === 'pending';
+    const isConfirmedPendingPayment = booking.status === 'confirmed' && booking.payment_status === 'pending';
+    
+    logger.debug('Pending booking filter:', {
+      bookingId: booking.booking_id,
+      isPending,
+      isConfirmedPendingPayment,
+      status: booking.status,
+      paymentStatus: booking.payment_status
+    });
+    
+    return isPending || isConfirmedPendingPayment;
+  });
 
-  const pastBookings = bookings.filter(booking => 
-    (booking.status === 'completed' || new Date(booking.end_date) <= new Date()) ||
-    booking.status === 'cancelled'
-  );
+  const pastBookings = bookings.filter(booking => {
+    const isCompleted = booking.status === 'completed';
+    const endDate = new Date(booking.end_date);
+    const isEndDatePast = endDate <= new Date();
+    const isCancelled = booking.status === 'cancelled';
+    
+    logger.debug('Past booking filter:', {
+      bookingId: booking.booking_id,
+      isCompleted,
+      endDate: endDate.toISOString(),
+      isEndDatePast,
+      isCancelled,
+      status: booking.status,
+      paymentStatus: booking.payment_status
+    });
+    
+    return isCompleted || isEndDatePast || isCancelled;
+  });
 
   const formatDate = (dateString: string) => {
     // If the string is already formatted with AM/PM, return it directly

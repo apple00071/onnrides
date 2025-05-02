@@ -46,6 +46,26 @@ const defaultRobotRules = {
   follow: process.env.VERCEL_ENV === 'production',
 };
 
+// Add security headers
+export const headers = {
+  'Content-Security-Policy': `
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://api.razorpay.com https://va.vercel-scripts.com https://sdk.cashfree.com;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: https: blob:;
+    font-src 'self' data:;
+    connect-src 'self' https://api.razorpay.com https://va.vercel-scripts.com;
+    frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com;
+    object-src 'none';
+  `.replace(/\s+/g, ' ').trim(),
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
+};
+
+// Update metadata with proper favicon configuration
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com'),
   title: 'Best Bike Rental in Hyderabad | Activa on Rent | Honda Dio Rental | OnnRides',
@@ -120,27 +140,39 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/favicon/favicon.ico' },
-      { url: '/favicon/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon/favicon.ico', type: 'image/x-icon' },
       { url: '/favicon/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
       { url: '/favicon/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
       { url: '/favicon/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
-      { url: '/favicon/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      { url: '/favicon/apple-touch-icon.png' }
+    ],
+    shortcut: [
+      { url: '/favicon/favicon.ico' }
     ],
     other: [
+      {
+        rel: 'manifest',
+        url: '/favicon/site.webmanifest'
+      },
       {
         rel: 'mask-icon',
         url: '/favicon/safari-pinned-tab.svg',
         color: '#f26e24'
       },
+      {
+        rel: 'msapplication-config',
+        url: '/favicon/browserconfig.xml'
+      }
     ]
   },
   appleWebApp: {
     title: 'OnnRides',
     statusBarStyle: 'black-translucent',
   },
+  manifest: '/site.webmanifest'
 };
 
 export default async function RootLayout({
@@ -294,13 +326,15 @@ export default async function RootLayout({
             name="format-detection"
             content="telephone=no, date=no, email=no, address=no"
           />
+          <meta httpEquiv="Content-Security-Policy" content={headers['Content-Security-Policy']} />
           {/* High priority favicon links */}
-          <link rel="shortcut icon" href="/favicon/favicon.ico" />
-          <link rel="icon" href="/favicon/favicon.ico" sizes="any" />
+          <link rel="shortcut icon" href="/favicon/favicon.ico" type="image/x-icon" />
+          <link rel="icon" href="/favicon/favicon.ico" type="image/x-icon" />
           <link rel="icon" href="/favicon/favicon-32x32.png" type="image/png" sizes="32x32" />
-          <link rel="icon" href="/favicon/android-chrome-192x192.png" type="image/png" sizes="192x192" />
-          <link rel="icon" href="/favicon/android-chrome-512x512.png" type="image/png" sizes="512x512" />
+          <link rel="icon" href="/favicon/favicon-16x16.png" type="image/png" sizes="16x16" />
           <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
+          <link rel="manifest" href="/favicon/site.webmanifest" />
+          <meta name="msapplication-config" content="/favicon/browserconfig.xml" />
           {/* Only include Google Analytics in production */}
           {isProduction && GA_MEASUREMENT_ID && <GoogleAnalytics GA_MEASUREMENT_ID={GA_MEASUREMENT_ID} />}
         </head>
