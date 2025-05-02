@@ -27,7 +27,7 @@ const prismaClientSingleton = () => {
 
 // PrismaClient is attached to the `global` object in development to prevent
 // exhausting your database connection limit.
-const prisma = globalThis.prisma ?? prismaClientSingleton();
+export const prisma = globalThis.prisma ?? prismaClientSingleton();
 
 if (process.env.NODE_ENV !== 'production') {
   globalThis.prisma = prisma;
