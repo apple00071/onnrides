@@ -60,8 +60,13 @@ export function VehicleCard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  
+  // Parse and format locations
+  const locations = Array.isArray(vehicle.location) ? vehicle.location : 
+    typeof vehicle.location === 'string' ? JSON.parse(vehicle.location) : [];
+  
   const [selectedLocation, setSelectedLocation] = useState<string | undefined>(
-    initialSelectedLocation || (vehicle.location.length === 1 ? vehicle.location[0] : undefined)
+    initialSelectedLocation || (locations.length === 1 ? locations[0] : undefined)
   );
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -212,9 +217,9 @@ export function VehicleCard({
 
   return (
     <div className={cn(
-      "bg-white rounded-lg shadow-sm overflow-hidden group",
-      className,
-      selected && "ring-2 ring-orange-500"
+      "relative flex flex-col overflow-hidden rounded-lg border bg-white",
+      selected && "ring-2 ring-primary",
+      className
     )}>
       {/* Vehicle Name */}
       <h3 className="text-xl font-sans font-medium p-4">{vehicle.name}</h3>
@@ -276,26 +281,22 @@ export function VehicleCard({
           </div>
         )}
 
-        {/* Available at Section */}
+        {/* Location selector */}
         <div className="mb-4">
-          <p className="text-sm text-gray-600 mb-1">Available at</p>
-          {vehicle.location.length === 1 ? (
-            // Single location display
-            <div className="w-full p-2 border border-gray-300 rounded-md bg-white">
-              {vehicle.location[0]}
-            </div>
+          <p className="text-sm text-gray-500 mb-2">Available at</p>
+          {locations.length === 1 ? (
+            <p className="text-sm font-medium">{locations[0]}</p>
           ) : (
-            // Multiple locations dropdown - Updated styling
-            <Select 
-              value={selectedLocation} 
+            <Select
+              value={selectedLocation}
               onValueChange={handleLocationSelect}
             >
-              <SelectTrigger className="w-full bg-white border-gray-300 focus:ring-primary focus:ring-opacity-50 focus:border-primary focus:ring-0 focus:outline-none">
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select location" />
               </SelectTrigger>
-              <SelectContent className="bg-white border border-gray-200 shadow-md">
-                {vehicle.location.map((loc) => (
-                  <SelectItem key={loc} value={loc} className="hover:bg-gray-100">
+              <SelectContent>
+                {locations.map((loc: string) => (
+                  <SelectItem key={loc} value={loc}>
                     {loc}
                   </SelectItem>
                 ))}

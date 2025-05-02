@@ -2,34 +2,13 @@ import { Pool, QueryResult } from 'pg';
 import { Kysely, PostgresDialect } from 'kysely';
 import type { Database } from './schema';
 import logger from './logger';
-import { PrismaClient, Prisma } from '@prisma/client';
+import prisma, { PrismaClient } from './prisma';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
 const CONNECTION_TIMEOUT = 60000; // 60 seconds
 
-// Prisma client configuration
-const prismaClientConfig: Prisma.PrismaClientOptions = {
-  log: [
-    { emit: 'event', level: 'error' },
-    { emit: 'event', level: 'warn' }
-  ],
-  errorFormat: 'minimal' as const,
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL
-    }
-  },
-  // Add connection pooling configuration
-  __internal: {
-    engine: {
-      cwd: process.cwd(),
-      binaryPath: process.env.PRISMA_QUERY_ENGINE_BINARY,
-      datamodelPath: './prisma/schema.prisma',
-      enableDebugLogs: true,
-    },
-  }
-};
+export default prisma;
 
 async function wait(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -45,7 +24,7 @@ class PrismaClientManager {
 
   static async getInstance(): Promise<PrismaClient> {
     if (!this.instance) {
-      this.instance = new PrismaClient(prismaClientConfig);
+      this.instance = new PrismaClient();
 
       // Add event listeners for the Prisma Client
       this.instance.$on('query', (e: any) => {
@@ -177,7 +156,7 @@ class PrismaClientManager {
           delay = Math.min(delay * 2, 10000) * (0.75 + Math.random() * 0.5);
           await wait(delay);
           
-          this.instance = new PrismaClient(prismaClientConfig);
+          this.instance = new PrismaClient();
           continue;
         }
         
@@ -189,7 +168,7 @@ class PrismaClientManager {
 }
 
 // Initialize Prisma client with connection handling
-export const prisma = new Proxy({} as PrismaClient, {
+export const prismaProxy = new Proxy({} as PrismaClient, {
   get: (target, prop) => {
     return async (...args: any[]) => {
       const client = await PrismaClientManager.getInstance();
@@ -200,7 +179,7 @@ export const prisma = new Proxy({} as PrismaClient, {
 });
 
 // Export the prisma instance as db for backward compatibility
-export const db = prisma;
+export const db = prismaProxy;
 
 // Ensure clean shutdown
 process.on('beforeExit', async () => {

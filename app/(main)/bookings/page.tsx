@@ -107,6 +107,12 @@ export default function BookingsPage() {
     if (success && bookingNumber) {
       toast.success(`Booking confirmed! Your booking number is ${bookingNumber}`);
     }
+    
+    // Add debug logging for URL parameters
+    logger.debug('URL parameters:', {
+      success,
+      bookingNumber
+    });
   }, [success, bookingNumber]);
 
   useEffect(() => {
@@ -118,6 +124,18 @@ export default function BookingsPage() {
       fetchBookings(newPage);
     }
   };
+
+  // Add debug logging for all bookings
+  useEffect(() => {
+    logger.debug('All bookings:', bookings.map(booking => ({
+      id: booking.id,
+      booking_id: booking.booking_id,
+      status: booking.status,
+      payment_status: booking.payment_status,
+      start_date: booking.start_date,
+      end_date: booking.end_date
+    })));
+  }, [bookings]);
 
   if (loading) {
     return (

@@ -111,7 +111,7 @@ interface BookingRow {
   formatted_dropoff: string;
   pickup_datetime: Date;
   dropoff_datetime: Date;
-  total_price: number;
+  total_amount: number;
   payment_status: string;
   created_at: Date;
   updated_at: Date;
@@ -167,7 +167,7 @@ export async function GET(request: NextRequest) {
         TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
         TO_CHAR(b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
         
-        b.total_price, 
+        b.total_price as total_amount, 
         b.payment_status,
         b.created_at,
         b.updated_at,
@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
       formatted_dropoff: booking.formatted_dropoff,
       pickup_datetime: booking.pickup_datetime,
       dropoff_datetime: booking.dropoff_datetime,
-      total_price: parseFloat(booking.total_price?.toString() || '0'),
+      total_price: parseFloat(booking.total_amount?.toString() || '0'),
       payment_status: booking.payment_status || 'pending',
       created_at: booking.created_at,
       updated_at: booking.updated_at,
@@ -380,51 +380,27 @@ export async function POST(request: NextRequest): Promise<Response> {
     });
     
     try {
-      const booking = await prisma.bookings.create({
+      // Create booking using Prisma's create method
+      const createdBooking = await prisma.bookings.create({
         data: {
           id: randomUUID(),
-          booking_id: bookingId,
           user_id: String(session.user.id),
           vehicle_id: vehicleId,
           start_date: pickupDateTime,
           end_date: dropoffDateTime,
-          total_hours: durationInHours,
-          total_price: totalAmount,
+          total_hours: parseFloat(durationInHours.toFixed(2)),
+          total_price: parseFloat(totalAmount.toFixed(2)),
           status: 'pending',
           payment_status: 'pending',
-          payment_details: JSON.stringify({
-            base_price: basePrice,
-            gst: gst,
-            service_fee: serviceFee,
-            advance_payment: advancePayment,
-            customer: {
-              name: customerName,
-              email: customerEmail,
-              phone: customerPhone
-            },
-            vehicle: {
-              name: vehicleName,
-              price_per_hour: pricePerHour,
-              special_pricing: {
-                seven_days: specialPricing7Days,
-                fifteen_days: specialPricing15Days,
-                thirty_days: specialPricing30Days
-              }
-            },
-            booking: {
-              duration_hours: durationInHours,
-              pickup_location: location,
-              pickup_date: formatDate(pickupDate),
-              dropoff_date: formatDate(dropoffDate)
-            }
-          }),
-          pickup_location: location,
-          created_at: new Date(),
-          updated_at: new Date()
+          pickup_location: JSON.stringify(location),
+          booking_id: bookingId,
+          payment_details: null,
+          dropoff_location: null,
+          payment_intent_id: null
         }
       });
 
-      createdBookingId = booking.id;
+      createdBookingId = createdBooking.id;
 
       // Create Razorpay order
       const razorpayOrder = await createOrder({
@@ -434,8 +410,8 @@ export async function POST(request: NextRequest): Promise<Response> {
         notes: {
           bookingId,
           vehicleId,
-          pickupDate: formatDate(pickupDate),
-          dropoffDate: formatDate(dropoffDate),
+          startDate: formatDate(pickupDate),
+          endDate: formatDate(dropoffDate),
           customerName,
           customerEmail,
           customerPhone
@@ -465,9 +441,10 @@ export async function POST(request: NextRequest): Promise<Response> {
       });
     } catch (error) {
       if (createdBookingId) {
-        await prisma.bookings.delete({
-          where: { id: createdBookingId },
-        });
+        await query(`
+          DELETE FROM bookings
+          WHERE id = $1
+        `, [createdBookingId]);
       }
 
       // Properly format Razorpay errors which might have a different structure

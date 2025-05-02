@@ -5,10 +5,7 @@ import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import bcrypt from 'bcrypt';
 import logger from '@/lib/logger';
 import type { JWT } from 'next-auth/jwt';
-import { PrismaClient } from '@prisma/client';
-
-// Initialize Prisma Client
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 declare module "next-auth" {
   interface User {
