@@ -183,12 +183,10 @@ export const metadata: Metadata = {
 
 async function checkMaintenanceMode() {
   try {
-    const maintenanceStatus = await prisma.settings.findFirst({
-      where: {
-        key: 'maintenance_mode'
-      }
+    const setting = await prisma.settings.findFirst({
+      where: { key: 'maintenance_mode' }
     });
-    return maintenanceStatus?.value === 'true';
+    return setting?.value === 'true';
   } catch (error) {
     console.error('Error checking maintenance mode:', error);
     return false;
@@ -202,9 +200,7 @@ export default async function RootLayout({
 }) {
   try {
     const session = await getServerSession(authOptions);
-    
-    // Note: Maintenance mode redirection is now handled by middleware.ts
-    // We don't need to check for maintenance mode here anymore
+    const isMaintenanceMode = await checkMaintenanceMode();
     
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
     
@@ -336,8 +332,6 @@ export default async function RootLayout({
         ]
       }
     ];
-
-    const isMaintenanceMode = await checkMaintenanceMode();
 
     return (
       <html lang="en" className={`${inter.variable} ${goodTimes.variable}`} {...suppressHydrationWarning()}>

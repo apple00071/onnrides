@@ -8,7 +8,7 @@
     "build:production": "node scripts/build-production.js",
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
-    "postinstall": "prisma generate",
+    "postinstall": "prisma generate && npm run setup:settings",
     "migrate": "node -r dotenv/config scripts/run-migration.js",
     "cleanup:logs": "ts-node scripts/replace-console-logs.ts",
     "test:db": "ts-node -r dotenv/config scripts/test-db-connection.ts",

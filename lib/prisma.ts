@@ -7,7 +7,10 @@ declare global {
 }
 
 const prismaClientSingleton = () => {
-  return new PrismaClient().$extends(withAccelerate());
+  return new PrismaClient({
+    log: ['error', 'warn'],
+    errorFormat: 'minimal',
+  });
 }
 
 const prisma = globalThis.prisma ?? prismaClientSingleton();
