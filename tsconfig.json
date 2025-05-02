@@ -12,8 +12,8 @@
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
@@ -30,7 +30,12 @@
       "@/lib/*": ["./lib/*"],
       "@prisma/client": ["./node_modules/.prisma/client"]
     },
-    "typeRoots": ["./node_modules/@types", "./types", "./node_modules/.prisma/client"]
+    "types": [
+      "node",
+      "jest",
+      "react",
+      "react-dom"
+    ]
   },
   "include": [
     "next-env.d.ts",

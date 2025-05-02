@@ -1,6 +1,18 @@
 import { PrismaClient } from '@prisma/client';
 import { withAccelerate } from '@prisma/extension-accelerate';
 import logger from './logger';
+import { Pool } from 'pg';
+
+interface UserRow {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  role: string | null;
+  created_at: Date;
+  updated_at: Date;
+  is_blocked: boolean;
+}
 
 declare global {
   var prisma: PrismaClient | undefined;
@@ -13,6 +25,8 @@ const prismaClientSingleton = () => {
   });
 }
 
+// PrismaClient is attached to the `global` object in development to prevent
+// exhausting your database connection limit.
 const prisma = globalThis.prisma ?? prismaClientSingleton();
 
 if (process.env.NODE_ENV !== 'production') {
@@ -44,7 +58,7 @@ async function getUsersDirectly() {
 
   try {
     // Direct SQL query to get users, converting any numeric IDs to strings
-    const result = await pool.query(`
+    const result = await pool.query<UserRow>(`
       SELECT 
         id::text, 
         name, 
@@ -58,7 +72,7 @@ async function getUsersDirectly() {
       ORDER BY created_at DESC
     `);
 
-    return result.rows.map(row => ({
+    return result.rows.map((row: UserRow) => ({
       id: row.id,
       name: row.name,
       email: row.email,
@@ -84,7 +98,7 @@ async function getUserByIdDirectly(id: string) {
 
   try {
     // Try to find the user by ID, handling both UUID and numeric IDs
-    const result = await pool.query(`
+    const result = await pool.query<UserRow>(`
       SELECT 
         id::text, 
         name, 

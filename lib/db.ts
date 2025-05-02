@@ -2,7 +2,8 @@ import { Pool, QueryResult } from 'pg';
 import { Kysely, PostgresDialect } from 'kysely';
 import type { Database } from './schema';
 import logger from './logger';
-import prisma, { PrismaClient } from './prisma';
+import prisma from './prisma';
+import { PrismaClient } from '@prisma/client';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
@@ -219,6 +220,17 @@ export interface Vehicle {
   updatedAt: Date;
 }
 
+interface UserRow {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  role: string | null;
+  created_at: Date;
+  updated_at: Date;
+  is_blocked: boolean;
+}
+
 // Parse and validate the connection string
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -418,3 +430,43 @@ initializeDatabase().catch(error => {
   logger.error('Failed to initialize database on startup:', error);
   process.exit(1);
 });
+
+// Function to directly query users from the database
+async function getUsersDirectly() {
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+  });
+
+  try {
+    // Direct SQL query to get users, converting any numeric IDs to strings
+    const result = await pool.query<UserRow>(`
+      SELECT 
+        id::text, 
+        name, 
+        email, 
+        phone, 
+        role,
+        created_at,
+        updated_at,
+        CASE WHEN is_blocked IS TRUE THEN TRUE ELSE FALSE END as is_blocked
+      FROM users
+      ORDER BY created_at DESC
+    `);
+
+    return result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      phone: row.phone,
+      role: row.role,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      is_blocked: row.is_blocked
+    }));
+  } catch (error) {
+    logger.error('Error in direct database query for users:', error);
+    return [];
+  } finally {
+    await pool.end();
+  }
+}
