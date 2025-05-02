@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { format, parseISO, isValid } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { formatDateTimeIST } from '@/lib/utils/timezone';
+import { useSession } from 'next-auth/react';
 
 interface Booking {
   id: string;
@@ -48,7 +49,8 @@ declare global {
 export default function BookingsPage() {
   const searchParams = useSearchParams();
   const success = searchParams.get('success');
-  const bookingNumber = searchParams.get('booking_number');
+  const bookingNumber = searchParams.get('booking_id');
+  const { data: session, status: sessionStatus } = useSession();
   
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [pagination, setPagination] = useState<PaginationData>({
@@ -64,11 +66,26 @@ export default function BookingsPage() {
     try {
       setLoading(true);
       setError(null);
-      logger.info('Fetching bookings for page:', page);
+      logger.info('Fetching bookings for page:', { page, sessionStatus });
 
-      const response = await fetch(`/api/bookings?page=${page}&limit=10`);
+      if (sessionStatus === 'loading') {
+        // Don't throw error, just wait
+        return;
+      }
+
+      if (sessionStatus !== 'authenticated' || !session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`/api/bookings?page=${page}&limit=10`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+
       if (!response.ok) {
-        throw new Error('Failed to fetch bookings');
+        throw new Error(`Failed to fetch bookings: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -76,26 +93,41 @@ export default function BookingsPage() {
         throw new Error(data.error || 'Failed to fetch bookings');
       }
 
-      logger.debug('Received bookings from API:', {
-        totalBookings: data.data.length,
-        bookings: data.data.map((b: Booking) => ({
-          bookingId: b.booking_id,
-          status: b.status,
-          paymentStatus: b.payment_status,
-          endDate: b.end_date
-        }))
+      // Add detailed logging of the raw API response
+      logger.info('Raw API Response:', {
+        success: data.success,
+        totalBookings: data.data?.length || 0,
+        pagination: data.pagination,
+        firstBooking: data.data?.[0],
+        rawData: data
       });
 
       setBookings(data.data);
       setPagination(data.pagination);
+
+      // Log the state after setting
+      logger.info('Bookings state updated:', {
+        totalBookings: data.data?.length || 0,
+        bookingIds: data.data?.map((b: Booking) => b.booking_id),
+        searchedBookingId: bookingNumber,
+        hasMatchingBooking: data.data?.some((b: Booking) => b.booking_id === bookingNumber)
+      });
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch bookings';
       logger.error('Error in fetchBookings:', {
         error,
         message: errorMessage,
-        stack: error instanceof Error ? error.stack : undefined
+        stack: error instanceof Error ? error.stack : undefined,
+        sessionStatus
       });
       setError(errorMessage);
+      
+      if (errorMessage === 'Not authenticated') {
+        window.location.href = '/auth/signin';
+        return;
+      }
+      
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -103,21 +135,30 @@ export default function BookingsPage() {
   };
 
   useEffect(() => {
-    // Show success message if booking was just completed
-    if (success && bookingNumber) {
-      toast.success(`Booking confirmed! Your booking number is ${bookingNumber}`);
+    // Only fetch bookings when session is ready and authenticated
+    if (sessionStatus === 'authenticated') {
+      fetchBookings();
     }
-    
-    // Add debug logging for URL parameters
-    logger.debug('URL parameters:', {
-      success,
-      bookingNumber
-    });
-  }, [success, bookingNumber]);
+  }, [sessionStatus]);
 
   useEffect(() => {
-    fetchBookings();
-  }, []);
+    // Show success message if booking was just completed
+    if (success === 'true' && bookingNumber) {
+      toast.success(`Booking confirmed! Your booking number is ${bookingNumber}`);
+      
+      // Add debug logging for URL parameters
+      logger.debug('URL parameters:', {
+        success,
+        bookingNumber,
+        sessionStatus
+      });
+      
+      // Only fetch if authenticated
+      if (sessionStatus === 'authenticated') {
+        fetchBookings();
+      }
+    }
+  }, [success, bookingNumber, sessionStatus]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= pagination.totalPages) {
@@ -136,6 +177,22 @@ export default function BookingsPage() {
       end_date: booking.end_date
     })));
   }, [bookings]);
+
+  if (sessionStatus === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+          <p className="text-gray-600">Initializing session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionStatus === 'unauthenticated') {
+    window.location.href = '/auth/signin';
+    return null;
+  }
 
   if (loading) {
     return (
@@ -167,18 +224,19 @@ export default function BookingsPage() {
 
   const currentBookings = bookings.filter(booking => {
     const isConfirmed = booking.status === 'confirmed';
-    const isPaymentCompleted = booking.payment_status === 'completed';
+    const isPaymentCompleted = booking.payment_status === 'completed' || booking.payment_status === 'paid';
     const endDate = new Date(booking.end_date);
     const isEndDateFuture = endDate > new Date();
     
-    logger.debug('Current booking filter:', {
+    logger.info('Current booking filter:', {
       bookingId: booking.booking_id,
       isConfirmed,
       isPaymentCompleted,
       endDate: endDate.toISOString(),
       isEndDateFuture,
       status: booking.status,
-      paymentStatus: booking.payment_status
+      paymentStatus: booking.payment_status,
+      matchesSearchedBooking: booking.booking_id === bookingNumber
     });
     
     return isConfirmed && isPaymentCompleted && isEndDateFuture;
@@ -186,14 +244,16 @@ export default function BookingsPage() {
 
   const pendingBookings = bookings.filter(booking => {
     const isPending = booking.status === 'pending';
-    const isConfirmedPendingPayment = booking.status === 'confirmed' && booking.payment_status === 'pending';
+    const isConfirmedPendingPayment = booking.status === 'confirmed' && 
+      (booking.payment_status === 'pending' || !['completed', 'paid', 'refunded'].includes(booking.payment_status));
     
-    logger.debug('Pending booking filter:', {
+    logger.info('Pending booking filter:', {
       bookingId: booking.booking_id,
       isPending,
       isConfirmedPendingPayment,
       status: booking.status,
-      paymentStatus: booking.payment_status
+      paymentStatus: booking.payment_status,
+      matchesSearchedBooking: booking.booking_id === bookingNumber
     });
     
     return isPending || isConfirmedPendingPayment;
@@ -205,14 +265,15 @@ export default function BookingsPage() {
     const isEndDatePast = endDate <= new Date();
     const isCancelled = booking.status === 'cancelled';
     
-    logger.debug('Past booking filter:', {
+    logger.info('Past booking filter:', {
       bookingId: booking.booking_id,
       isCompleted,
       endDate: endDate.toISOString(),
       isEndDatePast,
       isCancelled,
       status: booking.status,
-      paymentStatus: booking.payment_status
+      paymentStatus: booking.payment_status,
+      matchesSearchedBooking: booking.booking_id === bookingNumber
     });
     
     return isCompleted || isEndDatePast || isCancelled;
@@ -260,6 +321,11 @@ export default function BookingsPage() {
         {!bookings || bookings.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <p className="text-gray-500">No bookings found</p>
+            {bookingNumber && (
+              <p className="text-sm text-gray-400 mt-2">
+                Looking for booking: {bookingNumber}
+              </p>
+            )}
             <button 
               onClick={() => fetchBookings(1)}
               className="mt-4 text-sm text-orange-600 hover:text-orange-800"
