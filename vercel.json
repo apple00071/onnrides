@@ -36,7 +36,7 @@
   "build": {
     "env": {
       "PRISMA_GENERATE_DATAPROXY": "true",
-      "PRISMA_CLI_BINARY_TARGETS": "native,debian-openssl-3.0.x,rhel-openssl-3.0.x,linux-arm64-openssl-3.0.x"
+      "PRISMA_CLI_BINARY_TARGETS": "linux-arm64-openssl-3.0.x"
     }
   }
 } 
