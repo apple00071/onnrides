@@ -45,16 +45,54 @@ async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
 
 export async function middleware(request: NextRequest) {
   const pathname = request.url.split('?')[0].split('#')[0];
+  const isAdminRoute = pathname.startsWith('/admin');
 
   // Skip maintenance check for these paths
-  if (pathname.includes('/_next') || 
-      pathname.includes('/api/maintenance/check') || // Explicitly exclude maintenance check endpoint
+  const shouldSkipMaintenanceCheck = 
+      pathname.includes('/_next') || 
+      pathname.includes('/api/maintenance/check') || 
       pathname.includes('/api') || 
       pathname.includes('/maintenance') ||
-      pathname.includes('/admin') ||
       pathname.match(/\.[^/]+$/) || // Skip files with extensions
-      request.headers.get('x-middleware-bypass') === '1' // Skip if it's a middleware request
-  ) {
+      request.headers.get('x-middleware-bypass') === '1'; // Skip if it's a middleware request
+
+  // Handle admin routes - check authentication
+  if (isAdminRoute) {
+    try {
+      const token = await getToken({ 
+        req: request,
+        secret: process.env.NEXTAUTH_SECRET
+      });
+
+      // Log authentication attempt
+      console.log('Auth check:', {
+        path: pathname,
+        hasToken: !!token,
+        role: token?.role
+      });
+
+      if (!token) {
+        // Redirect to login if no token
+        const loginUrl = new URL('/auth/signin', request.url);
+        loginUrl.searchParams.set('callbackUrl', pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+
+      if (token.role !== 'admin') {
+        // Redirect unauthorized users to home
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+
+      // For authenticated admin users, let the request proceed
+      return undefined;
+    } catch (error) {
+      console.error('Auth check error:', error);
+      return NextResponse.redirect(new URL('/auth/signin', request.url));
+    }
+  }
+
+  // If we should skip maintenance check, just proceed
+  if (shouldSkipMaintenanceCheck) {
     return undefined;
   }
 
@@ -84,42 +122,6 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Handle admin routes
-  if (pathname.startsWith('/admin')) {
-    try {
-      const token = await getToken({ 
-        req: request,
-        secret: process.env.NEXTAUTH_SECRET
-      });
-
-      // Log authentication attempt
-      console.log('Auth check:', {
-        path: pathname,
-        hasToken: !!token,
-        role: token?.role
-      });
-
-      if (!token) {
-        // Redirect to login if no token
-        const loginUrl = new URL('/auth/signin', request.url);
-        loginUrl.searchParams.set('callbackUrl', pathname);
-        return NextResponse.redirect(loginUrl);
-      }
-
-      if (token.role !== 'admin') {
-        // Redirect unauthorized users to home
-        return NextResponse.redirect(new URL('/', request.url));
-      }
-
-      // For authenticated admin users, just let the request proceed
-      return undefined;
-
-    } catch (error) {
-      console.error('Auth check error:', error);
-      return NextResponse.redirect(new URL('/auth/signin', request.url));
-    }
-  }
-
   // Handle payment endpoints
   if (pathname.startsWith('/api/payments') || pathname.startsWith('/api/razorpay')) {
     // Only handle OPTIONS requests for CORS
@@ -134,9 +136,6 @@ export async function middleware(request: NextRequest) {
         }
       });
     }
-
-    // Let all other payment requests proceed without modification
-    return undefined;
   }
 
   // Allow all other requests to proceed
@@ -145,6 +144,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/((?!api/maintenance/check|api/auth|_next/static|_next/image|favicon.ico|logo.png|maintenance).*)',
     '/admin/:path*',
     '/api/payments/:path*',
     '/api/razorpay/:path*'

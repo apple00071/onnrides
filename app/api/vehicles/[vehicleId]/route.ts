@@ -35,13 +35,13 @@ export async function GET(
         name, 
         type, 
         location, 
-        price_per_hour,
+        "pricePerHour",
         price_7_days,
         price_15_days,
         price_30_days,
         images,
-        created_at, 
-        updated_at
+        "createdAt", 
+        "updatedAt"
       FROM vehicles
       WHERE id = $1
     `, [params.vehicleId]);
@@ -64,8 +64,16 @@ export async function GET(
       id: result.rows[0].id,
       name: result.rows[0].name,
       imagesType: typeof result.rows[0].images,
-      imagesPreview: result.rows[0].images ? result.rows[0].images.substring(0, 50) + '...' : 'null',
-      locationPreview: result.rows[0].location ? result.rows[0].location.substring(0, 50) + '...' : 'null'
+      imagesPreview: result.rows[0].images ? 
+        (typeof result.rows[0].images === 'string' ? 
+          result.rows[0].images.substring(0, 50) + '...' : 
+          JSON.stringify(result.rows[0].images).substring(0, 50) + '...') : 
+        'null',
+      locationPreview: result.rows[0].location ? 
+        (typeof result.rows[0].location === 'string' ? 
+          result.rows[0].location.substring(0, 50) + '...' : 
+          JSON.stringify(result.rows[0].location).substring(0, 50) + '...') : 
+        'null'
     });
 
     // Safely parse JSON fields with error handling
@@ -136,7 +144,9 @@ export async function GET(
       hasImages: Array.isArray(vehicle.images) && vehicle.images.length > 0,
       imageCount: Array.isArray(vehicle.images) ? vehicle.images.length : 0,
       firstImagePreview: Array.isArray(vehicle.images) && vehicle.images.length > 0 
-        ? (vehicle.images[0].substring(0, 50) + '...') 
+        ? (typeof vehicle.images[0] === 'string' 
+           ? vehicle.images[0].substring(0, 50) + '...' 
+           : JSON.stringify(vehicle.images[0]).substring(0, 50) + '...') 
         : 'No images'
     });
 
@@ -210,9 +220,9 @@ export async function PUT(
         type = $2,
         location = $3,
         quantity = $4,
-        price_per_hour = $5,
-        min_booking_hours = $6,
-        is_available = $7,
+        "pricePerHour" = $5,
+        "minBookingHours" = $6,
+        "isAvailable" = $7,
         images = $8,
         status = $9,
         vehicle_category = $10,
@@ -222,7 +232,7 @@ export async function PUT(
         delivery_price_7_days = $14,
         delivery_price_15_days = $15,
         delivery_price_30_days = $16,
-        updated_at = $17
+        "updatedAt" = $17
       WHERE id = $18
       RETURNING *
     `, [

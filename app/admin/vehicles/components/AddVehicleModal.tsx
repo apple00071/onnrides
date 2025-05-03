@@ -197,7 +197,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
         minBookingHours: Number(formData.min_booking_hours || 1),
         quantity: Number(formData.quantity || 1),
         images: formData.images || [],
-        // Add delivery-related fields
+        // Add delivery-related fields with correct field names for the API
         is_delivery_enabled: formData.is_delivery_enabled,
         price_7_days: formData.price_7_days ? Number(formData.price_7_days) : null,
         price_15_days: formData.price_15_days ? Number(formData.price_15_days) : null,

@@ -55,61 +55,106 @@ export async function PUT(
 ) {
   try {
     // Check if user is admin
-    const isUserAdmin = await isAdmin();
-    if (!isUserAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { vehicleId } = params;
-    const data = await request.json();
-
-    // Update vehicle in database
-    const result = await query(`
-      UPDATE vehicles 
-      SET 
-        name = $1,
-        type = $2,
-        location = $3,
-        "pricePerHour" = $4,
-        "isAvailable" = $5,
-        images = $6,
-        "updatedAt" = NOW()
-      WHERE id = $7
-      RETURNING *
-    `, [
-      data.name,
-      data.type,
-      data.location,
-      data.price_per_hour,
-      data.is_available,
-      data.images ? data.images.join(',') : null,
-      vehicleId
-    ]);
-
-    if (result.rows.length === 0) {
+    try {
+      const isUserAdmin = await isAdmin();
+      if (!isUserAdmin) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    } catch (authError) {
+      logger.error('Authentication error:', authError);
       return NextResponse.json(
-        { error: 'Vehicle not found' },
-        { status: 404 }
+        { error: 'Authentication failed' },
+        { status: 500 }
       );
     }
 
-    const updatedVehicle = result.rows[0];
+    const { vehicleId } = params;
+    let data;
+    try {
+      data = await request.json();
+      logger.info('Updating vehicle with raw data:', { vehicleId, data });
+    } catch (parseError) {
+      logger.error('Error parsing request body:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
 
-    // Revalidate the vehicles page
-    revalidatePath('/admin/vehicles');
-    revalidatePath('/vehicles');
-    revalidatePath(`/vehicles/${vehicleId}`);
+    // Parse numeric values with explicit type casting
+    const price = Number(data.price_per_hour || data.pricePerHour || 0);
+    const minHours = Number(data.min_booking_hours || data.minBookingHours || 1);
+    const price7Days = data.price_7_days ? Number(data.price_7_days) : null;
+    const price15Days = data.price_15_days ? Number(data.price_15_days) : null;
+    const price30Days = data.price_30_days ? Number(data.price_30_days) : null;
+    
+    // Boolean and enum values
+    const isAvailable = data.is_available !== undefined ? Boolean(data.is_available) : true;
+    const status = data.status || 'active';
 
-    logger.info('Vehicle updated successfully:', { vehicleId, updatedVehicle });
+    try {
+      // Query with explicit type casting to handle inconsistent column types
+      const updateQuery = `
+        UPDATE vehicles 
+        SET 
+          "isAvailable" = $1::boolean,
+          is_available = $1::boolean,
+          "pricePerHour" = $2::double precision,
+          price_per_hour = $2::numeric,
+          "minBookingHours" = $3::integer,
+          min_booking_hours = $3::integer,
+          price_7_days = $4::numeric,
+          price_15_days = $5::numeric,
+          price_30_days = $6::numeric,
+          status = $7,
+          "updatedAt" = $8
+        WHERE id = $9
+        RETURNING *;
+      `;
+      
+      const result = await query(updateQuery, [
+        isAvailable,
+        price,
+        minHours,
+        price7Days,
+        price15Days,
+        price30Days,
+        status,
+        new Date(),
+        vehicleId
+      ]);
 
-    return NextResponse.json({
-      success: true,
-      data: updatedVehicle
-    });
+      if (result.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'Vehicle not found' },
+          { status: 404 }
+        );
+      }
+
+      const updatedVehicle = result.rows[0];
+
+      // Revalidate the vehicles page
+      revalidatePath('/admin/vehicles');
+      revalidatePath('/vehicles');
+      revalidatePath(`/vehicles/${vehicleId}`);
+
+      logger.info('Vehicle updated successfully:', { vehicleId, updatedVehicle });
+
+      return NextResponse.json({
+        success: true,
+        data: updatedVehicle
+      });
+    } catch (queryError) {
+      logger.error('Database query error:', queryError);
+      return NextResponse.json(
+        { error: `Database error: ${queryError instanceof Error ? queryError.message : 'Unknown error'}` },
+        { status: 500 }
+      );
+    }
   } catch (error) {
-    logger.error('Error updating vehicle:', error);
+    logger.error('Unhandled error updating vehicle:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to update vehicle' },
+      { error: `Failed to update vehicle: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     );
   }

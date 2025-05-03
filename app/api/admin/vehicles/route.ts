@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Log the raw request to help debug
+    // Get the raw data and parse it
     const rawData = await request.text();
     logger.info('Raw request data:', { rawData });
     
@@ -136,9 +136,7 @@ export async function POST(request: NextRequest) {
     const data = JSON.parse(rawData);
     logger.info('Received vehicle creation request:', { 
       data, 
-      keys: Object.keys(data),
-      pricePerHour: data.pricePerHour,
-      pricePerHourType: typeof data.pricePerHour
+      keys: Object.keys(data)
     });
     
     // Enhanced validation with more specific error messages
@@ -146,7 +144,7 @@ export async function POST(request: NextRequest) {
     if (!data.name) missingFields.push('name');
     if (!data.type) missingFields.push('type');
     
-    // More thorough check for pricePerHour - catches undefined, null, empty string, and NaN
+    // More thorough check for pricePerHour
     if (
       data.pricePerHour === undefined || 
       data.pricePerHour === null || 
@@ -205,6 +203,9 @@ export async function POST(request: NextRequest) {
 
     // Convert location array to JSON string
     const locationJson = JSON.stringify(location);
+    
+    // Generate a UUID for the vehicle
+    const vehicleId = randomUUID();
 
     try {
       // Create the vehicle with normalized images
@@ -223,7 +224,7 @@ export async function POST(request: NextRequest) {
           "is_delivery_enabled", "delivery_price_7_days", "delivery_price_15_days", "delivery_price_30_days",
           "createdAt", "updatedAt"
       `, [
-        randomUUID(),
+        vehicleId,
         data.name,
         data.type,
         locationJson,

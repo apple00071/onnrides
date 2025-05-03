@@ -39,15 +39,23 @@ const formatLocations = (location: string | string[]): string[] => {
 };
 
 function convertToVehicle(data: VehicleFormData): Vehicle {
+  // Cast to any to avoid type errors with properties that may vary between interfaces
   return {
     ...data,
     id: data.id || '',
     type: data.type,
+    price_per_hour: Number(data.price_per_hour),
+    pricePerHour: Number(data.price_per_hour),
+    min_booking_hours: Number(data.min_booking_hours || 1),
+    minBookingHours: Number(data.min_booking_hours || 1),
+    is_available: Boolean(data.is_available),
+    isAvailable: Boolean(data.is_available),
+    vehicle_category: data.vehicle_category || 'normal',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     available: data.is_available,
     nextAvailable: null
-  };
+  } as Vehicle;
 }
 
 // Helper function to get valid image URL
@@ -147,17 +155,40 @@ export default function VehiclesPage() {
   }, [session, status, router]);
 
   const fetchVehicles = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch('/api/admin/vehicles');
-      if (!response.ok) {
-        throw new Error('Failed to fetch vehicles');
-      }
-      const data = await response.json();
-      setVehicles(data.vehicles.map(convertToVehicle));
-    } catch (_error) {
-      setError(_error instanceof Error ? _error.message : 'Failed to fetch vehicles');
+      const res = await fetch('/api/admin/vehicles');
+      const data = await res.json();
+      
+      // Check if data.vehicles exists (API returns { vehicles: [...] })
+      const vehiclesData = data.vehicles || data;
+      
+      // Ensure we have an array to work with
+      const vehiclesArray = Array.isArray(vehiclesData) ? vehiclesData : [];
+      
+      console.log('Fetched vehicles data:', vehiclesArray);
+      
+      // Normalize data to handle both camelCase and snake_case fields
+      const normalizedVehicles = vehiclesArray.map((vehicle: any) => {
+        return {
+          ...vehicle,
+          // Ensure both camelCase and snake_case versions exist
+          pricePerHour: vehicle.pricePerHour || vehicle.price_per_hour,
+          price_per_hour: vehicle.price_per_hour || vehicle.pricePerHour,
+          isAvailable: vehicle.isAvailable || vehicle.is_available,
+          is_available: vehicle.is_available || vehicle.isAvailable,
+          minBookingHours: vehicle.minBookingHours || vehicle.min_booking_hours,
+          min_booking_hours: vehicle.min_booking_hours || vehicle.minBookingHours,
+          // Ensure created_at and updated_at exist
+          created_at: vehicle.created_at || vehicle.createdAt || new Date().toISOString(),
+          updated_at: vehicle.updated_at || vehicle.updatedAt || new Date().toISOString(),
+        };
+      });
+      
+      console.log('Normalized vehicles:', normalizedVehicles);
+      setVehicles(normalizedVehicles);
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
     } finally {
       setLoading(false);
     }
@@ -209,11 +240,13 @@ export default function VehiclesPage() {
   };
 
   const handleVehicleAdded = (data: VehicleFormData) => {
-    const newVehicle: Vehicle = {
+    // Cast to any to avoid type errors with properties that may vary between interfaces
+    const newVehicle = {
       id: uuidv4(),
       name: data.name,
       type: data.type,
       price_per_hour: Number(data.price_per_hour),
+      pricePerHour: Number(data.price_per_hour),
       price_7_days: data.price_7_days ? Number(data.price_7_days) : null,
       price_15_days: data.price_15_days ? Number(data.price_15_days) : null,
       price_30_days: data.price_30_days ? Number(data.price_30_days) : null,
@@ -221,13 +254,19 @@ export default function VehiclesPage() {
       images: [],
       quantity: Number(data.quantity),
       min_booking_hours: Number(data.min_booking_hours),
+      minBookingHours: Number(data.min_booking_hours),
       is_available: true,
+      isAvailable: true,
       status: 'active',
       description: data.description || null,
       features: [],
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+      updated_at: new Date().toISOString(),
+      delivery_price_7_days: null,
+      delivery_price_15_days: null,
+      delivery_price_30_days: null,
+      vehicle_category: data.vehicle_category || 'normal'
+    } as Vehicle;
 
     setVehicles(prev => [...prev, newVehicle]);
     setIsAddModalOpen(false);
@@ -243,15 +282,33 @@ export default function VehiclesPage() {
 
   const handleAvailabilityChange = async (vehicle: Vehicle, isAvailable: boolean) => {
     try {
+      logger.info('Updating vehicle availability:', { vehicleId: vehicle.id, isAvailable });
+      
+      // Create payload with correct property names to match database schema
+      const payload = {
+        name: vehicle.name,
+        type: vehicle.type,
+        location: vehicle.location,
+        pricePerHour: Number(vehicle.price_per_hour),
+        isAvailable: isAvailable,
+        images: vehicle.images,
+        minBookingHours: Number(vehicle.min_booking_hours),
+        quantity: Number(vehicle.quantity),
+        status: vehicle.status,
+        price_7_days: vehicle.price_7_days ? Number(vehicle.price_7_days) : null,
+        price_15_days: vehicle.price_15_days ? Number(vehicle.price_15_days) : null,
+        price_30_days: vehicle.price_30_days ? Number(vehicle.price_30_days) : null,
+        delivery_price_7_days: vehicle.delivery_price_7_days ? Number(vehicle.delivery_price_7_days) : null,
+        delivery_price_15_days: vehicle.delivery_price_15_days ? Number(vehicle.delivery_price_15_days) : null,
+        delivery_price_30_days: vehicle.delivery_price_30_days ? Number(vehicle.delivery_price_30_days) : null
+      };
+      
       const response = await fetch(`/api/admin/vehicles/${vehicle.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...vehicle,
-          is_available: isAvailable
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -261,7 +318,7 @@ export default function VehiclesPage() {
 
       // Update local state
       setVehicles(vehicles.map(v => 
-        v.id === vehicle.id ? { ...v, is_available: isAvailable } : v
+        v.id === vehicle.id ? { ...v, is_available: isAvailable, isAvailable: isAvailable } : v
       ));
 
       toast.success(`Vehicle ${isAvailable ? 'enabled' : 'disabled'} successfully`);
@@ -324,12 +381,12 @@ export default function VehiclesPage() {
                 <Badge 
                   className={cn(
                     "absolute top-2 right-2",
-                    vehicle.is_available 
+                    ((vehicle.is_available || false) || (vehicle.isAvailable || false))
                       ? "bg-green-100 text-green-800" 
                       : "bg-gray-100 text-gray-800"
                   )}
                 >
-                  {vehicle.is_available ? 'Available' : 'Unavailable'}
+                  {((vehicle.is_available || false) || (vehicle.isAvailable || false)) ? 'Available' : 'Unavailable'}
                 </Badge>
               </div>
 
@@ -342,7 +399,7 @@ export default function VehiclesPage() {
                       <p className="text-sm text-gray-500 capitalize">{vehicle.type}</p>
                     </div>
                     <p className="font-medium text-[#f26e24]">
-                      {formatCurrency(vehicle.price_per_hour)}/hr
+                      ₹{vehicle.price_per_hour || vehicle.pricePerHour || 0}/hr
                     </p>
                   </div>
 

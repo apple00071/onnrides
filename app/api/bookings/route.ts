@@ -381,8 +381,8 @@ export async function POST(request: NextRequest): Promise<Response> {
     try {
       // Create booking using Prisma's create method
       const createdBooking = await query(`
-        INSERT INTO bookings (id, user_id, vehicle_id, start_date, end_date, total_hours, total_price, status, payment_status, pickup_location, booking_id, payment_details, dropoff_location, payment_intent_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        INSERT INTO bookings (id, "userId", "vehicleId", "startDate", "endDate", "totalHours", "totalPrice", status, "paymentStatus", "pickupLocation", "bookingId", "paymentDetails", "dropoffLocation", "createdAt", "updatedAt")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING id
       `, [
         randomUUID(),
@@ -398,7 +398,8 @@ export async function POST(request: NextRequest): Promise<Response> {
         bookingId,
         null,
         null,
-        null
+        new Date(),
+        new Date()
       ]);
 
       createdBookingId = createdBooking.rows[0].id;

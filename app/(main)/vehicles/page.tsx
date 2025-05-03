@@ -180,10 +180,25 @@ export default function VehiclesPage() {
   };
 
   const getDurationPrice = (vehicle: Vehicle) => {
+    if (!vehicle) return 0;
+    
     const durationInDays = parseInt(calculateDuration().split(' ')[0]);
-    if (durationInDays <= 7) return vehicle.price_7_days;
-    if (durationInDays <= 15) return vehicle.price_15_days;
-    return vehicle.price_30_days;
+    const hourlyPrice = vehicle.price_per_hour || 0;
+    
+    // Calculate total hours for the selected duration
+    const pickup = new Date(`${urlParams.pickupDate}T${urlParams.pickupTime}`);
+    const dropoff = new Date(`${urlParams.dropoffDate}T${urlParams.dropoffTime}`);
+    const diffMs = dropoff.getTime() - pickup.getTime();
+    const totalHours = Math.ceil(diffMs / (1000 * 60 * 60));
+    
+    // Default to hourly rate * total hours if package prices aren't available
+    if (durationInDays <= 7) {
+      return vehicle.price_7_days || (hourlyPrice * totalHours);
+    }
+    if (durationInDays <= 15) {
+      return vehicle.price_15_days || (hourlyPrice * totalHours);
+    }
+    return vehicle.price_30_days || (hourlyPrice * totalHours);
   };
 
   const handleLocationSelect = useCallback((location: string) => {
@@ -324,8 +339,22 @@ export default function VehiclesPage() {
       if (!response.ok) throw new Error('Failed to fetch vehicles');
       
       const data = await response.json();
-      setVehicles(data.vehicles || []);
+      
+      // Make sure we have a valid array and filter out null/undefined items
+      const vehiclesArray = Array.isArray(data.vehicles) ? data.vehicles : [];
+      const validVehicles = vehiclesArray.filter((v: any) => v !== null && v !== undefined);
+      
+      // Apply normalization to ensure is_available is always present
+      const normalizedVehicles = validVehicles.map((vehicle: any) => ({
+        ...vehicle,
+        is_available: vehicle.is_available ?? vehicle.isAvailable ?? true,
+        price_per_hour: vehicle.price_per_hour || vehicle.pricePerHour || 0
+      }));
+      
+      console.log('Fetched vehicles:', normalizedVehicles);
+      setVehicles(normalizedVehicles);
     } catch (error) {
+      console.error('Error fetching vehicles:', error);
       setVehicles([]);
       toast.error('Failed to fetch vehicles');
     } finally {
@@ -362,13 +391,18 @@ export default function VehiclesPage() {
   const getSortedVehicles = useCallback(() => {
     if (!vehicles.length) return [];
     
+    // Filter out null or undefined vehicles
+    const validVehicles = vehicles.filter(vehicle => vehicle !== null && vehicle !== undefined);
+    
+    if (!validVehicles.length) return [];
+    
     switch (sortBy) {
       case 'price-low-high':
-        return [...vehicles].sort((a, b) => a.price_per_hour - b.price_per_hour);
+        return [...validVehicles].sort((a, b) => a.price_per_hour - b.price_per_hour);
       case 'price-high-low':
-        return [...vehicles].sort((a, b) => b.price_per_hour - a.price_per_hour);
+        return [...validVehicles].sort((a, b) => b.price_per_hour - a.price_per_hour);
       default:
-        return vehicles; // 'relevance' - keep original order
+        return validVehicles; // 'relevance' - keep original order
     }
   }, [vehicles, sortBy]);
 
@@ -526,6 +560,9 @@ export default function VehiclesPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {getSortedVehicles().map(vehicle => {
+                  // Skip null/undefined vehicles
+                  if (!vehicle) return null;
+                  
                   const durationInDays = parseInt(calculateDuration().split(' ')[0]);
                   const packagePrice = getDurationPrice(vehicle);
                   
@@ -543,11 +580,15 @@ export default function VehiclesPage() {
                       showBookingButton={true}
                     >
                       <div>
-                        <p className="text-2xl font-semibold">₹{packagePrice}</p>
+                        <p className="text-2xl font-semibold">₹{packagePrice || 0}</p>
                         <p className="text-sm text-muted-foreground">
-                          {durationInDays <= 7 ? '7-day package' : 
-                           durationInDays <= 15 ? '15-day package' : 
-                           '30-day package'}
+                          {durationInDays 
+                            ? (durationInDays <= 7 
+                               ? '7-day package' 
+                               : durationInDays <= 15 
+                                 ? '15-day package' 
+                                 : '30-day package')
+                            : 'Package price'}
                         </p>
                       </div>
                     </VehicleCard>

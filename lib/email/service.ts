@@ -222,17 +222,14 @@ export class EmailService {
           subject,
           messageContent: message,
           bookingId,
-          status,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          status
         }
       });
       
       return result.id;
     } catch (error) {
       logger.error('Error logging email:', error);
-      // Fallback to returning a random ID - this ensures the operation continues
-      // even if logging fails
+      // Return a placeholder ID in case of error
       return randomUUID();
     }
   }
@@ -252,7 +249,7 @@ export class EmailService {
         }
       });
     } catch (error) {
-      logger.error(`Error updating email log ${id}:`, error);
+      logger.error('Error updating email log:', error);
     }
   }
 

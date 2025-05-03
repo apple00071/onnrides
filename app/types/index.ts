@@ -18,6 +18,19 @@ export interface Vehicle {
   features?: string[];
   created_at: Date;
   updated_at: Date;
+  price_7_days?: number | null;
+  price_15_days?: number | null;
+  price_30_days?: number | null;
+  delivery_price_7_days?: number | null;
+  delivery_price_15_days?: number | null;
+  delivery_price_30_days?: number | null;
+  is_delivery_enabled?: boolean;
+  vehicle_category: 'normal' | 'delivery' | 'both';
+  available?: boolean;
+  nextAvailable?: {
+    nextAvailable: string;
+    until: string | null;
+  } | null;
 }
 
 export interface UpdateVehicleBody {

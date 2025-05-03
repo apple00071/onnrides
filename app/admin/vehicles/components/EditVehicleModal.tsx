@@ -172,16 +172,23 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
     e.preventDefault();
     setLoading(true);
     
+    // Ensure images is always an array
+    const images = Array.isArray(formData.images) ? formData.images : [];
+    
+    // Ensure location is properly formatted
+    const location = JSON.stringify(formData.location);
+    
     const payload = {
       name: formData.name,
       type: formData.type || 'bike',
-      location: formData.location,
+      location: formData.location, // Send as array, the API will handle conversion
       quantity: parseInt(formData.quantity, 10),
       price_per_hour: parseFloat(formData.price_per_hour),
       min_booking_hours: parseInt(formData.min_booking_hours, 10),
-      images: formData.images,
+      images: images, // Send as array, the API will handle conversion
       is_available: true,
       status: 'active',
+      is_delivery_enabled: formData.is_delivery_enabled,
       vehicle_category: formData.is_delivery_enabled ? 'both' : 'normal',
       price_7_days: formData.price_7_days ? parseFloat(formData.price_7_days) : null,
       price_15_days: formData.price_15_days ? parseFloat(formData.price_15_days) : null,
@@ -192,20 +199,33 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
     };
 
     try {
+      // Log the payload before sending
+      console.log('Sending payload to API:', JSON.stringify(payload, null, 2));
+      
       if (vehicle?.id) {
-        await axios.put(`/api/admin/vehicles/${vehicle.id}`, payload);
+        console.log('Updating vehicle with data:', payload);
+        const response = await axios.put(`/api/admin/vehicles/${vehicle.id}`, payload);
+        console.log('Update response:', response.data);
+        onSuccess?.();
+        onClose();
+        toast.success('Vehicle saved successfully');
       } else {
-        await axios.post('/api/admin/vehicles', payload);
+        console.log('Creating vehicle with data:', payload);
+        const response = await axios.post('/api/admin/vehicles', payload);
+        console.log('Create response:', response.data);
+        onSuccess?.();
+        onClose();
+        toast.success('Vehicle saved successfully');
       }
-      onSuccess?.();
-      onClose();
-      toast.success('Vehicle saved successfully');
     } catch (error) {
       console.error('Error saving vehicle:', error);
-      if (axios.isAxiosError(error) && error.response?.data?.error) {
-        toast.error(error.response.data.error);
+      if (axios.isAxiosError(error)) {
+        // More detailed error handling for Axios errors
+        const errorMessage = error.response?.data?.error || error.message;
+        console.error('API error response:', error.response?.data);
+        toast.error(`Error: ${errorMessage}`);
       } else {
-        toast.error('Failed to save vehicle');
+        toast.error('Failed to save vehicle: Unknown error');
       }
     } finally {
       setLoading(false);

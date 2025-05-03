@@ -16,6 +16,11 @@ export interface VehicleFormData {
   status: 'active' | 'maintenance' | 'retired';
   description?: string | null;
   features?: string[];
+  vehicle_category?: 'normal' | 'delivery' | 'both';
+  is_delivery_enabled?: boolean;
+  delivery_price_7_days?: number | null;
+  delivery_price_15_days?: number | null;
+  delivery_price_30_days?: number | null;
 }
 
 export interface Vehicle {
@@ -23,18 +28,21 @@ export interface Vehicle {
   name: string;
   type: string;
   price_per_hour: number;
+  pricePerHour?: number;
   price_7_days?: number | null;
   price_15_days?: number | null;
   price_30_days?: number | null;
   delivery_price_7_days?: number | null;
   delivery_price_15_days?: number | null;
   delivery_price_30_days?: number | null;
-  vehicle_category: 'normal' | 'delivery' | 'both';
+  vehicle_category?: 'normal' | 'delivery' | 'both';
   location: string[];
   images: string[];
   quantity: number;
   min_booking_hours: number;
+  minBookingHours?: number;
   is_available: boolean;
+  isAvailable?: boolean;
   available?: boolean;
   nextAvailable?: {
     nextAvailable: string;

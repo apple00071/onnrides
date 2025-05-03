@@ -113,9 +113,13 @@ interface BookingRow {
 async function getAvailableLocations(
   vehicleId: string,
   locations: string[],
-  pickupDateTime: Date | null,
-  dropoffDateTime: Date | null
+  pickupDateStr: string | null,
+  dropoffDateStr: string | null
 ) {
+  // Convert string dates to Date objects if they exist
+  const pickupDateTime = pickupDateStr ? new Date(pickupDateStr) : null;
+  const dropoffDateTime = dropoffDateStr ? new Date(dropoffDateStr) : null;
+
   if (!pickupDateTime || !dropoffDateTime) {
     return locations;
   }
@@ -248,8 +252,110 @@ interface VehicleRow {
 // GET /api/vehicles - List all vehicles
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
+    // Extract query parameters
     const url = new URL(request.url);
+    const pickupDateStr = url.searchParams.get('pickupDate');
+    const dropoffDateStr = url.searchParams.get('dropoffDate');
+    const vehicleId = url.searchParams.get('id');
     const location = url.searchParams.get('location');
+
+    // If there's a vehicle ID, fetch a single vehicle
+    if (vehicleId) {
+      try {
+        const vehicleQuery = `
+          SELECT 
+            id, 
+            name, 
+            type, 
+            location, 
+            quantity,
+            "pricePerHour",
+            price_per_hour, 
+            price_7_days, 
+            price_15_days, 
+            price_30_days,
+            "minBookingHours",
+            min_booking_hours,
+            images, 
+            status, 
+            "isAvailable",
+            is_available,
+            "createdAt",
+            "updatedAt"
+          FROM vehicles
+          WHERE id = $1
+        `;
+        
+        const result = await query(vehicleQuery, [vehicleId]);
+        
+        if (result.rows.length === 0) {
+          return NextResponse.json(
+            { error: 'Vehicle not found' },
+            { status: 404 }
+          );
+        }
+        
+        const vehicle = result.rows[0];
+        
+        // Make sure we're capturing both camelCase and snake_case versions of price
+        const pricePerHour = Number(vehicle.pricePerHour || 0);
+        const minBookingHours = Number(vehicle.minBookingHours || 1);
+        
+        // Parse locations - ensuring it's an array
+        let locations = [];
+        try {
+          locations = Array.isArray(vehicle.location)
+            ? vehicle.location
+            : typeof vehicle.location === 'string'
+              ? JSON.parse(vehicle.location)
+              : [];
+        } catch (e) {
+          locations = typeof vehicle.location === 'string' ? [vehicle.location] : [];
+        }
+        
+        // Parse images - ensuring it's an array
+        let images = [];
+        try {
+          images = Array.isArray(vehicle.images)
+            ? vehicle.images
+            : typeof vehicle.images === 'string'
+              ? JSON.parse(vehicle.images)
+              : [];
+        } catch (e) {
+          images = [];
+        }
+        
+        // Format the response
+        const formattedVehicle = {
+          id: vehicle.id,
+          name: vehicle.name,
+          type: vehicle.type,
+          price_per_hour: pricePerHour,
+          pricePerHour: pricePerHour,
+          min_booking_hours: minBookingHours,
+          minBookingHours: minBookingHours,
+          price_7_days: vehicle.price_7_days,
+          price_15_days: vehicle.price_15_days,
+          price_30_days: vehicle.price_30_days,
+          location: locations,
+          images: images,
+          status: vehicle.status,
+          is_available: vehicle.isAvailable || false,
+          isAvailable: vehicle.isAvailable || false,
+          created_at: vehicle.createdAt,
+          updated_at: vehicle.updatedAt
+        };
+        
+        return NextResponse.json(formattedVehicle);
+      } catch (error) {
+        logger.error('Error fetching vehicle details:', error);
+        return NextResponse.json(
+          { error: 'Failed to fetch vehicle details' },
+          { status: 500 }
+        );
+      }
+    }
+
     const pickupDate = url.searchParams.get('pickupDate');
     const dropoffDate = url.searchParams.get('dropoffDate');
 
@@ -359,7 +465,125 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
     });
 
-    return NextResponse.json({ vehicles: processedVehicles });
+    // Look for the SQL query first, ensure it's fetching pricePerHour correctly
+    const vehiclesQuery = `
+      SELECT 
+        v.id, 
+        v.name, 
+        v.type, 
+        v.location, 
+        v.quantity,
+        v."pricePerHour",
+        v.price_per_hour, 
+        v.price_7_days, 
+        v.price_15_days, 
+        v.price_30_days,
+        v."minBookingHours",
+        v.min_booking_hours,
+        v.images, 
+        v.status, 
+        v."isAvailable",
+        v.is_available,
+        v."createdAt",
+        v."updatedAt",
+        ARRAY_AGG(DISTINCT b."pickupLocation") as booked_locations
+      FROM vehicles v
+      LEFT JOIN bookings b ON v.id = b."vehicleId" 
+        AND b.status NOT IN ('cancelled', 'failed') 
+        AND b."paymentStatus" != 'failed'
+        AND (
+          (b."startDate" - interval '2 hours', b."endDate" + interval '2 hours') OVERLAPS ($1::timestamp, $2::timestamp)
+          OR ($1::timestamp BETWEEN (b."startDate" - interval '2 hours') AND (b."endDate" + interval '2 hours'))
+          OR ($2::timestamp BETWEEN (b."startDate" - interval '2 hours') AND (b."endDate" + interval '2 hours'))
+          OR (b."startDate" - interval '2 hours') BETWEEN $1::timestamp AND $2::timestamp
+          OR (b."endDate" + interval '2 hours') BETWEEN $1::timestamp AND $2::timestamp
+        )
+      WHERE 
+        v.status = 'active' 
+        AND v."isAvailable" = true
+      GROUP BY v.id
+      ORDER BY v.name ASC
+    `;
+
+    // Then, make sure when formatting the response that the price is properly sent
+    // Somewhere in the response mapping code, ensure we're handling the price properly
+    const formattedVehicles = await Promise.all(
+      processedVehicles.map(async (vehicle: VehicleRow) => {
+        try {
+          // Parse locations - ensuring it's an array
+          let locations = [];
+          try {
+            locations = Array.isArray(vehicle.location)
+              ? vehicle.location
+              : typeof vehicle.location === 'string'
+                ? JSON.parse(vehicle.location)
+                : [];
+          } catch (e) {
+            locations = typeof vehicle.location === 'string' ? [vehicle.location] : [];
+          }
+
+          // Parse images - ensuring it's an array
+          let images: string[] = [];
+          try {
+            images = Array.isArray(vehicle.images)
+              ? vehicle.images
+              : typeof vehicle.images === 'string'
+                ? JSON.parse(vehicle.images)
+                : [];
+          } catch (e) {
+            images = [];
+          }
+
+          // Get available locations based on bookings
+          const availableLocations = await getAvailableLocations(
+            vehicle.id,
+            locations,
+            pickupDate,
+            dropoffDate
+          );
+
+          // Make sure we're capturing both camelCase and snake_case versions of price
+          // Only use the properties that exist in the VehicleRow interface
+          const price = Number(vehicle.pricePerHour || 0);
+          const minHours = Number(vehicle.minBookingHours || 1);
+
+          // Calculate pricing for this booking duration
+          // Convert string dates to Date objects for calculatePrice
+          const pricing = pickupDate && dropoffDate 
+            ? calculatePrice(price, new Date(pickupDate), new Date(dropoffDate))
+            : { totalHours: 0, chargeableHours: 0, totalPrice: 0 };
+
+          return {
+            id: vehicle.id,
+            name: vehicle.name,
+            type: vehicle.type,
+            price_per_hour: price,
+            pricePerHour: price,
+            min_booking_hours: minHours,
+            minBookingHours: minHours,
+            price_7_days: vehicle.price_7_days,
+            price_15_days: vehicle.price_15_days,
+            price_30_days: vehicle.price_30_days,
+            location: availableLocations,
+            images: images,
+            status: vehicle.status,
+            is_available: vehicle.isAvailable,
+            isAvailable: vehicle.isAvailable,
+            created_at: vehicle.createdAt,
+            updated_at: vehicle.updatedAt,
+            pricing: pricing
+          };
+        } catch (error) {
+          logger.error('Error formatting vehicle:', {
+            vehicleId: vehicle.id,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          return null;
+        }
+      })
+    );
+
+    return NextResponse.json({ vehicles: formattedVehicles });
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
     return NextResponse.json({ error: 'Failed to fetch vehicles', vehicles: [] }, { status: 500 });

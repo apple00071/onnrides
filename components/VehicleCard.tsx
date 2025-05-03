@@ -308,7 +308,7 @@ export function VehicleCard({
         {/* Price and Book Section */}
         <div className="flex items-center justify-between">
           <p className="text-2xl font-semibold">
-            ₹{priceDetails.totalAmount}
+            ₹{isNaN(priceDetails.totalAmount) ? 0 : priceDetails.totalAmount}
           </p>
           <Button
             onClick={handleBookNow}

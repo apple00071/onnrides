@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Vehicle } from '@/lib/schema';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,12 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { CalendarIcon, MapPin, Clock, DollarSign, Car } from 'lucide-react';
 import Image from 'next/image';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { toast } from 'react-hot-toast';
 
 interface Props {
   params: {
@@ -17,21 +23,38 @@ interface Props {
 }
 
 export default function VehicleDetailsClient({ params }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-
+  
+  const [pickupDate, setPickupDate] = useState<Date | undefined>(new Date());
+  const [dropoffDate, setDropoffDate] = useState<Date | undefined>(new Date());
+  const [pickupTime, setPickupTime] = useState<string>('12:00');
+  const [dropoffTime, setDropoffTime] = useState<string>('12:00');
+  
   useEffect(() => {
     const fetchVehicle = async () => {
       try {
-        const response = await fetch(`/api/vehicles/${params.vehicleId}`);
+        const response = await fetch(`/api/vehicles?id=${params.vehicleId}`);
         if (!response.ok) {
           throw new Error('Failed to fetch vehicle details');
         }
         const data = await response.json();
-        setVehicle(data);
+        
+        // Normalize price data
+        const normalizedData = {
+          ...data,
+          price_per_hour: Number(data.price_per_hour || data.pricePerHour || 0),
+          min_booking_hours: Number(data.min_booking_hours || data.minBookingHours || 1)
+        };
+        
+        console.log('Vehicle data:', normalizedData);
+        setVehicle(normalizedData);
       } catch (err) {
+        console.error('Error fetching vehicle:', err);
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
         setLoading(false);
@@ -40,6 +63,16 @@ export default function VehicleDetailsClient({ params }: Props) {
 
     fetchVehicle();
   }, [params.vehicleId]);
+
+  // When dates change, set dropoff at least minBookingHours after pickup
+  useEffect(() => {
+    if (pickupDate && vehicle?.min_booking_hours) {
+      const minHours = vehicle.min_booking_hours;
+      const newDropoffDate = new Date(pickupDate);
+      newDropoffDate.setHours(newDropoffDate.getHours() + minHours);
+      setDropoffDate(newDropoffDate);
+    }
+  }, [pickupDate, vehicle?.min_booking_hours]);
 
   if (loading) {
     return (
@@ -69,8 +102,61 @@ export default function VehicleDetailsClient({ params }: Props) {
       </div>
     );
   }
-
-  const images = JSON.parse(vehicle.images || '[]');
+  
+  // Parse images
+  let images = [];
+  try {
+    images = Array.isArray(vehicle.images)
+      ? vehicle.images
+      : typeof vehicle.images === 'string'
+        ? JSON.parse(vehicle.images)
+        : [];
+  } catch (e) {
+    images = [];
+  }
+  
+  // Parse locations
+  let locations = [];
+  try {
+    locations = Array.isArray(vehicle.location)
+      ? vehicle.location
+      : typeof vehicle.location === 'string'
+        ? JSON.parse(vehicle.location)
+        : [];
+  } catch (e) {
+    locations = typeof vehicle.location === 'string' ? [vehicle.location] : [];
+  }
+  
+  // Calculate total hours and price
+  const calculateTotalHours = () => {
+    if (!pickupDate || !dropoffDate) return 0;
+    const pickup = new Date(pickupDate);
+    pickup.setHours(parseInt(pickupTime.split(':')[0]), parseInt(pickupTime.split(':')[1]), 0);
+    
+    const dropoff = new Date(dropoffDate);
+    dropoff.setHours(parseInt(dropoffTime.split(':')[0]), parseInt(dropoffTime.split(':')[1]), 0);
+    
+    const diffMs = dropoff.getTime() - pickup.getTime();
+    const hours = Math.max(Math.ceil(diffMs / (1000 * 60 * 60)), vehicle.min_booking_hours);
+    return hours;
+  };
+  
+  const totalHours = calculateTotalHours();
+  const totalPrice = totalHours * vehicle.price_per_hour;
+  
+  const handleProceedToBooking = () => {
+    if (!pickupDate || !dropoffDate) {
+      toast.error('Please select dates for your booking');
+      return;
+    }
+    
+    const formattedPickupDate = format(pickupDate, 'yyyy-MM-dd');
+    const formattedDropoffDate = format(dropoffDate, 'yyyy-MM-dd');
+    
+    router.push(
+      `/vehicles/${params.vehicleId}/booking?pickupDate=${formattedPickupDate}&pickupTime=${pickupTime}&dropoffDate=${formattedDropoffDate}&dropoffTime=${dropoffTime}`
+    );
+  };
 
   return (
     <div className="container mx-auto py-8">
@@ -93,7 +179,7 @@ export default function VehicleDetailsClient({ params }: Props) {
           </div>
           {images.length > 1 && (
             <div className="grid grid-cols-4 gap-2">
-              {images.slice(1).map((image: string, index: number) => (
+              {images.slice(1, 5).map((image: string, index: number) => (
                 <div key={index} className="relative aspect-square rounded-lg overflow-hidden">
                   <Image
                     src={image}
@@ -111,13 +197,13 @@ export default function VehicleDetailsClient({ params }: Props) {
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold">{vehicle.name}</h1>
-            <p className="text-gray-600 mt-2">{vehicle.description}</p>
+            <p className="text-gray-600 mt-2">{vehicle.description || 'No description available'}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center space-x-2">
               <MapPin className="w-5 h-5 text-gray-500" />
-              <span className="text-gray-700">{vehicle.location}</span>
+              <span className="text-gray-700">{locations[0] || 'Multiple locations'}</span>
             </div>
             <div className="flex items-center space-x-2">
               <Clock className="w-5 h-5 text-gray-500" />
@@ -133,33 +219,126 @@ export default function VehicleDetailsClient({ params }: Props) {
             </div>
           </div>
 
-          {/* Booking Calendar */}
+          {/* Booking Form */}
           <Card>
             <CardHeader>
-              <CardTitle>Select Date</CardTitle>
-              <CardDescription>Choose your preferred date for booking</CardDescription>
+              <CardTitle>Book Now</CardTitle>
+              <CardDescription>Select your dates and times</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                className="rounded-md border"
-              />
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Pickup Date */}
+                <div className="space-y-2">
+                  <Label htmlFor="pickupDate">Pickup Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !pickupDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {pickupDate ? format(pickupDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={pickupDate}
+                        onSelect={setPickupDate}
+                        disabled={(date) => date < new Date()}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                
+                {/* Pickup Time */}
+                <div className="space-y-2">
+                  <Label htmlFor="pickupTime">Pickup Time</Label>
+                  <Select value={pickupTime} onValueChange={setPickupTime}>
+                    <SelectTrigger id="pickupTime">
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }).map((_, i) => (
+                        <SelectItem key={i} value={`${i.toString().padStart(2, '0')}:00`}>
+                          {`${i.toString().padStart(2, '0')}:00`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Dropoff Date */}
+                <div className="space-y-2">
+                  <Label htmlFor="dropoffDate">Dropoff Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !dropoffDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dropoffDate ? format(dropoffDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={dropoffDate}
+                        onSelect={setDropoffDate}
+                        disabled={(date) => 
+                          !pickupDate || date < pickupDate
+                        }
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                
+                {/* Dropoff Time */}
+                <div className="space-y-2">
+                  <Label htmlFor="dropoffTime">Dropoff Time</Label>
+                  <Select value={dropoffTime} onValueChange={setDropoffTime}>
+                    <SelectTrigger id="dropoffTime">
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }).map((_, i) => (
+                        <SelectItem key={i} value={`${i.toString().padStart(2, '0')}:00`}>
+                          {`${i.toString().padStart(2, '0')}:00`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              {/* Pricing Summary */}
+              <div className="mt-4 border-t pt-4">
+                <div className="flex justify-between mb-2">
+                  <span>Duration:</span>
+                  <span>{totalHours} hours</span>
+                </div>
+                <div className="flex justify-between mb-2">
+                  <span>Rate:</span>
+                  <span>₹{vehicle.price_per_hour}/hour</span>
+                </div>
+                <div className="flex justify-between font-bold text-lg">
+                  <span>Total:</span>
+                  <span>₹{totalPrice}</span>
+                </div>
+              </div>
+              
+              <Button className="w-full mt-4" onClick={handleProceedToBooking}>
+                Proceed to Booking
+              </Button>
             </CardContent>
           </Card>
-
-          {/* Booking Button */}
-          <Button
-            size="lg"
-            className="w-full"
-            onClick={() => {
-              // TODO: Implement booking flow
-              console.log('Booking for date:', selectedDate);
-            }}
-          >
-            Book Now
-          </Button>
         </div>
       </div>
     </div>

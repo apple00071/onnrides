@@ -1,44 +1,41 @@
+const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
-const { query } = require('../lib/db.js');
+require('dotenv').config({ path: '.env.local' });
+
+// Create a connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 async function runMigration() {
+  const client = await pool.connect();
+  
   try {
-    console.log('Adding delivery-related columns to vehicles table...');
+    // Start a transaction
+    await client.query('BEGIN');
     
-    // Read the migration SQL file
-    const migrationPath = path.join(__dirname, '../migrations/add_delivery_pricing_columns.sql');
-    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+    // Read the migration file
+    const migrationFile = path.join(__dirname, '..', 'migrations', '024_add_is_available_column.sql');
+    const migrationSql = fs.readFileSync(migrationFile, 'utf8');
     
-    // Execute the SQL
-    await query(migrationSQL);
+    // Execute the migration
+    await client.query(migrationSql);
+    
+    // Commit the transaction
+    await client.query('COMMIT');
     
     console.log('Migration completed successfully!');
-    
-    // Verify the columns were added
-    const result = await query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'vehicles' 
-      AND column_name IN (
-        'is_delivery_enabled',
-        'delivery_price_7_days',
-        'delivery_price_15_days',
-        'delivery_price_30_days'
-      )
-      ORDER BY column_name
-    `);
-    
-    console.log('Added columns:');
-    result.rows.forEach(row => {
-      console.log(`- ${row.column_name}`);
-    });
-    
   } catch (error) {
-    console.error('Error running migration:', error);
-    process.exit(1);
+    // Rollback the transaction in case of error
+    await client.query('ROLLBACK');
+    console.error('Migration failed:', error);
+  } finally {
+    // Release the client back to the pool
+    client.release();
+    // Close the pool
+    await pool.end();
   }
 }
 
-// Run the migration
 runMigration(); 

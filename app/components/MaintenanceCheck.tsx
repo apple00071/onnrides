@@ -48,8 +48,8 @@ export default function MaintenanceCheck({ children }: { children: React.ReactNo
             <Image
               src="/logo.png"
               alt="OnnRides Logo"
-              width={180}
-              height={50}
+              width={140}
+              height={40}
               className="mx-auto"
               priority
             />

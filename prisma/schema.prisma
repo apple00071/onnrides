@@ -38,6 +38,13 @@ model Vehicle {
   quantity       Int       @default(1)
   pricePerHour   Float
   minBookingHours Int      @default(1)
+  price7Days     Float?    @map("price_7_days")
+  price15Days    Float?    @map("price_15_days")
+  price30Days    Float?    @map("price_30_days")
+  isDeliveryEnabled Boolean @default(false) @map("is_delivery_enabled")
+  deliveryPrice7Days  Float?    @map("delivery_price_7_days")
+  deliveryPrice15Days Float?    @map("delivery_price_15_days")
+  deliveryPrice30Days Float?    @map("delivery_price_30_days")
   isAvailable    Boolean   @default(true)
   images         Json?
   status         String    @default("active")
