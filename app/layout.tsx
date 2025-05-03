@@ -2,7 +2,6 @@ import '@/lib/polyfills';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { Toaster } from 'react-hot-toast';
 import { Providers } from './providers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -15,21 +14,36 @@ import logger from '@/lib/logger';
 import { cn, suppressHydrationWarning } from '@/lib/utils';
 import GoogleAnalytics from './components/GoogleAnalytics';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import { Toaster as UiToaster } from '@/components/ui/toaster';
+import { Toaster } from '@/components/ui/toaster';
 import nextDynamic from 'next/dynamic';
 import { SidebarProvider } from '@/hooks/use-sidebar';
 import { Analytics } from '@vercel/analytics/react'
 import { goodTimes } from './fonts'
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import prisma from '@/lib/prisma';
+import { PrismaClient } from '@prisma/client';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SessionProvider } from '@/components/providers/session-provider';
 import { MaintenanceCheck } from '@/components/MaintenanceCheck';
 
+// Initialize Prisma client
+const prisma = new PrismaClient();
+
 // Import ErrorBoundary dynamically with no SSR
 const ErrorBoundary = nextDynamic(
   () => import('@/components/ErrorBoundary'),
+  { ssr: false }
+);
+
+// Import SpeedInsights dynamically with no SSR
+const ClientSpeedInsights = nextDynamic(
+  () => import('@vercel/speed-insights/next').then((mod) => ({ default: mod.SpeedInsights })),
+  { ssr: false }
+);
+
+// Import Toaster dynamically with no SSR
+const ClientToaster = nextDynamic(
+  () => import('@/components/ui/toaster').then((mod) => ({ default: mod.Toaster })),
   { ssr: false }
 );
 
@@ -181,18 +195,6 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest'
 };
 
-async function checkMaintenanceMode() {
-  try {
-    const setting = await prisma.settings.findFirst({
-      where: { key: 'maintenance_mode' }
-    });
-    return setting?.value === 'true';
-  } catch (error) {
-    console.error('Error checking maintenance mode:', error);
-    return false;
-  }
-}
-
 export default async function RootLayout({
   children,
 }: {
@@ -200,7 +202,18 @@ export default async function RootLayout({
 }) {
   try {
     const session = await getServerSession(authOptions);
-    const isMaintenanceMode = await checkMaintenanceMode();
+
+    // Get maintenance mode status
+    const maintenanceMode = await prisma.settings.findFirst({
+      where: {
+        key: 'maintenance_mode'
+      },
+      select: {
+        value: true
+      }
+    });
+
+    const isMaintenanceMode = maintenanceMode?.value === 'true';
     
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
     
@@ -371,7 +384,7 @@ export default async function RootLayout({
                         <MaintenanceCheck isMaintenanceMode={isMaintenanceMode}>
                           {children}
                         </MaintenanceCheck>
-                        <Toaster position="top-center" />
+                        <Toaster />
                         <ScriptLoader />
                       </SessionProvider>
                     </ThemeProvider>
@@ -381,8 +394,8 @@ export default async function RootLayout({
             </Providers>
           </ErrorBoundary>
           <JsonLd data={structuredDataItems} />
-          <SpeedInsights />
-          <UiToaster />
+          <ClientSpeedInsights />
+          <Toaster />
           <Analytics />
         </body>
       </html>
@@ -402,7 +415,8 @@ export default async function RootLayout({
               </div>
             </div>
           </div>
-          <SpeedInsights />
+          <ClientSpeedInsights />
+          <Toaster />
         </body>
       </html>
     );

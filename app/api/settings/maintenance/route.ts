@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
 // GET /api/settings/maintenance - Get maintenance mode status
 export async function GET() {
   try {
-    const maintenanceStatus = await prisma.settings.findFirst({
-      where: {
-        key: 'maintenance_mode'
-      }
-    });
+    // Get maintenance mode setting using direct query
+    const result = await query(`
+      SELECT value FROM settings 
+      WHERE key = 'maintenance_mode' 
+      LIMIT 1
+    `);
+
+    const maintenanceStatus = result.rows[0];
 
     return NextResponse.json({
       success: true,
@@ -40,21 +43,16 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     const { enabled } = data;
 
-    // Update or create maintenance mode setting
-    const maintenanceStatus = await prisma.settings.upsert({
-      where: {
-        key: 'maintenance_mode'
-      },
-      update: {
-        value: String(enabled),
-        updated_at: new Date()
-      },
-      create: {
-        id: 'maintenance_mode',
-        key: 'maintenance_mode',
-        value: String(enabled)
-      }
-    });
+    // Update maintenance mode setting using the query helper
+    const result = await query(`
+      INSERT INTO settings (id, key, value, created_at, updated_at)
+      VALUES ($1, $2, $3, NOW(), NOW())
+      ON CONFLICT (key) DO UPDATE
+      SET value = $3, updated_at = NOW()
+      RETURNING value
+    `, ['maintenance_mode', 'maintenance_mode', String(enabled)]);
+
+    const maintenanceStatus = result.rows[0];
 
     logger.info('Maintenance mode updated:', {
       enabled,
@@ -63,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      maintenance: maintenanceStatus.value === 'true'
+      maintenance: maintenanceStatus?.value === 'true'
     });
   } catch (error) {
     logger.error('Error updating maintenance mode:', error);
