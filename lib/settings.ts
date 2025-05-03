@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import logger from './logger';
 import { Pool } from 'pg';
 import { randomUUID } from 'crypto';
+import { query } from '@/lib/db';
 
 const prisma = new PrismaClient();
 
@@ -215,8 +216,18 @@ export async function getBooleanSetting(
   key: string, 
   defaultValue: boolean = false
 ): Promise<boolean> {
-  const value = await getSetting(key, String(defaultValue));
-  return value.toLowerCase() === 'true';
+  try {
+    const result = await query(`
+      SELECT value FROM settings 
+      WHERE key = $1 
+      LIMIT 1
+    `, [key]);
+    
+    return result.rows[0]?.value?.toLowerCase() === 'true';
+  } catch (error) {
+    logger.error(`Error getting boolean setting ${key}:`, error);
+    return defaultValue;
+  }
 }
 
 /**

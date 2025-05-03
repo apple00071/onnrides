@@ -12,13 +12,12 @@ import {
   CardHeader, 
   CardTitle 
 } from '@/components/ui/card';
-import { SETTINGS } from '@/lib/settings-client';
+import { SETTINGS } from '@/lib/settings';
 import { redirectToLogin } from '@/lib/auth-utils';
 
 export default function SettingsPage() {
   const { data: session, status } = useSession();
   const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [gstEnabled, setGstEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const isAdmin = session?.user?.role === 'admin';
@@ -43,20 +42,11 @@ export default function SettingsPage() {
       await fetch('/api/settings/initialize');
       
       // Fetch current settings
-      const [maintenanceResponse, gstResponse] = await Promise.all([
-        fetch('/api/settings?key=' + SETTINGS.MAINTENANCE_MODE),
-        fetch('/api/settings?key=' + SETTINGS.GST_ENABLED)
-      ]);
+      const response = await fetch('/api/settings/maintenance');
+      const data = await response.json();
       
-      const maintenanceData = await maintenanceResponse.json();
-      const gstData = await gstResponse.json();
-      
-      if (maintenanceData.success && maintenanceData.data) {
-        setMaintenanceMode(maintenanceData.data.value.toLowerCase() === 'true');
-      }
-      
-      if (gstData.success && gstData.data) {
-        setGstEnabled(gstData.data.value.toLowerCase() === 'true');
+      if (data.success) {
+        setMaintenanceMode(data.maintenance);
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -68,14 +58,13 @@ export default function SettingsPage() {
 
   const handleMaintenanceModeChange = async (checked: boolean) => {
     try {
-      const response = await fetch('/api/settings', {
+      const response = await fetch('/api/settings/maintenance', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          key: SETTINGS.MAINTENANCE_MODE,
-          value: String(checked),
+          enabled: checked,
         }),
       });
       
@@ -93,46 +82,18 @@ export default function SettingsPage() {
     }
   };
 
-  const handleGstChange = async (checked: boolean) => {
-    try {
-      const response = await fetch('/api/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          key: SETTINGS.GST_ENABLED,
-          value: String(checked),
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setGstEnabled(checked);
-        toast.success(checked ? 'GST enabled' : 'GST disabled');
-      } else {
-        toast.error(data.error || 'Failed to update GST setting');
-      }
-    } catch (error) {
-      toast.error('Error updating GST setting');
-      console.error('Error updating GST setting:', error);
-    }
-  };
-
-  if (status === 'loading' || loading) {
+  if (!isAdmin) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
-          <p className="mt-4">Loading settings...</p>
-        </div>
+      <div className="container mx-auto px-4 py-8">
+        <Card>
+          <CardContent className="py-8">
+            <p className="text-center text-gray-600">
+              You do not have permission to access this page.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
-  }
-
-  if (!isAdmin) {
-    return null;
   }
 
   return (
@@ -156,21 +117,6 @@ export default function SettingsPage() {
               id="maintenance-mode"
               checked={maintenanceMode}
               onCheckedChange={handleMaintenanceModeChange}
-              className="data-[state=checked]:bg-orange-500 data-[state=unchecked]:bg-gray-200"
-            />
-          </div>
-          
-          <div className="flex items-center justify-between py-4 px-6 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            <div className="space-y-1">
-              <Label htmlFor="gst-enabled" className="text-base font-medium">GST</Label>
-              <p className="text-sm text-muted-foreground">
-                Enable 18% GST on all bookings
-              </p>
-            </div>
-            <Switch
-              id="gst-enabled"
-              checked={gstEnabled}
-              onCheckedChange={handleGstChange}
               className="data-[state=checked]:bg-orange-500 data-[state=unchecked]:bg-gray-200"
             />
           </div>
