@@ -1,16 +1,19 @@
 import nodemailer, { Transporter } from 'nodemailer';
 import logger from '../logger';
-import { query } from '../db';
+import { prisma } from '@/lib/prisma';
 import { v4 as uuidv4 } from 'uuid';
 
 interface EmailLog {
+  id: string;
   recipient: string;
   subject: string;
-  message_content: string;
-  booking_id?: string | null;
+  messageContent: string;
+  bookingId?: string | null;
   status: 'pending' | 'success' | 'failed';
-  error?: string;
-  message_id?: string;
+  messageId?: string | null;
+  error?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface BookingConfirmationData {
@@ -172,7 +175,7 @@ export class EmailService {
         // Update log with success
         await this.updateEmailLog(logId, {
           status: 'success',
-          message_id: info.messageId
+          messageId: info.messageId
         });
 
         logger.info('Email sent successfully', {
@@ -211,92 +214,43 @@ export class EmailService {
     bookingId?: string | null
   ): Promise<string> {
     try {
-      // Generate a proper UUID for the log entry
-      const logId = uuidv4();
-
-      const result = await query(
-        `
-        INSERT INTO email_logs (
-            id, recipient, subject, message_content, 
-            booking_id, status, created_at, updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        RETURNING id
-        `,
-        [logId, recipient, subject, message, bookingId, status]
-      );
-
-      logger.info('Email log created:', {
-        logId: result.rows[0].id,
-        recipient,
-        status
+      const id = uuidv4();
+      const emailLog = await prisma.email_logs.create({
+        data: {
+          id,
+          recipient,
+          subject,
+          message_content: message,
+          booking_id: bookingId,
+          status,
+          created_at: new Date(),
+          updated_at: new Date()
+        }
       });
 
-      return result.rows[0].id;
+      return emailLog.id;
     } catch (error) {
-      logger.error('Failed to log email:', {
-        error,
-        recipient,
-        subject,
-        status,
-        bookingId
-      });
+      logger.error('Failed to log email:', error);
       throw error;
     }
   }
 
   private async updateEmailLog(
     id: string,
-    updates: { status: string; message_id?: string; error?: string }
+    updates: { status: string; messageId?: string; error?: string }
   ): Promise<void> {
     try {
-      // Validate UUID format
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-        throw new Error(`Invalid UUID format for email log ID: ${id}`);
-      }
-
-      const updateFields = [];
-      const values = [id];
-      let paramCount = 2;
-
-      if (updates.status) {
-        updateFields.push(`status = $${paramCount}`);
-        values.push(updates.status);
-        paramCount++;
-      }
-
-      if (updates.message_id) {
-        updateFields.push(`message_id = $${paramCount}`);
-        values.push(updates.message_id);
-        paramCount++;
-      }
-
-      if (updates.error) {
-        updateFields.push(`error = $${paramCount}`);
-        values.push(updates.error);
-        paramCount++;
-      }
-
-      updateFields.push('updated_at = CURRENT_TIMESTAMP');
-
-      const sql = `
-        UPDATE email_logs 
-        SET ${updateFields.join(', ')}
-        WHERE id = $1
-      `;
-
-      await query(sql, values);
-
-      logger.info('Email log updated:', {
-        logId: id,
-        updates
+      await prisma.email_logs.update({
+        where: { id },
+        data: {
+          status: updates.status,
+          message_id: updates.messageId,
+          error: updates.error,
+          updated_at: new Date()
+        }
       });
     } catch (error) {
-      logger.error('Failed to update email log:', {
-        error,
-        id,
-        updates
-      });
+      logger.error('Failed to update email log:', error);
       throw error;
     }
   }
@@ -307,85 +261,30 @@ export class EmailService {
   ): Promise<void> {
     try {
       const html = this.createBookingConfirmationHtml(data);
-
-      await this.transporter.sendMail({
-        from: `"Go On Riders" <${process.env.SMTP_FROM}>`,
-        to: toEmail,
-        subject: `Booking Confirmation - ${data.bookingId}`,
-        html,
-      });
-
-      logger.info(`Booking confirmation email sent to ${toEmail}`);
+      await this.sendEmail(toEmail, 'Booking Confirmation', html, data.bookingId);
     } catch (error) {
-      logger.error('Error sending booking confirmation email:', error);
+      logger.error('Failed to send booking confirmation email:', error);
       throw error;
     }
   }
 
   private createBookingConfirmationHtml(data: BookingConfirmationData): string {
     return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Booking Confirmation</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              line-height: 1.6;
-              color: #333;
-              max-width: 600px;
-              margin: 0 auto;
-              padding: 20px;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-            }
-            .booking-details {
-              background-color: #f9f9f9;
-              padding: 20px;
-              border-radius: 5px;
-              margin-bottom: 20px;
-            }
-            .footer {
-              text-align: center;
-              color: #666;
-              font-size: 14px;
-              margin-top: 30px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>🎉 Booking Confirmed!</h1>
-          </div>
-          
-          <p>Dear ${data.userName},</p>
-          
-          <p>Your booking has been confirmed with Go On Riders. Here are your booking details:</p>
-          
-          <div class="booking-details">
-            <p><strong>Booking ID:</strong> ${data.bookingId}</p>
-            <p><strong>Vehicle:</strong> ${data.vehicleName}</p>
-            <p><strong>Start Date:</strong> ${data.startDate}</p>
-            <p><strong>End Date:</strong> ${data.endDate}</p>
-            <p><strong>Total Amount:</strong> ₹${data.amount}</p>
-            <p><strong>Payment Reference:</strong> ${data.paymentId}</p>
-          </div>
-          
-          <p>If you have any questions or need assistance, please don't hesitate to contact us:</p>
-          <ul>
-            <li>Phone: +91 1234567890</li>
-            <li>Email: support@go-onriders.com</li>
-          </ul>
-          
-          <div class="footer">
-            <p>Thank you for choosing Go On Riders!</p>
-            <p>© ${new Date().getFullYear()} Go On Riders. All rights reserved.</p>
-          </div>
-        </body>
-      </html>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Booking Confirmation</h2>
+        <p>Dear ${data.userName},</p>
+        <p>Your booking has been confirmed. Here are the details:</p>
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px;">
+          <p><strong>Booking ID:</strong> ${data.bookingId}</p>
+          <p><strong>Vehicle:</strong> ${data.vehicleName}</p>
+          <p><strong>Start Date:</strong> ${data.startDate}</p>
+          <p><strong>End Date:</strong> ${data.endDate}</p>
+          <p><strong>Amount:</strong> ${data.amount}</p>
+          <p><strong>Payment ID:</strong> ${data.paymentId}</p>
+        </div>
+        <p>Thank you for choosing our service!</p>
+        <p>Best regards,<br>OnnRides Team</p>
+      </div>
     `;
   }
 
@@ -393,58 +292,48 @@ export class EmailService {
     to: string,
     data: PaymentFailureData
   ): Promise<void> {
-    const subject = 'Payment Failed - OnnRides';
-    const html = `
-      <h2>Payment Failed</h2>
-      <p>Hello ${data.userName},</p>
-      <p>We noticed that your payment of ${data.amount} for booking ID: ${data.bookingId} was not successful.</p>
-      
-      <h3>Payment Details:</h3>
-      <ul>
-        <li>Order ID: ${data.orderId}</li>
-        <li>Payment ID: ${data.paymentId}</li>
-        <li>Amount: ${data.amount}</li>
-      </ul>
-
-      <p>Please contact our support team for assistance:</p>
-      <ul>
-        <li>Email: ${data.supportEmail}</li>
-        <li>Phone: ${data.supportPhone}</li>
-      </ul>
-
-      <p>Our support team will help you complete the payment or resolve any issues.</p>
-      <p>Please have your booking ID and payment details ready when contacting support.</p>
-    `;
-    await this.sendEmail(to, subject, html);
+    try {
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Payment Failed</h2>
+          <p>Dear ${data.userName},</p>
+          <p>We regret to inform you that your payment for booking ${data.bookingId} has failed.</p>
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px;">
+            <p><strong>Amount:</strong> ${data.amount}</p>
+            <p><strong>Order ID:</strong> ${data.orderId}</p>
+            <p><strong>Payment ID:</strong> ${data.paymentId}</p>
+          </div>
+          <p>Please try again or contact our support team for assistance:</p>
+          <p>Email: ${data.supportEmail}<br>Phone: ${data.supportPhone}</p>
+          <p>Best regards,<br>OnnRides Team</p>
+        </div>
+      `;
+      await this.sendEmail(to, 'Payment Failed', html, data.bookingId);
+    } catch (error) {
+      logger.error('Failed to send payment failure email:', error);
+      throw error;
+    }
   }
 
   public async sendDocumentUploadReminder(
     to: string,
     data: DocumentUploadReminderData
   ): Promise<void> {
-    const subject = 'Document Upload Required - OnnRides';
-    const content = {
-      subject,
-      template: 'document_upload_reminder',
-      data: {
-        ...data,
-        deadline: data.deadline || '24 hours',
-        supportEmail: data.supportEmail || 'support@onnrides.com'
-      }
-    };
-
     try {
-      await this.sendEmail(to, content.subject, this.getEmailTemplate(content.template, content.data));
-      logger.info('Document upload reminder sent:', {
-        recipient: to,
-        bookingId: data.bookingId
-      });
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Document Upload Reminder</h2>
+          <p>Dear ${data.name},</p>
+          <p>This is a reminder to upload your required documents for booking ${data.bookingId}.</p>
+          <p>Please upload your documents within ${data.deadline || '24 hours'} to avoid booking cancellation.</p>
+          <p><a href="${data.uploadUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Upload Documents</a></p>
+          <p>If you need assistance, please contact our support team at ${data.supportEmail}.</p>
+          <p>Best regards,<br>OnnRides Team</p>
+        </div>
+      `;
+      await this.sendEmail(to, 'Document Upload Reminder', html, data.bookingId);
     } catch (error) {
-      logger.error('Failed to send document upload reminder:', {
-        error,
-        recipient: to,
-        bookingId: data.bookingId
-      });
+      logger.error('Failed to send document upload reminder:', error);
       throw error;
     }
   }
@@ -453,86 +342,35 @@ export class EmailService {
     to: string,
     data: PasswordResetData
   ): Promise<void> {
-    const subject = 'Password Reset - OnnRides';
-    const content = {
-      subject,
-      template: 'password_reset',
-      data: {
-        ...data,
-        supportEmail: data.supportEmail || 'support@onnrides.com'
-      }
-    };
-
     try {
-      await this.sendEmail(to, content.subject, this.getEmailTemplate(content.template, content.data));
-      logger.info('Password reset email sent:', {
-        recipient: to
-      });
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Password Reset</h2>
+          <p>Dear ${data.name},</p>
+          <p>You have requested to reset your password. Click the link below to proceed:</p>
+          <p><a href="${data.resetLink}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
+          <p>If you did not request this, please ignore this email or contact support at ${data.supportEmail}.</p>
+          <p>Best regards,<br>OnnRides Team</p>
+        </div>
+      `;
+      await this.sendEmail(to, 'Password Reset', html);
     } catch (error) {
-      logger.error('Failed to send password reset email:', {
-        error,
-        recipient: to
-      });
+      logger.error('Failed to send password reset email:', error);
       throw error;
     }
   }
 
   private getEmailTemplate(template: string, data: Record<string, any>): string {
-    switch (template) {
-      case 'password_reset':
-        return `
-          <h2>Hello ${data.name},</h2>
-          <p>We received a request to reset your password for your OnnRides account.</p>
-          <p>Click the link below to reset your password:</p>
-          <p><a href="${data.resetLink}">${data.resetLink}</a></p>
-          <p>This link will expire in 1 hour for security reasons.</p>
-          <p>If you didn't request this password reset, please ignore this email or contact us at ${data.supportEmail} if you have concerns.</p>
-          <p>Best regards,<br>OnnRides Team</p>
-        `;
+    // Add more templates as needed
+    const templates: Record<string, (data: any) => string> = {
+      'booking-confirmation': this.createBookingConfirmationHtml.bind(this)
+    };
 
-      case 'document_upload_reminder':
-        return `
-          <h2>Hello ${data.name},</h2>
-          <p>This is a reminder to upload your required documents for booking ID: ${data.bookingId}.</p>
-          <p>Please upload your documents within 24 hours to avoid booking cancellation.</p>
-          <p>You can upload your documents here: <a href="${data.uploadUrl}">${data.uploadUrl}</a></p>
-          <p>Required documents:</p>
-          <ul>
-            <li>Valid ID Proof</li>
-            <li>Driving License</li>
-            <li>Address Proof</li>
-          </ul>
-          <p>If you need any assistance, please contact us at ${data.supportEmail}.</p>
-          <p>Best regards,<br>OnnRides Team</p>
-        `;
-
-      case 'booking_confirmation':
-        return `
-          <h2>Hello ${data.name},</h2>
-          <p>Your booking has been confirmed!</p>
-          <p><strong>Booking Details:</strong></p>
-          <ul>
-            <li>Booking ID: ${data.bookingId}</li>
-            <li>Vehicle: ${data.vehicleName}</li>
-            <li>Start Date: ${data.startDate}</li>
-            <li>End Date: ${data.endDate}</li>
-            <li>Total Amount: ₹${data.totalAmount}</li>
-          </ul>
-          <p><strong>Important:</strong> Please upload your required documents within 24 hours to avoid booking cancellation.</p>
-          <p>You can upload your documents here: <a href="${data.uploadUrl}">${data.uploadUrl}</a></p>
-          <p>Required documents:</p>
-          <ul>
-            <li>Valid ID Proof</li>
-            <li>Driving License</li>
-            <li>Address Proof</li>
-          </ul>
-          <p>If you need any assistance, please contact us at ${data.supportEmail}.</p>
-          <p>Best regards,<br>OnnRides Team</p>
-        `;
-
-      default:
-        throw new Error(`Unknown email template: ${template}`);
+    if (!templates[template]) {
+      throw new Error(`Template ${template} not found`);
     }
+
+    return templates[template](data);
   }
 }
 

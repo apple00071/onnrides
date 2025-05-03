@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { PrismaClient } from '@prisma/client';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { revalidatePath } from 'next/cache';
-
-const prisma = new PrismaClient();
+import { razorpay } from '@/lib/razorpay';
 
 export async function POST(
   request: NextRequest,
@@ -18,90 +16,49 @@ export async function POST(
     }
 
     const { bookingId } = params;
-    const body = await request.json();
-    const { status, payment_id, payment_details } = body;
 
-    // Start a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Get the booking with vehicle
-      const booking = await tx.bookings.findUnique({
-        where: { id: bookingId },
-        include: { vehicle: true }
-      });
+    // Get booking from database
+    const result = await query(
+      'SELECT * FROM bookings WHERE booking_id = $1 AND user_id = $2',
+      [bookingId, session.user.id]
+    );
 
-      if (!booking) {
-        throw new Error('Booking not found');
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    }
+
+    const booking = result.rows[0];
+
+    // Create Razorpay order
+    const order = await razorpay.orders.create({
+      amount: Math.round(booking.total_price * 100), // Convert to paise
+      currency: 'INR',
+      receipt: booking.booking_id,
+      notes: {
+        booking_id: booking.booking_id,
+        user_id: session.user.id
       }
-
-      // 2. Check if user is authorized
-      if (booking.user_id !== session.user.id && session.user.role !== 'admin') {
-        throw new Error('Unauthorized to modify this booking');
-      }
-
-      // 3. Handle payment status
-      if (status === 'failed' || status === 'cancelled') {
-        // If payment failed, make vehicle available again
-        if (booking.vehicle) {
-          await tx.vehicles.update({
-            where: { id: booking.vehicle.id },
-            data: { is_available: true }
-          });
-        }
-
-        // Update booking status
-        const updatedBooking = await tx.bookings.update({
-          where: { id: bookingId },
-          data: {
-            status: 'cancelled',
-            payment_status: status,
-            payment_intent_id: payment_id || null,
-            payment_details: payment_details || null,
-            updated_at: new Date()
-          }
-        });
-
-        return updatedBooking;
-      }
-
-      // 4. Handle successful payment
-      if (status === 'success') {
-        const updatedBooking = await tx.bookings.update({
-          where: { id: bookingId },
-          data: {
-            status: 'confirmed',
-            payment_status: 'completed',
-            payment_intent_id: payment_id,
-            payment_details,
-            updated_at: new Date()
-          }
-        });
-
-        return updatedBooking;
-      }
-
-      throw new Error('Invalid payment status');
     });
 
-    // Revalidate relevant pages
-    revalidatePath('/bookings');
-    revalidatePath('/admin/bookings');
-    revalidatePath(`/bookings/${bookingId}`);
+    // Update booking with order details
+    await query(
+      'UPDATE bookings SET payment_details = $1 WHERE id = $2',
+      [JSON.stringify({ order_id: order.id }), booking.id]
+    );
 
     return NextResponse.json({
       success: true,
-      data: { booking: result }
+      order: {
+        id: order.id,
+        amount: order.amount,
+        currency: order.currency
+      }
     });
-
   } catch (error) {
-    logger.error('Error processing payment:', {
-      error: error instanceof Error ? error.message : error,
-      bookingId: params.bookingId
-    });
-
-    const message = error instanceof Error ? error.message : 'Failed to process payment';
+    logger.error('Error creating payment:', error);
     return NextResponse.json(
-      { error: message },
-      { status: message.includes('not found') ? 404 : 400 }
+      { error: error instanceof Error ? error.message : 'Failed to create payment' },
+      { status: 500 }
     );
   }
 } 

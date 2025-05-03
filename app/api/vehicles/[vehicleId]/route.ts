@@ -3,7 +3,6 @@ import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
 
 interface UpdateVehicleBody {
   name?: string;
@@ -204,32 +203,57 @@ export async function PUT(
     } = body;
 
     // Update vehicle using Prisma
-    const updatedVehicle = await prisma.vehicles.update({
-      where: {
-        id: params.vehicleId,
-      },
-      data: {
-        ...(name && { name }),
-        ...(type && { type }),
-        ...(location && { location }),
-        ...(typeof quantity === 'number' && { quantity }),
-        ...(typeof price_per_hour === 'number' && { price_per_hour }),
-        ...(typeof min_booking_hours === 'number' && { min_booking_hours }),
-        ...(typeof is_available === 'boolean' && { is_available }),
-        ...(images && { images: JSON.stringify(images) }),
-        ...(status && { status }),
-        ...(vehicle_category && { vehicle_category }),
-        ...(typeof price_7_days === 'number' && { price_7_days }),
-        ...(typeof price_15_days === 'number' && { price_15_days }),
-        ...(typeof price_30_days === 'number' && { price_30_days }),
-        ...(typeof delivery_price_7_days === 'number' && { delivery_price_7_days }),
-        ...(typeof delivery_price_15_days === 'number' && { delivery_price_15_days }),
-        ...(typeof delivery_price_30_days === 'number' && { delivery_price_30_days }),
-        updated_at: new Date(),
-      },
-    });
+    const updatedVehicle = await query(`
+      UPDATE vehicles
+      SET 
+        name = $1,
+        type = $2,
+        location = $3,
+        quantity = $4,
+        price_per_hour = $5,
+        min_booking_hours = $6,
+        is_available = $7,
+        images = $8,
+        status = $9,
+        vehicle_category = $10,
+        price_7_days = $11,
+        price_15_days = $12,
+        price_30_days = $13,
+        delivery_price_7_days = $14,
+        delivery_price_15_days = $15,
+        delivery_price_30_days = $16,
+        updated_at = $17
+      WHERE id = $18
+      RETURNING *
+    `, [
+      name,
+      type,
+      location,
+      quantity,
+      price_per_hour,
+      min_booking_hours,
+      is_available,
+      images ? JSON.stringify(images) : null,
+      status,
+      vehicle_category,
+      price_7_days,
+      price_15_days,
+      price_30_days,
+      delivery_price_7_days,
+      delivery_price_15_days,
+      delivery_price_30_days,
+      new Date(),
+      params.vehicleId
+    ]);
 
-    return NextResponse.json(updatedVehicle);
+    if (updatedVehicle.rowCount === 0) {
+      return NextResponse.json(
+        { error: 'Vehicle not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(updatedVehicle.rows[0]);
   } catch (error) {
     logger.error('Error updating vehicle:', error);
     return NextResponse.json(

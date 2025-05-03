@@ -1,73 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { query } from '@/lib/db';
+import { promises as fs } from 'fs';
+import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import logger from '@/lib/logger';
 
-const prisma = new PrismaClient();
 const execPromise = promisify(exec);
+
+async function isAdmin() {
+  const session = await getServerSession(authOptions);
+  return session?.user?.role === 'admin';
+}
 
 export async function POST(request: NextRequest) {
   try {
-    // Check for admin privileges
-    const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Unauthorized' 
-      }, { status: 401 });
+    // Check if user is admin
+    const isUserAdmin = await isAdmin();
+    if (!isUserAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get the request body
-    const body = await request.json();
-    const { action = 'migrate', force = false } = body;
+    const data = await request.json();
+    const { command } = data;
 
-    // Choose the appropriate migration command based on the action
-    let command: string;
-    switch (action) {
-      case 'reset':
-        command = `npx prisma migrate reset ${force ? '--force' : ''}`;
-        break;
-      case 'deploy':
-        command = 'npx prisma migrate deploy';
-        break;
-      case 'rollback':
-        command = 'npx prisma migrate resolve --rolled-back';
-        break;
-      case 'status':
-        command = 'npx prisma migrate status';
-        break;
-      default:
-        command = 'npx prisma migrate dev';
+    if (!command) {
+      return NextResponse.json(
+        { error: 'Missing command parameter' },
+        { status: 400 }
+      );
     }
 
-    logger.info(`Executing migration command: ${command}`);
-
-    // Execute the command
+    // Execute migration command
     const { stdout, stderr } = await execPromise(command);
 
-    // Log the results
-    if (stdout) logger.info(stdout);
-    if (stderr) logger.error(stderr);
+    if (stderr) {
+      console.error('Migration error:', stderr);
+      return NextResponse.json(
+        { error: 'Migration failed', details: stderr },
+        { status: 500 }
+      );
+    }
 
-    return NextResponse.json({
-      success: true,
-      action,
-      force,
-      result: {
-        stdout,
-        stderr
-      }
-    });
+    return NextResponse.json({ message: 'Migration successful', output: stdout });
   } catch (error) {
-    logger.error('Error executing migration command:', error);
-    
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Failed to execute migration command',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    console.error('Error applying migration:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to apply migration' },
+      { status: 500 }
+    );
   }
 } 

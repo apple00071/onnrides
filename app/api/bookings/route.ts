@@ -13,7 +13,6 @@ import { generateBookingId } from '@/lib/utils/booking-id';
 import { EmailService } from '@/lib/email/service';
 import { WhatsAppService } from '@/app/lib/whatsapp/service';
 import { toUTC } from '@/lib/utils/timezone';
-import prisma from '@/lib/prisma';
 import { RazorpayOrder } from '@/lib/razorpay';
 import { formatIST, formatDateTime, formatDate, formatTime } from '@/lib/utils/time-formatter';
 import { validateBookingDates, BookingValidationError } from '@/lib/utils/booking-validator';
@@ -381,26 +380,28 @@ export async function POST(request: NextRequest): Promise<Response> {
     
     try {
       // Create booking using Prisma's create method
-      const createdBooking = await prisma.bookings.create({
-        data: {
-          id: randomUUID(),
-          user_id: String(session.user.id),
-          vehicle_id: vehicleId,
-          start_date: pickupDateTime,
-          end_date: dropoffDateTime,
-          total_hours: parseFloat(durationInHours.toFixed(2)),
-          total_price: parseFloat(totalAmount.toFixed(2)),
-          status: 'pending',
-          payment_status: 'pending',
-          pickup_location: JSON.stringify(location),
-          booking_id: bookingId,
-          payment_details: null,
-          dropoff_location: null,
-          payment_intent_id: null
-        }
-      });
+      const createdBooking = await query(`
+        INSERT INTO bookings (id, user_id, vehicle_id, start_date, end_date, total_hours, total_price, status, payment_status, pickup_location, booking_id, payment_details, dropoff_location, payment_intent_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        RETURNING id
+      `, [
+        randomUUID(),
+        session.user.id,
+        vehicleId,
+        pickupDateTime,
+        dropoffDateTime,
+        parseFloat(durationInHours.toFixed(2)),
+        parseFloat(totalAmount.toFixed(2)),
+        'pending',
+        'pending',
+        JSON.stringify(location),
+        bookingId,
+        null,
+        null,
+        null
+      ]);
 
-      createdBookingId = createdBooking.id;
+      createdBookingId = createdBooking.rows[0].id;
 
       // Create Razorpay order
       const razorpayOrder = await createOrder({

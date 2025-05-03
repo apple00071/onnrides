@@ -1,9 +1,9 @@
 import { Metadata } from 'next';
+import { query } from '@/lib/db';
+import { VehicleCard, Vehicle } from '@/components/ui/VehicleCard';
 import { notFound } from 'next/navigation';
-import { PrismaClient } from '@prisma/client';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import LocationStructuredData from '@/components/ui/LocationStructuredData';
-import { VehicleCard, Vehicle } from '@/components/ui/VehicleCard';
 import { getLocationAddress, getLocationCoordinates, getLocationPostalCode, getNearbyAreas } from '@/lib/location-utils';
 
 interface LocationPageProps {
@@ -12,38 +12,51 @@ interface LocationPageProps {
   };
 }
 
-// Initialize Prisma client
-const prisma = new PrismaClient();
+interface VehicleRow {
+  id: string;
+  name: string;
+  type: string;
+  images: string | null;
+  price_per_hour: number;
+  is_available: boolean;
+  location: string;
+}
 
 // Generate metadata for each location
 export async function generateMetadata({ params }: LocationPageProps): Promise<Metadata> {
   const location = decodeURIComponent(params.location);
-  const formattedLocation = location.charAt(0).toUpperCase() + location.slice(1);
+  const capitalizedLocation = location.charAt(0).toUpperCase() + location.slice(1);
   const areas = getNearbyAreas(location);
 
   return {
-    title: `Best Bike Rental in ${formattedLocation} Hyderabad | Activa on Rent | OnnRides`,
-    description: `Rent bikes in ${formattedLocation}, Hyderabad starting ₹199. ✓Activa ✓Dio ✓Access available. Free delivery to ${areas.join(', ')}. Book Now & Get 10% Off!`,
+    title: `Bike & Car Rental in ${capitalizedLocation}, Hyderabad | OnnRides`,
+    description: `Rent bikes and cars in ${capitalizedLocation}, Hyderabad. Choose from Activa, Dio, Swift & more. Free delivery, no hidden charges. Book Now & Get 10% Off!`,
     keywords: [
-      `bike rental in ${formattedLocation.toLowerCase()}`,
-      `bike for rent in ${formattedLocation.toLowerCase()}`,
-      `activa on rent in ${formattedLocation.toLowerCase()}`,
-      `two wheeler rental ${formattedLocation.toLowerCase()}`,
-      `bike rent near ${formattedLocation.toLowerCase()}`,
-      'hourly bike rental',
-      'monthly bike rental',
-      'cheap bike rental',
-      'OnnRides bike rental'
+      `bike rental in ${location}`,
+      `car rental in ${location}`,
+      `activa on rent in ${location}`,
+      `bike rental near ${location}`,
+      `two wheeler for rent in ${location}`,
+      `car rent in ${location}`,
+      `bike rental ${location}`,
+      `${location} bike rental`,
+      `honda activa rental ${location}`,
+      `bike rental service ${location}`,
+      `two wheeler rental ${location}`,
+      `bike on rent near ${location}`,
+      `scooter rental ${location}`,
+      `hourly bike rental ${location}`,
+      `monthly bike rental ${location}`
     ],
     openGraph: {
-      title: `Best Bike Rental in ${formattedLocation} | Starting ₹199/day | OnnRides`,
-      description: `🏍️ Rent bikes in ${formattedLocation} at best prices. Multiple bikes available. Free delivery to ${areas.join(', ')}. Book Now!`,
+      title: `Best Bike Rental in ${capitalizedLocation} | Starting ₹199/day | OnnRides`,
+      description: `🏍️ Rent bikes in ${capitalizedLocation} at best prices. Multiple bikes available. Free delivery to ${areas.join(', ')}. Book Now!`,
       images: [
         {
           url: `/images/locations/${location.toLowerCase()}.jpg`,
           width: 1200,
           height: 630,
-          alt: `Bike Rental in ${formattedLocation} - OnnRides`
+          alt: `Bike Rental in ${capitalizedLocation} - OnnRides`
         }
       ]
     }
@@ -51,22 +64,30 @@ export async function generateMetadata({ params }: LocationPageProps): Promise<M
 }
 
 export default async function LocationPage({ params }: LocationPageProps) {
-  const location = decodeURIComponent(params.location).toLowerCase();
-  
-  // Get vehicles available in this location using Prisma
-  const vehicles = await prisma.vehicles.findMany({
-    where: {
-      OR: [
-        { location: { contains: location.toLowerCase() } },
-        { location: { contains: location.toUpperCase() } }
-      ],
-      is_available: true
-    }
-  });
+  const location = decodeURIComponent(params.location);
 
-  if (vehicles.length === 0) {
+  // Get vehicles from database using direct query
+  const result = await query(`
+    SELECT * FROM vehicles 
+    WHERE location = $1 
+    AND is_available = true 
+    ORDER BY created_at DESC
+  `, [location]);
+
+  if (result.rows.length === 0) {
     notFound();
   }
+
+  // Transform the vehicles data to match the Vehicle interface
+  const vehicles: Vehicle[] = result.rows.map((vehicle: VehicleRow) => ({
+    id: vehicle.id,
+    name: vehicle.name,
+    description: vehicle.type || '',
+    image: vehicle.images ? vehicle.images.split(',')[0] : '',
+    price: vehicle.price_per_hour * 24,
+    category: vehicle.type || '',
+    available: vehicle.is_available ?? true
+  }));
 
   const formattedLocation = location.charAt(0).toUpperCase() + location.slice(1);
   const areas = getNearbyAreas(location);
@@ -87,17 +108,6 @@ export default async function LocationPage({ params }: LocationPageProps) {
     priceRange: '₹₹',
     telephone: '+91-8247494622'
   };
-
-  // Transform Prisma vehicle data to match VehicleCard component interface
-  const transformedVehicles: Vehicle[] = vehicles.map((vehicle) => ({
-    id: vehicle.id,
-    name: vehicle.name,
-    description: vehicle.type || '',
-    image: vehicle.images.split(',')[0] || '',
-    price: vehicle.price_per_hour * 24,
-    category: vehicle.type || '',
-    available: vehicle.is_available ?? true
-  }));
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -137,7 +147,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
 
       <h2 className="text-2xl font-semibold mb-4">Available Bikes in {formattedLocation}</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {transformedVehicles.map((vehicle) => (
+        {vehicles.map((vehicle) => (
           <VehicleCard key={vehicle.id} vehicle={vehicle} />
         ))}
       </div>

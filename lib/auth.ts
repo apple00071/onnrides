@@ -1,11 +1,10 @@
 import { getServerSession, type DefaultSession, type NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
-import { PrismaAdapter } from '@next-auth/prisma-adapter';
-import bcrypt from 'bcrypt';
+import { compare, hash } from 'bcryptjs';
 import logger from '@/lib/logger';
 import type { JWT } from 'next-auth/jwt';
-import prisma from '@/lib/prisma';
+import { prisma } from './prisma';
 
 declare module "next-auth" {
   interface User {
@@ -30,7 +29,6 @@ declare module 'next-auth/jwt' {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
   },
@@ -47,15 +45,23 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const user = await prisma.users.findFirst({
-            where: { email: credentials.email }
+          const user = await prisma.users.findUnique({
+            where: { email: credentials.email },
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              role: true,
+              password_hash: true,
+              is_blocked: true
+            }
           });
 
           if (!user || !user.password_hash) {
             throw new Error('No user found with this email');
           }
 
-          const isPasswordValid = await bcrypt.compare(
+          const isPasswordValid = await compare(
             credentials.password,
             user.password_hash
           );
@@ -128,72 +134,46 @@ export const authOptions: NextAuthOptions = {
  * Verifies if a user is authenticated and optionally checks their role
  */
 export const verifyAuth = async (session: any | null, allowedRoles?: string[]): Promise<boolean> => {
-  try {
-    if (!session?.user) return false;
-    
-    // If no roles specified, just check if user is authenticated
-    if (!allowedRoles || allowedRoles.length === 0) {
-      return true;
-    }
-
-    // Check if user's role is in allowed roles
-    return allowedRoles.includes(session.user.role?.toUpperCase());
-  } catch {
-    return false;
-  }
+  if (!session) return false;
+  
+  if (!allowedRoles) return true;
+  
+  return allowedRoles.includes(session.user?.role);
 };
 
 export const hashPassword = async (password: string): Promise<string> => {
-  const salt = await bcrypt.genSalt(10);
-  return bcrypt.hash(password, salt);
+  return hash(password, 10);
 };
 
 export const comparePasswords = async (password: string, hash: string): Promise<boolean> => {
-  return bcrypt.compare(password, hash);
+  return compare(password, hash);
 };
 
 export const verifyAdmin = async (request: Request): Promise<boolean> => {
   const session = await getServerSession(authOptions);
-  
-  if (!session) {
-    return false;
-  }
-
-  return session.user?.role === 'admin';
+  return session?.user?.role === 'admin';
 };
 
 export async function getCurrentUser() {
   try {
     const session = await getServerSession(authOptions);
-
+    
     if (!session?.user?.email) {
       return null;
     }
 
-    const currentUser = await prisma.users.findUnique({
-      where: {
-        email: session.user.email
-      },
+    const user = await prisma.users.findUnique({
+      where: { email: session.user.email },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
-        phone: true,
-        created_at: true,
-        updated_at: true
+        is_blocked: true
       }
     });
 
-    if (!currentUser) {
-      return null;
-    }
-
-    return {
-      ...currentUser,
-      createdAt: currentUser.created_at,
-      updatedAt: currentUser.updated_at
-    };
+    return user;
   } catch (error) {
     console.error('Error getting current user:', error);
     return null;

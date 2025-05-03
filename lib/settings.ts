@@ -1,23 +1,6 @@
-import { Pool } from 'pg';
 import { randomUUID } from 'crypto';
 import logger from './logger';
-import { query } from '@/lib/db';
-
-// Also initialize a direct DB connection for fallbacks
-let pool: Pool | null = null;
-
-// Only initialize the pool if we need it (lazy loading)
-function getPool(): Pool {
-  if (!pool) {
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: {
-        rejectUnauthorized: false
-      }
-    });
-  }
-  return pool;
-}
+import { prisma } from '@/lib/prisma';
 
 // In-memory cache for settings
 // This will reduce database calls for frequently accessed settings
@@ -50,28 +33,29 @@ export async function getSetting(
     }
 
     try {
-      const result = await query(`
-        SELECT value FROM settings 
-        WHERE key = $1 
-        LIMIT 1
-      `, [key]);
+      const setting = await prisma.settings.findUnique({
+        where: { key },
+        select: { value: true }
+      });
 
-      if (result.rows.length > 0) {
+      if (setting) {
         // Update cache
         cache[key] = {
-          value: result.rows[0].value,
+          value: setting.value,
           expiresAt: Date.now() + CACHE_TTL
         };
-        return result.rows[0].value;
+        return setting.value;
       }
 
       // If setting doesn't exist, create it with default value
       if (defaultValue) {
-        await query(`
-          INSERT INTO settings (id, key, value, created_at, updated_at)
-          VALUES ($1, $2, $3, NOW(), NOW())
-          ON CONFLICT (key) DO NOTHING
-        `, [randomUUID(), key, defaultValue]);
+        await prisma.settings.create({
+          data: {
+            id: randomUUID(),
+            key,
+            value: defaultValue
+          }
+        });
 
         // Update cache
         cache[key] = {
@@ -99,12 +83,17 @@ export async function getSetting(
  */
 export async function setSetting(key: string, value: string): Promise<boolean> {
   try {
-    await query(`
-      INSERT INTO settings (id, key, value, created_at, updated_at)
-      VALUES ($1, $2, $3, NOW(), NOW())
-      ON CONFLICT (key) DO UPDATE 
-      SET value = $3, updated_at = NOW()
-    `, [randomUUID(), key, value]);
+    await prisma.settings.upsert({
+      where: { key },
+      create: {
+        id: randomUUID(),
+        key,
+        value
+      },
+      update: {
+        value
+      }
+    });
 
     // Update cache
     cache[key] = {
@@ -130,13 +119,12 @@ export async function getBooleanSetting(
   defaultValue: boolean = false
 ): Promise<boolean> {
   try {
-    const result = await query(`
-      SELECT value FROM settings 
-      WHERE key = $1 
-      LIMIT 1
-    `, [key]);
+    const setting = await prisma.settings.findUnique({
+      where: { key },
+      select: { value: true }
+    });
     
-    return result.rows[0]?.value?.toLowerCase() === 'true';
+    return setting?.value?.toLowerCase() === 'true';
   } catch (error) {
     logger.error(`Error getting boolean setting ${key}:`, error);
     return defaultValue;

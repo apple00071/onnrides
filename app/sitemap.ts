@@ -1,5 +1,10 @@
 import { MetadataRoute } from 'next';
-import prisma from '@/lib/prisma';
+import { query } from '@/lib/db';
+
+interface Vehicle {
+  id: string;
+  updated_at: Date;
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.onnrides.com';
@@ -43,16 +48,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   // Get all available bikes from database
-  const bikes = await prisma.vehicles.findMany({
-    where: {
-      type: 'bike',
-      is_available: true
-    },
-    select: {
-      id: true,
-      updated_at: true
-    }
-  });
+  const result = await query(`
+    SELECT id, updated_at
+    FROM vehicles
+    WHERE type = 'bike' AND is_available = true
+  `);
+
+  const bikes = result.rows as Vehicle[];
 
   // Generate URLs for individual bike pages
   const bikeUrls = bikes.map(bike => ({

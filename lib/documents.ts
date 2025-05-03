@@ -1,7 +1,7 @@
-import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { EmailService } from '@/lib/email/service';
 import { WhatsAppService } from '@/app/lib/whatsapp/service';
+import { prisma } from '@/lib/prisma';
 
 export async function checkDocumentVerification(userId: string): Promise<{
   isVerified: boolean;
@@ -9,17 +9,18 @@ export async function checkDocumentVerification(userId: string): Promise<{
   pendingDocuments: boolean;
 }> {
   try {
-    const result = await query(
-      `SELECT 
-        COUNT(*) as total_documents,
-        COUNT(*) FILTER (WHERE status = 'approved') as approved_documents,
-        COUNT(*) FILTER (WHERE status = 'pending') as pending_documents
-       FROM documents 
-       WHERE user_id = $1`,
-      [userId]
-    );
+    const documents = await prisma.documents.findMany({
+      where: {
+        user_id: userId
+      },
+      select: {
+        status: true
+      }
+    });
 
-    const { total_documents, approved_documents, pending_documents } = result.rows[0];
+    const total_documents = documents.length;
+    const approved_documents = documents.filter(doc => doc.status === 'approved').length;
+    const pending_documents = documents.filter(doc => doc.status === 'pending').length;
 
     return {
       isVerified: approved_documents > 0,
@@ -127,10 +128,16 @@ export async function sendBookingConfirmationAndRequirements(
 
     // Send WhatsApp notification
     try {
-      await whatsappService.sendMessage(
-        phone,
-        `🎉 Booking Confirmed!\n\nHi ${name},\n\nYour booking (ID: ${bookingId}) for ${bookingDetails.vehicleName} has been confirmed.\n\n⚠️ Important: Please upload required documents within 24 hours to avoid booking cancellation.\n\nUpload here: ${process.env.NEXT_PUBLIC_APP_URL}/profile/documents`
-      );
+      await whatsappService.sendBookingConfirmation({
+        customerName: name,
+        customerPhone: phone,
+        vehicleType: '',
+        vehicleModel: bookingDetails.vehicleName,
+        startDate: bookingDetails.startDate,
+        endDate: bookingDetails.endDate,
+        bookingId: bookingId,
+        totalAmount: `₹${bookingDetails.totalAmount.toFixed(2)}`
+      });
       
       logger.info('WhatsApp notification sent:', { 
         phone, 

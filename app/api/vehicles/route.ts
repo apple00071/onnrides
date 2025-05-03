@@ -133,26 +133,26 @@ async function getAvailableLocations(
       WITH booking_counts AS (
         SELECT 
           b.id,
-          b.start_date,
-          b.end_date,
+          b."startDate" as start_date,
+          b."endDate" as end_date,
           b.status,
-          b.pickup_location::text as effective_location,
+          b."pickupLocation"::text as effective_location,
           v.name as vehicle_name,
           v.quantity as vehicle_quantity,
           COUNT(*) OVER (
-            PARTITION BY b.pickup_location::text
+            PARTITION BY b."pickupLocation"::text
           ) as concurrent_bookings
         FROM bookings b
-        JOIN vehicles v ON b.vehicle_id = v.id
-        WHERE b.vehicle_id = $1
+        JOIN vehicles v ON b."vehicleId" = v.id
+        WHERE b."vehicleId" = $1
         AND b.status NOT IN ('cancelled', 'failed')
-        AND b.payment_status != 'failed'
+        AND b."paymentStatus" != 'failed'
         AND (
-          (b.start_date - interval '2 hours', b.end_date + interval '2 hours') OVERLAPS ($2::timestamp, $3::timestamp)
-          OR ($2::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
-          OR ($3::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
-          OR (b.start_date - interval '2 hours') BETWEEN $2::timestamp AND $3::timestamp
-          OR (b.end_date + interval '2 hours') BETWEEN $2::timestamp AND $3::timestamp
+          (b."startDate" - interval '2 hours', b."endDate" + interval '2 hours') OVERLAPS ($2::timestamp, $3::timestamp)
+          OR ($2::timestamp BETWEEN (b."startDate" - interval '2 hours') AND (b."endDate" + interval '2 hours'))
+          OR ($3::timestamp BETWEEN (b."startDate" - interval '2 hours') AND (b."endDate" + interval '2 hours'))
+          OR (b."startDate" - interval '2 hours') BETWEEN $2::timestamp AND $3::timestamp
+          OR (b."endDate" + interval '2 hours') BETWEEN $2::timestamp AND $3::timestamp
         )
       )
       SELECT * FROM booking_counts
@@ -272,13 +272,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         v.created_at,
         v.updated_at,
         COALESCE(
-          array_agg(DISTINCT b.pickup_location) FILTER (WHERE b.pickup_location IS NOT NULL),
+          array_agg(DISTINCT b."pickupLocation") FILTER (WHERE b."pickupLocation" IS NOT NULL),
           '{}'
         ) as booked_locations
       FROM vehicles v
-      LEFT JOIN bookings b ON v.id = b.vehicle_id 
+      LEFT JOIN bookings b ON v.id = b."vehicleId" 
         AND b.status NOT IN ('cancelled', 'failed')
-        AND b.payment_status != 'failed'
+        AND b."paymentStatus" != 'failed'
       WHERE v.status = 'active'
       GROUP BY v.id
       ORDER BY 

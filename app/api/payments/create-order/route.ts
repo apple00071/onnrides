@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     // Update booking with order details
     const paymentDetails = {
-      order_id: razorpayOrder.id,
+      razorpay_order_id: razorpayOrder.id,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
       status: razorpayOrder.status,

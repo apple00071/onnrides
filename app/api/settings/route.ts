@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { randomUUID } from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
 interface Setting {
+  id: string;
   key: string;
   value: string;
   created_at: Date;
@@ -25,14 +26,20 @@ export async function GET(request: NextRequest) {
     const key = url.searchParams.get('key');
 
     if (key) {
-      const setting = await prisma.settings.findFirst({
-        where: { key },
-      });
-      return NextResponse.json({ success: true, data: setting });
+      const result = await query(`
+        SELECT id, key, value, created_at, updated_at
+        FROM settings
+        WHERE key = $1
+        LIMIT 1
+      `, [key]);
+      return NextResponse.json({ success: true, data: result.rows[0] });
     }
 
-    const settings = await prisma.settings.findMany();
-    return NextResponse.json({ success: true, data: settings });
+    const result = await query(`
+      SELECT id, key, value, created_at, updated_at
+      FROM settings
+    `);
+    return NextResponse.json({ success: true, data: result.rows });
   } catch (error) {
     logger.error('Error fetching settings:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch settings' }, { status: 500 });
@@ -53,26 +60,34 @@ export async function POST(request: NextRequest) {
     }
 
     // First try to find the existing setting
-    const existingSetting = await prisma.settings.findFirst({
-      where: { key }
-    });
+    const existingResult = await query(`
+      SELECT id, key, value, created_at, updated_at
+      FROM settings
+      WHERE key = $1
+      LIMIT 1
+    `, [key]);
 
-    let setting;
+    const existingSetting = existingResult.rows[0] as Setting;
+    let setting: Setting;
+
     if (existingSetting) {
       // Update existing setting
-      setting = await prisma.settings.update({
-        where: { id: existingSetting.id },
-        data: { value }
-      });
+      const updateResult = await query(`
+        UPDATE settings
+        SET value = $1, updated_at = NOW()
+        WHERE id = $2
+        RETURNING id, key, value, created_at, updated_at
+      `, [value, existingSetting.id]);
+      setting = updateResult.rows[0];
     } else {
       // Create new setting with a generated id
-      setting = await prisma.settings.create({
-        data: {
-          id: randomUUID(),
-          key,
-          value
-        }
-      });
+      const id = randomUUID();
+      const insertResult = await query(`
+        INSERT INTO settings (id, key, value, created_at, updated_at)
+        VALUES ($1, $2, $3, NOW(), NOW())
+        RETURNING id, key, value, created_at, updated_at
+      `, [id, key, value]);
+      setting = insertResult.rows[0];
     }
 
     logger.info(`Setting ${existingSetting ? 'updated' : 'created'}: ${key} = ${value}`);
@@ -99,20 +114,26 @@ export async function PUT(request: NextRequest) {
 
     const results = await Promise.all(
       defaultSettings.map(async (setting) => {
-        const existing = await prisma.settings.findFirst({
-          where: { key: setting.key }
-        });
+        const existingResult = await query(`
+          SELECT id, key, value, created_at, updated_at
+          FROM settings
+          WHERE key = $1
+          LIMIT 1
+        `, [setting.key]);
 
+        const existing = existingResult.rows[0] as Setting;
         if (existing) {
           return existing;
         }
 
-        return prisma.settings.create({
-          data: {
-            id: randomUUID(),
-            ...setting
-          }
-        });
+        const id = randomUUID();
+        const insertResult = await query(`
+          INSERT INTO settings (id, key, value, created_at, updated_at)
+          VALUES ($1, $2, $3, NOW(), NOW())
+          RETURNING id, key, value, created_at, updated_at
+        `, [id, setting.key, setting.value]);
+
+        return insertResult.rows[0] as Setting;
       })
     );
 

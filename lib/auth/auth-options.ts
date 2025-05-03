@@ -1,111 +1,101 @@
-import { type DefaultSession, type NextAuthOptions } from 'next-auth';
+import { AuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import bcrypt from 'bcrypt';
+import { compare } from 'bcryptjs';
+import { DefaultSession, DefaultUser } from 'next-auth';
+import { JWT } from 'next-auth/jwt';
 import logger from '@/lib/logger';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
+// Extend the built-in session types
 declare module "next-auth" {
-  interface User {
-    id: string;
-    email: string;
-    name: string;
+  interface User extends DefaultUser {
     role: "user" | "admin";
+    id: string;
   }
 
-  interface Session extends DefaultSession {
+  interface Session {
     user: User & DefaultSession["user"];
   }
 }
 
-export const authOptions: NextAuthOptions = {
-  session: {
-    strategy: "jwt",
-  },
+declare module "next-auth/jwt" {
+  interface JWT {
+    role: "user" | "admin";
+    id: string;
+  }
+}
+
+export const authOptions: AuthOptions = {
   providers: [
     CredentialsProvider({
-      name: "credentials",
+      name: 'Credentials',
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-        isAdmin: { label: "Is Admin", type: "text" }
+        password: { label: "Password", type: "password" }
       },
-      async authorize(credentials, req) {
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Missing credentials');
+        }
+
         try {
-          if (!credentials?.email || !credentials?.password) {
-            logger.warn('Missing credentials');
-            return null;
-          }
-
+          // Find user by email
           const user = await prisma.users.findUnique({
-            where: { email: credentials.email }
-          });
-          
-          if (!user || !user.password_hash) {
-            logger.warn('User not found or no password:', credentials.email);
-            return null;
-          }
-
-          // Check if this is an admin login attempt
-          const isAdminLogin = credentials.isAdmin === 'true';
-          const userRole = user.role?.toLowerCase() || 'user';
-          
-          if (isAdminLogin && userRole !== 'admin') {
-            logger.warn('Non-admin user attempted admin login:', credentials.email);
-            return null;
-          }
-
-          const isPasswordValid = await bcrypt.compare(
-            credentials.password,
-            user.password_hash
-          );
-
-          if (!isPasswordValid) {
-            logger.warn('Invalid password for user:', credentials.email);
-            return null;
-          }
-
-          logger.info('User logged in successfully:', {
-            userId: user.id,
-            email: user.email,
-            role: userRole
+            where: { 
+              email: credentials.email.toLowerCase() 
+            },
+            select: {
+              id: true,
+              email: true,
+              password_hash: true,
+              name: true,
+              role: true,
+              is_blocked: true
+            }
           });
 
-          // Ensure name is always a string by using email as fallback
-          const name = user.name || user.email || '';
+          if (!user) {
+            throw new Error('No user found');
+          }
 
+          if (user.is_blocked) {
+            throw new Error('Account is blocked');
+          }
+
+          // Check password
+          const isValid = await compare(credentials.password, user.password_hash || '');
+          if (!isValid) {
+            throw new Error('Invalid password');
+          }
+
+          // Return user without password
           return {
             id: user.id,
             email: user.email || '',
-            name,
-            role: userRole as "user" | "admin"
+            name: user.name || '',
+            role: (user.role || 'user') as "user" | "admin"
           };
         } catch (error) {
-          logger.error('Auth error:', error);
-          return null;
+          logger.error('Error in authorize:', error);
+          throw error;
         }
-      },
-    }),
+      }
+    })
   ],
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.email = user.email;
-        token.name = user.name;
         token.role = user.role;
+        token.id = user.id;
       }
       return token;
     },
     async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          id: token.id,
-          email: token.email,
-          name: token.name,
-          role: token.role
-        }
-      };
+      if (token && session.user) {
+        session.user.role = token.role;
+        session.user.id = token.id;
+      }
+      return session;
     },
     async redirect({ url, baseUrl }) {
       // If the url is relative, prefix it with the base URL
@@ -117,7 +107,10 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    signIn: "/login",
-    error: "/login",
+    signIn: '/auth/signin',
+    error: '/auth/error'
   },
+  session: {
+    strategy: 'jwt'
+  }
 }; 

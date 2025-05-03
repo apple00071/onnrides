@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -48,6 +48,11 @@ interface RawBookingResult {
   vehicle_brand: string;
 }
 
+interface RevenueData {
+  date: Date;
+  revenue: number;
+}
+
 interface DashboardData {
   totalRevenue: number;
   totalBookings: number;
@@ -65,81 +70,69 @@ export async function GET() {
     }
 
     // Get booking stats
-    const bookingStats = await prisma.bookings.aggregate({
-      _count: {
-        id: true
-      },
-      where: {
-        OR: [
-          { status: 'active' },
-          { status: 'completed' },
-          { status: 'cancelled' }
-        ]
-      }
-    });
+    const bookingStatsResult = await query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'active') as active,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed,
+        COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled
+      FROM bookings
+      WHERE status IN ('active', 'completed', 'cancelled')
+    `);
 
-    const activeBookings = await prisma.bookings.count({
-      where: { status: 'active' }
-    });
-
-    const completedBookings = await prisma.bookings.count({
-      where: { status: 'completed' }
-    });
-
-    const cancelledBookings = await prisma.bookings.count({
-      where: { status: 'cancelled' }
-    });
+    const bookingStats = bookingStatsResult.rows[0];
 
     // Get recent bookings
-    const recentBookings = await prisma.bookings.findMany({
-      take: 5,
-      orderBy: { created_at: 'desc' },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true
-          }
-        },
-        vehicle: {
-          select: {
-            name: true,
-            type: true
-          }
-        }
-      }
-    });
+    const recentBookingsResult = await query(`
+      SELECT 
+        b.id,
+        b.user_id,
+        b.vehicle_id,
+        b.start_date,
+        b.end_date,
+        b.total_hours,
+        b.total_price,
+        b.status,
+        b.payment_status,
+        b.created_at,
+        u.name as user_name,
+        u.email as user_email,
+        v.name as vehicle_name,
+        v.type as vehicle_type
+      FROM bookings b
+      JOIN users u ON b.user_id = u.id
+      JOIN vehicles v ON b.vehicle_id = v.id
+      ORDER BY b.created_at DESC
+      LIMIT 5
+    `);
 
     // Get revenue data
-    const revenueData = await prisma.bookings.groupBy({
-      by: ['created_at'],
-      where: {
-        status: 'completed'
-      },
-      _sum: {
-        total_price: true
-      },
-      orderBy: {
-        created_at: 'asc'
-      },
-      take: 30
-    });
+    const revenueDataResult = await query(`
+      SELECT 
+        DATE(created_at) as date,
+        SUM(total_price) as revenue
+      FROM bookings
+      WHERE status = 'completed'
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC
+      LIMIT 30
+    `);
 
-    const formattedRevenueData = revenueData.map(data => ({
-      date: data.created_at,
-      revenue: data._sum.total_price || 0
+    const formattedRevenueData = revenueDataResult.rows.map((data: { date: Date; revenue: string }) => ({
+      date: data.date,
+      revenue: parseFloat(data.revenue) || 0
     }));
 
     return NextResponse.json({
       success: true,
       data: {
         stats: {
-          total: bookingStats._count.id,
-          active: activeBookings,
-          completed: completedBookings,
-          cancelled: cancelledBookings
+          total: parseInt(bookingStats.total),
+          active: parseInt(bookingStats.active),
+          completed: parseInt(bookingStats.completed),
+          cancelled: parseInt(bookingStats.cancelled)
         },
-        recentBookings,
+        recentBookings: recentBookingsResult.rows,
         revenueData: formattedRevenueData
       }
     });

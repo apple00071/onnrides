@@ -5,10 +5,7 @@ import { authOptions } from '@/lib/auth';
 import type { Booking, Vehicle } from '@/lib/types';
 import { getServerSession } from 'next-auth';
 import { sendBookingNotification } from '@/lib/whatsapp/integration';
-import { PrismaClient } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-
-const prisma = new PrismaClient();
 
 interface UpdateBookingBody {
   status?: 'pending' | 'confirmed' | 'cancelled' | 'completed';
@@ -24,141 +21,28 @@ export async function GET(
   { params }: { params: { bookingId: string } }
 ) {
   try {
-    // Get session
     const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      logger.error('No user session found during booking fetch');
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { bookingId } = params;
-    if (!bookingId) {
-      return NextResponse.json(
-        { success: false, error: 'Booking ID is required' },
-        { status: 400 }
-      );
-    }
 
-    logger.info('Fetching booking details', { bookingId });
-
-    // Get booking details with vehicle information
-    const bookingResult = await query(
-      `SELECT 
-        b.*,
-        v.name as vehicle_name,
-        v.type as vehicle_type,
-        v.price_per_hour,
-        v.location as pickup_location,
-        b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as start_date,
-        b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as end_date,
-        b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
-        b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at
-       FROM bookings b
-       INNER JOIN vehicles v ON b.vehicle_id = v.id
-       WHERE b.booking_id = $1::text 
-          OR b.id = CASE 
-            WHEN $1::uuid ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-            THEN $1::uuid 
-            ELSE NULL 
-          END
-          OR (
-            b.payment_details IS NOT NULL 
-            AND jsonb_typeof(COALESCE(b.payment_details::jsonb, '{}'::jsonb)) = 'object'
-            AND (
-              b.payment_details::jsonb ->> 'order_id' = $1::text
-              OR b.payment_details::jsonb ->> 'razorpay_order_id' = $1::text
-            )
-          )`,
-      [bookingId]
+    // Get booking from database
+    const result = await query(
+      'SELECT * FROM bookings WHERE booking_id = $1 AND user_id = $2',
+      [bookingId, session.user.id]
     );
 
-    if (bookingResult.rowCount === 0) {
-      logger.error('Booking not found', { 
-        bookingId,
-        searchType: typeof bookingId,
-        searchLength: bookingId.length
-      });
-      return NextResponse.json(
-        { success: false, error: 'Booking not found' },
-        { status: 404 }
-      );
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
-    const booking = bookingResult.rows[0];
-
-    // Ensure user has access to this booking
-    if (booking.user_id !== session.user.id) {
-      logger.error('Unauthorized booking access attempt', {
-        bookingId: booking.id,
-        userId: session.user.id,
-        bookingUserId: booking.user_id
-      });
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 403 }
-      );
-    }
-
-    // Format the response
-    const formattedBooking = {
-      id: booking.id,
-      bookingId: booking.booking_id,
-      displayId: booking.booking_id || `#${booking.id.slice(0, 4)}`,
-      userId: booking.user_id,
-      vehicle: {
-        id: booking.vehicle_id,
-        name: booking.vehicle_name,
-        type: booking.vehicle_type,
-        location: booking.pickup_location
-      },
-      startDate: booking.start_date,
-      endDate: booking.end_date,
-      totalPrice: `₹${parseFloat(booking.total_price || 0).toFixed(2)}`,
-      status: booking.status,
-      paymentStatus: booking.payment_status,
-      paymentDetails: typeof booking.payment_details === 'string' ? 
-        JSON.parse(booking.payment_details) : 
-        booking.payment_details,
-      paymentReference: booking.payment_reference,
-      paidAmount: booking.total_price ? `₹${parseFloat(booking.total_price).toFixed(2)}` : '₹0.00',
-      pickupLocation: booking.pickup_location,
-      dropoffLocation: booking.dropoff_location || booking.pickup_location,
-      createdAt: booking.created_at,
-      updatedAt: booking.updated_at
-    };
-
-    logger.info('Booking details fetched successfully', {
-      bookingId: booking.id,
-      formattedBookingId: formattedBooking.bookingId,
-      status: booking.status,
-      paymentStatus: booking.payment_status,
-      formattedData: {
-        location: formattedBooking.vehicle.location,
-        totalPrice: formattedBooking.totalPrice,
-        paidAmount: formattedBooking.paidAmount,
-        bookingId: formattedBooking.bookingId
-      }
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: formattedBooking
-    });
-
+    return NextResponse.json(result.rows[0]);
   } catch (error) {
-    logger.error('Error fetching booking details:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      bookingId: params.bookingId
-    });
+    logger.error('Error fetching booking:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to fetch booking details' 
-      },
+      { error: error instanceof Error ? error.message : 'Failed to fetch booking' },
       { status: 500 }
     );
   }
@@ -336,12 +220,18 @@ export async function PATCH(
     }
 
     // Start a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Get the booking
-      const booking = await tx.bookings.findUnique({
-        where: { id: bookingId },
-        include: { vehicle: true }
-      });
+    await query('BEGIN');
+
+    try {
+      // 1. Get the booking with vehicle details
+      const bookingResult = await query(`
+        SELECT b.*, v.id as vehicle_id, v.name as vehicle_name 
+        FROM bookings b 
+        LEFT JOIN vehicles v ON b.vehicle_id = v.id 
+        WHERE b.id = $1
+      `, [bookingId]);
+
+      const booking = bookingResult.rows[0];
 
       if (!booking) {
         throw new Error('Booking not found');
@@ -358,34 +248,41 @@ export async function PATCH(
       }
 
       // 4. Update the booking status
-      const updatedBooking = await tx.bookings.update({
-        where: { id: bookingId },
-        data: {
-          status: 'cancelled',
-          updated_at: new Date()
-        }
-      });
+      const updatedBookingResult = await query(`
+        UPDATE bookings 
+        SET status = 'cancelled', 
+            updated_at = NOW() 
+        WHERE id = $1 
+        RETURNING *
+      `, [bookingId]);
 
       // 5. Update vehicle availability if needed
-      if (booking.vehicle) {
-        await tx.vehicles.update({
-          where: { id: booking.vehicle.id },
-          data: { is_available: true }
-        });
+      if (booking.vehicle_id) {
+        await query(`
+          UPDATE vehicles 
+          SET is_available = true 
+          WHERE id = $1
+        `, [booking.vehicle_id]);
       }
 
-      return updatedBooking;
-    });
+      // Commit transaction
+      await query('COMMIT');
 
-    // Revalidate relevant pages
-    revalidatePath('/bookings');
-    revalidatePath('/admin/bookings');
-    revalidatePath(`/bookings/${bookingId}`);
+      // Revalidate relevant pages
+      revalidatePath('/bookings');
+      revalidatePath('/admin/bookings');
+      revalidatePath(`/bookings/${bookingId}`);
 
-    return NextResponse.json({
-      success: true,
-      data: { booking: result }
-    });
+      return NextResponse.json({
+        success: true,
+        data: { booking: updatedBookingResult.rows[0] }
+      });
+
+    } catch (error) {
+      // Rollback transaction on error
+      await query('ROLLBACK');
+      throw error;
+    }
 
   } catch (error) {
     logger.error('Error updating booking:', {

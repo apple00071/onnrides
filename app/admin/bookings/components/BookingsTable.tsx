@@ -11,7 +11,7 @@ import { ViewBookingModal } from './ViewBookingModal';
 import { ViewHistoryModal } from './ViewHistoryModal';
 import { useToast } from '@/hooks/use-toast';
 import logger from '@/lib/logger';
-import { type bookings, type users, type vehicles } from "@prisma/client";
+import { type Booking, type User, type Vehicle } from "@/lib/schema";
 
 interface BookingWithRelations {
   id: string;
@@ -51,6 +51,12 @@ interface ViewHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   booking: BookingWithRelations;
+}
+
+interface BookingsTableProps {
+  bookings: Booking[];
+  users: User[];
+  vehicles: Vehicle[];
 }
 
 export function BookingsTable() {

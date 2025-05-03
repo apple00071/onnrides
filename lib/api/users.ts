@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { prisma } from '@/lib/prisma';
 import logger from '@/lib/logger';
 
 // Define the User type
@@ -8,87 +8,73 @@ export type User = {
   email: string;
   phone: string | null;
   role: string;
-  created_at: Date;
+  created_at: Date | null;
 };
 
 /**
- * Get all users directly from the database
- * This is a fallback when Prisma has issues with type mismatches
+ * Get all users using Prisma
  */
 export async function getUsers(): Promise<User[]> {
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-  });
-
   try {
-    // Direct SQL query to get users, converting any numeric IDs to strings
-    const result = await pool.query(`
-      SELECT 
-        id::text, 
-        name, 
-        email, 
-        phone, 
-        role,
-        created_at
-      FROM users
-      ORDER BY created_at DESC
-    `);
+    const users = await prisma.users.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        created_at: true,
+      },
+      orderBy: {
+        created_at: 'desc'
+      }
+    });
 
-    return result.rows.map(row => ({
-      id: row.id,
-      name: row.name,
-      email: row.email,
-      phone: row.phone,
-      role: row.role,
-      created_at: row.created_at
+    return users.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email || '',
+      phone: user.phone,
+      role: user.role || 'user',
+      created_at: user.created_at
     }));
   } catch (error) {
-    logger.error('Error in direct database query for users:', error);
+    logger.error('Error fetching users with Prisma:', error);
     return [];
-  } finally {
-    await pool.end();
   }
 }
 
 /**
- * Get a user by ID directly from the database
+ * Get a user by ID using Prisma
  */
 export async function getUserById(id: string): Promise<User | null> {
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-  });
-
   try {
-    // Try to find the user by ID, handling both UUID and numeric IDs
-    const result = await pool.query(`
-      SELECT 
-        id::text, 
-        name, 
-        email, 
-        phone, 
-        role,
-        created_at
-      FROM users
-      WHERE id::text = $1
-    `, [id]);
+    const user = await prisma.users.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        created_at: true,
+      }
+    });
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return null;
     }
 
-    const row = result.rows[0];
     return {
-      id: row.id,
-      name: row.name,
-      email: row.email,
-      phone: row.phone,
-      role: row.role,
-      created_at: row.created_at
+      id: user.id,
+      name: user.name,
+      email: user.email || '',
+      phone: user.phone,
+      role: user.role || 'user',
+      created_at: user.created_at
     };
   } catch (error) {
     logger.error(`Error finding user by ID ${id}:`, error);
     return null;
-  } finally {
-    await pool.end();
   }
 } 
