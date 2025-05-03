@@ -31,12 +31,12 @@ export const authOptions: NextAuthOptions = {
 
           const user = result.rows[0];
 
-          if (!user || !user.password_hash) {
+          if (!user || !user.password) {
             logger.debug('User not found or no password:', credentials.email);
             throw new Error('Invalid credentials');
           }
 
-          const isValid = await compare(credentials.password, user.password_hash);
+          const isValid = await compare(credentials.password, user.password);
 
           if (!isValid) {
             logger.debug('Invalid password for user:', credentials.email);

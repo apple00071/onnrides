@@ -19,8 +19,8 @@ export interface User {
   email: string;
   role: string;
   phone: string | null;
-  created_at: string;
-  is_blocked: boolean;
+  createdAt: string;
+  isBlocked: boolean;
   documents?: {
     total: number;
     approved: number;
@@ -217,7 +217,7 @@ export interface CreateVehicleBody {
   name: string;
   type: string;
   location: string[];
-  price_per_hour: number;
+  pricePerHour: number;
   description?: string;
   features?: string[];
   images?: string[];
@@ -234,6 +234,6 @@ export interface DbUser {
   name: string | null;
   email: string;
   role: UserRole;
-  password_hash: string;
-  is_blocked: boolean;
+  password: string;
+  isBlocked: boolean;
 } 

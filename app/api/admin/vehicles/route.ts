@@ -12,16 +12,20 @@ interface VehicleRow {
   type: string;
   location: string;
   quantity: number;
-  price_per_hour: number;
+  pricePerHour: number;
   price_7_days: number | null;
   price_15_days: number | null;
   price_30_days: number | null;
-  min_booking_hours: number;
+  minBookingHours: number;
   images: string;
   status: string;
-  is_available: boolean;
-  created_at: Date;
-  updated_at: Date;
+  isAvailable: boolean;
+  is_delivery_enabled: boolean;
+  delivery_price_7_days: number | null;
+  delivery_price_15_days: number | null;
+  delivery_price_30_days: number | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Helper function to normalize image data
@@ -81,7 +85,7 @@ export async function GET(_request: NextRequest) {
   try {
     const result = await query(`
       SELECT * FROM vehicles 
-      ORDER BY created_at
+      ORDER BY "createdAt"
     `);
 
     const formattedVehicles = result.rows.map((vehicle: VehicleRow) => {
@@ -124,14 +128,60 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const data = await request.json();
-    logger.info('Received vehicle creation request:', { data });
+    // Log the raw request to help debug
+    const rawData = await request.text();
+    logger.info('Raw request data:', { rawData });
     
-    // Validate required fields
-    if (!data.name || !data.type || !data.price_per_hour || !data.location || data.location.length === 0) {
-      logger.warn('Missing required fields:', { data });
+    // Parse the JSON data
+    const data = JSON.parse(rawData);
+    logger.info('Received vehicle creation request:', { 
+      data, 
+      keys: Object.keys(data),
+      pricePerHour: data.pricePerHour,
+      pricePerHourType: typeof data.pricePerHour
+    });
+    
+    // Enhanced validation with more specific error messages
+    const missingFields = [];
+    if (!data.name) missingFields.push('name');
+    if (!data.type) missingFields.push('type');
+    
+    // More thorough check for pricePerHour - catches undefined, null, empty string, and NaN
+    if (
+      data.pricePerHour === undefined || 
+      data.pricePerHour === null || 
+      data.pricePerHour === '' || 
+      isNaN(Number(data.pricePerHour))
+    ) {
+      missingFields.push('pricePerHour');
+      logger.warn('pricePerHour validation failed:', { 
+        value: data.pricePerHour, 
+        type: typeof data.pricePerHour,
+        isNaN: isNaN(Number(data.pricePerHour))
+      });
+    }
+    
+    // Handle different possible formats of location data
+    const hasValidLocation = (
+      data.location && 
+      (
+        (typeof data.location === 'string' && data.location.trim() !== '') || 
+        (Array.isArray(data.location) && data.location.length > 0) ||
+        (typeof data.location === 'object' && Object.keys(data.location).length > 0)
+      )
+    );
+    
+    if (!hasValidLocation) {
+      missingFields.push('location');
+    }
+    
+    if (missingFields.length > 0) {
+      logger.warn(`Missing required fields: ${missingFields.join(', ')}`, { 
+        data,
+        dataKeys: Object.keys(data) 
+      });
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: `Missing required fields: ${missingFields.join(', ')}` },
         { status: 400 }
       );
     }
@@ -161,29 +211,35 @@ export async function POST(request: NextRequest) {
       const result = await query(`
         INSERT INTO vehicles (
           id, name, type, location, quantity, 
-          price_per_hour, price_7_days, price_15_days, price_30_days, 
-          min_booking_hours, images, status, is_available, 
-          created_at, updated_at
+          "pricePerHour", price_7_days, price_15_days, price_30_days, 
+          "minBookingHours", images, status, "isAvailable",
+          "is_delivery_enabled", "delivery_price_7_days", "delivery_price_15_days", "delivery_price_30_days",
+          "createdAt", "updatedAt"
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         RETURNING id::text, name, type, location, quantity, 
-          price_per_hour, price_7_days, price_15_days, price_30_days, 
-          min_booking_hours, images, status, is_available, 
-          created_at, updated_at
+          "pricePerHour", price_7_days, price_15_days, price_30_days, 
+          "minBookingHours", images, status, "isAvailable",
+          "is_delivery_enabled", "delivery_price_7_days", "delivery_price_15_days", "delivery_price_30_days",
+          "createdAt", "updatedAt"
       `, [
         randomUUID(),
         data.name,
         data.type,
         locationJson,
         Number(data.quantity) || 1,
-        Number(data.price_per_hour),
+        Number(data.pricePerHour),
         data.price_7_days ? Number(data.price_7_days) : null,
         data.price_15_days ? Number(data.price_15_days) : null,
         data.price_30_days ? Number(data.price_30_days) : null,
-        Number(data.min_booking_hours) || 1,
+        Number(data.minBookingHours) || 1,
         JSON.stringify(normalizedImages),
         data.status || 'active',
         true,
+        data.is_delivery_enabled || false,
+        data.delivery_price_7_days ? Number(data.delivery_price_7_days) : null,
+        data.delivery_price_15_days ? Number(data.delivery_price_15_days) : null,
+        data.delivery_price_30_days ? Number(data.delivery_price_30_days) : null,
         new Date(),
         new Date()
       ]);
@@ -240,20 +296,36 @@ export async function PUT(request: NextRequest) {
     const { id, ...updateData } = data;
 
     // Process numeric fields
-    if (updateData.price_per_hour) {
-      updateData.price_per_hour = Number(updateData.price_per_hour);
+    if (updateData.pricePerHour) {
+      updateData.pricePerHour = Number(updateData.pricePerHour);
     }
     if (updateData.quantity) {
       updateData.quantity = Number(updateData.quantity);
     }
-    if (updateData.min_booking_hours) {
-      updateData.min_booking_hours = Number(updateData.min_booking_hours);
+    if (updateData.minBookingHours) {
+      updateData.minBookingHours = Number(updateData.minBookingHours);
     }
     
     // Handle special pricing fields
     updateData.price_7_days = updateData.price_7_days ? Number(updateData.price_7_days) : null;
     updateData.price_15_days = updateData.price_15_days ? Number(updateData.price_15_days) : null;
     updateData.price_30_days = updateData.price_30_days ? Number(updateData.price_30_days) : null;
+
+    // Handle delivery pricing fields
+    if (updateData.hasOwnProperty('delivery_price_7_days')) {
+      updateData.delivery_price_7_days = updateData.delivery_price_7_days ? Number(updateData.delivery_price_7_days) : null;
+    }
+    if (updateData.hasOwnProperty('delivery_price_15_days')) {
+      updateData.delivery_price_15_days = updateData.delivery_price_15_days ? Number(updateData.delivery_price_15_days) : null;
+    }
+    if (updateData.hasOwnProperty('delivery_price_30_days')) {
+      updateData.delivery_price_30_days = updateData.delivery_price_30_days ? Number(updateData.delivery_price_30_days) : null;
+    }
+
+    // Handle is_delivery_enabled flag
+    if (updateData.hasOwnProperty('is_delivery_enabled')) {
+      updateData.is_delivery_enabled = Boolean(updateData.is_delivery_enabled);
+    }
 
     // Ensure location is properly formatted
     if (updateData.location) {

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 
 const AUTH_PATHS = ['/login', '/register', '/forgot-password'];
 
@@ -43,15 +44,25 @@ export default function MaintenanceCheck({ children }: { children: React.ReactNo
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
         <div className="p-8 bg-white rounded-lg shadow-md text-center">
+          <div className="mb-6">
+            <Image
+              src="/logo.png"
+              alt="OnnRides Logo"
+              width={180}
+              height={50}
+              className="mx-auto"
+              priority
+            />
+          </div>
           <h1 className="text-2xl font-bold text-gray-800 mb-4">Site Under Maintenance</h1>
           <p className="text-gray-600">
             We are currently performing scheduled maintenance. Please check back later.
           </p>
           {!session && (
             <p className="mt-4 text-sm text-gray-500">
-              Already have an account?{' '}
-              <a href="/login" className="text-blue-600 hover:text-blue-800">
-                Login here
+              For assistance, please contact our support team at{' '}
+              <a href="mailto:support@onnrides.com" className="text-orange-600 hover:text-orange-800">
+                support@onnrides.com
               </a>
             </p>
           )}

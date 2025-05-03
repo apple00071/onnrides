@@ -33,15 +33,15 @@ export async function GET(
         b.*,
         v.name as vehicle_name,
         v.type as vehicle_type,
-        v.price_per_hour,
+        v."pricePerHour" as price_per_hour,
         v.location as pickup_location,
-        b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as start_date,
-        b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as end_date,
-        b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
-        b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at
+        b."startDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as start_date,
+        b."endDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as end_date,
+        b."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as created_at,
+        b."updatedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as updated_at
       FROM bookings b
-      INNER JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.booking_id = $1::text 
+      INNER JOIN vehicles v ON b."vehicleId" = v.id
+      WHERE b."bookingId" = $1::text 
         OR b.id = CASE 
           WHEN $1 ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
           THEN $1::uuid 
@@ -64,7 +64,7 @@ export async function GET(
       SELECT * FROM vehicles 
       WHERE id = $1 
       LIMIT 1
-    `, [booking.vehicle_id]);
+    `, [booking.vehicleId]);
 
     const vehicle = vehicleResult.rows.length > 0 ? vehicleResult.rows[0] : null;
 
@@ -105,9 +105,9 @@ export async function PATCH(
     const updatedBookingResult = await query(`
       UPDATE bookings 
       SET status = COALESCE($1, status),
-          payment_status = COALESCE($2, payment_status),
-          updated_at = CURRENT_TIMESTAMP 
-      WHERE booking_id = $3::text 
+          "paymentStatus" = COALESCE($2, "paymentStatus"),
+          "updatedAt" = CURRENT_TIMESTAMP 
+      WHERE "bookingId" = $3::text 
         OR id = CASE 
           WHEN $3 ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
           THEN $3::uuid 
@@ -131,7 +131,7 @@ export async function PATCH(
       SELECT * FROM vehicles 
       WHERE id = $1 
       LIMIT 1
-    `, [updatedBooking.vehicle_id]);
+    `, [updatedBooking.vehicleId]);
 
     const vehicle = vehicleResult.rows.length > 0 ? vehicleResult.rows[0] : null;
 

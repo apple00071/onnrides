@@ -31,7 +31,7 @@ export const authOptions: NextAuthOptions = {
 
         try {
           const { rows: [user] } = await query<DbQueryResult<DbUser>>(
-            'SELECT id, name, email, role, password_hash, is_blocked FROM users WHERE email = $1 LIMIT 1',
+            'SELECT id, name, email, role, password, "isBlocked" FROM users WHERE email = $1 LIMIT 1',
             [credentials.email]
           );
 
@@ -39,13 +39,13 @@ export const authOptions: NextAuthOptions = {
             throw new Error('No user found with this email');
           }
 
-          if (user.is_blocked) {
+          if (user.isBlocked) {
             throw new Error('Your account has been blocked. Please contact support.');
           }
 
           const isValidPassword = await bcrypt.compare(
             credentials.password,
-            user.password_hash
+            user.password
           );
 
           if (!isValidPassword) {

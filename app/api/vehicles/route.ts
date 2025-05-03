@@ -231,17 +231,17 @@ interface VehicleRow {
   name: string;
   type: string;
   status: string;
-  price_per_hour: number;
+  pricePerHour: number;
   price_7_days: number | null;
   price_15_days: number | null;
   price_30_days: number | null;
   location: string;  // PostgreSQL returns this as a string
   images: string;    // PostgreSQL returns this as a string
   quantity: number;
-  min_booking_hours: number;
-  is_available: boolean;
-  created_at: string;
-  updated_at: string;
+  minBookingHours: number;
+  isAvailable: boolean;
+  createdAt: string;
+  updatedAt: string;
   booked_locations: string[];
 }
 
@@ -260,17 +260,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         v.name,
         v.type,
         v.status,
-        v.price_per_hour,
-        v.price_7_days,
-        v.price_15_days,
-        v.price_30_days,
+        v."pricePerHour",
+        v."price_7_days",
+        v."price_15_days",
+        v."price_30_days",
         v.location,
         v.images,
         v.quantity,
-        v.min_booking_hours,
-        v.is_available,
-        v.created_at,
-        v.updated_at,
+        v."minBookingHours",
+        v."isAvailable",
+        v."createdAt",
+        v."updatedAt",
         COALESCE(
           array_agg(DISTINCT b."pickupLocation") FILTER (WHERE b."pickupLocation" IS NOT NULL),
           '{}'
@@ -285,7 +285,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         -- First, prioritize Activa bikes
         CASE WHEN LOWER(v.name) LIKE '%activa%' THEN 0 ELSE 1 END,
         -- Then sort by price
-        v.price_per_hour ASC,
+        v."pricePerHour" ASC,
         -- Finally sort by name for consistent ordering
         v.name ASC
     `;
@@ -374,7 +374,7 @@ export async function POST(request: NextRequest) {
       name,
       type,
       location,
-      price_per_hour,
+      pricePerHour,
       description,
       features,
       images,
@@ -382,7 +382,7 @@ export async function POST(request: NextRequest) {
     } = body as CreateVehicleBody;
 
     // Validate required fields
-    if (!name || !type || !price_per_hour) {
+    if (!name || !type || !pricePerHour) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -399,15 +399,15 @@ export async function POST(request: NextRequest) {
 
     const result = await query(
       `INSERT INTO vehicles (
-        name, type, location, price_per_hour, description, 
-        features, images, status, created_at, updated_at
+        name, type, location, "pricePerHour", description, 
+        features, images, status, "createdAt", "updatedAt"
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
       RETURNING *`,
       [
         name,
         type,
         locationJson,
-        price_per_hour,
+        pricePerHour,
         description || null,
         featuresArray,
         imagesArray,

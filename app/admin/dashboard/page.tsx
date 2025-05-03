@@ -6,7 +6,7 @@ import { UserVehicleStats } from "@/components/dashboard/UserVehicleStats";
 import RevenueChart from "@/components/dashboard/RevenueChart";
 import { RecentBookings } from "@/components/dashboard/RecentBookings";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import logger from "@/lib/logger";
 
 export const metadata: Metadata = {

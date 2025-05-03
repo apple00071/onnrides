@@ -63,14 +63,30 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
     type: 'bike',
     location: [] as AvailableLocation[],
     quantity: '1',
-    price_per_hour: '',
+    price_per_hour: '50',
     min_booking_hours: '1',
     images: [],
-    is_delivery_enabled: false
+    is_delivery_enabled: false,
+    price_7_days: '',
+    price_15_days: '',
+    price_30_days: '',
+    delivery_price_7_days: '',
+    delivery_price_15_days: '',
+    delivery_price_30_days: ''
   });
 
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Ensure the form has the correct initial values when opened
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(prev => ({
+        ...prev,
+        type: 'bike'
+      }));
+    }
+  }, [isOpen]);
 
   // Function to handle image URL validation
   const isValidImageUrl = (url: string): boolean => {
@@ -145,21 +161,61 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
     setLoading(true);
 
     try {
-      // Convert form data to match the API expectations
+      // Client-side validation with detailed logging
+      console.log('Form data before validation:', JSON.stringify(formData, null, 2));
+      
+      if (!formData.name) {
+        toast.error("Vehicle name is required");
+        setLoading(false);
+        return;
+      }
+
+      if (!formData.price_per_hour || Number(formData.price_per_hour) <= 0) {
+        toast.error("Price per hour is required and must be greater than 0");
+        setLoading(false);
+        return;
+      }
+
+      if (formData.location.length === 0) {
+        toast.error("At least one location must be selected");
+        setLoading(false);
+        return;
+      }
+
+      // Force directly set values to ensure they're correct
+      const pricePerHour = Number(formData.price_per_hour);
+      
+      // Debug log to verify price value
+      console.log('Price per hour value:', pricePerHour);
+      
+      // Create the vehicle data object with explicit property assignments
       const vehicleData = {
-        ...formData,
-        price_per_hour: Number(formData.price_per_hour),
-        quantity: Number(formData.quantity),
-        min_booking_hours: Number(formData.min_booking_hours),
+        name: formData.name,
+        type: "bike", // Always set this value directly
+        location: formData.location,
+        pricePerHour: pricePerHour, // Explicitly set with no calculations
+        minBookingHours: Number(formData.min_booking_hours || 1),
+        quantity: Number(formData.quantity || 1),
+        images: formData.images || [],
+        // Add delivery-related fields
+        is_delivery_enabled: formData.is_delivery_enabled,
         price_7_days: formData.price_7_days ? Number(formData.price_7_days) : null,
         price_15_days: formData.price_15_days ? Number(formData.price_15_days) : null,
         price_30_days: formData.price_30_days ? Number(formData.price_30_days) : null,
-        delivery_price_7_days: formData.delivery_price_7_days ? Number(formData.delivery_price_7_days) : null,
-        delivery_price_15_days: formData.delivery_price_15_days ? Number(formData.delivery_price_15_days) : null,
-        delivery_price_30_days: formData.delivery_price_30_days ? Number(formData.delivery_price_30_days) : null,
-        location: formData.location[0] || 'Madhapur',
-        vehicle_category: formData.is_delivery_enabled ? 'both' : 'normal'
+        delivery_price_7_days: formData.is_delivery_enabled && formData.delivery_price_7_days 
+          ? Number(formData.delivery_price_7_days) 
+          : null,
+        delivery_price_15_days: formData.is_delivery_enabled && formData.delivery_price_15_days 
+          ? Number(formData.delivery_price_15_days) 
+          : null,
+        delivery_price_30_days: formData.is_delivery_enabled && formData.delivery_price_30_days 
+          ? Number(formData.delivery_price_30_days) 
+          : null
       };
+
+      // Log the exact data being sent including stringified version
+      console.log('Sending vehicle data:', vehicleData);
+      console.log('Stringified data:', JSON.stringify(vehicleData, null, 2));
 
       const response = await fetch('/api/admin/vehicles', {
         method: 'POST',
@@ -169,9 +225,19 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
         body: JSON.stringify(vehicleData),
       });
 
+      // If there's an error, capture the full response
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create vehicle');
+        const errorBody = await response.text();
+        console.error('Error response:', errorBody);
+        
+        let parsedError;
+        try {
+          parsedError = JSON.parse(errorBody);
+        } catch (e) {
+          throw new Error(`Failed to create vehicle: ${errorBody}`);
+        }
+        
+        throw new Error(parsedError.error || 'Failed to create vehicle');
       }
 
       const newVehicle = await response.json();
@@ -192,10 +258,16 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
       type: 'bike',
       location: [] as AvailableLocation[],
       quantity: '1',
-      price_per_hour: '',
+      price_per_hour: '50',
       min_booking_hours: '1',
       images: [],
-      is_delivery_enabled: false
+      is_delivery_enabled: false,
+      price_7_days: '',
+      price_15_days: '',
+      price_30_days: '',
+      delivery_price_7_days: '',
+      delivery_price_15_days: '',
+      delivery_price_30_days: ''
     });
     setImageUrls([]);
     if (shouldClose) onClose();
@@ -226,7 +298,12 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
                 disabled
                 className="bg-gray-100"
               />
-              <input type="hidden" name="type" value="bike" />
+              <input 
+                type="hidden" 
+                name="type" 
+                value="bike"
+                onChange={handleInputChange}
+              />
             </div>
           </div>
 

@@ -45,10 +45,10 @@ export async function POST(request: NextRequest) {
 
     // Update maintenance mode setting using the query helper
     const result = await query(`
-      INSERT INTO settings (id, key, value, created_at, updated_at)
+      INSERT INTO settings (id, key, value, "createdAt", "updatedAt")
       VALUES ($1, $2, $3, NOW(), NOW())
       ON CONFLICT (key) DO UPDATE
-      SET value = $3, updated_at = NOW()
+      SET value = $3, "updatedAt" = NOW()
       RETURNING value
     `, ['maintenance_mode', 'maintenance_mode', String(enabled)]);
 

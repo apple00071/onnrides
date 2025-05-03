@@ -67,8 +67,8 @@ export async function GET(req: NextRequest) {
           email, 
           phone, 
           role,
-          created_at,
-          updated_at,
+          "createdAt",
+          "updatedAt",
           CASE WHEN is_blocked IS TRUE THEN TRUE ELSE FALSE END as is_blocked
         FROM users
         WHERE LOWER(role) != 'admin'
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
       }
       
       // Add order by, limit and offset
-      query += ` ORDER BY created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      query += ` ORDER BY "createdAt" DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
       queryParams.push(limit, skip);
       
       // Execute the query

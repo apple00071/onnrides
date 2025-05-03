@@ -102,7 +102,7 @@ try {
 // Add interface for booking row type
 interface BookingRow {
   id: string;
-  booking_id: string;
+  bookingId: string;
   status: string;
   start_date: Date;
   end_date: Date;
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
     const countResult = await query(`
       SELECT COUNT(*) 
       FROM bookings 
-      WHERE user_id = $1
+      WHERE "userId" = $1
     `, [session.user.id]);
 
     const totalBookings = parseInt(countResult.rows[0].count);
@@ -153,40 +153,40 @@ export async function GET(request: NextRequest) {
     const result = await query(`
       SELECT 
         b.id, 
-        b.booking_id, 
+        b."bookingId", 
         b.status, 
-        b.start_date, 
-        b.end_date,
+        b."startDate" as start_date, 
+        b."endDate" as end_date,
         
         -- Apply IST conversion correctly using AT TIME ZONE
-        (b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as pickup_datetime,
-        (b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as dropoff_datetime,
+        (b."startDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as pickup_datetime,
+        (b."endDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as dropoff_datetime,
         
         -- Create formatted dates for display
-        TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
-        TO_CHAR(b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
+        TO_CHAR(b."startDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
+        TO_CHAR(b."endDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
         
-        b.total_price as total_amount, 
-        b.payment_status,
-        b.created_at,
-        b.updated_at,
+        b."totalPrice" as total_amount, 
+        b."paymentStatus" as payment_status,
+        b."createdAt" as created_at,
+        b."updatedAt" as updated_at,
         v.id as vehicle_id,
         v.name as vehicle_name,
         v.type as vehicle_type,
         v.location as vehicle_location,
         v.images as vehicle_images,
-        v.price_per_hour as vehicle_price_per_hour
+        v."pricePerHour" as vehicle_price_per_hour
       FROM bookings b
-      JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.user_id = $1
-      ORDER BY b.created_at DESC
+      JOIN vehicles v ON b."vehicleId" = v.id
+      WHERE b."userId" = $1
+      ORDER BY b."createdAt" DESC
       LIMIT $2 OFFSET $3
     `, [session.user.id, limit, offset]);
 
     // Format the bookings
     const bookings = result.rows.map((booking: BookingRow) => ({
       id: booking.id,
-      booking_id: booking.booking_id,
+      booking_id: booking.bookingId,
       status: booking.status,
       start_date: booking.start_date,
       end_date: booking.end_date,

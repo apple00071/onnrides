@@ -24,10 +24,10 @@ export async function POST(
     // Update user's blocked status
     const result = await query(
       `UPDATE users 
-       SET is_blocked = $1::uuid, 
-           updated_at = NOW() 
+       SET "isBlocked" = $1::uuid, 
+           "updatedAt" = NOW() 
        WHERE id = $2::uuid 
-       RETURNING id::text, name, email, role, phone, is_blocked, created_at`,
+       RETURNING id::text, name, email, role, phone, "isBlocked", "createdAt"`,
       [blocked, userId]
     );
 

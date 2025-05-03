@@ -114,7 +114,7 @@ const getBookingsHandler = async (request: NextRequest) => {
     // Add search term filter
     if (searchTerm) {
       whereClause += ` AND (
-        b.booking_id ILIKE $${params.length + 1} OR
+        b."bookingId" ILIKE $${params.length + 1} OR
         u.name ILIKE $${params.length + 2} OR
         u.email ILIKE $${params.length + 3} OR
         u.phone ILIKE $${params.length + 4} OR
@@ -128,8 +128,8 @@ const getBookingsHandler = async (request: NextRequest) => {
     const countSql = `
       SELECT COUNT(*)::integer 
       FROM bookings b
-      LEFT JOIN vehicles v ON b.vehicle_id = v.id
-      LEFT JOIN users u ON b.user_id = u.id
+      LEFT JOIN vehicles v ON b."vehicleId" = v.id
+      LEFT JOIN users u ON b."userId" = u.id
       WHERE ${whereClause}
     `;
     const countResult = await query(countSql, params);
@@ -141,32 +141,32 @@ const getBookingsHandler = async (request: NextRequest) => {
       WITH booking_data AS (
         SELECT 
           b.id,
-          b.booking_id,
-          b.user_id,
-          b.vehicle_id,
+          b."bookingId",
+          b."userId",
+          b."vehicleId",
           
           -- Store original UTC dates without modification
-          b.start_date as original_start_date,
-          b.end_date as original_end_date,
+          b."startDate" as original_start_date,
+          b."endDate" as original_end_date,
           
           -- Add debug fields to check what's happening with the dates
-          TO_CHAR(b.start_date, 'YYYY-MM-DD HH24:MI:SS TZ') as utc_start_date_str,
+          TO_CHAR(b."startDate", 'YYYY-MM-DD HH24:MI:SS TZ') as utc_start_date_str,
           
           -- Apply IST conversion (+5:30 hours) only once
-          (b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_start_date,
-          (b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_end_date,
+          (b."startDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_start_date,
+          (b."endDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_end_date,
           
-          b.total_hours,
-          b.total_price,
+          b."totalHours",
+          b."totalPrice",
           b.status,
-          b.payment_status,
-          b.payment_details,
-          b.pickup_location,
-          b.dropoff_location,
-          b.created_at,
-          b.updated_at,
-          (b.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_created_at,
-          (b.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_updated_at,
+          b."paymentStatus",
+          b."paymentDetails",
+          b."pickupLocation",
+          b."dropoffLocation",
+          b."createdAt",
+          b."updatedAt",
+          (b."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_created_at,
+          (b."updatedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_updated_at,
           v.name as vehicle_name,
           v.location as vehicle_location,
           u.name as user_name,
@@ -174,18 +174,18 @@ const getBookingsHandler = async (request: NextRequest) => {
           u.phone as user_phone,
           
           -- Formatted pickup/dropoff times for display with proper timezone conversion
-          TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
-          TO_CHAR(b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
+          TO_CHAR(b."startDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
+          TO_CHAR(b."endDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
           
           -- Include additional debug information
-          TO_CHAR(b.start_date, 'YYYY-MM-DD HH24:MI:SS') as db_start_time,
-          TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD HH24:MI:SS') as ist_start_time,
+          TO_CHAR(b."startDate", 'YYYY-MM-DD HH24:MI:SS') as db_start_time,
+          TO_CHAR(b."startDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD HH24:MI:SS') as ist_start_time,
           
           -- Calculate duration in hours for debugging
-          EXTRACT(EPOCH FROM (b.end_date - b.start_date))/3600 as calculated_duration_hours
+          EXTRACT(EPOCH FROM (b."endDate" - b."startDate"))/3600 as calculated_duration_hours
         FROM bookings b
-        LEFT JOIN vehicles v ON b.vehicle_id = v.id
-        LEFT JOIN users u ON b.user_id = u.id
+        LEFT JOIN vehicles v ON b."vehicleId" = v.id
+        LEFT JOIN users u ON b."userId" = u.id
         WHERE ${whereClause}
       )
       SELECT * FROM booking_data
@@ -251,12 +251,12 @@ export async function PUT(request: NextRequest) {
           UPDATE bookings 
           SET 
             status = 'cancelled',
-            payment_status = 'cancelled',
-            updated_at = NOW()
-          WHERE booking_id = $1::text 
+            "paymentStatus" = 'cancelled',
+            "updatedAt" = NOW()
+          WHERE "bookingId" = $1::text 
           RETURNING *,
-            start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_start_date,
-            end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_end_date
+            "startDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_start_date,
+            "endDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_end_date
         `, [bookingId]);
 
         if (updateResult.rowCount === 0) {
@@ -274,9 +274,9 @@ export async function PUT(request: NextRequest) {
             u.phone as user_phone,
             v.name as vehicle_name
           FROM bookings b
-          LEFT JOIN users u ON b.user_id::text = u.id::text
-          LEFT JOIN vehicles v ON b.vehicle_id::text = v.id::text
-          WHERE b.booking_id = $1::text
+          LEFT JOIN users u ON b."userId"::text = u.id::text
+          LEFT JOIN vehicles v ON b."vehicleId"::text = v.id::text
+          WHERE b."bookingId" = $1::text
         `, [bookingId]);
 
         if (detailsResult.rowCount === 0) {
@@ -284,12 +284,12 @@ export async function PUT(request: NextRequest) {
         }
 
         // Make vehicle available again
-        if (booking.vehicle_id) {
+        if (booking.vehicleId) {
           await query(`
             UPDATE vehicles 
             SET is_available = true 
             WHERE id::text = $1::text
-          `, [booking.vehicle_id]);
+          `, [booking.vehicleId]);
         }
         
         const bookingDetails = detailsResult.rows[0];
@@ -308,7 +308,7 @@ export async function PUT(request: NextRequest) {
                 
                 <h2>Booking Details:</h2>
                 <ul>
-                  <li>Booking ID: ${bookingDetails.booking_id}</li>
+                  <li>Booking ID: ${bookingDetails.bookingId}</li>
                   <li>Vehicle: ${bookingDetails.vehicle_name}</li>
                   <li>Start Date: ${formatInTimeZone(booking.ist_start_date, 'Asia/Kolkata', 'dd MMM yyyy, hh:mm a')}</li>
                   <li>End Date: ${formatInTimeZone(booking.ist_end_date, 'Asia/Kolkata', 'dd MMM yyyy, hh:mm a')}</li>
@@ -321,18 +321,18 @@ export async function PUT(request: NextRequest) {
                 </ul>
               </div>
               `,
-              bookingDetails.booking_id
+              bookingDetails.bookingId
             ),
             whatsappService.sendBookingCancellation(
               bookingDetails.user_phone,
               bookingDetails.user_name,
               bookingDetails.vehicle_name,
-              bookingDetails.booking_id
+              bookingDetails.bookingId
             ).catch(error => {
               // Log WhatsApp error but don't fail the transaction
               logger.warn('Failed to send WhatsApp notification:', {
                 error: error instanceof Error ? error.message : 'Unknown error',
-                bookingId: bookingDetails.booking_id
+                bookingId: bookingDetails.bookingId
               });
             })
           ]);
@@ -340,7 +340,7 @@ export async function PUT(request: NextRequest) {
           // Log notification error but don't fail the transaction
           logger.error('Error sending notifications:', {
             error: notificationError instanceof Error ? notificationError.message : 'Unknown error',
-            bookingId: bookingDetails.booking_id
+            bookingId: bookingDetails.bookingId
           });
         }
 

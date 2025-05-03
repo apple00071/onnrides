@@ -2,6 +2,7 @@ import nodemailer, { Transporter } from 'nodemailer';
 import logger from '../logger';
 import { prisma } from '@/lib/prisma';
 import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 interface EmailLog {
   id: string;
@@ -214,24 +215,25 @@ export class EmailService {
     bookingId?: string | null
   ): Promise<string> {
     try {
-      const id = uuidv4();
-      const emailLog = await prisma.email_logs.create({
+      // Create entry in email_logs table
+      const result = await prisma.emailLog.create({
         data: {
-          id,
           recipient,
           subject,
-          message_content: message,
-          booking_id: bookingId,
+          messageContent: message,
+          bookingId,
           status,
-          created_at: new Date(),
-          updated_at: new Date()
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       });
-
-      return emailLog.id;
+      
+      return result.id;
     } catch (error) {
-      logger.error('Failed to log email:', error);
-      throw error;
+      logger.error('Error logging email:', error);
+      // Fallback to returning a random ID - this ensures the operation continues
+      // even if logging fails
+      return randomUUID();
     }
   }
 
@@ -240,18 +242,17 @@ export class EmailService {
     updates: { status: string; messageId?: string; error?: string }
   ): Promise<void> {
     try {
-      await prisma.email_logs.update({
+      await prisma.emailLog.update({
         where: { id },
         data: {
           status: updates.status,
-          message_id: updates.messageId,
+          messageId: updates.messageId,
           error: updates.error,
-          updated_at: new Date()
+          updatedAt: new Date()
         }
       });
     } catch (error) {
-      logger.error('Failed to update email log:', error);
-      throw error;
+      logger.error(`Error updating email log ${id}:`, error);
     }
   }
 

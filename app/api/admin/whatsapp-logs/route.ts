@@ -103,7 +103,7 @@ export async function GET(req: Request) {
                 v.name as vehicle_name 
             FROM whatsapp_data wd
             LEFT JOIN bookings b ON b.id::text = wd.booking_id
-            LEFT JOIN vehicles v ON v.id = b.vehicle_id 
+            LEFT JOIN vehicles v ON v.id = b."vehicleId" 
             ORDER BY wd.created_at DESC 
             LIMIT $1 OFFSET $2
         `;

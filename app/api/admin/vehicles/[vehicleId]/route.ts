@@ -70,10 +70,10 @@ export async function PUT(
         name = $1,
         type = $2,
         location = $3,
-        price_per_hour = $4,
-        is_available = $5,
+        "pricePerHour" = $4,
+        "isAvailable" = $5,
         images = $6,
-        updated_at = NOW()
+        "updatedAt" = NOW()
       WHERE id = $7
       RETURNING *
     `, [

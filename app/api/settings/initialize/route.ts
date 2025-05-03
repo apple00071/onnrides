@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
         "id" TEXT PRIMARY KEY,
         "key" TEXT UNIQUE NOT NULL,
         "value" TEXT NOT NULL,
-        "created_at" TIMESTAMP(6) NOT NULL DEFAULT NOW(),
-        "updated_at" TIMESTAMP(6) NOT NULL DEFAULT NOW()
+        "createdAt" TIMESTAMP(6) NOT NULL DEFAULT NOW(),
+        "updatedAt" TIMESTAMP(6) NOT NULL DEFAULT NOW()
       )
     `);
     
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       
       if (rows.length === 0) {
         await client.query(
-          `INSERT INTO "settings" ("id", "key", "value", "created_at", "updated_at")
+          `INSERT INTO "settings" ("id", "key", "value", "createdAt", "updatedAt")
            VALUES ($1, $2, $3, NOW(), NOW())`,
           [randomUUID(), setting.key, setting.value]
         );

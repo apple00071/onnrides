@@ -1,53 +1,44 @@
-const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
-
-// Create a connection pool using environment variables
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+const { query } = require('../lib/db.js');
 
 async function runMigration() {
   try {
-    // Read the migration file
-    const migrationSQL = fs.readFileSync(
-      path.join(__dirname, '../migrations/whatsapp_logs.sql'),
-      'utf8'
-    );
-
-    // Connect to the database
-    const client = await pool.connect();
+    console.log('Adding delivery-related columns to vehicles table...');
     
-    try {
-      // Start a transaction
-      await client.query('BEGIN');
-
-      // Run the migration
-      await client.query(migrationSQL);
-
-      // Commit the transaction
-      await client.query('COMMIT');
-      
-      console.log('Migration completed successfully');
-    } catch (error) {
-      // Rollback on error
-      await client.query('ROLLBACK');
-      console.error('Error running migration:', error);
-      throw error;
-    } finally {
-      // Release the client back to the pool
-      client.release();
-    }
+    // Read the migration SQL file
+    const migrationPath = path.join(__dirname, '../migrations/add_delivery_pricing_columns.sql');
+    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+    
+    // Execute the SQL
+    await query(migrationSQL);
+    
+    console.log('Migration completed successfully!');
+    
+    // Verify the columns were added
+    const result = await query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'vehicles' 
+      AND column_name IN (
+        'is_delivery_enabled',
+        'delivery_price_7_days',
+        'delivery_price_15_days',
+        'delivery_price_30_days'
+      )
+      ORDER BY column_name
+    `);
+    
+    console.log('Added columns:');
+    result.rows.forEach(row => {
+      console.log(`- ${row.column_name}`);
+    });
+    
   } catch (error) {
-    console.error('Migration failed:', error);
+    console.error('Error running migration:', error);
     process.exit(1);
-  } finally {
-    // Close the pool
-    await pool.end();
   }
 }
 
+// Run the migration
 runMigration(); 

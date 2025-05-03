@@ -51,38 +51,28 @@ export async function POST(request: NextRequest) {
     // Find the booking using Prisma
     logger.info('Looking for booking with order ID:', { razorpay_order_id });
 
-    const booking = await prisma.booking.findFirst({
-      where: {
-        paymentDetails: {
-          path: ['razorpay_order_id'],
-          equals: razorpay_order_id
-        }
-      }
-    });
+    // Use a raw SQL query through Prisma to find bookings with the given order ID in payment_details
+    const booking = await prisma.$queryRaw`
+      SELECT * FROM bookings 
+      WHERE payment_details->>'razorpay_order_id' = ${razorpay_order_id}
+      LIMIT 1
+    `;
 
-    if (!booking) {
+    // Handle case when booking is not found or is an empty array
+    if (!booking || (Array.isArray(booking) && booking.length === 0)) {
       logger.error('Booking not found for payment verification:', { razorpay_order_id });
 
-      // Log recent bookings for debugging
-      const recentBookings = await prisma.booking.findMany({
-        where: {
-          NOT: {
-            paymentDetails: null
-          }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        take: 5,
-        select: {
-          id: true,
-          bookingId: true,
-          paymentDetails: true
-        }
-      });
+      // Log recent bookings for debugging using raw query
+      const recentBookings = await prisma.$queryRaw`
+        SELECT id, booking_id, payment_details 
+        FROM bookings 
+        WHERE payment_details IS NOT NULL 
+        ORDER BY created_at DESC 
+        LIMIT 5
+      `;
 
       logger.info('Recent bookings with payment details:', {
-        count: recentBookings.length,
+        count: Array.isArray(recentBookings) ? recentBookings.length : 0,
         bookings: recentBookings
       });
 
@@ -91,6 +81,9 @@ export async function POST(request: NextRequest) {
         error: 'Booking not found'
       }, { status: 404 });
     }
+
+    // Extract the booking from the result array if needed
+    const bookingData = Array.isArray(booking) ? booking[0] : booking;
 
     // Verify payment signature
     try {
@@ -105,42 +98,42 @@ export async function POST(request: NextRequest) {
       }
 
       // Update booking with payment verification details using Prisma
-      const updatedBooking = await prisma.booking.update({
-        where: { id: booking.id },
+      const updatedBooking = await prisma.bookings.update({
+        where: { id: bookingData.id },
         data: {
-          paymentDetails: {
-            ...booking.paymentDetails as any,
+          payment_details: {
+            ...bookingData.payment_details as any,
             razorpay_payment_id,
             razorpay_signature,
             verified_at: new Date().toISOString(),
             status: 'verified'
           },
-          paymentStatus: 'completed',
-          status: booking.status === 'pending' ? 'confirmed' : booking.status,
-          updatedAt: new Date()
+          payment_status: 'completed',
+          status: bookingData.status === 'pending' ? 'confirmed' : bookingData.status,
+          updated_at: new Date()
         }
       });
 
       return NextResponse.json({
         success: true,
-        booking_id: updatedBooking.bookingId
+        booking_id: updatedBooking.booking_id
       });
 
     } catch (error) {
       // Handle verification failure using Prisma
-      await prisma.booking.update({
-        where: { id: booking.id },
+      await prisma.bookings.update({
+        where: { id: bookingData.id },
         data: {
-          paymentDetails: {
-            ...booking.paymentDetails as any,
+          payment_details: {
+            ...bookingData.payment_details as any,
             razorpay_payment_id,
             razorpay_signature,
             failed_at: new Date().toISOString(),
             status: 'failed',
             error: error instanceof Error ? error.message : 'Payment verification failed'
           },
-          paymentStatus: 'pending',
-          updatedAt: new Date()
+          payment_status: 'pending',
+          updated_at: new Date()
         }
       });
 

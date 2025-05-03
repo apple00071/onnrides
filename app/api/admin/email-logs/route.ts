@@ -23,13 +23,13 @@ export async function GET(req: Request) {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         recipient TEXT NOT NULL,
         subject TEXT NOT NULL,
-        message_content TEXT NOT NULL,
-        booking_id TEXT,
+        "messageContent" TEXT NOT NULL,
+        "bookingId" TEXT,
         status TEXT NOT NULL,
         error TEXT,
-        message_id TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        "messageId" TEXT,
+        "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
 
       -- Create indexes if they don't exist
@@ -44,11 +44,11 @@ export async function GET(req: Request) {
         END IF;
         
         IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_email_logs_booking_id') THEN
-          CREATE INDEX idx_email_logs_booking_id ON email_logs(booking_id);
+          CREATE INDEX idx_email_logs_booking_id ON email_logs("bookingId");
         END IF;
         
         IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_email_logs_created_at') THEN
-          CREATE INDEX idx_email_logs_created_at ON email_logs(created_at);
+          CREATE INDEX idx_email_logs_created_at ON email_logs("createdAt");
         END IF;
       END $$;
 
@@ -56,7 +56,7 @@ export async function GET(req: Request) {
       CREATE OR REPLACE FUNCTION update_updated_at_column()
       RETURNS TRIGGER AS $$
       BEGIN
-          NEW.updated_at = CURRENT_TIMESTAMP;
+          NEW."updatedAt" = CURRENT_TIMESTAMP;
           RETURN NEW;
       END;
       $$ language 'plpgsql';
@@ -79,12 +79,12 @@ export async function GET(req: Request) {
     const totalCount = parseInt(countResult.rows[0].count);
     
     logger.debug('Checking bookings table structure');
-    // Check for the existence of booking_id column in the bookings table
+    // Check for the existence of bookingId column in the bookings table
     const checkBookingIdColumnResult = await query(`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'bookings' 
-        AND column_name = 'booking_id'
+        AND column_name = 'bookingId'
     `);
     
     const hasBookingIdColumn = checkBookingIdColumnResult.rows.length > 0;
@@ -98,27 +98,27 @@ export async function GET(req: Request) {
       WITH email_data AS (
         SELECT 
           el.*,
-          el.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_created_at
+          el."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_created_at
         FROM email_logs el
       )
       SELECT 
         ed.id,
         ed.recipient,
         ed.subject,
-        ed.message_content,
-        ed.booking_id,
+        ed."messageContent",
+        ed."bookingId",
         ed.status,
         ed.error,
-        ed.message_id,
+        ed."messageId",
         ed.ist_created_at,
         v.name as vehicle_name 
       FROM email_data ed
       LEFT JOIN bookings b ON ${hasBookingIdColumn ? 
-        'b.booking_id = ed.booking_id' : 
-        'b.id::text = ed.booking_id'
+        'b."bookingId" = ed."bookingId"' : 
+        'b.id::text = ed."bookingId"'
       }
-      LEFT JOIN vehicles v ON v.id = b.vehicle_id 
-      ORDER BY ed.created_at DESC 
+      LEFT JOIN vehicles v ON v.id = b."vehicleId" 
+      ORDER BY ed."createdAt" DESC 
       LIMIT $1 OFFSET $2
     `;
     
@@ -131,17 +131,24 @@ export async function GET(req: Request) {
       id: string;
       recipient: string;
       subject: string;
-      message_content: string;
-      booking_id: string | null;
+      messageContent: string;
+      bookingId: string | null;
       status: string;
       error: string | null;
-      message_id: string | null;
+      messageId: string | null;
       ist_created_at: string;
       vehicle_name: string | null;
     }) => ({
-      ...row,
-      created_at: row.ist_created_at,
-      ist_created_at: undefined // Remove the extra field
+      id: row.id,
+      recipient: row.recipient,
+      subject: row.subject,
+      messageContent: row.messageContent,
+      bookingId: row.bookingId,
+      status: row.status,
+      error: row.error,
+      messageId: row.messageId,
+      createdAt: row.ist_created_at,
+      vehicleName: row.vehicle_name
     }));
 
     return NextResponse.json({

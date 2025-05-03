@@ -2,6 +2,7 @@
 
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 
 interface MaintenanceCheckProps {
   children: React.ReactNode;
@@ -35,6 +36,16 @@ export function MaintenanceCheck({ children, isMaintenanceMode }: MaintenanceChe
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="mb-6">
+            <Image
+              src="/logo.png"
+              alt="OnnRides Logo"
+              width={140}
+              height={40}
+              className="mx-auto"
+              priority
+            />
+          </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Site Under Maintenance</h1>
           <p className="text-gray-600 mb-6">
             We are currently performing scheduled maintenance on our site. 
@@ -44,9 +55,9 @@ export function MaintenanceCheck({ children, isMaintenanceMode }: MaintenanceChe
             <p className="text-sm text-gray-500">
               {!session ? (
                 <>
-                  Already have an account?{' '}
-                  <a href="/auth/signin" className="text-orange-600 hover:text-orange-800 font-medium">
-                    Sign in here
+                  For assistance, please contact our support team at{' '}
+                  <a href="mailto:support@onnrides.com" className="text-orange-600 hover:text-orange-800 font-medium">
+                    support@onnrides.com
                   </a>
                 </>
               ) : (
