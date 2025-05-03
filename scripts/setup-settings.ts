@@ -1,44 +1,37 @@
-import { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { query } from '../lib/db';
 import logger from '../lib/logger';
+import { SETTINGS } from '../lib/settings';
 
-const prisma = new PrismaClient();
-
-async function main() {
+async function setupSettings() {
   try {
-    logger.info('Setting up default settings...');
-    
-    // Check if maintenance_mode setting exists
-    const existingMaintenanceMode = await prisma.settings.findUnique({
-      where: { key: 'maintenance_mode' }
-    });
+    logger.info('Setting up initial settings...');
 
-    // Create maintenance_mode setting if it doesn't exist
-    if (!existingMaintenanceMode) {
-      await prisma.settings.create({
-        data: {
-          id: randomUUID(),
-          key: 'maintenance_mode',
-          value: 'false'
-        }
-      });
-      logger.info('Created maintenance_mode setting with default value: false');
+    // Check if maintenance mode setting exists
+    const result = await query(`
+      SELECT value FROM settings 
+      WHERE key = $1 
+      LIMIT 1
+    `, [SETTINGS.MAINTENANCE_MODE]);
+
+    if (result.rows.length === 0) {
+      // Create maintenance mode setting
+      await query(`
+        INSERT INTO settings (id, key, value, created_at, updated_at)
+        VALUES ($1, $2, $3, NOW(), NOW())
+      `, [randomUUID(), SETTINGS.MAINTENANCE_MODE, 'false']);
+
+      logger.info('✅ Maintenance mode setting created successfully');
     } else {
-      logger.info('maintenance_mode setting already exists with value:', existingMaintenanceMode.value);
+      logger.info('Maintenance mode setting already exists');
     }
 
-    logger.info('Settings setup complete!');
+    logger.info('✅ Settings setup completed');
   } catch (error) {
     logger.error('Error setting up settings:', error);
-    throw error;
-  } finally {
-    await prisma.$disconnect();
+    process.exit(1);
   }
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    logger.error('Error in setup-settings script:', error);
-    process.exit(1);
-  }); 
+// Run the setup
+setupSettings(); 

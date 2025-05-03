@@ -1,5 +1,5 @@
 import '@/lib/polyfills';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
@@ -21,13 +21,10 @@ import { Analytics } from '@vercel/analytics/react'
 import { goodTimes } from './fonts'
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { PrismaClient } from '@prisma/client';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SessionProvider } from '@/components/providers/session-provider';
 import { MaintenanceCheck } from '@/components/MaintenanceCheck';
-
-// Initialize Prisma client
-const prisma = new PrismaClient();
+import { getBooleanSetting, SETTINGS } from '@/lib/settings';
 
 // Import ErrorBoundary dynamically with no SSR
 const ErrorBoundary = nextDynamic(
@@ -195,6 +192,13 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest'
 };
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: 'white' },
+    { media: '(prefers-color-scheme: dark)', color: 'black' },
+  ],
+};
+
 export default async function RootLayout({
   children,
 }: {
@@ -203,17 +207,8 @@ export default async function RootLayout({
   try {
     const session = await getServerSession(authOptions);
 
-    // Get maintenance mode status
-    const maintenanceMode = await prisma.settings.findFirst({
-      where: {
-        key: 'maintenance_mode'
-      },
-      select: {
-        value: true
-      }
-    });
-
-    const isMaintenanceMode = maintenanceMode?.value === 'true';
+    // Check maintenance mode
+    const maintenanceMode = await getBooleanSetting(SETTINGS.MAINTENANCE_MODE, false);
     
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
     
@@ -381,7 +376,7 @@ export default async function RootLayout({
                       disableTransitionOnChange
                     >
                       <SessionProvider>
-                        <MaintenanceCheck isMaintenanceMode={isMaintenanceMode}>
+                        <MaintenanceCheck isMaintenanceMode={maintenanceMode}>
                           {children}
                         </MaintenanceCheck>
                         <Toaster />

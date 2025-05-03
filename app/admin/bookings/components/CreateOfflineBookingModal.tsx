@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { CalendarIcon, Loader2, XCircle, Plus, Upload, Trash, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/currency-formatter';
 import logger from '@/lib/logger';
@@ -163,11 +163,7 @@ const initialFormData: FormData = {
       const data = await response.json();
       setVehicles(data.vehicles || []);
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch vehicles',
-        variant: 'destructive'
-      });
+      toast.error('Failed to fetch vehicles');
     } finally {
       setVehiclesLoading(false);
     }
@@ -221,41 +217,25 @@ const initialFormData: FormData = {
     // Validate required fields
     if (!formData.customerName || !formData.customerPhone || !formData.vehicleId || 
         !formData.startDate || !formData.startTime || !formData.endDate || !formData.endTime) {
-      toast({
-        title: 'Validation Error',
-        description: 'Please fill all required fields',
-        variant: 'destructive'
-      });
+      toast.error('Please fill all required fields');
       return;
     }
     
     // Validate signature
     if (!signatureData) {
-      toast({
-        title: 'Signature Required',
-        description: 'Please add a digital signature',
-        variant: 'destructive'
-      });
+      toast.error('Please add a digital signature');
       return;
     }
     
     // Validate terms agreement
     if (!formData.termsAgreed.every(Boolean)) {
-      toast({
-        title: 'Terms Agreement Required',
-        description: 'Please agree to all terms and conditions',
-        variant: 'destructive'
-      });
+      toast.error('Please agree to all terms and conditions');
       return;
     }
     
     // Add signature validation if it's a required section
     if (expandedSections.documents && !signatureData) {
-      toast({
-        title: "Missing Signature",
-        description: "Please have the customer sign before proceeding",
-        variant: "destructive"
-      });
+      toast.error('Please have the customer sign before proceeding');
       return;
     }
     
@@ -296,19 +276,12 @@ const initialFormData: FormData = {
 
       const result = await response.json();
       
-      toast({
-        title: 'Success',
-        description: 'Offline booking created successfully'
-      });
+      toast.success('Offline booking created successfully');
       
       onSuccess();
       onClose();
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to create booking',
-        variant: 'destructive'
-      });
+      toast.error(error instanceof Error ? error.message : 'Failed to create booking');
     } finally {
       setLoading(false);
     }

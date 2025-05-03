@@ -1,10 +1,7 @@
-import { PrismaClient } from '@prisma/client';
-import logger from './logger';
 import { Pool } from 'pg';
 import { randomUUID } from 'crypto';
+import logger from './logger';
 import { query } from '@/lib/db';
-
-const prisma = new PrismaClient();
 
 // Also initialize a direct DB connection for fallbacks
 let pool: Pool | null = null;
@@ -53,79 +50,41 @@ export async function getSetting(
     }
 
     try {
-      // First attempt with Prisma
-      const setting = await prisma.settings.findUnique({
-        where: { key }
-      });
+      const result = await query(`
+        SELECT value FROM settings 
+        WHERE key = $1 
+        LIMIT 1
+      `, [key]);
 
-      if (setting) {
+      if (result.rows.length > 0) {
         // Update cache
         cache[key] = {
-          value: setting.value,
+          value: result.rows[0].value,
           expiresAt: Date.now() + CACHE_TTL
         };
-        return setting.value;
+        return result.rows[0].value;
       }
-    } catch (prismaError) {
-      logger.error('Prisma error fetching setting:', { key, error: prismaError });
-      
-      // If Prisma fails, try direct database access
-      try {
-        logger.info('Falling back to direct database access for setting:', key);
-        const pool = getPool();
-        const client = await pool.connect();
-        
-        try {
-          // Ensure table exists first
-          await client.query(`
-            CREATE TABLE IF NOT EXISTS "settings" (
-              "id" TEXT PRIMARY KEY,
-              "key" TEXT UNIQUE NOT NULL,
-              "value" TEXT NOT NULL,
-              "created_at" TIMESTAMP(6) NOT NULL DEFAULT NOW(),
-              "updated_at" TIMESTAMP(6) NOT NULL DEFAULT NOW()
-            )
-          `);
-          
-          // Try to get the setting
-          const { rows } = await client.query(
-            'SELECT value FROM settings WHERE key = $1',
-            [key]
-          );
-          
-          if (rows.length > 0) {
-            // Update cache
-            cache[key] = {
-              value: rows[0].value,
-              expiresAt: Date.now() + CACHE_TTL
-            };
-            return rows[0].value;
-          }
-          
-          // If setting doesn't exist, create it with default value
-          if (defaultValue) {
-            await client.query(
-              `INSERT INTO settings (id, key, value, created_at, updated_at)
-               VALUES ($1, $2, $3, NOW(), NOW())
-               ON CONFLICT (key) DO NOTHING`,
-              [randomUUID(), key, defaultValue]
-            );
-            
-            // Update cache
-            cache[key] = {
-              value: defaultValue,
-              expiresAt: Date.now() + CACHE_TTL
-            };
-          }
-        } finally {
-          client.release();
-        }
-      } catch (directDbError) {
-        logger.error('Direct database access for setting also failed:', { key, error: directDbError });
-      }
-    }
 
-    return defaultValue;
+      // If setting doesn't exist, create it with default value
+      if (defaultValue) {
+        await query(`
+          INSERT INTO settings (id, key, value, created_at, updated_at)
+          VALUES ($1, $2, $3, NOW(), NOW())
+          ON CONFLICT (key) DO NOTHING
+        `, [randomUUID(), key, defaultValue]);
+
+        // Update cache
+        cache[key] = {
+          value: defaultValue,
+          expiresAt: Date.now() + CACHE_TTL
+        };
+      }
+
+      return defaultValue;
+    } catch (error) {
+      logger.error('Error accessing settings:', error);
+      return defaultValue;
+    }
   } catch (error) {
     logger.error('Error fetching setting:', { key, error });
     return defaultValue;
@@ -140,58 +99,12 @@ export async function getSetting(
  */
 export async function setSetting(key: string, value: string): Promise<boolean> {
   try {
-    try {
-      // First try with Prisma
-      await prisma.settings.upsert({
-        where: { key },
-        update: { 
-          value, 
-          updated_at: new Date() 
-        },
-        create: {
-          id: randomUUID(),
-          key,
-          value,
-          created_at: new Date(),
-          updated_at: new Date()
-        }
-      });
-    } catch (prismaError) {
-      logger.error('Prisma error setting value:', { key, value, error: prismaError });
-      
-      // If Prisma fails, try direct database access
-      try {
-        logger.info('Falling back to direct database access to set setting:', key);
-        const pool = getPool();
-        const client = await pool.connect();
-        
-        try {
-          // Ensure table exists first
-          await client.query(`
-            CREATE TABLE IF NOT EXISTS "settings" (
-              "id" TEXT PRIMARY KEY,
-              "key" TEXT UNIQUE NOT NULL,
-              "value" TEXT NOT NULL,
-              "created_at" TIMESTAMP(6) NOT NULL DEFAULT NOW(),
-              "updated_at" TIMESTAMP(6) NOT NULL DEFAULT NOW()
-            )
-          `);
-          
-          // Try to update the setting
-          await client.query(
-            `INSERT INTO settings (id, key, value, created_at, updated_at)
-             VALUES ($1, $2, $3, NOW(), NOW())
-             ON CONFLICT (key) DO UPDATE SET value = $3, updated_at = NOW()`,
-            [randomUUID(), key, value]
-          );
-        } finally {
-          client.release();
-        }
-      } catch (directDbError) {
-        logger.error('Direct database access to set setting also failed:', { key, value, error: directDbError });
-        return false;
-      }
-    }
+    await query(`
+      INSERT INTO settings (id, key, value, created_at, updated_at)
+      VALUES ($1, $2, $3, NOW(), NOW())
+      ON CONFLICT (key) DO UPDATE 
+      SET value = $3, updated_at = NOW()
+    `, [randomUUID(), key, value]);
 
     // Update cache
     cache[key] = {

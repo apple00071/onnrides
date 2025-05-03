@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ADMIN_EMAILS, DEFAULT_ADMIN_EMAILS } from '@/lib/notifications/admin-notification';
-import { pool } from '@/lib/db';
+import { query } from '@/lib/db';
 import { EmailService } from '@/lib/email/service';
 
 // Force dynamic rendering
@@ -29,13 +29,8 @@ export async function GET(req: NextRequest) {
     // Check database connection
     let dbStatus = 'Unknown';
     try {
-      const client = await pool.connect();
-      try {
-        const result = await client.query('SELECT NOW()');
-        dbStatus = 'Connected, timestamp: ' + result.rows[0].now;
-      } finally {
-        client.release();
-      }
+      const result = await query('SELECT NOW()');
+      dbStatus = 'Connected, timestamp: ' + result.rows[0].now;
     } catch (dbError: any) {
       dbStatus = `Error: ${dbError.message}`;
     }
@@ -43,31 +38,26 @@ export async function GET(req: NextRequest) {
     // Check email logs table
     let emailLogsStatus = 'Unknown';
     try {
-      const client = await pool.connect();
-      try {
-        const result = await client.query(`
-          SELECT EXISTS (
-            SELECT FROM information_schema.tables 
-            WHERE table_schema = 'public' 
-            AND table_name = 'email_logs'
-          );
+      const result = await query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'email_logs'
+        );
+      `);
+      
+      if (result.rows[0].exists) {
+        const columnsResult = await query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_schema = 'public' 
+          AND table_name = 'email_logs';
         `);
         
-        if (result.rows[0].exists) {
-          const columnsResult = await client.query(`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_schema = 'public' 
-            AND table_name = 'email_logs';
-          `);
-          
-          const columns = columnsResult.rows.map((row: any) => row.column_name);
-          emailLogsStatus = `Table exists with columns: ${columns.join(', ')}`;
-        } else {
-          emailLogsStatus = 'Table does not exist';
-        }
-      } finally {
-        client.release();
+        const columns = columnsResult.rows.map((row: any) => row.column_name);
+        emailLogsStatus = `Table exists with columns: ${columns.join(', ')}`;
+      } else {
+        emailLogsStatus = 'Table does not exist';
       }
     } catch (emailLogsError: any) {
       emailLogsStatus = `Error: ${emailLogsError.message}`;

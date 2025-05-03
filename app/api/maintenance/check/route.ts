@@ -15,15 +15,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       maintenance: maintenanceMode,
       timestamp: Date.now()
-    });
-  } catch (error) {
+    }, { status: 200 });
+  } catch (error: any) {
     logger.error('Error checking maintenance mode:', error);
     
-    // In case of error, assume site is in normal operation
+    // Return a proper error response
     return NextResponse.json({
       maintenance: false,
       error: 'Error checking maintenance mode',
-      timestamp: Date.now()
-    });
+      timestamp: Date.now(),
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    }, { status: 500 });
   }
 } 

@@ -1,36 +1,30 @@
 const { execSync } = require('child_process');
-const fs = require('fs');
 const path = require('path');
 
-// Ensure we're in production mode
-process.env.NODE_ENV = 'production';
+// Colors for console output
+const colors = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m'
+};
 
-console.log('🚀 Starting production build process...');
+console.log(`${colors.bright}Starting production build...${colors.reset}\n`);
 
 try {
-  // Clean previous build
-  console.log('🧹 Cleaning previous build...');
-  if (fs.existsSync('.next')) {
-    fs.rmSync('.next', { recursive: true });
-  }
-  if (fs.existsSync('out')) {
-    fs.rmSync('out', { recursive: true });
-  }
+  // Run database migrations
+  console.log(`${colors.yellow}Running database migrations...${colors.reset}`);
+  execSync('npm run migrate', { stdio: 'inherit' });
+  console.log(`${colors.green}✓ Migrations completed${colors.reset}\n`);
 
-  // Install dependencies
-  console.log('📦 Installing dependencies...');
-  execSync('npm install --production', { stdio: 'inherit' });
-
-  // Generate Prisma client
-  console.log('🔄 Generating Prisma client...');
-  execSync('npx prisma generate', { stdio: 'inherit' });
-
-  // Run the production build
-  console.log('🏗️ Building for production...');
+  // Build the Next.js application
+  console.log(`${colors.yellow}Building Next.js application...${colors.reset}`);
   execSync('next build', { stdio: 'inherit' });
+  console.log(`${colors.green}✓ Next.js build completed${colors.reset}\n`);
 
-  console.log('✅ Production build completed successfully!');
+  console.log(`${colors.bright}${colors.green}Production build completed successfully!${colors.reset}`);
 } catch (error) {
-  console.error('❌ Build failed:', error);
+  console.error(`${colors.red}Build failed:${colors.reset}`, error);
   process.exit(1);
 } 

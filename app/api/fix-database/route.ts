@@ -4,10 +4,47 @@ import logger from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
-    // First drop dependent views
+    // First check and fix settings table
+    const settingsTableExists = await query(`
+      SELECT EXISTS (
+        SELECT 1 
+        FROM information_schema.tables 
+        WHERE table_name = 'settings'
+      );
+    `);
+
+    if (!settingsTableExists.rows[0].exists) {
+      await query(`
+        CREATE TABLE settings (
+          id SERIAL PRIMARY KEY,
+          key TEXT NOT NULL UNIQUE,
+          value TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        INSERT INTO settings (key, value) VALUES
+        ('maintenance_mode', 'false'),
+        ('gst_enabled', 'false')
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+      `);
+    }
+
+    // Fix any integer values stored as text in settings
+    await query(`
+      UPDATE settings 
+      SET value = CASE 
+        WHEN value::text = '1' THEN 'true'
+        WHEN value::text = '0' THEN 'false'
+        ELSE value 
+      END
+      WHERE (key = 'maintenance_mode' OR key = 'gst_enabled')
+      AND value::text IN ('0', '1');
+    `);
+
+    // Then proceed with bookings table modifications
     await query('DROP VIEW IF EXISTS bookings_view CASCADE');
     
-    // Then proceed with table modifications
     await query(`
       -- Drop existing index and constraint if they exist
       DROP INDEX IF EXISTS "idx_bookings_payment_intent_id";
@@ -30,7 +67,7 @@ export async function GET(request: NextRequest) {
       CREATE INDEX IF NOT EXISTS idx_bookings_payment_intent_id 
       ON bookings(payment_intent_id);
       
-      -- Recreate the bookings view
+      -- Recreate the bookings view with proper type casting
       CREATE OR REPLACE VIEW bookings_view AS
       SELECT 
         b.*,
@@ -40,8 +77,8 @@ export async function GET(request: NextRequest) {
         v.name as vehicle_name,
         v.type as vehicle_type
       FROM bookings b
-      LEFT JOIN users u ON b.user_id = u.id
-      LEFT JOIN vehicles v ON b.vehicle_id = v.id;
+      LEFT JOIN users u ON b.user_id::text = u.id::text
+      LEFT JOIN vehicles v ON b.vehicle_id::text = v.id::text;
     `);
 
     logger.info('Database schema updated successfully');

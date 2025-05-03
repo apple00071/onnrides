@@ -22,9 +22,18 @@ async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
     const baseUrl = `${protocol}://${host}`;
 
     // Call the maintenance check API
-    const response = await fetch(`${baseUrl}/api/maintenance/check`);
-    const data = await response.json();
+    const response = await fetch(`${baseUrl}/api/maintenance/check`, {
+      headers: {
+        'x-middleware-bypass': '1' // Add a custom header to identify middleware requests
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('Maintenance check failed:', response.status);
+      return false;
+    }
 
+    const data = await response.json();
     maintenanceMode = Boolean(data.maintenance);
     lastCheck = now;
     return maintenanceMode;
@@ -39,10 +48,12 @@ export async function middleware(request: NextRequest) {
 
   // Skip maintenance check for these paths
   if (pathname.includes('/_next') || 
+      pathname.includes('/api/maintenance/check') || // Explicitly exclude maintenance check endpoint
       pathname.includes('/api') || 
       pathname.includes('/maintenance') ||
       pathname.includes('/admin') ||
-      pathname.match(/\.[^/]+$/) // Skip files with extensions
+      pathname.match(/\.[^/]+$/) || // Skip files with extensions
+      request.headers.get('x-middleware-bypass') === '1' // Skip if it's a middleware request
   ) {
     return undefined;
   }
