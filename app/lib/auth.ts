@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose';
-import prisma from '@/lib/prisma';
+import { query } from '@/lib/db';
 import type { User as DbUser } from './schema';
 import { findUserById } from './db';
 import { NextResponse } from 'next/server';
@@ -50,11 +50,15 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          const user = await prisma.users.findUnique({
-            where: { email: credentials.email }
-          });
+          const result = await query(`
+            SELECT id, email, name, password, role, "isBlocked"
+            FROM users
+            WHERE email = $1
+          `, [credentials.email]);
           
-          if (!user || !user.password_hash) {
+          const user = result.rows[0];
+          
+          if (!user || !user.password) {
             logger.warn('User not found or no password:', credentials.email);
             return null;
           }
@@ -70,7 +74,7 @@ export const authOptions: NextAuthOptions = {
 
           const isPasswordValid = await bcrypt.compare(
             credentials.password,
-            user.password_hash
+            user.password
           );
 
           if (!isPasswordValid) {

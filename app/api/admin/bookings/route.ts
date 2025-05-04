@@ -141,9 +141,9 @@ const getBookingsHandler = async (request: NextRequest) => {
       WITH booking_data AS (
         SELECT 
           b.id,
-          b."bookingId",
-          b."userId",
-          b."vehicleId",
+          b."bookingId" as booking_id,
+          b."userId" as user_id,
+          b."vehicleId" as vehicle_id,
           
           -- Store original UTC dates without modification
           b."startDate" as original_start_date,
@@ -156,15 +156,15 @@ const getBookingsHandler = async (request: NextRequest) => {
           (b."startDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_start_date,
           (b."endDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_end_date,
           
-          b."totalHours",
-          b."totalPrice",
+          b."totalHours" as total_hours,
+          b."totalPrice" as total_price,
           b.status,
-          b."paymentStatus",
-          b."paymentDetails",
-          b."pickupLocation",
-          b."dropoffLocation",
-          b."createdAt",
-          b."updatedAt",
+          b."paymentStatus" as payment_status,
+          b."paymentDetails" as payment_details,
+          b."pickupLocation" as pickup_location,
+          b."dropoffLocation" as dropoff_location,
+          b."createdAt" as created_at,
+          b."updatedAt" as updated_at,
           (b."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_created_at,
           (b."updatedAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as ist_updated_at,
           v.name as vehicle_name,
@@ -195,6 +195,13 @@ const getBookingsHandler = async (request: NextRequest) => {
     
     // Execute the query
     const result = await query(sqlQuery, params);
+    logger.info('Admin bookings query result:', {
+      count: result.rows.length,
+      firstRow: result.rows[0] ? {
+        booking_id: result.rows[0].booking_id,
+        total_price: result.rows[0].total_price
+      } : null
+    });
     
     // Format the response
     return NextResponse.json({

@@ -3,7 +3,7 @@ import { query } from '@/lib/db';
 
 interface Vehicle {
   id: string;
-  updated_at: Date;
+  updatedAt: Date;
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -49,9 +49,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Get all available bikes from database
   const result = await query(`
-    SELECT id, updated_at
+    SELECT id, "updatedAt"
     FROM vehicles
-    WHERE type = 'bike' AND is_available = true
+    WHERE type = 'bike' AND "isAvailable" = true
   `);
 
   const bikes = result.rows as Vehicle[];
@@ -59,7 +59,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Generate URLs for individual bike pages
   const bikeUrls = bikes.map(bike => ({
     url: `${baseUrl}/vehicles/${bike.id}`,
-    lastModified: bike.updated_at || new Date(),
+    lastModified: bike.updatedAt || new Date(),
     changeFrequency: 'daily' as const,
     priority: 0.8
   }));

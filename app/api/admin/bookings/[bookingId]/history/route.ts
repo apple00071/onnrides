@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
 interface BookingHistoryEntry {
   id: string;
-  booking_id: string;
+  bookingId: string;
   action: string;
   details: string;
-  created_at: Date;
-  created_by: string;
-  user?: {
-    name: string | null;
-  } | null;
+  createdAt: Date;
+  createdBy: string;
+  userName?: string | null;
 }
 
 export async function GET(
@@ -32,31 +30,30 @@ export async function GET(
       );
     }
 
-    // Fetch booking history using Prisma
-    const history = await prisma.BookingHistory.findMany({
-      where: {
-        booking_id: params.bookingId
-      },
-      include: {
-        user: {
-          select: {
-            name: true
-          }
-        }
-      },
-      orderBy: {
-        created_at: 'desc'
-      }
-    });
+    // Fetch booking history using direct SQL
+    const historyResult = await query(`
+      SELECT 
+        bh.id, 
+        bh."bookingId", 
+        bh.action, 
+        bh.details, 
+        bh."createdAt", 
+        bh."createdBy",
+        u.name as "userName"
+      FROM "bookingHistory" bh
+      LEFT JOIN users u ON bh."userId" = u.id
+      WHERE bh."bookingId" = $1
+      ORDER BY bh."createdAt" DESC
+    `, [params.bookingId]);
 
     // Format the history entries
-    const formattedHistory = history.map((entry: BookingHistoryEntry) => ({
+    const formattedHistory = historyResult.rows.map((entry: BookingHistoryEntry) => ({
       id: entry.id,
-      booking_id: entry.booking_id,
+      bookingId: entry.bookingId,
       action: entry.action,
       details: entry.details,
-      created_at: entry.created_at,
-      created_by: entry.user?.name || entry.created_by
+      createdAt: entry.createdAt,
+      createdBy: entry.userName || entry.createdBy
     }));
 
     return NextResponse.json({

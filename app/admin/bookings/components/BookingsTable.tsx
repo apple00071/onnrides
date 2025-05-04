@@ -94,7 +94,7 @@ export function BookingsTable() {
         vehicle_id: booking.vehicle_id,
         start_date: booking.original_start_date,
         end_date: booking.original_end_date,
-        total_price: booking.total_price || 0,
+        total_price: parseFloat(booking.total_price) || 0,
         status: booking.status,
         payment_status: booking.payment_status || 'pending',
         payment_method: booking.payment_method,
@@ -115,6 +115,8 @@ export function BookingsTable() {
         } : undefined
       }));
 
+      console.log('Mapped bookings:', mappedBookings);
+      
       setBookings(mappedBookings);
       setTotalPages(result.pagination.totalPages);
       setTotalItems(result.pagination.totalItems);
@@ -253,46 +255,59 @@ export function BookingsTable() {
             <tbody className="bg-white divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-3 py-3 text-center">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                  <td colSpan={10} className="px-4 py-20 text-center">
+                    <div className="flex items-center justify-center space-x-2">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <span>Loading bookings...</span>
+                    </div>
                   </td>
                 </tr>
               ) : bookings.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-3 py-3 text-center text-gray-500">
+                  <td colSpan={10} className="px-4 py-20 text-center text-gray-500">
                     No bookings found
                   </td>
                 </tr>
               ) : (
                 bookings.map((booking) => (
-                  <tr key={booking.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 text-sm whitespace-nowrap">{booking.booking_id}</td>
-                    <td className="px-3 py-2 text-sm whitespace-nowrap">{booking.vehicle?.name}</td>
-                    <td className="px-3 py-2 text-sm">
+                  <tr key={booking.id} className="border-b hover:bg-gray-50">
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
+                      {booking.booking_id || '—'}
+                    </td>
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
+                      {booking.vehicle?.name || '—'}
+                    </td>
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
                       <div className="flex flex-col">
-                        <span className="font-medium">{booking.user?.name}</span>
-                        <span className="text-xs text-gray-500">{booking.user?.phone}</span>
+                        <span className="font-medium">{booking.user?.name || '—'}</span>
+                        <span className="text-gray-500 text-[10px]">{booking.user?.phone || '—'}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-sm whitespace-nowrap">{formatDateTime(booking.start_date)}</td>
-                    <td className="px-3 py-2 text-sm whitespace-nowrap">{formatDateTime(booking.end_date)}</td>
-                    <td className="px-3 py-2 text-sm whitespace-nowrap">{formatCurrency(booking.total_price)}</td>
-                    <td className="px-3 py-2 text-sm">
-                      <Badge variant={booking.booking_type === 'online' ? 'default' : 'secondary'} className="rounded-full text-xs">
-                        {booking.booking_type}
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
+                      {formatDateTime(booking.start_date)}
+                    </td>
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
+                      {formatDateTime(booking.end_date)}
+                    </td>
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
+                      {booking.total_price ? formatCurrency(booking.total_price) : '₹0'}
+                    </td>
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
+                      <Badge variant={booking.booking_type === 'offline' ? 'secondary' : 'outline'}>
+                        {booking.booking_type === 'offline' ? 'Offline' : 'Online'}
                       </Badge>
                     </td>
-                    <td className="px-3 py-2 text-sm">
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
                       <Badge variant={booking.status === 'confirmed' ? 'default' : booking.status === 'cancelled' ? 'destructive' : 'secondary'} className="rounded-full text-xs">
                         {booking.status}
                       </Badge>
                     </td>
-                    <td className="px-3 py-2 text-sm">
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
                       <Badge variant={booking.payment_status === 'completed' ? 'default' : booking.payment_status === 'cancelled' ? 'destructive' : 'secondary'} className="rounded-full text-xs">
                         {booking.payment_status}
                       </Badge>
                     </td>
-                    <td className="px-3 py-2 text-sm whitespace-nowrap">
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"

@@ -3,6 +3,8 @@ import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { formatDateTimeIST } from '@/lib/utils/timezone';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     // Create a URL object from the request url
