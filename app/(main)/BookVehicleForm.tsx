@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'react-hot-toast';
+import logger from '@/lib/logger';
 
 interface BookVehicleFormProps {
   vehicleId: string;
@@ -23,47 +24,55 @@ export function BookVehicleForm({ vehicleId, locations, price }: BookVehicleForm
   
   // Parse and clean location data to ensure proper display
   const formattedLocations = React.useMemo(() => {
-    // Handle array of locations
-    if (Array.isArray(locations)) {
-      return locations.map(loc => {
-        // If a location is a string with quotes, remove them
-        if (typeof loc === 'string') {
-          // Remove any surrounding quotes
-          return loc.replace(/^["']+|["']+$/g, '').trim();
-        }
-        return String(loc).trim();
-      }).filter(Boolean);
-    } 
-    
-    // Handle string value (could be a JSON string or plain location)
-    if (typeof locations === 'string') {
-      // Empty string case
-      if (!locations.trim()) return [];
+    try {
+      // Case 1: If locations is an array, clean each location
+      if (Array.isArray(locations)) {
+        return locations.map(loc => {
+          // Clean the location string
+          if (typeof loc === 'string') {
+            // Remove brackets, quotes, and trim whitespace
+            return loc.replace(/[\[\]"']/g, '').trim();
+          }
+          return String(loc).replace(/[\[\]"']/g, '').trim();
+        }).filter(Boolean); // Remove any empty strings
+      }
       
-      try {
-        // Check if it's a JSON string array
+      // Case 2: If locations is a string
+      if (typeof locations === 'string') {
+        // Check if it's a JSON string (starts with [ and ends with ])
         if (locations.trim().startsWith('[') && locations.trim().endsWith(']')) {
-          const parsed = JSON.parse(locations);
-          if (Array.isArray(parsed)) {
-            return parsed.map(loc => {
-              if (typeof loc === 'string') {
-                // Remove any surrounding quotes
-                return loc.replace(/^["']+|["']+$/g, '').trim();
-              }
-              return String(loc).trim();
-            }).filter(Boolean);
+          try {
+            // Parse the JSON string into an array
+            const parsedLocations = JSON.parse(locations);
+            if (Array.isArray(parsedLocations)) {
+              // Clean each location in the parsed array
+              return parsedLocations.map(loc => {
+                if (typeof loc === 'string') {
+                  return loc.replace(/[\[\]"']/g, '').trim();
+                }
+                return String(loc).replace(/[\[\]"']/g, '').trim();
+              }).filter(Boolean);
+            }
+          } catch (e) {
+            // If JSON parsing fails, clean the string directly
+            // Remove the surrounding brackets and split by comma
+            const locationsWithoutBrackets = locations.replace(/^\[|\]$/g, '');
+            return locationsWithoutBrackets.split(',')
+              .map(loc => loc.replace(/[\[\]"']/g, '').trim())
+              .filter(Boolean);
           }
         }
-        // Single location case - remove any quotes
-        return [locations.trim().replace(/^["']+|["']+$/g, '')];
-      } catch (e) {
-        // If JSON parsing fails, treat as a single location
-        return [locations.trim().replace(/^["']+|["']+$/g, '')];
+        
+        // If it's just a single location string, clean and return it
+        return [locations.replace(/[\[\]"']/g, '').trim()];
       }
+      
+      // Default case: Return empty array if locations is invalid
+      return [];
+    } catch (error) {
+      logger.error('Error formatting locations:', error);
+      return [];
     }
-    
-    // Fallback for any other type
-    return [];
   }, [locations]);
   
   // Get date and time parameters from URL

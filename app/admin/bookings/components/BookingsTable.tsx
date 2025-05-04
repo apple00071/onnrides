@@ -5,7 +5,8 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/ca
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Eye, History } from 'lucide-react';
-import { formatDateTime } from '@/lib/utils/time-formatter';
+import { format, parseISO } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { formatCurrency } from '@/lib/utils/currency-formatter';
 import { ViewBookingModal } from './ViewBookingModal';
 import { ViewHistoryModal } from './ViewHistoryModal';
@@ -213,6 +214,24 @@ export function BookingsTable() {
     }
   };
 
+  const formatDateTime = (dateStr: string) => {
+    try {
+      const date = parseISO(dateStr);
+      const istDate = toZonedTime(date, 'Asia/Kolkata');
+      const formattedDate = format(istDate, 'dd MMM yyyy');
+      const formattedTime = format(istDate, 'h:mm aa');
+      return (
+        <div className="flex flex-col">
+          <span className="font-medium">{formattedDate}</span>
+          <span className="text-gray-500">{formattedTime}</span>
+        </div>
+      );
+    } catch (error) {
+      logger.error('Error formatting date:', error);
+      return dateStr;
+    }
+  };
+
   if (error) {
     return (
       <div className="text-center py-4 text-red-500">
@@ -278,9 +297,9 @@ export function BookingsTable() {
                       {booking.vehicle?.name || '—'}
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="font-medium">{booking.user?.name || '—'}</span>
-                        <span className="text-gray-500 text-[10px]">{booking.user?.phone || '—'}</span>
+                      <div className="flex flex-col no-underline">
+                        <span className="text-gray-900 no-underline decoration-0">{booking.user?.name || '—'}</span>
+                        <span className="text-gray-500 text-[10px] no-underline decoration-0">{booking.user?.phone || '—'}</span>
                       </div>
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">

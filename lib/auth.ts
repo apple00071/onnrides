@@ -168,4 +168,8 @@ export async function getCurrentUser() {
     console.error('Error getting current user:', error);
     return null;
   }
-} 
+}
+
+// Re-export from auth folder for backward compatibility
+export * from './auth/index';
+export { default } from './auth/index'; 

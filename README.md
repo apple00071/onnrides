@@ -1,66 +1,97 @@
-# OnnRides - Vehicle Rental Service
+# OnnRides - Vehicle Rental Platform
 
-## Prerequisites
+## Overview
 
-- Node.js 18+ and npm
-- PostgreSQL database
-- Gmail account for email notifications
-- WhatsApp Business API for notifications
-- Razorpay account for payments
+OnnRides is a vehicle rental platform that allows users to rent bikes and other vehicles. The platform includes user authentication, booking management, payment processing via Razorpay, and administrative features.
 
-## Environment Variables
+## Deployment Instructions
 
-Create a `.env.local` file in the root directory with the following variables:
+### Prerequisites
 
-```env
-# Database Configuration
-DATABASE_URL=your_database_url
+- Node.js 18.x or higher
+- PostgreSQL 14.x or higher
+- Vercel account (for deployment)
 
-# Email Configuration (Gmail SMTP)
-SMTP_HOST=smtp.gmail.com
+### Environment Variables
+
+Ensure the following environment variables are set in your Vercel project:
+
+```
+# Database Connection
+DATABASE_URL=postgresql://user:password@host:port/dbname
+POSTGRES_URL=postgresql://user:password@host:port/dbname
+
+# NextAuth Configuration
+NEXTAUTH_SECRET=your-nextauth-secret
+NEXTAUTH_URL=https://your-domain.com
+
+# Razorpay Integration
+RAZORPAY_KEY_ID=your-razorpay-key-id
+RAZORPAY_KEY_SECRET=your-razorpay-key-secret
+
+# Email Configuration
+SMTP_HOST=your-smtp-host
 SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=your_email@gmail.com
-SMTP_PASSWORD=your_app_specific_password
-SMTP_FROM="ONNRIDES <your_email@gmail.com>"
+SMTP_USER=your-smtp-username
+SMTP_PASS=your-smtp-password
+SMTP_FROM="Your App <noreply@yourdomain.com>"
 
-# WhatsApp Configuration
-WHATSAPP_API_URL=http://34.45.239.220:3001
-WHATSAPP_API_KEY=your_whatsapp_api_key
-WHATSAPP_INSTANCE_ID_1=onnrides_customer
-WHATSAPP_INSTANCE_ID_2=onnrides_admin
-ADMIN_PHONE=your_admin_phone_number
+# WhatsApp Integration
+WHATSAPP_API_URL=your-whatsapp-api-url
+WHATSAPP_API_KEY=your-whatsapp-api-key
+ADMIN_PHONE=your-admin-phone-number
 
-# Razorpay Configuration
-RAZORPAY_KEY_ID=your_razorpay_key_id
-RAZORPAY_KEY_SECRET=your_razorpay_key_secret
-
-# Next.js Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+# Base URL
+NEXT_PUBLIC_APP_URL=https://your-domain.com
 ```
 
-## Installation
+### Database Setup
+
+The application includes migration scripts to set up your database. These migrations will run automatically during the build process.
+
+### Vercel Deployment
+
+1. Connect your GitHub repository to Vercel
+2. Configure the environment variables
+3. Set the Node.js version to 18.x
+4. Deploy the application
+
+### Database Column Name Requirements
+
+The application supports both camelCase (e.g., "updatedAt") and snake_case (e.g., "updated_at") column naming conventions. For optimal compatibility, we use:
+
+1. snake_case conventions in the database
+2. Prisma mappings to translate between formats
+3. Compatibility views for queries that need to work with both formats
+
+### Build Process
+
+The build process performs the following steps:
+
+1. Runs database compatibility scripts to ensure queries work with both naming conventions
+2. Generates Prisma client based on the schema
+3. Builds the Next.js application
+
+### Troubleshooting
+
+If you encounter database-related errors during build or deployment:
+
+1. Ensure your database is accessible from the Vercel environment
+2. Check that the PostgreSQL user has proper permissions
+3. Verify that the database schema matches the expected column names
+4. Run the migration scripts manually if needed
+
+## Local Development
 
 1. Clone the repository
-```bash
-git clone https://github.com/yourusername/onnrides.git
-cd onnrides
-```
+2. Create a `.env` file with the required environment variables
+3. Run `npm install` to install dependencies
+4. Run `npm run migrate` to set up the database
+5. Run `npm run dev` to start the development server
 
-2. Install dependencies
-```bash
-npm install
-```
+## Support
 
-3. Run database migrations
-```bash
-npm run migrate
-```
-
-4. Start the development server
-```bash
-npm run dev
-```
+For additional support, contact the development team at support@onnrides.com.
 
 ## Features
 

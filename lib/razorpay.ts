@@ -3,6 +3,12 @@ import { randomUUID } from 'crypto';
 import logger from '@/lib/logger';
 import crypto from 'crypto';
 
+// Export razorpay directly to fix import issues
+export { Razorpay as razorpay };
+
+// Also export as default
+export default Razorpay;
+
 function validateEnvironmentVariables() {
   const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
   const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;

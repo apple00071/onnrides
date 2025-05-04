@@ -4,10 +4,10 @@ import logger from '@/lib/logger';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { formatDateToIST, formatBookingDateTime } from '@/lib/utils';
 import { formatDateTimeIST } from '@/lib/utils/timezone';
+import { Badge } from '@/components/ui/badge';
 
 interface Booking {
   id: string;
@@ -29,8 +29,14 @@ interface Booking {
     price_per_hour: number;
   };
   booking_id: string;
-  formatted_pickup?: string;
-  formatted_dropoff?: string;
+  formatted_pickup?: { 
+    date: string;
+    time: string;
+  } | string;
+  formatted_dropoff?: { 
+    date: string;
+    time: string;
+  } | string;
 }
 
 interface PaginationData {
@@ -155,20 +161,19 @@ export default function BookingsPage() {
   );
 
   const formatDate = (dateString: string) => {
-    // If the string is already formatted with AM/PM, return it directly
-    if (typeof dateString === 'string' && (dateString.includes('AM') || dateString.includes('PM'))) {
-      return dateString;
-    }
-    
     try {
-      logger.debug('Formatting date in bookings page:', { dateString, type: typeof dateString });
-      
-      // Use our timezone utility function
-      return formatDateTimeIST(dateString);
-      
+      const date = parseISO(dateString);
+      const istDate = toZonedTime(date, 'Asia/Kolkata');
+      return {
+        date: format(istDate, 'dd MMM yyyy'),
+        time: format(istDate, 'h:mm a')
+      };
     } catch (error) {
-      logger.error('Error formatting date', { dateString, error });
-      return dateString;
+      logger.error('Error formatting date:', error);
+      return {
+        date: 'Invalid date',
+        time: 'Invalid time'
+      };
     }
   };
   
@@ -286,81 +291,77 @@ export default function BookingsPage() {
 }
 
 // BookingCard component
-function BookingCard({ 
-  booking, 
-  formatDate, 
-  parseLocation
-}: { 
+function BookingCard({ booking, formatDate, parseLocation }: { 
   booking: Booking;
-  formatDate: (date: string) => string;
+  formatDate: (date: string) => { date: string; time: string };
   parseLocation: (location: string | string[]) => string;
 }) {
-  // Log booking data for debugging
-  console.log('BookingCard data:', {
-    id: booking.id,
-    booking_id: booking.booking_id,
-    start_date: booking.start_date,
-    end_date: booking.end_date,
-    pickup_datetime: booking.pickup_datetime,
-    dropoff_datetime: booking.dropoff_datetime,
-    formatted_pickup: booking.formatted_pickup,
-    formatted_dropoff: booking.formatted_dropoff
-  });
+  // Extract date and time parts from formatted strings from API
+  const getDateAndTimeParts = (formattedDateString: string | undefined, fallbackDate: string) => {
+    if (formattedDateString) {
+      // If it's already a formatted string from the API like "07 May 2025, 4:30 PM"
+      const parts = formattedDateString.split(',');
+      if (parts.length === 2) {
+        return {
+          date: parts[0].trim(),
+          time: parts[1].trim()
+        };
+      }
+    }
+    
+    // Fallback to our formatDate function
+    return formatDate(fallbackDate);
+  };
   
-  // Determine which pickup and dropoff times to display
-  const pickupTimeDisplay = booking.formatted_pickup || 
-                           (booking.pickup_datetime ? formatDate(booking.pickup_datetime) : 
-                            formatDate(booking.start_date));
-                            
-  const dropoffTimeDisplay = booking.formatted_dropoff || 
-                            (booking.dropoff_datetime ? formatDate(booking.dropoff_datetime) : 
-                             formatDate(booking.end_date));
+  // Get pickup date/time
+  const pickupDateTime = getDateAndTimeParts(
+    booking.formatted_pickup as string, 
+    booking.pickup_datetime || booking.start_date
+  );
   
+  // Get dropoff date/time
+  const dropoffDateTime = getDateAndTimeParts(
+    booking.formatted_dropoff as string, 
+    booking.dropoff_datetime || booking.end_date
+  );
+
   return (
-    <div className="p-6 mb-4 bg-white rounded-lg shadow">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
-        <div className="mb-2 md:mb-0">
+    <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
+      <div className="flex justify-between items-start mb-4">
+        <div>
           <h3 className="text-lg font-semibold">{booking.vehicle.name}</h3>
           <p className="text-gray-500 text-sm">{booking.booking_id}</p>
         </div>
-        <div>
-          <span className={`text-xs font-medium py-1 px-2 rounded-full ${
-            booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-            booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-            'bg-yellow-100 text-yellow-800'
-          }`}>
-            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-          </span>
-          {booking.payment_status && (
-            <span className={`ml-2 text-xs font-medium py-1 px-2 rounded-full ${
-              booking.payment_status === 'paid' || booking.payment_status === 'completed' ? 'bg-green-100 text-green-800' :
-              booking.payment_status === 'refunded' ? 'bg-blue-100 text-blue-800' :
-              'bg-yellow-100 text-yellow-800'
-            }`}>
-              Payment {booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)}
-            </span>
-          )}
+        <div className="flex gap-2">
+          <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
+            {booking.status === 'confirmed' ? 'Confirmed' : 'Pending'}
+          </Badge>
+          <Badge variant={booking.payment_status === 'completed' ? 'default' : 'secondary'}>
+            {booking.payment_status === 'completed' ? 'Payment Completed' : 'Payment Pending'}
+          </Badge>
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      <div className="grid grid-cols-2 gap-6">
         <div>
-          <p className="text-gray-600 text-sm font-medium">Pickup</p>
-          <p className="font-semibold">{pickupTimeDisplay}</p>
-          <p className="text-gray-500 text-sm">{parseLocation(booking.vehicle.location)}</p>
+          <p className="text-gray-600 mb-1">Pickup</p>
+          <p className="font-medium">{pickupDateTime.date}</p>
+          <p className="text-sm text-gray-700">{pickupDateTime.time}</p>
+          <p className="text-gray-500 text-sm mt-1">{parseLocation(booking.vehicle.location)}</p>
         </div>
         <div>
-          <p className="text-gray-600 text-sm font-medium">Drop-off</p>
-          <p className="font-semibold">{dropoffTimeDisplay}</p>
-          <p className="text-gray-500 text-sm">{parseLocation(booking.vehicle.location)}</p>
+          <p className="text-gray-600 mb-1">Drop-off</p>
+          <p className="font-medium">{dropoffDateTime.date}</p>
+          <p className="text-sm text-gray-700">{dropoffDateTime.time}</p>
+          <p className="text-gray-500 text-sm mt-1">{parseLocation(booking.vehicle.location)}</p>
         </div>
       </div>
-      
-      <div className="mt-4 flex justify-between items-center">
-        <p className="font-bold">₹{booking.total_price.toLocaleString('en-IN', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2
-        })}</p>
+
+      <div className="mt-4 pt-4 border-t border-gray-100">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">Total Amount</span>
+          <span className="text-lg font-semibold">₹{booking.total_price}</span>
+        </div>
       </div>
     </div>
   );

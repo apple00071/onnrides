@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
+import { getServerSession } from 'next-auth';
 import logger from '@/lib/logger';
 import { getRazorpayInstance } from '@/lib/razorpay';
 import { query } from '@/lib/db';

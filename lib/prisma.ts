@@ -8,4 +8,7 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
-} 
+}
+
+// Add default export to fix import issues in routes
+export default prisma; 

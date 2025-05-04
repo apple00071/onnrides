@@ -93,17 +93,19 @@ async function getRecentBookings() {
   try {
     const result = await query(`
       SELECT 
-        b.id,
+        b.id::text as id,
+        u.name as user_name,
+        u.email as user_email,
+        v.name as vehicle_name,
+        v.type as vehicle_type,
         b.status,
-        b."createdAt",
-        b."totalPrice",
-        u.name as "userName",
-        u.email as "userEmail",
-        v.name as "vehicleName"
+        b.start_date,
+        b.end_date,
+        b.total_price
       FROM bookings b
-      LEFT JOIN users u ON b."userId" = u.id
-      LEFT JOIN vehicles v ON b."vehicleId" = v.id
-      ORDER BY b."createdAt" DESC
+      LEFT JOIN vehicles v ON b.vehicle_id = v.id
+      LEFT JOIN users u ON b.user_id = u.id
+      ORDER BY b.created_at DESC
       LIMIT 5
     `);
 
@@ -118,12 +120,12 @@ async function getRevenueData(): Promise<RevenueDataPoint[]> {
   try {
     const result = await query(`
       SELECT 
-        DATE("createdAt") as date,
-        SUM("totalPrice") as amount
+        DATE(created_at) as date,
+        SUM(total_price) as amount
       FROM bookings
       WHERE status = 'completed'
-      AND "createdAt" >= NOW() - INTERVAL '30 days'
-      GROUP BY DATE("createdAt")
+      AND created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY DATE(created_at)
       ORDER BY date DESC
     `);
 

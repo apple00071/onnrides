@@ -116,21 +116,51 @@ export default function VehicleDetailsClient({ params }: Props) {
   }
   
   // Parse locations
-  let locations = [];
+  let locations: string[] = [];
   try {
-    locations = Array.isArray(vehicle.location)
-      ? vehicle.location
-      : typeof vehicle.location === 'string'
-        ? JSON.parse(vehicle.location)
-        : [];
+    if (Array.isArray(vehicle.location)) {
+      // Clean each location in array
+      locations = vehicle.location.map(loc => {
+        if (typeof loc === 'string') {
+          return loc.replace(/[\[\]"']/g, '').trim();
+        }
+        return String(loc).replace(/[\[\]"']/g, '').trim();
+      }).filter(Boolean);
+    } else if (typeof vehicle.location === 'string') {
+      try {
+        // Try parsing as JSON
+        const parsedLoc = JSON.parse(vehicle.location);
+        if (Array.isArray(parsedLoc)) {
+          locations = parsedLoc.map(loc => {
+            if (typeof loc === 'string') {
+              return loc.replace(/[\[\]"']/g, '').trim();
+            }
+            return String(loc).replace(/[\[\]"']/g, '').trim();
+          }).filter(Boolean);
+        } else {
+          // Single value from JSON
+          locations = [String(parsedLoc).replace(/[\[\]"']/g, '').trim()];
+        }
+      } catch (e) {
+        // Handle string that might look like an array but isn't valid JSON
+        if (vehicle.location.includes('[') && vehicle.location.includes(']')) {
+          // Remove brackets and split by commas
+          const cleanedStr = vehicle.location.replace(/^\[|\]$/g, '').trim();
+          locations = cleanedStr.split(',').map(s => 
+            s.replace(/[\[\]"']/g, '').trim()
+          ).filter(Boolean);
+        } else {
+          // Simple string
+          locations = [vehicle.location.replace(/[\[\]"']/g, '').trim()];
+        }
+      }
+    }
   } catch (e) {
-    locations = typeof vehicle.location === 'string' ? [vehicle.location] : [];
+    locations = [];
   }
   
   // Display locations properly with formatting
-  const formattedLocations = Array.isArray(locations) ? 
-    locations.map(location => location.trim()).filter(Boolean) : 
-    [];
+  const formattedLocations = locations.filter(Boolean);
   
   // Calculate total hours and price
   const calculateTotalHours = () => {

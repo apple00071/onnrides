@@ -77,8 +77,8 @@ export async function GET(request: NextRequest) {
         v.name as vehicle_name,
         v.type as vehicle_type
       FROM bookings b
-      LEFT JOIN users u ON b."userId"::text = u.id::text
-      LEFT JOIN vehicles v ON b."vehicleId"::text = v.id::text;
+      LEFT JOIN users u ON b.user_id::text = u.id::text
+      LEFT JOIN vehicles v ON b.vehicle_id::text = v.id::text;
     `);
 
     logger.info('Database schema updated successfully');

@@ -3,7 +3,12 @@ import { query } from '@/lib/db';
 
 interface Vehicle {
   id: string;
-  updatedAt: Date;
+  updated_at: Date;
+}
+
+interface VehicleRow {
+  id: string;
+  last_modified: Date;
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -48,18 +53,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   // Get all available bikes from database
-  const result = await query(`
-    SELECT id, "updatedAt"
+  const vehiclesResult = await query(`
+    SELECT 
+      id, 
+      "updatedAt" AS last_modified
     FROM vehicles
-    WHERE type = 'bike' AND "isAvailable" = true
-  `);
+    WHERE type = 'bike' AND COALESCE(is_available, "isAvailable") = true
+  `, []);
 
-  const bikes = result.rows as Vehicle[];
+  const bikes = vehiclesResult.rows.map((row: VehicleRow) => ({
+    id: row.id,
+    updated_at: row.last_modified
+  })) as Vehicle[];
 
   // Generate URLs for individual bike pages
   const bikeUrls = bikes.map(bike => ({
     url: `${baseUrl}/vehicles/${bike.id}`,
-    lastModified: bike.updatedAt || new Date(),
+    lastModified: bike.updated_at || new Date(),
     changeFrequency: 'daily' as const,
     priority: 0.8
   }));

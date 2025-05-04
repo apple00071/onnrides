@@ -1,6 +1,63 @@
 import { Metadata } from 'next';
 import VehicleDetailsClient from './VehicleDetailsClient';
 import { BookVehicleForm } from '@/app/(main)/BookVehicleForm';
+import logger from '@/lib/logger';
+
+// Helper function to clean locations
+function cleanLocationData(locationData: any): string[] {
+  try {
+    // Case 1: If it's already an array
+    if (Array.isArray(locationData)) {
+      return locationData.map(loc => {
+        if (typeof loc === 'string') {
+          // Remove any square brackets, quotes, and trim whitespace
+          return loc.replace(/[\[\]"']/g, '').trim();
+        }
+        return String(loc).replace(/[\[\]"']/g, '').trim();
+      }).filter(Boolean); // Remove any empty strings
+    }
+    
+    // Case 2: If it's a string
+    if (typeof locationData === 'string') {
+      // Check if it's a JSON string
+      if (locationData.includes('[') || locationData.includes('"')) {
+        try {
+          const parsed = JSON.parse(locationData);
+          if (Array.isArray(parsed)) {
+            return parsed.map(loc => {
+              if (typeof loc === 'string') {
+                return loc.replace(/[\[\]"']/g, '').trim();
+              }
+              return String(loc).replace(/[\[\]"']/g, '').trim();
+            }).filter(Boolean);
+          } else {
+            return [String(parsed).replace(/[\[\]"']/g, '').trim()];
+          }
+        } catch (e) {
+          // If JSON parsing fails, clean the string directly
+          if (locationData.match(/^\[.*\]$/)) {
+            // Remove brackets and split by commas
+            const cleanedStr = locationData.replace(/^\[|\]$/g, '').trim();
+            return cleanedStr.split(',').map(s => 
+              s.replace(/[\[\]"']/g, '').trim()
+            ).filter(Boolean);
+          } 
+          // Simple string - just clean it
+          return [locationData.replace(/[\[\]"']/g, '').trim()];
+        }
+      } else {
+        // Regular string - just clean it
+        return [locationData.trim()];
+      }
+    }
+    
+    // Default case
+    return [];
+  } catch (error) {
+    logger.error('Error cleaning location data:', error);
+    return [];
+  }
+}
 
 // Define metadata for SEO
 export async function generateMetadata({ params }: { params: { vehicleId: string } }): Promise<Metadata> {
@@ -36,61 +93,8 @@ export default async function VehicleDetailsPage({ params }: { params: { vehicle
     // Ensure price is coming correctly
     const price = Number(vehicle.price_per_hour || vehicle.pricePerHour || 0);
     
-    // Parse and format locations - ensuring it's a clean array of strings
-    let locations: string[] = [];
-    
-    // Handle different types of location data
-    if (vehicle.location) {
-      // Case 1: Already an array
-      if (Array.isArray(vehicle.location)) {
-        locations = vehicle.location.map((loc: any) => {
-          if (typeof loc === 'string') {
-            // Remove any quotes or brackets and trim
-            return loc.replace(/^["'\[\]]+|["'\[\]]+$/g, '').trim();
-          }
-          return String(loc).trim();
-        }).filter(Boolean);
-      } 
-      // Case 2: String that might be JSON
-      else if (typeof vehicle.location === 'string') {
-        const locationStr = vehicle.location as string;
-        
-        // Try to parse if it looks like JSON
-        if (locationStr.includes('[') || locationStr.includes('"')) {
-          try {
-            const parsed = JSON.parse(locationStr);
-            if (Array.isArray(parsed)) {
-              // Parse worked - clean each location
-              locations = parsed.map(loc => {
-                if (typeof loc === 'string') {
-                  return loc.replace(/^["']+|["']+$/g, '').trim();
-                }
-                return String(loc).trim();
-              }).filter(Boolean);
-            } else {
-              // JSON parsed but not an array - wrap as single item
-              locations = [String(parsed).replace(/^["']+|["']+$/g, '').trim()];
-            }
-          } catch (e) {
-            // JSON parsing failed - treat as plain string
-            // First check if it looks like ["something"]
-            if (locationStr.match(/^\[.*\]$/)) {
-              // Remove brackets and split by commas
-              const cleanedStr = locationStr.replace(/^\[|\]$/g, '').trim();
-              locations = cleanedStr.split(',').map(s => 
-                s.replace(/^["']+|["']+$/g, '').trim()
-              ).filter(Boolean);
-            } else {
-              // Simple string - just clean it
-              locations = [locationStr.replace(/^["']+|["']+$/g, '').trim()];
-            }
-          }
-        } else {
-          // Regular string - just add it
-          locations = [locationStr.trim()];
-        }
-      }
-    }
+    // Use our helper function to clean location data
+    const locations = cleanLocationData(vehicle.location);
     
     // Log the cleaned locations for debugging
     console.log('Cleaned locations:', locations);
