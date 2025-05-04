@@ -85,17 +85,54 @@ export async function GET(
       if (result.rows[0].location) {
         if (typeof result.rows[0].location === 'string') {
           try {
-            parsedLocation = JSON.parse(result.rows[0].location);
+            // Try to parse as JSON
+            const locationData = JSON.parse(result.rows[0].location);
+            
+            // Clean the data based on what we parsed
+            if (Array.isArray(locationData)) {
+              // Clean each location in the array
+              parsedLocation = locationData.map((loc: string) => {
+                if (typeof loc === 'string') {
+                  // Remove any quotes and trim
+                  return loc.replace(/^["']+|["']+$/g, '').trim();
+                }
+                return String(loc).trim();
+              }).filter(Boolean);
+            } else if (locationData) {
+              // Single value from JSON that's not an array
+              parsedLocation = [String(locationData).replace(/^["']+|["']+$/g, '').trim()];
+            }
           } catch (e) {
-            // If parsing fails, treat it as a plain string and wrap in array
-            parsedLocation = [result.rows[0].location];
-            logger.warn('Location is not valid JSON, using as plain string:', { 
-              location: result.rows[0].location
+            // If parsing fails, check if it looks like an array with brackets/quotes
+            const locationStr = result.rows[0].location;
+            
+            if (locationStr.match(/^\[.*\]$/)) {
+              // Looks like ["text"] or [text] - remove brackets and split
+              const cleanedStr = locationStr.replace(/^\[|\]$/g, '').trim();
+              parsedLocation = cleanedStr.split(',').map((s: string) => 
+                s.replace(/^["']+|["']+$/g, '').trim()
+              ).filter(Boolean);
+            } else {
+              // Plain string - just clean it
+              parsedLocation = [locationStr.replace(/^["']+|["']+$/g, '').trim()];
+            }
+            
+            logger.warn('Location is not valid JSON, cleaned manually:', { 
+              original: result.rows[0].location,
+              cleaned: parsedLocation
             });
           }
+        } else if (Array.isArray(result.rows[0].location)) {
+          // Already an array - clean each item
+          parsedLocation = result.rows[0].location.map((loc: any) => {
+            if (typeof loc === 'string') {
+              return loc.replace(/^["']+|["']+$/g, '').trim();
+            }
+            return String(loc).trim();
+          }).filter(Boolean);
         } else {
-          // If it's already an object (not a string), use it directly
-          parsedLocation = result.rows[0].location;
+          // Some other type - convert to string and use as single location
+          parsedLocation = [String(result.rows[0].location).trim()];
         }
       }
       
@@ -143,6 +180,7 @@ export async function GET(
       name: vehicle.name,
       hasImages: Array.isArray(vehicle.images) && vehicle.images.length > 0,
       imageCount: Array.isArray(vehicle.images) ? vehicle.images.length : 0,
+      locationsFormatted: JSON.stringify(vehicle.location),
       firstImagePreview: Array.isArray(vehicle.images) && vehicle.images.length > 0 
         ? (typeof vehicle.images[0] === 'string' 
            ? vehicle.images[0].substring(0, 50) + '...' 

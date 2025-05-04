@@ -36,17 +36,64 @@ export default async function VehicleDetailsPage({ params }: { params: { vehicle
     // Ensure price is coming correctly
     const price = Number(vehicle.price_per_hour || vehicle.pricePerHour || 0);
     
-    // Parse locations - ensuring it's an array
-    let locations = [];
-    try {
-      locations = Array.isArray(vehicle.location)
-        ? vehicle.location
-        : typeof vehicle.location === 'string'
-          ? JSON.parse(vehicle.location)
-          : [];
-    } catch (e) {
-      locations = typeof vehicle.location === 'string' ? [vehicle.location] : [];
+    // Parse and format locations - ensuring it's a clean array of strings
+    let locations: string[] = [];
+    
+    // Handle different types of location data
+    if (vehicle.location) {
+      // Case 1: Already an array
+      if (Array.isArray(vehicle.location)) {
+        locations = vehicle.location.map((loc: any) => {
+          if (typeof loc === 'string') {
+            // Remove any quotes or brackets and trim
+            return loc.replace(/^["'\[\]]+|["'\[\]]+$/g, '').trim();
+          }
+          return String(loc).trim();
+        }).filter(Boolean);
+      } 
+      // Case 2: String that might be JSON
+      else if (typeof vehicle.location === 'string') {
+        const locationStr = vehicle.location as string;
+        
+        // Try to parse if it looks like JSON
+        if (locationStr.includes('[') || locationStr.includes('"')) {
+          try {
+            const parsed = JSON.parse(locationStr);
+            if (Array.isArray(parsed)) {
+              // Parse worked - clean each location
+              locations = parsed.map(loc => {
+                if (typeof loc === 'string') {
+                  return loc.replace(/^["']+|["']+$/g, '').trim();
+                }
+                return String(loc).trim();
+              }).filter(Boolean);
+            } else {
+              // JSON parsed but not an array - wrap as single item
+              locations = [String(parsed).replace(/^["']+|["']+$/g, '').trim()];
+            }
+          } catch (e) {
+            // JSON parsing failed - treat as plain string
+            // First check if it looks like ["something"]
+            if (locationStr.match(/^\[.*\]$/)) {
+              // Remove brackets and split by commas
+              const cleanedStr = locationStr.replace(/^\[|\]$/g, '').trim();
+              locations = cleanedStr.split(',').map(s => 
+                s.replace(/^["']+|["']+$/g, '').trim()
+              ).filter(Boolean);
+            } else {
+              // Simple string - just clean it
+              locations = [locationStr.replace(/^["']+|["']+$/g, '').trim()];
+            }
+          }
+        } else {
+          // Regular string - just add it
+          locations = [locationStr.trim()];
+        }
+      }
     }
+    
+    // Log the cleaned locations for debugging
+    console.log('Cleaned locations:', locations);
     
     return (
       <div className="container mx-auto py-8">

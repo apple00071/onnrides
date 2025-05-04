@@ -8,7 +8,7 @@ import { toast } from 'react-hot-toast';
 
 interface BookVehicleFormProps {
   vehicleId: string;
-  locations: string[];
+  locations: string[] | string;
   price: number; // Price per hour
 }
 
@@ -18,6 +18,51 @@ export function BookVehicleForm({ vehicleId, locations, price }: BookVehicleForm
   const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [totalPrice, setTotalPrice] = useState<number>(0);
   const [bookingHours, setBookingHours] = useState<number>(0);
+  
+  // Parse and clean location data to ensure proper display
+  const formattedLocations = React.useMemo(() => {
+    // Handle array of locations
+    if (Array.isArray(locations)) {
+      return locations.map(loc => {
+        // If a location is a string with quotes, remove them
+        if (typeof loc === 'string') {
+          // Remove any surrounding quotes
+          return loc.replace(/^["']+|["']+$/g, '').trim();
+        }
+        return String(loc).trim();
+      }).filter(Boolean);
+    } 
+    
+    // Handle string value (could be a JSON string or plain location)
+    if (typeof locations === 'string') {
+      // Empty string case
+      if (!locations.trim()) return [];
+      
+      try {
+        // Check if it's a JSON string array
+        if (locations.trim().startsWith('[') && locations.trim().endsWith(']')) {
+          const parsed = JSON.parse(locations);
+          if (Array.isArray(parsed)) {
+            return parsed.map(loc => {
+              if (typeof loc === 'string') {
+                // Remove any surrounding quotes
+                return loc.replace(/^["']+|["']+$/g, '').trim();
+              }
+              return String(loc).trim();
+            }).filter(Boolean);
+          }
+        }
+        // Single location case - remove any quotes
+        return [locations.trim().replace(/^["']+|["']+$/g, '')];
+      } catch (e) {
+        // If JSON parsing fails, treat as a single location
+        return [locations.trim().replace(/^["']+|["']+$/g, '')];
+      }
+    }
+    
+    // Fallback for any other type
+    return [];
+  }, [locations]);
   
   // Get date and time parameters from URL
   const pickupDate = searchParams.get('pickupDate');
@@ -61,13 +106,13 @@ export function BookVehicleForm({ vehicleId, locations, price }: BookVehicleForm
       <CardContent>
         <div className="space-y-4">
           <div>
-            <Label htmlFor="location">Pickup Location</Label>
+            <Label htmlFor="location">Available at</Label>
             <Select value={selectedLocation} onValueChange={handleLocationChange}>
               <SelectTrigger id="location">
-                <SelectValue placeholder="Select a location" />
+                <SelectValue placeholder="Select location" />
               </SelectTrigger>
               <SelectContent>
-                {locations.map((location) => (
+                {formattedLocations.map((location) => (
                   <SelectItem key={location} value={location}>
                     {location}
                   </SelectItem>

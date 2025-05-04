@@ -4,7 +4,8 @@ import GoogleProvider from 'next-auth/providers/google';
 import { compare, hash } from 'bcryptjs';
 import logger from '@/lib/logger';
 import type { JWT } from 'next-auth/jwt';
-import { prisma } from './prisma';
+import { findUserByEmail, validateUserPassword } from './db-auth';
+import { query } from '@/lib/db';
 
 declare module "next-auth" {
   interface User {
@@ -45,32 +46,22 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const user = await prisma.users.findUnique({
-            where: { email: credentials.email },
-            select: {
-              id: true,
-              email: true,
-              name: true,
-              role: true,
-              password_hash: true,
-              is_blocked: true
-            }
-          });
+          const user = await findUserByEmail(credentials.email);
 
-          if (!user || !user.password_hash) {
+          if (!user || !user.password) {
             throw new Error('No user found with this email');
           }
 
-          const isPasswordValid = await compare(
+          const isPasswordValid = await validateUserPassword(
             credentials.password,
-            user.password_hash
+            user.password
           );
 
           if (!isPasswordValid) {
             throw new Error('Invalid password');
           }
 
-          if (user.is_blocked) {
+          if (user.isBlocked) {
             throw new Error('Your account has been blocked');
           }
 
@@ -162,18 +153,17 @@ export async function getCurrentUser() {
       return null;
     }
 
-    const user = await prisma.users.findUnique({
-      where: { email: session.user.email },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        is_blocked: true
-      }
-    });
-
-    return user;
+    const user = await findUserByEmail(session.user.email);
+    
+    if (!user) return null;
+    
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isBlocked: user.isBlocked
+    };
   } catch (error) {
     console.error('Error getting current user:', error);
     return null;

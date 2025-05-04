@@ -429,6 +429,29 @@ export async function POST(request: NextRequest): Promise<Response> {
         currency: razorpayOrder.currency
       });
 
+      // IMPORTANT FIX: Update the booking with the Razorpay order ID in paymentDetails
+      // This is crucial for payment verification to work properly
+      await query(`
+        UPDATE bookings 
+        SET "paymentDetails" = $1::jsonb
+        WHERE id = $2
+      `, [
+        JSON.stringify({
+          razorpay_order_id: razorpayOrder.id,
+          created_at: new Date().toISOString(),
+          status: 'created',
+          amount: advancePayment,
+          amount_paise: razorpayOrder.amount
+        }),
+        createdBookingId
+      ]);
+      
+      logger.info('Updated booking with payment details:', {
+        bookingId,
+        createdBookingId,
+        razorpayOrderId: razorpayOrder.id
+      });
+
       // Return booking ID and payment information
       return NextResponse.json({
         success: true,

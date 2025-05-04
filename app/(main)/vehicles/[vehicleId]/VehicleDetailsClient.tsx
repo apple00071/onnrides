@@ -127,6 +127,11 @@ export default function VehicleDetailsClient({ params }: Props) {
     locations = typeof vehicle.location === 'string' ? [vehicle.location] : [];
   }
   
+  // Display locations properly with formatting
+  const formattedLocations = Array.isArray(locations) ? 
+    locations.map(location => location.trim()).filter(Boolean) : 
+    [];
+  
   // Calculate total hours and price
   const calculateTotalHours = () => {
     if (!pickupDate || !dropoffDate) return 0;
@@ -203,7 +208,13 @@ export default function VehicleDetailsClient({ params }: Props) {
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center space-x-2">
               <MapPin className="w-5 h-5 text-gray-500" />
-              <span className="text-gray-700">{locations[0] || 'Multiple locations'}</span>
+              <span className="text-gray-700">
+                {formattedLocations.length > 0 ? 
+                  (formattedLocations.length > 1 ? 
+                    `${formattedLocations[0]} + ${formattedLocations.length - 1} more` : 
+                    formattedLocations[0]
+                  ) : 'Multiple locations'}
+              </span>
             </div>
             <div className="flex items-center space-x-2">
               <Clock className="w-5 h-5 text-gray-500" />

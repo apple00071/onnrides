@@ -51,10 +51,10 @@ export async function POST(request: NextRequest) {
     // Find the booking using Prisma
     logger.info('Looking for booking with order ID:', { razorpay_order_id });
 
-    // Use a raw SQL query through Prisma to find bookings with the given order ID in payment_details
+    // Use a raw SQL query through Prisma to find bookings with the given order ID in paymentDetails
     const booking = await prisma.$queryRaw`
       SELECT * FROM bookings 
-      WHERE payment_details->>'razorpay_order_id' = ${razorpay_order_id}
+      WHERE "paymentDetails"->>'razorpay_order_id' = ${razorpay_order_id}
       LIMIT 1
     `;
 
@@ -64,10 +64,10 @@ export async function POST(request: NextRequest) {
 
       // Log recent bookings for debugging using raw query
       const recentBookings = await prisma.$queryRaw`
-        SELECT id, booking_id, payment_details 
+        SELECT id, "bookingId", "paymentDetails" 
         FROM bookings 
-        WHERE payment_details IS NOT NULL 
-        ORDER BY created_at DESC 
+        WHERE "paymentDetails" IS NOT NULL 
+        ORDER BY "createdAt" DESC 
         LIMIT 5
       `;
 
@@ -98,42 +98,42 @@ export async function POST(request: NextRequest) {
       }
 
       // Update booking with payment verification details using Prisma
-      const updatedBooking = await prisma.bookings.update({
+      const updatedBooking = await prisma.booking.update({
         where: { id: bookingData.id },
         data: {
-          payment_details: {
-            ...bookingData.payment_details as any,
+          paymentDetails: {
+            ...bookingData.paymentDetails as any,
             razorpay_payment_id,
             razorpay_signature,
             verified_at: new Date().toISOString(),
             status: 'verified'
           },
-          payment_status: 'completed',
+          paymentStatus: 'completed',
           status: bookingData.status === 'pending' ? 'confirmed' : bookingData.status,
-          updated_at: new Date()
+          updatedAt: new Date()
         }
       });
 
       return NextResponse.json({
         success: true,
-        booking_id: updatedBooking.booking_id
+        booking_id: updatedBooking.bookingId
       });
 
     } catch (error) {
       // Handle verification failure using Prisma
-      await prisma.bookings.update({
+      await prisma.booking.update({
         where: { id: bookingData.id },
         data: {
-          payment_details: {
-            ...bookingData.payment_details as any,
+          paymentDetails: {
+            ...bookingData.paymentDetails as any,
             razorpay_payment_id,
             razorpay_signature,
             failed_at: new Date().toISOString(),
             status: 'failed',
             error: error instanceof Error ? error.message : 'Payment verification failed'
           },
-          payment_status: 'pending',
-          updated_at: new Date()
+          paymentStatus: 'pending',
+          updatedAt: new Date()
         }
       });
 
