@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import logger from '@/lib/logger';
 
 export default function Error({
   error,
@@ -12,36 +11,43 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Log the error to our logging service
-    logger.error('Application Error:', {
-      message: error.message,
-      stack: error.stack,
-      digest: error.digest,
-    });
+    // Log the error to your error reporting service
+    console.error('Application error:', error);
   }, [error]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="text-center space-y-4">
-        <h2 className="text-2xl font-bold text-gray-900">Something went wrong!</h2>
-        <p className="text-gray-600">
-          We apologize for the inconvenience. Please try again later.
-        </p>
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mt-4 p-4 bg-gray-100 rounded-lg text-left">
-            <p className="text-sm font-mono text-gray-700">Error: {error.message}</p>
-            {error.digest && (
-              <p className="text-sm font-mono text-gray-700">Digest: {error.digest}</p>
-            )}
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50">
+      <div className="text-center space-y-6 max-w-lg">
+        <h1 className="text-4xl font-bold text-gray-900">Something went wrong</h1>
+        
+        <div className="space-y-2">
+          <p className="text-gray-600">
+            We apologize for the inconvenience. An unexpected error has occurred.
+          </p>
+          {process.env.NODE_ENV === 'development' && (
+            <p className="text-sm text-red-600 bg-red-50 p-4 rounded-lg">
+              {error.message || 'Unknown error occurred'}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <Button
+            onClick={reset}
+            className="bg-[#f26e24] hover:bg-[#e05d13] text-white"
+          >
+            Try again
+          </Button>
+          
+          <div>
+            <Button
+              variant="outline"
+              onClick={() => window.location.href = '/'}
+              className="mt-2"
+            >
+              Return to home
+            </Button>
           </div>
-        )}
-        <div className="mt-6 space-x-3">
-          <Button onClick={() => window.location.href = '/'}>
-            Go Home
-          </Button>
-          <Button onClick={() => reset()} variant="outline">
-            Try Again
-          </Button>
         </div>
       </div>
     </div>
