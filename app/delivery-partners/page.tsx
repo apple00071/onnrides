@@ -151,11 +151,11 @@ export default function DeliveryPartnersPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {vehicles.map((vehicle) => (
             <Card key={vehicle.id} className="p-6">
-              <div className="relative w-full h-48 mb-4 overflow-hidden rounded-lg">
+              <div className="relative w-full h-48 mb-4 overflow-hidden rounded-lg bg-gray-100">
                 <img
                   src={vehicle.images[0] || '/images/placeholder-vehicle.png'}
                   alt={vehicle.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                   onError={(e) => {
                     e.currentTarget.src = '/images/placeholder-vehicle.png';
                   }}
@@ -177,13 +177,12 @@ export default function DeliveryPartnersPage() {
                     <span>{duration} days rental</span>
                   </div>
                   <div className="flex items-center font-semibold text-lg">
-                    <IndianRupee className="w-4 h-4 mr-1" />
-                    {getPriceForDuration(vehicle)?.toLocaleString('en-IN') || 'N/A'}
+                    {formatCurrency(getPriceForDuration(vehicle) || 0)}
                   </div>
                 </div>
 
                 <Button 
-                  className="w-full bg-white text-black hover:bg-gray-100" 
+                  className="w-full mt-4" 
                   onClick={() => {
                     router.push(`/delivery-partners/rent?vehicleId=${vehicle.id}&duration=${duration}`);
                   }}

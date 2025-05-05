@@ -106,6 +106,11 @@ export default function PaymentStatusPage({ searchParams }: PaymentStatusPagePro
             <p className="text-gray-600 mb-6">
               You cancelled the payment process.
             </p>
+            <Button asChild variant="default" className="w-full">
+              <Link href="/">
+                Back to Home
+              </Link>
+            </Button>
           </div>
         </div>
       </div>
@@ -198,27 +203,32 @@ export default function PaymentStatusPage({ searchParams }: PaymentStatusPagePro
           <div className="flex flex-col gap-3">
             {errorType === 'booking_not_found' ? (
               <>
-                <Button asChild variant="default" className="w-full">
+                <Button asChild variant="default" className="w-full mb-2">
                   <Link href="/bookings">
                     View Your Bookings
                   </Link>
                 </Button>
                 <Button asChild variant="outline" className="w-full">
                   <Link href="/">
-                    Make a New Booking
+                    Back to Home
                   </Link>
                 </Button>
               </>
             ) : (
               <>
-                <Button asChild variant="default" className="w-full">
+                <Button asChild variant="default" className="w-full mb-2">
                   <Link href={`/bookings/${bookingId}/retry-payment`}>
                     Try Payment Again
                   </Link>
                 </Button>
-                <Button asChild variant="outline" className="w-full">
+                <Button asChild variant="outline" className="w-full mb-2">
                   <Link href="/bookings">
                     View Your Bookings
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/">
+                    Back to Home
                   </Link>
                 </Button>
               </>
