@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import logger from '@/lib/logger';
-import { handleApiError } from '@/lib/error-handler';
 
 // Cache the maintenance mode status for 60 seconds
 let maintenanceMode: boolean = false;
@@ -23,57 +22,35 @@ async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
     const host = request.headers.get('host') || 'localhost:3000';
     const baseUrl = `${protocol}://${host}`;
 
-    logger.info('Checking maintenance mode:', { baseUrl });
-
     // Call the maintenance check API
     const response = await fetch(`${baseUrl}/api/maintenance/check`, {
       headers: {
-        'x-middleware-bypass': '1'
+        'x-middleware-bypass': '1' // Add a custom header to identify middleware requests
       }
     });
     
     if (!response.ok) {
-      logger.error('Maintenance check failed:', {
-        status: response.status,
-        statusText: response.statusText
-      });
+      console.error('Maintenance check failed:', response.status);
       return false;
     }
 
     const data = await response.json();
     maintenanceMode = Boolean(data.maintenance);
     lastCheck = now;
-    
-    logger.info('Maintenance mode status:', { 
-      maintenanceMode,
-      lastCheck: new Date(lastCheck).toISOString()
-    });
-    
     return maintenanceMode;
   } catch (error) {
-    logger.error('Error checking maintenance mode:', {
-      error: error instanceof Error ? {
-        message: error.message,
-        stack: error.stack
-      } : error
-    });
+    console.error('Error checking maintenance mode:', error);
     return false;
   }
 }
 
 export async function middleware(request: NextRequest) {
-  const requestStartTime = Date.now();
-  const requestId = Math.random().toString(36).substring(7);
-
   try {
-    // Log incoming request
-    logger.info('Request started:', {
-      requestId,
+    // Add request logging
+    logger.info('Incoming request:', {
       url: request.url,
       method: request.method,
       path: new URL(request.url).pathname,
-      userAgent: request.headers.get('user-agent'),
-      referer: request.headers.get('referer')
     });
 
     const pathname = new URL(request.url).pathname;
@@ -81,14 +58,14 @@ export async function middleware(request: NextRequest) {
 
     // Skip maintenance check for these paths
     const shouldSkipMaintenanceCheck = 
-      pathname.includes('/_next') || 
-      pathname.includes('/api/maintenance/check') || 
-      pathname.includes('/api') || 
-      pathname.includes('/maintenance') ||
-      pathname.match(/\.[^/]+$/) || 
-      request.headers.get('x-middleware-bypass') === '1';
+        pathname.includes('/_next') || 
+        pathname.includes('/api/maintenance/check') || 
+        pathname.includes('/api') || 
+        pathname.includes('/maintenance') ||
+        pathname.match(/\.[^/]+$/) || // Skip files with extensions
+        request.headers.get('x-middleware-bypass') === '1'; // Skip if it's a middleware request
 
-    // Handle admin routes
+    // Handle admin routes - check authentication
     if (isAdminRoute) {
       try {
         const token = await getToken({ 
@@ -96,43 +73,34 @@ export async function middleware(request: NextRequest) {
           secret: process.env.NEXTAUTH_SECRET
         });
 
-        logger.info('Admin auth check:', {
-          requestId,
+        // Log authentication attempt
+        console.log('Auth check:', {
           path: pathname,
           hasToken: !!token,
           role: token?.role
         });
 
         if (!token) {
-          logger.warn('Unauthorized admin access attempt:', {
-            requestId,
-            path: pathname
-          });
+          // Redirect to login if no token
           const loginUrl = new URL('/auth/signin', request.url);
           loginUrl.searchParams.set('callbackUrl', pathname);
           return NextResponse.redirect(loginUrl);
         }
 
         if (token.role !== 'admin') {
-          logger.warn('Non-admin user attempted to access admin route:', {
-            requestId,
-            path: pathname,
-            userRole: token.role
-          });
+          // Redirect unauthorized users to home
           return NextResponse.redirect(new URL('/', request.url));
         }
 
+        // For authenticated admin users, let the request proceed
         return undefined;
       } catch (error) {
-        const errorDetails = handleApiError(error);
-        logger.error('Admin auth error:', {
-          requestId,
-          ...errorDetails
-        });
+        console.error('Auth check error:', error);
         return NextResponse.redirect(new URL('/auth/signin', request.url));
       }
     }
 
+    // If we should skip maintenance check, just proceed
     if (shouldSkipMaintenanceCheck) {
       return undefined;
     }
@@ -142,34 +110,30 @@ export async function middleware(request: NextRequest) {
     
     if (maintenance) {
       try {
+        // Get the token using next-auth
         const token = await getToken({ 
           req: request,
           secret: process.env.NEXTAUTH_SECRET 
         });
 
+        // If user is admin, let them through
         if (token?.role === 'admin') {
           return undefined;
         }
 
-        logger.info('Redirecting to maintenance page:', {
-          requestId,
-          path: pathname,
-          userRole: token?.role
-        });
-        
-        return NextResponse.redirect(new URL('/maintenance', request.url));
+        // Otherwise redirect to maintenance page
+        const maintenanceUrl = new URL('/maintenance', request.url);
+        return NextResponse.redirect(maintenanceUrl);
       } catch (error) {
-        const errorDetails = handleApiError(error);
-        logger.error('Maintenance mode auth error:', {
-          requestId,
-          ...errorDetails
-        });
-        return NextResponse.redirect(new URL('/maintenance', request.url));
+        console.error('Error verifying admin status:', error);
+        const maintenanceUrl = new URL('/maintenance', request.url);
+        return NextResponse.redirect(maintenanceUrl);
       }
     }
 
     // Handle payment endpoints
     if (pathname.startsWith('/api/payments') || pathname.startsWith('/api/razorpay')) {
+      // Only handle OPTIONS requests for CORS
       if (request.method === 'OPTIONS') {
         return new NextResponse(null, {
           status: 200,
@@ -183,42 +147,39 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // Log request completion
-    logger.info('Request completed:', {
-      requestId,
-      duration: Date.now() - requestStartTime,
-      path: pathname
-    });
-
+    // Allow all other requests to proceed
     return undefined;
   } catch (error) {
-    const errorDetails = handleApiError(error);
-    
+    // Log the error
     logger.error('Middleware error:', {
-      requestId,
-      duration: Date.now() - requestStartTime,
-      ...errorDetails
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      url: request.url,
+      method: request.method,
     });
 
+    // For API routes, return a JSON error
     if (new URL(request.url).pathname.startsWith('/api/')) {
       return NextResponse.json(
         { 
           error: 'Internal Server Error',
           message: process.env.NODE_ENV === 'development' 
-            ? errorDetails.message
-            : 'An unexpected error occurred',
-          requestId
+            ? error instanceof Error ? error.message : 'Unknown error'
+            : 'An unexpected error occurred'
         },
         { status: 500 }
       );
     }
 
+    // For page routes, redirect to error page
     return NextResponse.redirect(new URL('/error', request.url));
   }
 }
 
+// Configure which routes to run middleware on
 export const config = {
   matcher: [
+    // Apply to all routes except static files and images
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }; 
