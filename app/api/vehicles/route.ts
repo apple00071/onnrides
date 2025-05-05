@@ -109,25 +109,57 @@ interface BookingRow {
   concurrent_bookings: number;
 }
 
+// Helper function to clean location data
+function cleanLocationData(location: string | string[]): string[] {
+  if (Array.isArray(location)) {
+    return location.map(loc => {
+      // Remove any quotes and brackets
+      return loc.replace(/[\[\]"]/g, '').trim();
+    }).filter(Boolean);
+  }
+  
+  if (typeof location === 'string') {
+    try {
+      // Try parsing as JSON if it starts with [ or "
+      if (location.startsWith('[') || location.startsWith('"')) {
+        const parsed = JSON.parse(location);
+        return Array.isArray(parsed) 
+          ? parsed.map(loc => typeof loc === 'string' ? loc.trim() : String(loc)).filter(Boolean)
+          : [parsed].map(loc => typeof loc === 'string' ? loc.trim() : String(loc)).filter(Boolean);
+      }
+      // Single location string
+      return [location.trim()];
+    } catch (e) {
+      // If parsing fails, treat as single location
+      return [location.trim()];
+    }
+  }
+  
+  return [];
+}
+
 // Helper function to get available locations for a vehicle
 async function getAvailableLocations(
   vehicleId: string,
-  locations: string[],
+  locations: string[] | string,
   pickupDateStr: string | null,
   dropoffDateStr: string | null
 ) {
+  // Clean and parse locations first
+  const allLocations = cleanLocationData(locations);
+  
   // Convert string dates to Date objects if they exist
   const pickupDateTime = pickupDateStr ? new Date(pickupDateStr) : null;
   const dropoffDateTime = dropoffDateStr ? new Date(dropoffDateStr) : null;
 
   if (!pickupDateTime || !dropoffDateTime) {
-    return locations;
+    return allLocations;
   }
 
   try {
     logger.info('Starting location availability check:', {
       vehicleId,
-      locations,
+      locations: allLocations,
       pickupDateTime: pickupDateTime.toISOString(),
       dropoffDateTime: dropoffDateTime.toISOString()
     });
@@ -147,8 +179,8 @@ async function getAvailableLocations(
             PARTITION BY b.pickup_location::text
           ) as concurrent_bookings
         FROM bookings b
-        JOIN vehicles v ON b.vehicle_id = v.id
-        WHERE b.vehicle_id = $1
+        JOIN vehicles v ON b.vehicle_id = v.id::uuid
+        WHERE b.vehicle_id = $1::uuid
         AND b.status NOT IN ('cancelled', 'failed')
         AND b.payment_status != 'failed'
         AND (
@@ -166,15 +198,7 @@ async function getAvailableLocations(
     logger.info('Raw booking query results:', {
       vehicleId,
       rowCount: bookingsResult.rowCount,
-      rows: bookingsResult.rows.map((row: BookingRow) => ({
-        id: row.id,
-        start_date: row.start_date,
-        end_date: row.end_date,
-        effective_location: row.effective_location,
-        status: row.status,
-        vehicle_quantity: row.vehicle_quantity,
-        concurrent_bookings: row.concurrent_bookings
-      }))
+      rows: bookingsResult.rows
     });
 
     // Create a set of unavailable locations
@@ -184,49 +208,49 @@ async function getAvailableLocations(
       try {
         const locationValue = row.effective_location;
         if (locationValue) {
-          logger.info('Location unavailable due to concurrent bookings:', {
-            location: locationValue,
-            concurrent_bookings: row.concurrent_bookings,
-            vehicle_quantity: row.vehicle_quantity,
-            bookingId: row.id,
-            timeRange: `${row.start_date} to ${row.end_date}`
-          });
-          unavailableLocations.add(locationValue);
+          const cleanedLocation = cleanLocationData(locationValue)[0];
+          if (cleanedLocation) {
+            logger.info('Location unavailable due to concurrent bookings:', {
+              location: cleanedLocation,
+              concurrent_bookings: row.concurrent_bookings,
+              vehicle_quantity: row.vehicle_quantity,
+              bookingId: row.id,
+              timeRange: `${row.start_date} to ${row.end_date}`
+            });
+            unavailableLocations.add(cleanedLocation);
+          }
         }
       } catch (error) {
         logger.error('Error processing location:', {
           error,
           bookingId: row.id,
-          effective_location: row.effective_location,
-          errorMessage: error instanceof Error ? error.message : 'Unknown error'
+          effective_location: row.effective_location
         });
       }
     });
 
-    // Filter available locations
-    const availableLocations = locations.filter(loc => !unavailableLocations.has(loc));
+    // Filter out unavailable locations
+    const availableLocations = allLocations.filter(loc => !unavailableLocations.has(loc));
 
     logger.info('Final availability check results:', {
-      vehicleId,
-      allLocations: locations,
-      unavailableLocations: Array.from(unavailableLocations),
+      allLocations,
       availableLocations,
+      unavailableLocations: Array.from(unavailableLocations),
       requestedTimeRange: {
-        start: pickupDateTime,
-        end: dropoffDateTime
-      }
+        start: pickupDateTime.toISOString(),
+        end: dropoffDateTime.toISOString()
+      },
+      vehicleId
     });
 
     return availableLocations;
   } catch (error) {
-    logger.error('Error in getAvailableLocations:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    logger.error('Error checking location availability:', {
+      error,
       vehicleId,
-      locations
+      locations: allLocations
     });
-    // Return all locations as fallback in case of error
-    return locations;
+    return allLocations;
   }
 }
 
@@ -280,7 +304,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             created_at,
             updated_at
           FROM vehicles
-          WHERE id = $1
+          WHERE id = $1::uuid
         `;
         
         const result = await query(vehicleQuery, [vehicleId]);
@@ -298,17 +322,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         const pricePerHour = Number(vehicle.price_per_hour || 0);
         const minBookingHours = Number(vehicle.min_booking_hours || 1);
         
-        // Parse locations - ensuring it's an array
-        let locations = [];
-        try {
-          locations = Array.isArray(vehicle.location)
-            ? vehicle.location
-            : typeof vehicle.location === 'string'
-              ? JSON.parse(vehicle.location)
-              : [];
-        } catch (e) {
-          locations = typeof vehicle.location === 'string' ? [vehicle.location] : [];
-        }
+        // Clean and parse locations
+        const locations = cleanLocationData(vehicle.location);
         
         // Parse images - ensuring it's an array
         let images = [];
@@ -317,7 +332,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             ? vehicle.images
             : typeof vehicle.images === 'string'
               ? JSON.parse(vehicle.images)
-            : [];
+              : [];
         } catch (e) {
           images = [];
         }
@@ -359,7 +374,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Base query with sorting logic
     const baseQuery = `
       SELECT 
-        v.id,
+        v.id::text,
         v.name,
         v.type,
         v.status,
@@ -379,9 +394,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           '{}'
         ) as booked_locations
       FROM vehicles v
-      LEFT JOIN bookings b ON v.id = b.vehicle_id 
-        AND b.status NOT IN ('cancelled', 'failed')
-        AND b.payment_status != 'failed'
+      LEFT JOIN bookings b ON v.id::uuid = b.vehicle_id
       WHERE v.status = 'active'
       GROUP BY v.id
       ORDER BY 
@@ -399,26 +412,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const processedVehicles = result.rows
       .map((vehicle: VehicleRow) => {
         try {
-          // Handle location - could be string, array, or JSON string
-          let locationArray: string[];
-          if (typeof vehicle.location === 'string') {
-            // If it's a comma-separated string, split it
-            if (vehicle.location.includes(',')) {
-              locationArray = vehicle.location.split(',').map(loc => loc.trim());
-            } else {
-              // Single location
-              locationArray = [vehicle.location];
-            }
-          } else if (Array.isArray(vehicle.location)) {
-            locationArray = vehicle.location;
-          } else {
-            try {
-              // Try parsing as JSON, fallback to empty array
-              locationArray = JSON.parse(vehicle.location || '[]');
-            } catch {
-              locationArray = [];
-            }
-          }
+          // Clean and parse locations
+          const locationArray = cleanLocationData(vehicle.location);
 
           // Handle images - could be string, array, or JSON string
           let imagesArray: string[];
@@ -451,7 +446,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           return null;
         }
       })
-      .filter((v: VehicleRow | null): v is VehicleRow => v !== null);
+      .filter(Boolean);
 
     logger.info('Filtered vehicles:', {
       totalVehicles: result.rows.length,
@@ -462,62 +457,31 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
     });
 
-    // Look for the SQL query first, ensure it's fetching price_per_hour correctly
-    const vehiclesQuery = `
-      SELECT 
-        v.id, 
-        v.name, 
-        v.type, 
-        v.location, 
-        v.quantity,
-        v.price_per_hour,
-        v.price_7_days, 
-        v.price_15_days, 
-        v.price_30_days,
-        v.min_booking_hours,
-        v.images, 
-        v.status, 
-        v.is_available,
-        v.created_at,
-        v.updated_at,
-        ARRAY_AGG(DISTINCT b.pickup_location) as booked_locations
-      FROM vehicles v
-      LEFT JOIN bookings b ON v.id = b.vehicle_id 
-        AND b.status NOT IN ('cancelled', 'failed') 
-        AND b.payment_status != 'failed'
-        AND (
-          (b.start_date - interval '2 hours', b.end_date + interval '2 hours') OVERLAPS ($1::timestamp, $2::timestamp)
-          OR ($1::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
-          OR ($2::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
-          OR (b.start_date - interval '2 hours') BETWEEN $1::timestamp AND $2::timestamp
-          OR (b.end_date + interval '2 hours') BETWEEN $1::timestamp AND $2::timestamp
-        )
-      WHERE 
-        v.status = 'active' 
-        AND v.is_available = true
-      GROUP BY v.id
-      ORDER BY v.name ASC
-    `;
-
-    // Then, make sure when formatting the response that the price is properly sent
-    // Somewhere in the response mapping code, ensure we're handling the price properly
+    // Get available locations for each vehicle
     const formattedVehicles = await Promise.all(
       processedVehicles.map(async (vehicle: VehicleRow) => {
         try {
-          // Parse locations - ensuring it's an array
-          let locations = [];
-          try {
-            locations = Array.isArray(vehicle.location)
-              ? vehicle.location
-              : typeof vehicle.location === 'string'
-                ? JSON.parse(vehicle.location)
-                : [];
-          } catch (e) {
-            locations = typeof vehicle.location === 'string' ? [vehicle.location] : [];
+          // Calculate price based on duration if dates are provided
+          const price = Number(vehicle.price_per_hour || 0);
+          const minHours = Number(vehicle.min_booking_hours || 1);
+          
+          let pricing = null;
+          if (pickupDateStr && dropoffDateStr) {
+            const pickupDate = new Date(pickupDateStr);
+            const dropoffDate = new Date(dropoffDateStr);
+            pricing = calculatePrice(price, pickupDate, dropoffDate);
           }
 
-          // Parse images - ensuring it's an array
-          let images: string[] = [];
+          // Get available locations for this vehicle
+          const availableLocations = await getAvailableLocations(
+            vehicle.id,
+            vehicle.location,
+            pickupDateStr,
+            dropoffDateStr
+          );
+
+          // Parse images
+          let images = [];
           try {
             images = Array.isArray(vehicle.images)
               ? vehicle.images
@@ -527,25 +491,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           } catch (e) {
             images = [];
           }
-
-          // Get available locations based on bookings
-          const availableLocations = await getAvailableLocations(
-            vehicle.id,
-            locations,
-            pickupDate,
-            dropoffDate
-          );
-
-          // Make sure we're capturing both camelCase and snake_case versions of price
-          // Only use the properties that exist in the VehicleRow interface
-          const price = Number(vehicle.price_per_hour || 0);
-          const minHours = Number(vehicle.min_booking_hours || 1);
-
-          // Calculate pricing for this booking duration
-          // Convert string dates to Date objects for calculatePrice
-          const pricing = pickupDate && dropoffDate 
-            ? calculatePrice(price, new Date(pickupDate), new Date(dropoffDate))
-            : { totalHours: 0, chargeableHours: 0, totalPrice: 0 };
 
           return {
             id: vehicle.id,
@@ -577,7 +522,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       })
     );
 
-    return NextResponse.json({ vehicles: formattedVehicles });
+    return NextResponse.json({ vehicles: formattedVehicles.filter(Boolean) });
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
     return NextResponse.json({ error: 'Failed to fetch vehicles', vehicles: [] }, { status: 500 });

@@ -9,7 +9,7 @@ import {
 import logger from '@/lib/logger';
 
 interface LocationDropdownProps {
-  locations: string[];
+  locations: string[] | string;
   selectedLocation: string | null;
   onLocationChange: (location: string) => void;
   vehicleId: string;
@@ -17,6 +17,42 @@ interface LocationDropdownProps {
   endDate?: Date;
   className?: string;
 }
+
+const parseLocations = (locations: string[] | string): string[] => {
+  if (Array.isArray(locations)) {
+    return locations.map(loc => {
+      // Handle cases where the location might be a JSON string
+      if (typeof loc === 'string' && (loc.startsWith('[') || loc.startsWith('"'))) {
+        try {
+          // Remove any extra quotes and brackets
+          const cleaned = loc.replace(/[\[\]"]/g, '');
+          return cleaned;
+        } catch (e) {
+          return loc;
+        }
+      }
+      return loc;
+    });
+  }
+  
+  if (typeof locations === 'string') {
+    try {
+      // Handle string that might be a JSON array
+      if (locations.startsWith('[')) {
+        const parsed = JSON.parse(locations);
+        return Array.isArray(parsed) ? parsed.map(loc => 
+          typeof loc === 'string' ? loc.replace(/[\[\]"]/g, '') : loc
+        ) : [];
+      }
+      // Handle single location string
+      return [locations.replace(/[\[\]"]/g, '')];
+    } catch (e) {
+      return [locations];
+    }
+  }
+  
+  return [];
+};
 
 export function LocationDropdown({
   locations,
@@ -27,7 +63,7 @@ export function LocationDropdown({
   endDate,
   className
 }: LocationDropdownProps) {
-  const [availableLocations, setAvailableLocations] = useState<string[]>(locations);
+  const [availableLocations, setAvailableLocations] = useState<string[]>(parseLocations(locations));
   const isInitialMountRef = useRef(true);
   const isFetchingRef = useRef(false);
   const processingRef = useRef(false);
@@ -42,6 +78,11 @@ export function LocationDropdown({
       lastSelectedLocationRef.current = selectedLocation;
     }
   }, [selectedLocation]);
+
+  // Update availableLocations when locations prop changes
+  useEffect(() => {
+    setAvailableLocations(parseLocations(locations));
+  }, [locations]);
 
   const fetchAvailableLocations = useCallback(async () => {
     if (!startDate || !endDate || isFetchingRef.current) {
@@ -66,7 +107,7 @@ export function LocationDropdown({
       const vehicle = data.vehicles.find((v: any) => v.id === vehicleId);
       
       if (vehicle?.available_locations) {
-        setAvailableLocations(vehicle.available_locations);
+        setAvailableLocations(parseLocations(vehicle.available_locations));
       } else {
         setAvailableLocations([]);
       }

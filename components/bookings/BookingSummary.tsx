@@ -193,23 +193,7 @@ export function BookingSummary({
 
           {/* Additional Details */}
           <div className="mt-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1">
-                <span className="text-gray-700">Km limit</span>
-                <span className="text-blue-500 text-sm">(?)
-                </span>
-              </div>
-              <span className="text-gray-900">240 km</span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1">
-                <span className="text-gray-700">Excess km charges</span>
-                <span className="text-blue-500 text-sm">(?)
-                </span>
-              </div>
-              <span className="text-gray-900">₹7.0/km</span>
-            </div>
+            {/* Removed km limit and excess charges section */}
           </div>
         </div>
       </div>
