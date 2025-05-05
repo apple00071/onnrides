@@ -106,9 +106,9 @@ export default function BookingSummaryPage() {
   useEffect(() => {
     const fetchGstSetting = async () => {
       try {
-        const response = await fetch('/api/settings/gst-enabled');
+        const response = await fetch('/api/settings?key=gst_enabled');
         const data = await response.json();
-        setGstEnabled(data.enabled);
+        setGstEnabled(data.data?.value === 'true');
       } catch (error) {
         console.error('Error fetching GST setting:', error);
         setGstEnabled(false);

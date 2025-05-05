@@ -76,7 +76,7 @@ export function BookingSummary({
     const basePrice = totalAmount;
     const gst = gstEnabled ? Math.round(basePrice * 0.18) : 0;
     const serviceFee = Math.round(basePrice * 0.05);
-    const subtotal = basePrice + gst + serviceFee;
+    const subtotal = basePrice + (gstEnabled ? gst : 0) + serviceFee;
     const discountedTotal = subtotal - (couponDiscount || 0);
     const advancePayment = Math.round(discountedTotal * 0.05);
     const remainingPayment = discountedTotal - advancePayment;

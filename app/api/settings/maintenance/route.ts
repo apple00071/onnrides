@@ -43,12 +43,12 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     const { enabled } = data;
 
-    // Update maintenance mode setting using the query helper
+    // Update maintenance mode setting using the query helper with snake_case column names
     const result = await query(`
-      INSERT INTO settings (id, key, value, "createdAt", "updatedAt")
+      INSERT INTO settings (id, key, value, created_at, updated_at)
       VALUES ($1, $2, $3, NOW(), NOW())
       ON CONFLICT (key) DO UPDATE
-      SET value = $3, "updatedAt" = NOW()
+      SET value = $3, updated_at = NOW()
       RETURNING value
     `, ['maintenance_mode', 'maintenance_mode', String(enabled)]);
 

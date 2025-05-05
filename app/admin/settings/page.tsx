@@ -18,6 +18,7 @@ import { redirectToLogin } from '@/lib/auth-utils';
 export default function SettingsPage() {
   const { data: session, status } = useSession();
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [gstEnabled, setGstEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const isAdmin = session?.user?.role === 'admin';
@@ -42,11 +43,20 @@ export default function SettingsPage() {
       await fetch('/api/settings/initialize');
       
       // Fetch current settings
-      const response = await fetch('/api/settings/maintenance');
-      const data = await response.json();
+      const [maintenanceResponse, gstResponse] = await Promise.all([
+        fetch('/api/settings/maintenance'),
+        fetch('/api/settings?key=gst_enabled')
+      ]);
       
-      if (data.success) {
-        setMaintenanceMode(data.maintenance);
+      const maintenanceData = await maintenanceResponse.json();
+      const gstData = await gstResponse.json();
+      
+      if (maintenanceData.success) {
+        setMaintenanceMode(maintenanceData.maintenance);
+      }
+      
+      if (gstData.success && gstData.data) {
+        setGstEnabled(gstData.data.value === 'true');
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -79,6 +89,33 @@ export default function SettingsPage() {
     } catch (error) {
       toast.error('Error updating maintenance mode');
       console.error('Error updating maintenance mode:', error);
+    }
+  };
+
+  const handleGSTChange = async (checked: boolean) => {
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          key: 'gst_enabled',
+          value: String(checked)
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setGstEnabled(checked);
+        toast.success(checked ? 'GST enabled' : 'GST disabled');
+      } else {
+        toast.error(data.error || 'Failed to update GST setting');
+      }
+    } catch (error) {
+      toast.error('Error updating GST setting');
+      console.error('Error updating GST setting:', error);
     }
   };
 
@@ -117,6 +154,21 @@ export default function SettingsPage() {
               id="maintenance-mode"
               checked={maintenanceMode}
               onCheckedChange={handleMaintenanceModeChange}
+              className="data-[state=checked]:bg-orange-500 data-[state=unchecked]:bg-gray-200"
+            />
+          </div>
+
+          <div className="flex items-center justify-between py-4 px-6 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+            <div className="space-y-1">
+              <Label htmlFor="gst-enabled" className="text-base font-medium">GST</Label>
+              <p className="text-sm text-muted-foreground">
+                Enable or disable GST calculation for bookings
+              </p>
+            </div>
+            <Switch
+              id="gst-enabled"
+              checked={gstEnabled}
+              onCheckedChange={handleGSTChange}
               className="data-[state=checked]:bg-orange-500 data-[state=unchecked]:bg-gray-200"
             />
           </div>
