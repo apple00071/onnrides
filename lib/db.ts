@@ -1,11 +1,12 @@
 import { Kysely, PostgresDialect } from 'kysely';
-import { Pool } from 'pg';
-import logger from './logger';
+import { QueryResult } from 'pg';
+import logger from '@/lib/logger';
+import { pool } from '@/server';
 
-// Constants
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // 1 second
-const CONNECTION_TIMEOUT = 60000; // 60 seconds
+// Constants for database operations
+export const MAX_RETRIES = 3;
+export const RETRY_DELAY = 1000; // 1 second
+export const CONNECTION_TIMEOUT = 5000; // 5 seconds
 
 // Get the appropriate connection string
 const CONNECTION_STRING = process.env.POSTGRES_URL || process.env.DATABASE_URL;
@@ -99,107 +100,120 @@ export const db = new Kysely<Database>({
   })
 });
 
-// Initialize database
-export async function initializeDatabase(): Promise<void> {
+// Helper function to handle database errors
+function handleDatabaseError(error: any, operation: string) {
+  const errorDetails = {
+    code: error.code,
+    message: error.message,
+    detail: error.detail,
+    hint: error.hint,
+    position: error.position,
+    internalPosition: error.internalPosition,
+    internalQuery: error.internalQuery,
+    where: error.where,
+    schema: error.schema,
+    table: error.table,
+    column: error.column,
+    dataType: error.dataType,
+    constraint: error.constraint
+  };
+
+  logger.error(`Database ${operation} error:`, errorDetails);
+  
+  // Check for common error types and provide specific error messages
+  switch (error.code) {
+    case '23505': // unique_violation
+      throw new Error('Duplicate entry found');
+    case '23503': // foreign_key_violation
+      throw new Error('Referenced record does not exist');
+    case '23502': // not_null_violation
+      throw new Error('Required field is missing');
+    case '42P01': // undefined_table
+      throw new Error('Table does not exist');
+    case '42703': // undefined_column
+      throw new Error('Column does not exist');
+    case '28P01': // invalid_password
+      throw new Error('Database authentication failed');
+    case '57P03': // cannot_connect_now
+      throw new Error('Database is not accepting connections');
+    default:
+      throw new Error(`Database error: ${error.message}`);
+  }
+}
+
+// Execute a query with retries
+export async function query(text: string, params: any[] = []): Promise<QueryResult> {
+  let retries = 0;
+  let lastError: any;
+
+  while (retries < MAX_RETRIES) {
+    try {
+      const start = Date.now();
+      const result = await pool.query(text, params);
+      const duration = Date.now() - start;
+
+      logger.debug('Executed query:', {
+        text,
+        duration,
+        rows: result.rowCount
+      });
+
+      return result;
+    } catch (error: any) {
+      lastError = error;
+      retries++;
+
+      logger.warn(`Query attempt ${retries} failed:`, {
+        error: error.message,
+        code: error.code,
+        query: text
+      });
+
+      if (retries < MAX_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+      }
+    }
+  }
+
+  handleDatabaseError(lastError, 'query');
+  throw lastError; // This line will never be reached due to handleDatabaseError throwing
+}
+
+// Initialize database connection
+export async function initializeDatabase() {
   try {
-    await pool.query('SELECT 1');
-    logger.info('Database initialized successfully');
+    const result = await query('SELECT NOW()');
+    logger.info('Database connection successful:', {
+      timestamp: result.rows[0].now
+    });
+    return true;
   } catch (error) {
     logger.error('Failed to initialize database:', error);
-    throw error;
-  }
-}
-
-// Query Functions
-export async function query(text: string, params?: any[]) {
-  try {
-    const start = Date.now();
-    const result = await pool.query(text, params);
-    const duration = Date.now() - start;
-
-    logger.debug('Executed query', {
-      text,
-      duration,
-      rows: result.rowCount
-    });
-
-    return result;
-  } catch (error) {
-    logger.error('Database query error:', error);
-    throw error;
-  }
-}
-
-export async function getMaintenanceMode(): Promise<boolean> {
-  try {
-    const result = await query(`
-      SELECT value FROM settings 
-      WHERE key = 'maintenance_mode' 
-      LIMIT 1
-    `);
-    return result.rows[0]?.value === 'true';
-  } catch (error) {
-    logger.error('Error getting maintenance mode:', error);
     return false;
   }
 }
 
-export async function createBookingWithTransaction(bookingData: Partial<Database['bookings']>) {
-  return await db.transaction().execute(async (trx) => {
-    const booking = await trx
-      .insertInto('bookings')
-      .values(bookingData as any)
-      .returning('id')
-      .executeTakeFirst();
-      
-    return booking;
-  });
-}
-
-export async function getUsersDirectly(): Promise<UserRow[]> {
-  try {
-    const result = await query(`
-      SELECT 
-        id::text, 
-        name, 
-        email, 
-        phone, 
-        role,
-        created_at,
-        updated_at,
-        CASE WHEN is_blocked IS TRUE THEN TRUE ELSE FALSE END as is_blocked
-      FROM users
-      ORDER BY created_at DESC
-    `);
-
-    return result.rows;
-  } catch (error) {
-    logger.error('Error in direct database query for users:', error);
-    return [];
-  }
-}
-
-// Cleanup Functions
-export async function closePool(): Promise<void> {
+// Clean up database connections
+export async function closePool() {
   try {
     await pool.end();
-    logger.info('Database pool closed');
+    logger.info('Database pool closed successfully');
   } catch (error) {
     logger.error('Error closing database pool:', error);
-    throw error;
   }
 }
 
 // Initialize database on module load
 initializeDatabase().catch(error => {
-  logger.error('Failed to initialize database on startup:', error);
+  logger.error('Database initialization failed:', error);
   process.exit(1);
 });
 
 // Handle cleanup on process exit
-process.on('SIGTERM', async () => {
-  await closePool();
-  process.exit(0);
+process.on('exit', () => {
+  closePool().catch(error => {
+    logger.error('Error during cleanup:', error);
+  });
 });
 
 export default db;

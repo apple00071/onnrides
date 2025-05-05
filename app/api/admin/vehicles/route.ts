@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { randomUUID } from 'crypto';
 import type { NewVehicle, Vehicle } from '@/lib/schema';
+import { withErrorHandler, AuthorizationError, ValidationError } from '@/lib/api-handler';
 
 interface VehicleRow {
   id: string;
@@ -81,14 +82,21 @@ const normalizeImages = (images: any): string[] => {
   return [];
 };
 
-export async function GET(_request: NextRequest) {
-  try {
-    const result = await query(`
-      SELECT * FROM vehicles 
-      ORDER BY created_at
-    `);
+// GET /api/admin/vehicles - List all vehicles
+export const GET = withErrorHandler(async (request: NextRequest) => {
+  // Check if user is admin
+  const session = await getServerSession(authOptions);
+  if (!session?.user || session.user.role !== 'admin') {
+    throw new AuthorizationError('Unauthorized access');
+  }
 
-    const formattedVehicles = result.rows.map((vehicle: VehicleRow) => {
+  const result = await query(`
+    SELECT * FROM vehicles 
+    ORDER BY created_at
+  `);
+
+  const formattedVehicles = result.rows.map((vehicle: VehicleRow) => {
+    try {
       // Clean up location data
       let locations = [];
       try {
@@ -102,189 +110,123 @@ export async function GET(_request: NextRequest) {
       }
 
       // Clean up images data
-      const images = normalizeImages(vehicle.images);
+      let images = [];
+      try {
+        images = Array.isArray(vehicle.images)
+          ? vehicle.images
+          : typeof vehicle.images === 'string'
+            ? JSON.parse(vehicle.images)
+            : [];
+      } catch (e) {
+        images = [];
+      }
 
       return {
         ...vehicle,
         location: locations,
         images: images,
       };
-    });
-
-    return NextResponse.json({ vehicles: formattedVehicles });
-  } catch (error) {
-    logger.error('Error fetching vehicles:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch vehicles' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get the raw data and parse it
-    const rawData = await request.text();
-    logger.info('Raw request data:', { rawData });
-    
-    // Parse the JSON data
-    const data = JSON.parse(rawData);
-    logger.info('Received vehicle creation request:', { 
-      data, 
-      keys: Object.keys(data)
-    });
-    
-    // Enhanced validation with more specific error messages
-    const missingFields = [];
-    if (!data.name) missingFields.push('name');
-    if (!data.type) missingFields.push('type');
-    
-    // More thorough check for price_per_hour
-    if (
-      data.price_per_hour === undefined || 
-      data.price_per_hour === null || 
-      data.price_per_hour === '' || 
-      isNaN(Number(data.price_per_hour))
-    ) {
-      missingFields.push('price_per_hour');
-      logger.warn('price_per_hour validation failed:', { 
-        value: data.price_per_hour, 
-        type: typeof data.price_per_hour,
-        isNaN: isNaN(Number(data.price_per_hour))
-      });
-    }
-    
-    // Handle different possible formats of location data
-    const hasValidLocation = (
-      data.location && 
-      (
-        (typeof data.location === 'string' && data.location.trim() !== '') || 
-        (Array.isArray(data.location) && data.location.length > 0) ||
-        (typeof data.location === 'object' && Object.keys(data.location).length > 0)
-      )
-    );
-    
-    if (!hasValidLocation) {
-      missingFields.push('location');
-    }
-    
-    if (missingFields.length > 0) {
-      logger.warn(`Missing required fields: ${missingFields.join(', ')}`, { 
-        data,
-        dataKeys: Object.keys(data) 
-      });
-      return NextResponse.json(
-        { error: `Missing required fields: ${missingFields.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // Normalize images before saving
-    const normalizedImages = normalizeImages(data.images);
-    logger.debug('Normalized images:', { normalizedImages });
-
-    // Ensure location is properly formatted
-    let location = data.location;
-    if (typeof location === 'string') {
-      // If it's a single location, convert to array
-      location = [location];
-    } else if (Array.isArray(location)) {
-      // If it's already an array, clean it
-      location = location.map(loc => loc.trim()).filter(Boolean);
-    } else if (typeof location === 'object' && location.name) {
-      // If it's an object with name property, extract locations
-      location = Array.isArray(location.name) ? location.name : [location.name];
-    }
-
-    // Convert location array to JSON string
-    const locationJson = JSON.stringify(location);
-    
-    // Generate a UUID for the vehicle
-    const vehicleId = randomUUID();
-
-    try {
-      // Create the vehicle with normalized images
-      const result = await query(`
-        INSERT INTO vehicles (
-          id, name, type, location, quantity, 
-          price_per_hour, price_7_days, price_15_days, price_30_days, 
-          min_booking_hours, images, status, is_available,
-          is_delivery_enabled, delivery_price_7_days, delivery_price_15_days, delivery_price_30_days,
-          created_at, updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
-        RETURNING id::text, name, type, location, quantity, 
-          price_per_hour, price_7_days, price_15_days, price_30_days, 
-          min_booking_hours, images, status, is_available,
-          is_delivery_enabled, delivery_price_7_days, delivery_price_15_days, delivery_price_30_days,
-          created_at, updated_at
-      `, [
-        vehicleId,
-        data.name,
-        data.type,
-        locationJson,
-        Number(data.quantity) || 1,
-        Number(data.price_per_hour),
-        data.price_7_days ? Number(data.price_7_days) : null,
-        data.price_15_days ? Number(data.price_15_days) : null,
-        data.price_30_days ? Number(data.price_30_days) : null,
-        Number(data.min_booking_hours) || 1,
-        JSON.stringify(normalizedImages),
-        data.status || 'active',
-        true,
-        data.is_delivery_enabled || false,
-        data.delivery_price_7_days ? Number(data.delivery_price_7_days) : null,
-        data.delivery_price_15_days ? Number(data.delivery_price_15_days) : null,
-        data.delivery_price_30_days ? Number(data.delivery_price_30_days) : null,
-        new Date(),
-        new Date()
-      ]);
-
-      const vehicle = result.rows[0] as VehicleRow;
-
-      logger.info('Vehicle created successfully:', { 
+    } catch (error) {
+      logger.error('Error formatting vehicle:', {
         vehicleId: vehicle.id,
-        imageCount: normalizedImages.length
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
-
-      // Format the response
-      const formattedVehicle = {
-        ...vehicle,
-        location: JSON.parse(vehicle.location),
-        images: normalizedImages // Use normalized images directly
-      };
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          vehicle: formattedVehicle
-        }
-      });
-    } catch (dbError: any) {
-      logger.error('Database error creating vehicle:', {
-        error: dbError,
-        message: dbError.message,
-        data
-      });
-      throw new Error(`Database error: ${dbError.message}`);
+      return null;
     }
-  } catch (error: any) {
-    logger.error('Error creating vehicle:', {
-      error,
-      message: error.message,
-      stack: error.stack
-    });
-    return NextResponse.json(
-      { error: 'Failed to create vehicle: ' + (error.message || 'Unknown error') },
-      { status: 500 }
-    );
+  }).filter(Boolean);
+
+  return Response.json({ vehicles: formattedVehicles });
+});
+
+// POST /api/admin/vehicles - Create vehicle
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  // Check if user is admin
+  const session = await getServerSession(authOptions);
+  if (!session?.user || session.user.role !== 'admin') {
+    throw new AuthorizationError('Unauthorized access');
   }
-}
+
+  // Get the raw data and parse it
+  const data = await request.json();
+  
+  // Validate required fields
+  const missingFields = [];
+  if (!data.name) missingFields.push('name');
+  if (!data.type) missingFields.push('type');
+  if (!data.price_per_hour) missingFields.push('price_per_hour');
+  
+  if (missingFields.length > 0) {
+    throw new ValidationError(`Missing required fields: ${missingFields.join(', ')}`);
+  }
+
+  // Normalize images before saving
+  const normalizedImages = Array.isArray(data.images) ? data.images : [];
+
+  // Ensure location is properly formatted
+  let location = data.location;
+  if (typeof location === 'string') {
+    location = [location];
+  } else if (Array.isArray(location)) {
+    location = location.map(loc => loc.trim()).filter(Boolean);
+  } else if (typeof location === 'object' && location.name) {
+    location = Array.isArray(location.name) ? location.name : [location.name];
+  }
+
+  // Convert location array to JSON string
+  const locationJson = JSON.stringify(location);
+  
+  // Generate a UUID for the vehicle
+  const vehicleId = randomUUID();
+
+  // Create the vehicle with normalized data
+  const result = await query(`
+    INSERT INTO vehicles (
+      id, name, type, location, quantity, 
+      price_per_hour, price_7_days, price_15_days, price_30_days, 
+      min_booking_hours, images, status, is_available,
+      is_delivery_enabled, delivery_price_7_days, delivery_price_15_days, delivery_price_30_days,
+      created_at, updated_at
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+    RETURNING *
+  `, [
+    vehicleId,
+    data.name,
+    data.type,
+    locationJson,
+    Number(data.quantity) || 1,
+    Number(data.price_per_hour),
+    data.price_7_days ? Number(data.price_7_days) : null,
+    data.price_15_days ? Number(data.price_15_days) : null,
+    data.price_30_days ? Number(data.price_30_days) : null,
+    Number(data.min_booking_hours) || 1,
+    JSON.stringify(normalizedImages),
+    data.status || 'active',
+    true,
+    data.is_delivery_enabled || false,
+    data.delivery_price_7_days ? Number(data.delivery_price_7_days) : null,
+    data.delivery_price_15_days ? Number(data.delivery_price_15_days) : null,
+    data.delivery_price_30_days ? Number(data.delivery_price_30_days) : null,
+    new Date(),
+    new Date()
+  ]);
+
+  const vehicle = result.rows[0];
+
+  // Format the response
+  const formattedVehicle = {
+    ...vehicle,
+    location: JSON.parse(vehicle.location),
+    images: normalizedImages
+  };
+
+  return Response.json({
+    success: true,
+    data: {
+      vehicle: formattedVehicle
+    }
+  });
+});
 
 export async function PUT(request: NextRequest) {
   try {
