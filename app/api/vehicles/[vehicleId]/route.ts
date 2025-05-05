@@ -35,13 +35,13 @@ export async function GET(
         name, 
         type, 
         location, 
-        "pricePerHour",
+        price_per_hour,
         price_7_days,
         price_15_days,
         price_30_days,
         images,
-        "createdAt", 
-        "updatedAt"
+        created_at, 
+        updated_at
       FROM vehicles
       WHERE id = $1
     `, [params.vehicleId]);
@@ -258,9 +258,9 @@ export async function PUT(
         type = $2,
         location = $3,
         quantity = $4,
-        "pricePerHour" = $5,
-        "minBookingHours" = $6,
-        "isAvailable" = $7,
+        price_per_hour = $5,
+        min_booking_hours = $6,
+        is_available = $7,
         images = $8,
         status = $9,
         vehicle_category = $10,
@@ -270,7 +270,7 @@ export async function PUT(
         delivery_price_7_days = $14,
         delivery_price_15_days = $15,
         delivery_price_30_days = $16,
-        "updatedAt" = $17
+        updated_at = $17
       WHERE id = $18
       RETURNING *
     `, [

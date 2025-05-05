@@ -1,4 +1,4 @@
- import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { 
@@ -137,26 +137,26 @@ async function getAvailableLocations(
       WITH booking_counts AS (
         SELECT 
           b.id,
-          b."startDate" as start_date,
-          b."endDate" as end_date,
+          b.start_date,
+          b.end_date,
           b.status,
-          b."pickupLocation"::text as effective_location,
+          b.pickup_location::text as effective_location,
           v.name as vehicle_name,
           v.quantity as vehicle_quantity,
           COUNT(*) OVER (
-            PARTITION BY b."pickupLocation"::text
+            PARTITION BY b.pickup_location::text
           ) as concurrent_bookings
         FROM bookings b
-        JOIN vehicles v ON b."vehicleId" = v.id
-        WHERE b."vehicleId" = $1
+        JOIN vehicles v ON b.vehicle_id = v.id
+        WHERE b.vehicle_id = $1
         AND b.status NOT IN ('cancelled', 'failed')
-        AND b."paymentStatus" != 'failed'
+        AND b.payment_status != 'failed'
         AND (
-          (b."startDate" - interval '2 hours', b."endDate" + interval '2 hours') OVERLAPS ($2::timestamp, $3::timestamp)
-          OR ($2::timestamp BETWEEN (b."startDate" - interval '2 hours') AND (b."endDate" + interval '2 hours'))
-          OR ($3::timestamp BETWEEN (b."startDate" - interval '2 hours') AND (b."endDate" + interval '2 hours'))
-          OR (b."startDate" - interval '2 hours') BETWEEN $2::timestamp AND $3::timestamp
-          OR (b."endDate" + interval '2 hours') BETWEEN $2::timestamp AND $3::timestamp
+          (b.start_date - interval '2 hours', b.end_date + interval '2 hours') OVERLAPS ($2::timestamp, $3::timestamp)
+          OR ($2::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
+          OR ($3::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
+          OR (b.start_date - interval '2 hours') BETWEEN $2::timestamp AND $3::timestamp
+          OR (b.end_date + interval '2 hours') BETWEEN $2::timestamp AND $3::timestamp
         )
       )
       SELECT * FROM booking_counts
@@ -235,17 +235,17 @@ interface VehicleRow {
   name: string;
   type: string;
   status: string;
-  pricePerHour: number;
+  price_per_hour: number;
   price_7_days: number | null;
   price_15_days: number | null;
   price_30_days: number | null;
   location: string;  // PostgreSQL returns this as a string
   images: string;    // PostgreSQL returns this as a string
   quantity: number;
-  minBookingHours: number;
-  isAvailable: boolean;
-  createdAt: string;
-  updatedAt: string;
+  min_booking_hours: number;
+  is_available: boolean;
+  created_at: string;
+  updated_at: string;
   booked_locations: string[];
 }
 
@@ -269,19 +269,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             type, 
             location, 
             quantity,
-            "pricePerHour",
-            price_per_hour, 
+            price_per_hour,
             price_7_days, 
             price_15_days, 
             price_30_days,
-            "minBookingHours",
             min_booking_hours,
             images, 
             status, 
-            "isAvailable",
             is_available,
-            "createdAt",
-            "updatedAt"
+            created_at,
+            updated_at
           FROM vehicles
           WHERE id = $1
         `;
@@ -298,8 +295,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         const vehicle = result.rows[0];
         
         // Make sure we're capturing both camelCase and snake_case versions of price
-        const pricePerHour = Number(vehicle.pricePerHour || 0);
-        const minBookingHours = Number(vehicle.minBookingHours || 1);
+        const pricePerHour = Number(vehicle.price_per_hour || 0);
+        const minBookingHours = Number(vehicle.min_booking_hours || 1);
         
         // Parse locations - ensuring it's an array
         let locations = [];
@@ -320,7 +317,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             ? vehicle.images
             : typeof vehicle.images === 'string'
               ? JSON.parse(vehicle.images)
-              : [];
+            : [];
         } catch (e) {
           images = [];
         }
@@ -340,10 +337,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           location: locations,
           images: images,
           status: vehicle.status,
-          is_available: vehicle.isAvailable || false,
-          isAvailable: vehicle.isAvailable || false,
-          created_at: vehicle.createdAt,
-          updated_at: vehicle.updatedAt
+          is_available: vehicle.is_available || false,
+          isAvailable: vehicle.is_available || false,
+          created_at: vehicle.created_at,
+          updated_at: vehicle.updated_at
         };
         
         return NextResponse.json(formattedVehicle);
@@ -366,32 +363,32 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         v.name,
         v.type,
         v.status,
-        v."pricePerHour",
-        v."price_7_days",
-        v."price_15_days",
-        v."price_30_days",
+        v.price_per_hour,
+        v.price_7_days,
+        v.price_15_days,
+        v.price_30_days,
         v.location,
         v.images,
         v.quantity,
-        v."minBookingHours",
-        v."isAvailable",
-        v."createdAt",
-        v."updatedAt",
+        v.min_booking_hours,
+        v.is_available,
+        v.created_at,
+        v.updated_at,
         COALESCE(
-          array_agg(DISTINCT b."pickupLocation") FILTER (WHERE b."pickupLocation" IS NOT NULL),
+          array_agg(DISTINCT b.pickup_location) FILTER (WHERE b.pickup_location IS NOT NULL),
           '{}'
         ) as booked_locations
       FROM vehicles v
-      LEFT JOIN bookings b ON v.id = b."vehicleId" 
+      LEFT JOIN bookings b ON v.id = b.vehicle_id 
         AND b.status NOT IN ('cancelled', 'failed')
-        AND b."paymentStatus" != 'failed'
+        AND b.payment_status != 'failed'
       WHERE v.status = 'active'
       GROUP BY v.id
       ORDER BY 
         -- First, prioritize Activa bikes
         CASE WHEN LOWER(v.name) LIKE '%activa%' THEN 0 ELSE 1 END,
         -- Then sort by price
-        v."pricePerHour" ASC,
+        v.price_per_hour ASC,
         -- Finally sort by name for consistent ordering
         v.name ASC
     `;
@@ -465,7 +462,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
     });
 
-    // Look for the SQL query first, ensure it's fetching pricePerHour correctly
+    // Look for the SQL query first, ensure it's fetching price_per_hour correctly
     const vehiclesQuery = `
       SELECT 
         v.id, 
@@ -473,34 +470,31 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         v.type, 
         v.location, 
         v.quantity,
-        v."pricePerHour",
-        v.price_per_hour, 
+        v.price_per_hour,
         v.price_7_days, 
         v.price_15_days, 
         v.price_30_days,
-        v."minBookingHours",
         v.min_booking_hours,
         v.images, 
         v.status, 
-        v."isAvailable",
         v.is_available,
-        v."createdAt",
-        v."updatedAt",
-        ARRAY_AGG(DISTINCT b."pickupLocation") as booked_locations
+        v.created_at,
+        v.updated_at,
+        ARRAY_AGG(DISTINCT b.pickup_location) as booked_locations
       FROM vehicles v
-      LEFT JOIN bookings b ON v.id = b."vehicleId" 
+      LEFT JOIN bookings b ON v.id = b.vehicle_id 
         AND b.status NOT IN ('cancelled', 'failed') 
-        AND b."paymentStatus" != 'failed'
+        AND b.payment_status != 'failed'
         AND (
-          (b."startDate" - interval '2 hours', b."endDate" + interval '2 hours') OVERLAPS ($1::timestamp, $2::timestamp)
-          OR ($1::timestamp BETWEEN (b."startDate" - interval '2 hours') AND (b."endDate" + interval '2 hours'))
-          OR ($2::timestamp BETWEEN (b."startDate" - interval '2 hours') AND (b."endDate" + interval '2 hours'))
-          OR (b."startDate" - interval '2 hours') BETWEEN $1::timestamp AND $2::timestamp
-          OR (b."endDate" + interval '2 hours') BETWEEN $1::timestamp AND $2::timestamp
+          (b.start_date - interval '2 hours', b.end_date + interval '2 hours') OVERLAPS ($1::timestamp, $2::timestamp)
+          OR ($1::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
+          OR ($2::timestamp BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
+          OR (b.start_date - interval '2 hours') BETWEEN $1::timestamp AND $2::timestamp
+          OR (b.end_date + interval '2 hours') BETWEEN $1::timestamp AND $2::timestamp
         )
       WHERE 
         v.status = 'active' 
-        AND v."isAvailable" = true
+        AND v.is_available = true
       GROUP BY v.id
       ORDER BY v.name ASC
     `;
@@ -544,8 +538,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
           // Make sure we're capturing both camelCase and snake_case versions of price
           // Only use the properties that exist in the VehicleRow interface
-          const price = Number(vehicle.pricePerHour || 0);
-          const minHours = Number(vehicle.minBookingHours || 1);
+          const price = Number(vehicle.price_per_hour || 0);
+          const minHours = Number(vehicle.min_booking_hours || 1);
 
           // Calculate pricing for this booking duration
           // Convert string dates to Date objects for calculatePrice
@@ -567,10 +561,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             location: availableLocations,
             images: images,
             status: vehicle.status,
-            is_available: vehicle.isAvailable,
-            isAvailable: vehicle.isAvailable,
-            created_at: vehicle.createdAt,
-            updated_at: vehicle.updatedAt,
+            is_available: vehicle.is_available,
+            isAvailable: vehicle.is_available,
+            created_at: vehicle.created_at,
+            updated_at: vehicle.updated_at,
             pricing: pricing
           };
         } catch (error) {
@@ -623,8 +617,8 @@ export async function POST(request: NextRequest) {
 
     const result = await query(
       `INSERT INTO vehicles (
-        name, type, location, "pricePerHour", description, 
-        features, images, status, "createdAt", "updatedAt"
+        name, type, location, price_per_hour, description, 
+        features, images, status, created_at, updated_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
       RETURNING *`,
       [

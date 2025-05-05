@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
 
     const bookingResult = await query(`
       SELECT * FROM bookings 
-      WHERE "paymentDetails"->>'razorpay_order_id' = $1
-         OR "paymentDetails"->>'order_id' = $1
+      WHERE payment_details->>'razorpay_order_id' = $1
+         OR payment_details->>'order_id' = $1
       LIMIT 1
     `, [razorpay_order_id]);
 
@@ -62,10 +62,10 @@ export async function POST(request: NextRequest) {
 
       // Log recent bookings for debugging
       const recentBookingsResult = await query(`
-        SELECT id, "bookingId", "paymentDetails" 
+        SELECT id, booking_id, payment_details 
         FROM bookings 
-        WHERE "paymentDetails" IS NOT NULL 
-        ORDER BY "createdAt" DESC 
+        WHERE payment_details IS NOT NULL 
+        ORDER BY created_at DESC 
         LIMIT 5
       `, []);
 
@@ -98,8 +98,8 @@ export async function POST(request: NextRequest) {
       // Update booking with payment verification details using direct query
       const updatedBookingResult = await query(`
         UPDATE bookings
-        SET "paymentDetails" = jsonb_set(
-          COALESCE("paymentDetails", '{}'::jsonb),
+        SET payment_details = jsonb_set(
+          COALESCE(payment_details, '{}'::jsonb),
           '{razorpay_payment_id}',
           to_jsonb($1::text)
         ) || jsonb_build_object(
@@ -107,11 +107,11 @@ export async function POST(request: NextRequest) {
           'verified_at', $3::text,
           'status', 'verified'
         ),
-        "paymentStatus" = 'completed',
+        payment_status = 'completed',
         status = CASE WHEN status = 'pending' THEN 'confirmed' ELSE status END,
-        "updatedAt" = $4
+        updated_at = $4
         WHERE id = $5
-        RETURNING id, "bookingId"
+        RETURNING id, booking_id
       `, [
         razorpay_payment_id,
         razorpay_signature,
@@ -124,15 +124,15 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        booking_id: updatedBooking.bookingId
+        booking_id: updatedBooking.booking_id
       });
 
     } catch (error) {
       // Handle verification failure
       await query(`
         UPDATE bookings
-        SET "paymentDetails" = jsonb_set(
-          COALESCE("paymentDetails", '{}'::jsonb),
+        SET payment_details = jsonb_set(
+          COALESCE(payment_details, '{}'::jsonb),
           '{razorpay_payment_id}',
           to_jsonb($1::text)
         ) || jsonb_build_object(
@@ -141,8 +141,8 @@ export async function POST(request: NextRequest) {
           'status', 'failed',
           'error', $4::text
         ),
-        "paymentStatus" = 'pending',
-        "updatedAt" = $5
+        payment_status = 'pending',
+        updated_at = $5
         WHERE id = $6
       `, [
         razorpay_payment_id,

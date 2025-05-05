@@ -97,17 +97,14 @@ export async function PUT(
       const updateQuery = `
         UPDATE vehicles 
         SET 
-          "isAvailable" = $1::boolean,
           is_available = $1::boolean,
-          "pricePerHour" = $2::double precision,
           price_per_hour = $2::numeric,
-          "minBookingHours" = $3::integer,
           min_booking_hours = $3::integer,
           price_7_days = $4::numeric,
           price_15_days = $5::numeric,
           price_30_days = $6::numeric,
           status = $7,
-          "updatedAt" = $8
+          updated_at = $8
         WHERE id = $9
         RETURNING *;
       `;

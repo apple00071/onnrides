@@ -28,33 +28,79 @@ import { ImageIcon } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 // Base64 encoded simple placeholder image
 const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNGNUY1RjUiLz48cGF0aCBkPSJNMTAwIDcwQzg0LjUgNzAgNzIgODIuNSA3MiA5OEM3MiAxMTMuNSA4NC41IDEyNiAxMDAgMTI2QzExNS41IDEyNiAxMjggMTEzLjUgMTI4IDk4QzEyOCA4Mi41IDExNS41IDcwIDEwMCA3MFpNMTAwIDExNkM5MC41IDExNiA4Mi41IDEwOCA4Mi41IDk4QzgyLjUgODggOTAuNSA4MCAxMDAgODBDMTA5LjUgODAgMTE3LjUgODggMTE3LjUgOThDMTE3LjUgMTA4IDEwOS41IDExNiAxMDAgMTE2WiIgZmlsbD0iI0Q5RDlEOSIvPjwvc3ZnPg==';
 
 // Helper function to format locations
 const formatLocations = (location: string | string[]): string[] => {
-  if (Array.isArray(location)) return location;
-  return location.split(',').map((loc: string) => loc.trim());
+  try {
+    // If it's already an array, clean each item
+    if (Array.isArray(location)) {
+      return location.map(loc => 
+        typeof loc === 'string' 
+          ? loc.replace(/["\[\]]/g, '').trim() 
+          : String(loc).trim()
+      ).filter(Boolean);
+    }
+    
+    // If it's a string that looks like JSON, parse it
+    if (typeof location === 'string') {
+      if (location.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(location);
+          return Array.isArray(parsed) 
+            ? parsed.map(loc => String(loc).replace(/["\[\]]/g, '').trim()).filter(Boolean)
+            : [parsed.toString().replace(/["\[\]]/g, '').trim()];
+        } catch {
+          // If JSON parsing fails, treat as comma-separated string
+          return location
+            .replace(/["\[\]]/g, '')
+            .split(',')
+            .map(loc => loc.trim())
+            .filter(Boolean);
+        }
+      }
+      // Handle comma-separated string
+      return location
+        .split(',')
+        .map(loc => loc.replace(/["\[\]]/g, '').trim())
+        .filter(Boolean);
+    }
+    
+    return [];
+  } catch (error) {
+    logger.error('Error formatting locations:', error);
+    return Array.isArray(location) ? location : [String(location)];
+  }
 };
 
 function convertToVehicle(data: VehicleFormData): Vehicle {
-  // Cast to any to avoid type errors with properties that may vary between interfaces
   return {
-    ...data,
     id: data.id || '',
+    name: data.name,
     type: data.type,
     price_per_hour: Number(data.price_per_hour),
-    pricePerHour: Number(data.price_per_hour),
     min_booking_hours: Number(data.min_booking_hours || 1),
-    minBookingHours: Number(data.min_booking_hours || 1),
     is_available: Boolean(data.is_available),
-    isAvailable: Boolean(data.is_available),
     vehicle_category: data.vehicle_category || 'normal',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    available: data.is_available,
-    nextAvailable: null
+    next_available: null,
+    location: data.location,
+    images: data.images,
+    quantity: Number(data.quantity),
+    status: data.status,
+    description: data.description || null,
+    features: data.features || [],
+    price_7_days: data.price_7_days,
+    price_15_days: data.price_15_days,
+    price_30_days: data.price_30_days,
+    delivery_price_7_days: data.delivery_price_7_days,
+    delivery_price_15_days: data.delivery_price_15_days,
+    delivery_price_30_days: data.delivery_price_30_days
   } as Vehicle;
 }
 
@@ -169,24 +215,17 @@ export default function VehiclesPage() {
       console.log('Fetched vehicles data:', vehiclesArray);
       
       // Normalize data to handle both camelCase and snake_case fields
-      const normalizedVehicles = vehiclesArray.map((vehicle: any) => {
-        return {
-          ...vehicle,
-          // Ensure both camelCase and snake_case versions exist
-          pricePerHour: vehicle.pricePerHour || vehicle.price_per_hour,
-          price_per_hour: vehicle.price_per_hour || vehicle.pricePerHour,
-          isAvailable: vehicle.isAvailable || vehicle.is_available,
-          is_available: vehicle.is_available || vehicle.isAvailable,
-          minBookingHours: vehicle.minBookingHours || vehicle.min_booking_hours,
-          min_booking_hours: vehicle.min_booking_hours || vehicle.minBookingHours,
-          // Ensure created_at and updated_at exist
-          created_at: vehicle.created_at || vehicle.createdAt || new Date().toISOString(),
-          updated_at: vehicle.updated_at || vehicle.updatedAt || new Date().toISOString(),
-        };
-      });
+      const updatedVehicles = vehiclesArray.map((vehicle: any) => ({
+        ...vehicle,
+        price_per_hour: vehicle.price_per_hour,
+        is_available: vehicle.is_available,
+        min_booking_hours: vehicle.min_booking_hours,
+        created_at: vehicle.created_at || new Date().toISOString(),
+        updated_at: vehicle.updated_at || new Date().toISOString(),
+      }));
       
-      console.log('Normalized vehicles:', normalizedVehicles);
-      setVehicles(normalizedVehicles);
+      console.log('Normalized vehicles:', updatedVehicles);
+      setVehicles(updatedVehicles);
     } catch (error) {
       console.error('Error fetching vehicles:', error);
     } finally {
@@ -209,7 +248,7 @@ export default function VehiclesPage() {
       }
 
       // Remove the vehicle from the local state
-      setVehicles(prev => prev.filter(vehicle => vehicle.id !== id));
+      setVehicles((prev: Vehicle[]) => prev.filter(vehicle => vehicle.id !== id));
       toast.success('Vehicle deleted successfully');
     } catch (error) {
       logger.error('Error deleting vehicle:', error);
@@ -232,8 +271,8 @@ export default function VehiclesPage() {
       updated_at: new Date().toISOString()
     };
 
-    setVehicles(prev => 
-      prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v)
+    setVehicles((prev: Vehicle[]) => 
+      prev.map((v: Vehicle) => v.id === updatedVehicle.id ? updatedVehicle : v)
     );
     setEditingVehicle(null);
     toast.success('Vehicle updated successfully');
@@ -246,7 +285,6 @@ export default function VehiclesPage() {
       name: data.name,
       type: data.type,
       price_per_hour: Number(data.price_per_hour),
-      pricePerHour: Number(data.price_per_hour),
       price_7_days: data.price_7_days ? Number(data.price_7_days) : null,
       price_15_days: data.price_15_days ? Number(data.price_15_days) : null,
       price_30_days: data.price_30_days ? Number(data.price_30_days) : null,
@@ -254,9 +292,7 @@ export default function VehiclesPage() {
       images: [],
       quantity: Number(data.quantity),
       min_booking_hours: Number(data.min_booking_hours),
-      minBookingHours: Number(data.min_booking_hours),
       is_available: true,
-      isAvailable: true,
       status: 'active',
       description: data.description || null,
       features: [],
@@ -268,7 +304,7 @@ export default function VehiclesPage() {
       vehicle_category: data.vehicle_category || 'normal'
     } as Vehicle;
 
-    setVehicles(prev => [...prev, newVehicle]);
+    setVehicles((prev: Vehicle[]) => [...prev, newVehicle]);
     setIsAddModalOpen(false);
     toast.success('Vehicle added successfully');
   };
@@ -280,51 +316,31 @@ export default function VehiclesPage() {
     logger.debug('isAddModalOpen set to:', true);
   };
 
-  const handleAvailabilityChange = async (vehicle: Vehicle, isAvailable: boolean) => {
+  const handleAvailabilityChange = async (vehicleId: string, is_available: boolean) => {
     try {
-      logger.info('Updating vehicle availability:', { vehicleId: vehicle.id, isAvailable });
-      
-      // Create payload with correct property names to match database schema
-      const payload = {
-        name: vehicle.name,
-        type: vehicle.type,
-        location: vehicle.location,
-        pricePerHour: Number(vehicle.price_per_hour),
-        isAvailable: isAvailable,
-        images: vehicle.images,
-        minBookingHours: Number(vehicle.min_booking_hours),
-        quantity: Number(vehicle.quantity),
-        status: vehicle.status,
-        price_7_days: vehicle.price_7_days ? Number(vehicle.price_7_days) : null,
-        price_15_days: vehicle.price_15_days ? Number(vehicle.price_15_days) : null,
-        price_30_days: vehicle.price_30_days ? Number(vehicle.price_30_days) : null,
-        delivery_price_7_days: vehicle.delivery_price_7_days ? Number(vehicle.delivery_price_7_days) : null,
-        delivery_price_15_days: vehicle.delivery_price_15_days ? Number(vehicle.delivery_price_15_days) : null,
-        delivery_price_30_days: vehicle.delivery_price_30_days ? Number(vehicle.delivery_price_30_days) : null
-      };
-      
-      const response = await fetch(`/api/admin/vehicles/${vehicle.id}`, {
+      const response = await fetch(`/api/admin/vehicles/${vehicleId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ is_available }),
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to update vehicle availability');
+        throw new Error('Failed to update vehicle availability');
       }
 
       // Update local state
-      setVehicles(vehicles.map(v => 
-        v.id === vehicle.id ? { ...v, is_available: isAvailable, isAvailable: isAvailable } : v
+      setVehicles(vehicles.map((vehicle: Vehicle) => 
+        vehicle.id === vehicleId 
+          ? { ...vehicle, is_available } 
+          : vehicle
       ));
 
-      toast.success(`Vehicle ${isAvailable ? 'enabled' : 'disabled'} successfully`);
+      toast.success('Vehicle availability updated successfully');
     } catch (error) {
-      logger.error('Error updating vehicle availability:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update vehicle availability');
+      console.error('Error updating vehicle availability:', error);
+      toast.error('Failed to update vehicle availability');
     }
   };
 
@@ -361,7 +377,7 @@ export default function VehiclesPage() {
 
         {/* Simple Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {vehicles.map((vehicle) => (
+          {vehicles.map((vehicle: Vehicle) => (
             <Card key={vehicle.id} className="bg-white">
               {/* Image */}
               <div className="relative h-48 bg-gray-50">
@@ -381,12 +397,12 @@ export default function VehiclesPage() {
                 <Badge 
                   className={cn(
                     "absolute top-2 right-2",
-                    ((vehicle.is_available || false) || (vehicle.isAvailable || false))
+                    vehicle.is_available
                       ? "bg-green-100 text-green-800" 
                       : "bg-gray-100 text-gray-800"
                   )}
                 >
-                  {((vehicle.is_available || false) || (vehicle.isAvailable || false)) ? 'Available' : 'Unavailable'}
+                  {vehicle.is_available ? 'Available' : 'Unavailable'}
                 </Badge>
               </div>
 
@@ -398,9 +414,9 @@ export default function VehiclesPage() {
                       <h3 className="font-medium text-gray-900">{vehicle.name}</h3>
                       <p className="text-sm text-gray-500 capitalize">{vehicle.type}</p>
                     </div>
-                    <p className="font-medium text-[#f26e24]">
-                      ₹{vehicle.price_per_hour || vehicle.pricePerHour || 0}/hr
-                    </p>
+                    <div className="text-sm text-gray-500">
+                      Price per hour: ₹{vehicle.price_per_hour}
+                    </div>
                   </div>
 
                   {/* Locations */}
@@ -418,18 +434,15 @@ export default function VehiclesPage() {
 
                   {/* Actions */}
                   <div className="flex items-center justify-between pt-3 border-t">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id={`is_available-${vehicle.id}`}
                         checked={vehicle.is_available}
-                        onCheckedChange={(checked) => handleAvailabilityChange(vehicle, checked as boolean)}
-                        id={`vehicle-available-${vehicle.id}`}
+                        onCheckedChange={(checked) => handleAvailabilityChange(vehicle.id, checked)}
                       />
-                      <label
-                        htmlFor={`vehicle-available-${vehicle.id}`}
-                        className="text-sm text-gray-600"
-                      >
-                        Available
-                      </label>
+                      <Label htmlFor={`is_available-${vehicle.id}`}>
+                        {vehicle.is_available ? 'Available' : 'Not Available'}
+                      </Label>
                     </div>
                     <div className="flex gap-2">
                       <Button

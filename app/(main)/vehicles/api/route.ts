@@ -31,19 +31,16 @@ export async function GET(request: NextRequest) {
         type, 
         location, 
         quantity,
-        "pricePerHour",
-        price_per_hour, 
+        price_per_hour,
         price_7_days, 
         price_15_days, 
         price_30_days,
-        "minBookingHours",
         min_booking_hours,
         images, 
         status, 
-        "isAvailable",
         is_available,
-        "createdAt",
-        "updatedAt"
+        created_at,
+        updated_at
       FROM vehicles
       WHERE id = $1
     `, [vehicleId]);
@@ -110,19 +107,16 @@ export async function GET(request: NextRequest) {
       name: vehicle.name,
       type: vehicle.type,
       price_per_hour: pricePerHour,
-      pricePerHour: pricePerHour,
       min_booking_hours: minBookingHours,
-      minBookingHours: minBookingHours,
       price_7_days: vehicle.price_7_days,
       price_15_days: vehicle.price_15_days,
       price_30_days: vehicle.price_30_days,
       location: locations,
       images: images,
       status: vehicle.status,
-      is_available: vehicle.isAvailable || vehicle.is_available,
-      isAvailable: vehicle.isAvailable || vehicle.is_available,
-      created_at: vehicle.createdAt,
-      updated_at: vehicle.updatedAt,
+      is_available: vehicle.is_available,
+      created_at: vehicle.created_at,
+      updated_at: vehicle.updated_at,
       pricing: pricing
     };
     

@@ -154,68 +154,68 @@ export async function GET(request: NextRequest) {
     const countResult = await query(`
       SELECT COUNT(*) 
       FROM bookings 
-      WHERE "userId" = $1
+      WHERE user_id = $1
     `, [session.user.id]);
 
     const totalBookings = parseInt(countResult.rows[0].count);
     const totalPages = Math.ceil(totalBookings / limit);
 
-    // Update query to use camelCase column names
+    // Query using snake_case column names
     const result = await query(`
       SELECT 
         b.id, 
-        b."bookingId" as booking_id, 
+        b.booking_id,
         b.status, 
-        b."startDate" as start_date,
-        b."endDate" as end_date,
+        b.start_date,
+        b.end_date,
         
         -- Apply IST conversion correctly using AT TIME ZONE
-        (b."startDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as pickup_datetime,
-        (b."endDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as dropoff_datetime,
+        (b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as pickup_datetime,
+        (b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as dropoff_datetime,
         
         -- Create formatted dates for display
-        TO_CHAR(b."startDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
-        TO_CHAR(b."endDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
+        TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
+        TO_CHAR(b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
         
-        b."totalPrice" as total_amount,
-        b."paymentStatus" as payment_status,
-        b."createdAt" as created_at,
-        b."updatedAt" as updated_at,
+        b.total_price as total_amount,
+        b.payment_status,
+        b.created_at,
+        b.updated_at,
         v.id as vehicle_id,
         v.name as vehicle_name,
         v.type as vehicle_type,
         v.location as vehicle_location,
         v.images as vehicle_images,
-        v."pricePerHour" as vehicle_price_per_hour
+        v.price_per_hour as vehicle_price_per_hour
       FROM bookings b
-      JOIN vehicles v ON b."vehicleId" = v.id
-      WHERE b."userId" = $1
-      ORDER BY b."createdAt" DESC
+      JOIN vehicles v ON b.vehicle_id = v.id
+      WHERE b.user_id = $1
+      ORDER BY b.created_at DESC
       LIMIT $2 OFFSET $3
     `, [session.user.id, limit, offset]);
 
     // Update the bookings mapping to handle both column naming conventions
     const bookings = result.rows.map((booking: BookingRow) => ({
       id: booking.id,
-      booking_id: booking.booking_id || booking.bookingId,
+      booking_id: booking.booking_id,
       status: booking.status,
-      start_date: booking.start_date || booking.startDate,
-      end_date: booking.end_date || booking.endDate,
+      start_date: booking.start_date,
+      end_date: booking.end_date,
       formatted_pickup: booking.formatted_pickup,
       formatted_dropoff: booking.formatted_dropoff,
       pickup_datetime: booking.pickup_datetime,
       dropoff_datetime: booking.dropoff_datetime,
-      total_price: parseFloat((booking.total_amount || booking.totalAmount || booking.total_price || booking.totalPrice || 0).toString()),
-      payment_status: booking.payment_status || booking.paymentStatus || 'pending',
-      created_at: booking.created_at || booking.createdAt,
-      updated_at: booking.updated_at || booking.updatedAt,
+      total_price: parseFloat((booking.total_amount || booking.total_price || 0).toString()),
+      payment_status: booking.payment_status || 'pending',
+      created_at: booking.created_at,
+      updated_at: booking.updated_at,
       vehicle: {
-        id: booking.vehicle_id || booking.vehicleId,
+        id: booking.vehicle_id,
         name: booking.vehicle_name,
         type: booking.vehicle_type,
         location: booking.vehicle_location,
         images: booking.vehicle_images,
-        price_per_hour: booking.vehicle_price_per_hour || booking.vehiclePricePerHour
+        price_per_hour: booking.vehicle_price_per_hour
       }
     }));
 
@@ -390,24 +390,24 @@ export async function POST(request: NextRequest): Promise<Response> {
     });
     
     try {
-      // Update the INSERT query to handle both camelCase and snake_case
+      // Update the INSERT query to use snake_case
       const createdBooking = await query(`
         INSERT INTO bookings (
           id, 
-          "userId", 
-          "vehicleId", 
-          "startDate", 
-          "endDate", 
-          "totalHours", 
-          "totalPrice", 
+          user_id, 
+          vehicle_id, 
+          start_date, 
+          end_date, 
+          total_hours, 
+          total_price, 
           status, 
-          "paymentStatus", 
-          "pickupLocation", 
-          "bookingId", 
-          "paymentDetails", 
-          "dropoffLocation", 
-          "createdAt", 
-          "updatedAt"
+          payment_status, 
+          pickup_location, 
+          booking_id, 
+          payment_details, 
+          dropoff_location, 
+          created_at, 
+          updated_at
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING id
@@ -459,7 +459,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       // Update the payment details
       await query(`
         UPDATE bookings 
-        SET "paymentDetails" = $1::jsonb
+        SET payment_details = $1::jsonb
         WHERE id = $2
       `, [
         JSON.stringify({

@@ -5,6 +5,7 @@ import logger from '@/lib/logger';
 import { Client } from 'pg';
 import fs from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 
 // Define Zod schema for user signup
 const userSignupSchema = z.object({
@@ -116,32 +117,28 @@ export async function POST(req: NextRequest) {
       // Hash the password
       const hashedPassword = await bcrypt.hash(body.password, 10);
       
-      // Let PostgreSQL generate the UUID with DEFAULT value
-      await debugLog('Creating new user');
-      
-      // Insert without specifying an ID to use DEFAULT (uuid_generate_v4())
-      await debugLog('Inserting new user into database');
-      
-      const insertResult = await client.query(
+      // Insert the new user into the database
+      const result = await client.query(
         `INSERT INTO users (
+          id,
           name, 
           email, 
           password_hash, 
           phone, 
-          role
-        ) VALUES (
-          $1, 
-          $2, 
-          $3, 
-          $4, 
-          $5
-        ) RETURNING id::text, name, email, phone, role, pg_typeof(id) as id_type`,
+          role,
+          created_at,
+          updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id::text, name, email, phone, role`,
         [
+          randomUUID(), // Generate UUID for id
           body.name || null,
           body.email,
           hashedPassword,
           body.phone || null,
-          'user'
+          'user',
+          new Date(),
+          new Date()
         ]
       );
       
@@ -150,26 +147,12 @@ export async function POST(req: NextRequest) {
       await debugLog('Transaction committed');
       
       // Extract user from result
-      const user = insertResult.rows[0];
+      const user = result.rows[0];
       
       await debugLog('User created successfully', { 
         id: user.id,
-        id_type: user.id_type,
         email: user.email
       });
-      
-      // Double check the ID type with a separate query
-      const typeCheckResult = await client.query(
-        `SELECT id::text, pg_typeof(id) as id_type FROM users WHERE email = $1`,
-        [body.email]
-      );
-      
-      if (typeCheckResult.rows.length > 0) {
-        await debugLog('Double-check ID type', {
-          id: typeCheckResult.rows[0].id,
-          id_type: typeCheckResult.rows[0].id_type
-        });
-      }
       
       // Get current users from database for debugging
       const allUsersResult = await client.query(

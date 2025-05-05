@@ -4,7 +4,7 @@ import { compare } from 'bcryptjs';
 import { DefaultSession, DefaultUser } from 'next-auth';
 import { JWT } from 'next-auth/jwt';
 import logger from '@/lib/logger';
-import { prisma } from '@/lib/prisma';
+import { query } from '@/lib/db';
 
 // Extend the built-in session types
 declare module "next-auth" {
@@ -39,27 +39,22 @@ export const authOptions: AuthOptions = {
         }
 
         try {
-          // Find user by email
-          const user = await prisma.users.findUnique({
-            where: { 
-              email: credentials.email.toLowerCase() 
-            },
-            select: {
-              id: true,
-              email: true,
-              password_hash: true,
-              name: true,
-              role: true,
-              is_blocked: true
-            }
-          });
+          // Find user by email using PostgreSQL
+          const result = await query(`
+            SELECT 
+              id,
+              email,
+              password_hash,
+              name,
+              role
+            FROM users 
+            WHERE email = $1
+          `, [credentials.email.toLowerCase()]);
+
+          const user = result.rows[0];
 
           if (!user) {
             throw new Error('No user found');
-          }
-
-          if (user.is_blocked) {
-            throw new Error('Account is blocked');
           }
 
           // Check password

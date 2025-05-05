@@ -28,29 +28,21 @@ export interface Vehicle {
   name: string;
   type: string;
   price_per_hour: number;
-  pricePerHour?: number;
-  price_7_days?: number | null;
-  price_15_days?: number | null;
-  price_30_days?: number | null;
-  delivery_price_7_days?: number | null;
-  delivery_price_15_days?: number | null;
-  delivery_price_30_days?: number | null;
-  vehicle_category?: 'normal' | 'delivery' | 'both';
+  price_7_days: number | null;
+  price_15_days: number | null;
+  price_30_days: number | null;
+  delivery_price_7_days: number | null;
+  delivery_price_15_days: number | null;
+  delivery_price_30_days: number | null;
+  vehicle_category: 'normal' | 'delivery' | 'both';
   location: string[];
   images: string[];
   quantity: number;
   min_booking_hours: number;
-  minBookingHours?: number;
   is_available: boolean;
-  isAvailable?: boolean;
-  available?: boolean;
-  nextAvailable?: {
-    nextAvailable: string;
-    until: string | null;
-  } | null;
   status: 'active' | 'maintenance' | 'retired';
-  description?: string | null;
-  features?: string[];
+  description: string | null;
+  features: string[];
   created_at: string;
   updated_at: string;
   pricing?: {
@@ -59,6 +51,10 @@ export interface Vehicle {
     chargeable_hours: number;
     total_price: number;
   };
+  next_available?: {
+    next_available: string;
+    until: string | null;
+  } | null;
   image_url?: string;
   brand?: string;
   model?: string;

@@ -71,7 +71,7 @@ async function getUserVehicleStats(): Promise<UserVehicleStatsData> {
   try {
     const [usersResult, vehiclesResult] = await Promise.all([
       query('SELECT COUNT(*) as count FROM users WHERE role = \'user\''),
-      query('SELECT COUNT(*) as total, COUNT(CASE WHEN "isAvailable" = true THEN 1 END) as available FROM vehicles')
+      query('SELECT COUNT(*) as total, COUNT(CASE WHEN is_available = true THEN 1 END) as available FROM vehicles')
     ]);
 
     return {

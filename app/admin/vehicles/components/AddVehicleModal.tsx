@@ -193,8 +193,8 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
         name: formData.name,
         type: "bike", // Always set this value directly
         location: formData.location,
-        pricePerHour: pricePerHour, // Explicitly set with no calculations
-        minBookingHours: Number(formData.min_booking_hours || 1),
+        price_per_hour: pricePerHour, // Use snake_case
+        min_booking_hours: Number(formData.min_booking_hours || 1),
         quantity: Number(formData.quantity || 1),
         images: formData.images || [],
         // Add delivery-related fields with correct field names for the API

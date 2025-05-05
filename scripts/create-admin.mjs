@@ -1,6 +1,7 @@
 import { Client } from 'pg';
-import { createId } from '@paralleldrive/cuid2';
+import { randomUUID } from 'crypto';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
@@ -14,8 +15,6 @@ const client = new Client({
 async function createAdmin() {
   const email = 'admin@onnrides.com';
   const password = 'admin123'; // You should change this after first login
-  // This is the bcrypt hash of 'admin123'
-  const hashedPassword = '$2a$10$YEqFIQU3uN.4LGQEGz1kLOCxVkgfwZ.U0TUPyPrz0Oz.3u.Z0ZUXW';
 
   try {
     await client.connect();
@@ -31,11 +30,15 @@ async function createAdmin() {
       process.exit(0);
     }
 
+    // Hash the password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
     // Create admin user
     await client.query(
       `INSERT INTO users (id, email, name, password_hash, role, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
-      [createId(), email, 'Admin', hashedPassword, 'admin']
+      [randomUUID(), email, 'Admin', hashedPassword, 'admin']
     );
 
     console.log('Admin user created successfully');

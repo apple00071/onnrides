@@ -57,7 +57,7 @@ model User {
   phone_verified Boolean    @default(false)
   image         String?
   role          String     @default("USER")
-  password      String?
+  password_hash String?
   created_at    DateTime   @default(now())
   updated_at    DateTime   @updatedAt
   accounts      Account[]
@@ -75,9 +75,19 @@ model Vehicle {
   description     String?
   images          Json?
   location        String?
+  quantity        Int       @default(1)
   price_per_hour  Float
+  price_7_days    Float?
+  price_15_days   Float?
+  price_30_days   Float?
+  delivery_price_7_days  Float?
+  delivery_price_15_days Float?
+  delivery_price_30_days Float?
   min_booking_hours Int      @default(1)
   is_available    Boolean    @default(true)
+  is_delivery_enabled Boolean @default(false)
+  vehicle_category String    @default("normal")
+  status          String    @default("active")
   features        Json?
   created_at      DateTime   @default(now())
   updated_at      DateTime   @updatedAt

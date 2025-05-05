@@ -12,20 +12,20 @@ interface VehicleRow {
   type: string;
   location: string;
   quantity: number;
-  pricePerHour: number;
+  price_per_hour: number;
   price_7_days: number | null;
   price_15_days: number | null;
   price_30_days: number | null;
-  minBookingHours: number;
+  min_booking_hours: number;
   images: string;
   status: string;
-  isAvailable: boolean;
+  is_available: boolean;
   is_delivery_enabled: boolean;
   delivery_price_7_days: number | null;
   delivery_price_15_days: number | null;
   delivery_price_30_days: number | null;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 // Helper function to normalize image data
@@ -85,7 +85,7 @@ export async function GET(_request: NextRequest) {
   try {
     const result = await query(`
       SELECT * FROM vehicles 
-      ORDER BY "createdAt"
+      ORDER BY created_at
     `);
 
     const formattedVehicles = result.rows.map((vehicle: VehicleRow) => {
@@ -144,18 +144,18 @@ export async function POST(request: NextRequest) {
     if (!data.name) missingFields.push('name');
     if (!data.type) missingFields.push('type');
     
-    // More thorough check for pricePerHour
+    // More thorough check for price_per_hour
     if (
-      data.pricePerHour === undefined || 
-      data.pricePerHour === null || 
-      data.pricePerHour === '' || 
-      isNaN(Number(data.pricePerHour))
+      data.price_per_hour === undefined || 
+      data.price_per_hour === null || 
+      data.price_per_hour === '' || 
+      isNaN(Number(data.price_per_hour))
     ) {
-      missingFields.push('pricePerHour');
-      logger.warn('pricePerHour validation failed:', { 
-        value: data.pricePerHour, 
-        type: typeof data.pricePerHour,
-        isNaN: isNaN(Number(data.pricePerHour))
+      missingFields.push('price_per_hour');
+      logger.warn('price_per_hour validation failed:', { 
+        value: data.price_per_hour, 
+        type: typeof data.price_per_hour,
+        isNaN: isNaN(Number(data.price_per_hour))
       });
     }
     
@@ -212,28 +212,28 @@ export async function POST(request: NextRequest) {
       const result = await query(`
         INSERT INTO vehicles (
           id, name, type, location, quantity, 
-          "pricePerHour", price_7_days, price_15_days, price_30_days, 
-          "minBookingHours", images, status, "isAvailable",
-          "is_delivery_enabled", "delivery_price_7_days", "delivery_price_15_days", "delivery_price_30_days",
-          "createdAt", "updatedAt"
+          price_per_hour, price_7_days, price_15_days, price_30_days, 
+          min_booking_hours, images, status, is_available,
+          is_delivery_enabled, delivery_price_7_days, delivery_price_15_days, delivery_price_30_days,
+          created_at, updated_at
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         RETURNING id::text, name, type, location, quantity, 
-          "pricePerHour", price_7_days, price_15_days, price_30_days, 
-          "minBookingHours", images, status, "isAvailable",
-          "is_delivery_enabled", "delivery_price_7_days", "delivery_price_15_days", "delivery_price_30_days",
-          "createdAt", "updatedAt"
+          price_per_hour, price_7_days, price_15_days, price_30_days, 
+          min_booking_hours, images, status, is_available,
+          is_delivery_enabled, delivery_price_7_days, delivery_price_15_days, delivery_price_30_days,
+          created_at, updated_at
       `, [
         vehicleId,
         data.name,
         data.type,
         locationJson,
         Number(data.quantity) || 1,
-        Number(data.pricePerHour),
+        Number(data.price_per_hour),
         data.price_7_days ? Number(data.price_7_days) : null,
         data.price_15_days ? Number(data.price_15_days) : null,
         data.price_30_days ? Number(data.price_30_days) : null,
-        Number(data.minBookingHours) || 1,
+        Number(data.min_booking_hours) || 1,
         JSON.stringify(normalizedImages),
         data.status || 'active',
         true,
@@ -297,14 +297,14 @@ export async function PUT(request: NextRequest) {
     const { id, ...updateData } = data;
 
     // Process numeric fields
-    if (updateData.pricePerHour) {
-      updateData.pricePerHour = Number(updateData.pricePerHour);
+    if (updateData.price_per_hour) {
+      updateData.price_per_hour = Number(updateData.price_per_hour);
     }
     if (updateData.quantity) {
       updateData.quantity = Number(updateData.quantity);
     }
-    if (updateData.minBookingHours) {
-      updateData.minBookingHours = Number(updateData.minBookingHours);
+    if (updateData.min_booking_hours) {
+      updateData.min_booking_hours = Number(updateData.min_booking_hours);
     }
     
     // Handle special pricing fields
