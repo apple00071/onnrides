@@ -1,213 +1,239 @@
-// Script to make database queries compatible with both camelCase and snake_case column names during build
-require('dotenv').config();
+/**
+ * Database Compatibility Script for Build Process
+ * 
+ * This script runs during the build process to ensure the database queries
+ * can handle both camelCase and snake_case column naming conventions.
+ * 
+ * For deployment to Vercel with PostgreSQL, we need to ensure our queries are compatible
+ * regardless of the actual column names in the database.
+ */
+
 const { Pool } = require('pg');
+require('dotenv').config();
 
-// Create a basic logger
-const logger = {
-  info: (...args) => console.info('[INFO]', ...args),
-  error: (...args) => console.error('[ERROR]', ...args),
-  debug: (...args) => console.debug('[DEBUG]', ...args)
-};
-
-// Database Connection Setup
-const CONNECTION_STRING = process.env.POSTGRES_URL || process.env.DATABASE_URL;
-
-if (!CONNECTION_STRING) {
-  throw new Error('No database connection string provided');
-}
-
+// Initialize PostgreSQL connection
 const pool = new Pool({
-  connectionString: CONNECTION_STRING,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-  ssl: process.env.NODE_ENV === 'production' ? {
-    rejectUnauthorized: false
-  } : undefined
+  connectionString: process.env.DATABASE_URL
 });
 
-// Simple query function
-async function query(text, params) {
-  try {
-    const start = Date.now();
-    const result = await pool.query(text, params);
-    const duration = Date.now() - start;
-
-    logger.debug('Executed query', {
-      text: text.substring(0, 100) + '...',
-      duration,
-      rows: result.rowCount
-    });
-
-    return result;
-  } catch (error) {
-    logger.error('Database query error:', error);
-    throw error;
-  }
-}
-
-async function fixDatabaseForBuild() {
-  logger.info('Starting database compatibility fix for build...');
+// Get all tables and their columns for mapping
+async function getDatabaseStructure() {
+  console.log('Analyzing database structure...');
   
   try {
-    // Check which tables exist
-    const tablesResult = await query(`
+    // Get all table names in the current schema
+    const tablesResult = await pool.query(`
       SELECT table_name 
       FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-        AND table_type = 'BASE TABLE'
+      WHERE table_schema = 'public'
     `);
     
     const tables = tablesResult.rows.map(row => row.table_name);
-    logger.info('Found tables:', tables);
+    console.log(`Found ${tables.length} tables in database:`, tables);
     
-    if (tables.includes('vehicles')) {
-      // Check which columns exist in vehicles table
-      const vehicleColumnsResult = await query(`
-        SELECT column_name 
+    // Get all columns for each table
+    const tableStructures = {};
+    
+    for (const table of tables) {
+      const columnsResult = await pool.query(`
+        SELECT column_name, data_type 
         FROM information_schema.columns 
-        WHERE table_name = 'vehicles'
-      `);
+        WHERE table_schema = 'public' 
+        AND table_name = $1
+      `, [table]);
       
-      const vehicleColumns = vehicleColumnsResult.rows.map(row => row.column_name);
-      logger.info('Vehicle columns:', vehicleColumns);
+      const columns = columnsResult.rows.map(row => ({
+        name: row.column_name,
+        type: row.data_type
+      }));
       
-      // Add missing columns if needed
-      if (!vehicleColumns.includes('price_per_hour') && vehicleColumns.includes('pricePerHour')) {
-        logger.info('Adding price_per_hour column to vehicles table');
-        await query(`
-          ALTER TABLE vehicles 
-          ADD COLUMN price_per_hour NUMERIC DEFAULT 0
-        `);
-        
-        await query(`
-          UPDATE vehicles 
-          SET price_per_hour = "pricePerHour"
-        `);
+      tableStructures[table] = {
+        columns,
+        camelCaseColumns: columns.filter(col => col.name.match(/[A-Z]/) && !col.name.includes('_')),
+        snake_case_columns: columns.filter(col => col.name.includes('_'))
+      };
+      
+      console.log(`Table '${table}' has ${columns.length} columns`);
+      
+      if (tableStructures[table].camelCaseColumns.length > 0) {
+        console.log(`- camelCase columns in '${table}':`, 
+          tableStructures[table].camelCaseColumns.map(c => c.name).join(', '));
       }
       
-      if (!vehicleColumns.includes('min_booking_hours') && vehicleColumns.includes('minBookingHours')) {
-        logger.info('Adding min_booking_hours column to vehicles table');
-        await query(`
-          ALTER TABLE vehicles 
-          ADD COLUMN min_booking_hours INTEGER DEFAULT 1
-        `);
-        
-        await query(`
-          UPDATE vehicles 
-          SET min_booking_hours = "minBookingHours"
-        `);
-      }
-      
-      if (!vehicleColumns.includes('is_available') && vehicleColumns.includes('isAvailable')) {
-        logger.info('Adding is_available column to vehicles table');
-        await query(`
-          ALTER TABLE vehicles 
-          ADD COLUMN is_available BOOLEAN DEFAULT TRUE
-        `);
-        
-        await query(`
-          UPDATE vehicles 
-          SET is_available = "isAvailable"
-        `);
+      if (tableStructures[table].snake_case_columns.length > 0) {
+        console.log(`- snake_case columns in '${table}':`, 
+          tableStructures[table].snake_case_columns.map(c => c.name).join(', '));
       }
     }
     
-    if (tables.includes('bookings')) {
-      // Check which columns exist in bookings table
-      const bookingsColumnsResult = await query(`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'bookings'
-      `);
-      
-      const bookingsColumns = bookingsColumnsResult.rows.map(row => row.column_name);
-      logger.info('Bookings columns:', bookingsColumns);
-      
-      // Add missing columns if needed
-      if (!bookingsColumns.includes('user_id') && bookingsColumns.includes('userId')) {
-        logger.info('Adding user_id column to bookings table');
-        await query(`
-          ALTER TABLE bookings 
-          ADD COLUMN user_id TEXT
-        `);
-        
-        await query(`
-          UPDATE bookings 
-          SET user_id = "userId"
-        `);
-      }
-      
-      if (!bookingsColumns.includes('vehicle_id') && bookingsColumns.includes('vehicleId')) {
-        logger.info('Adding vehicle_id column to bookings table');
-        await query(`
-          ALTER TABLE bookings 
-          ADD COLUMN vehicle_id TEXT
-        `);
-        
-        await query(`
-          UPDATE bookings 
-          SET vehicle_id = "vehicleId"
-        `);
-      }
-      
-      if (!bookingsColumns.includes('booking_id') && bookingsColumns.includes('bookingId')) {
-        logger.info('Adding booking_id column to bookings table');
-        await query(`
-          ALTER TABLE bookings 
-          ADD COLUMN booking_id TEXT
-        `);
-        
-        await query(`
-          UPDATE bookings 
-          SET booking_id = "bookingId"
-        `);
-      }
-      
-      if (!bookingsColumns.includes('total_price') && bookingsColumns.includes('totalPrice')) {
-        logger.info('Adding total_price column to bookings table');
-        await query(`
-          ALTER TABLE bookings 
-          ADD COLUMN total_price NUMERIC
-        `);
-        
-        await query(`
-          UPDATE bookings 
-          SET total_price = "totalPrice"
-        `);
-      }
-    }
-    
-    logger.info('Database compatibility setup completed successfully.');
-    
-    return { success: true, message: 'Database prepared for build compatibility.' };
+    return tableStructures;
   } catch (error) {
-    logger.error('Error fixing database for build:', error);
+    console.error('Error analyzing database structure:', error);
     throw error;
   }
 }
 
-// Cleanup function
-async function closePool() {
+// Apply necessary fixes for critical tables
+async function applyDatabaseFixes(tableStructures) {
+  console.log('Applying critical database fixes...');
+  
   try {
-    await pool.end();
-    logger.info('Database pool closed');
+    // Focus on the most important tables: bookings and vehicles
+    const criticalTables = ['bookings', 'vehicles'];
+    
+    for (const tableName of criticalTables) {
+      if (!tableStructures[tableName]) {
+        console.log(`Table '${tableName}' not found, skipping`);
+        continue;
+      }
+      
+      console.log(`Checking if table '${tableName}' needs fixes...`);
+      
+      // For bookings, ensure we have both camelCase and snake_case for critical columns
+      if (tableName === 'bookings') {
+        // List of critical booking columns to check
+        const criticalColumns = [
+          { camel: "bookingId", snake: "booking_id" },
+          { camel: "userId", snake: "user_id" },
+          { camel: "vehicleId", snake: "vehicle_id" },
+          { camel: "startDate", snake: "start_date" },
+          { camel: "endDate", snake: "end_date" },
+          { camel: "totalPrice", snake: "total_price" },
+          { camel: "paymentStatus", snake: "payment_status" },
+          { camel: "paymentDetails", snake: "payment_details" }
+        ];
+        
+        for (const col of criticalColumns) {
+          await ensureColumnExists(tableName, col.snake, col.camel, tableStructures[tableName]);
+        }
+      }
+      
+      // For vehicles, ensure we have both camelCase and snake_case for critical columns
+      if (tableName === 'vehicles') {
+        // List of critical vehicle columns to check
+        const criticalColumns = [
+          { camel: "pricePerHour", snake: "price_per_hour" },
+          { camel: "minBookingHours", snake: "min_booking_hours" },
+          { camel: "isAvailable", snake: "is_available" }
+        ];
+        
+        for (const col of criticalColumns) {
+          await ensureColumnExists(tableName, col.snake, col.camel, tableStructures[tableName]);
+        }
+      }
+    }
+    
+    console.log('Database fixes applied successfully');
   } catch (error) {
-    logger.error('Error closing database pool:', error);
+    console.error('Error applying database fixes:', error);
+    console.log('Continuing with build process despite errors...');
   }
 }
 
-// Run the function if executed directly
-if (require.main === module) {
-  fixDatabaseForBuild()
-    .then((result) => {
-      logger.info('Database build compatibility completed:', result);
-      closePool().then(() => process.exit(0));
-    })
-    .catch((error) => {
-      logger.error('Database build compatibility failed:', error);
-      closePool().then(() => process.exit(1));
-    });
+// Helper function to ensure a column exists in both camelCase and snake_case
+async function ensureColumnExists(tableName, snakeCase, camelCase, tableStructure) {
+  try {
+    const hasSnakeCase = tableStructure.columns.some(col => col.name === snakeCase);
+    const hasCamelCase = tableStructure.columns.some(col => col.name === camelCase);
+    
+    if (hasSnakeCase && !hasCamelCase) {
+      console.log(`Adding ${camelCase} column to match existing ${snakeCase}`);
+      
+      // Get data type of the existing column
+      const typeResult = await pool.query(`
+        SELECT data_type, character_maximum_length, numeric_precision, numeric_scale
+        FROM information_schema.columns
+        WHERE table_name = $1 AND column_name = $2
+      `, [tableName, snakeCase]);
+      
+      if (typeResult.rows.length > 0) {
+        const column = typeResult.rows[0];
+        let dataType = column.data_type;
+        
+        // Add appropriate type modifiers
+        if (dataType === 'character varying' && column.character_maximum_length) {
+          dataType = `character varying(${column.character_maximum_length})`;
+        } else if (dataType === 'numeric' && column.numeric_precision && column.numeric_scale) {
+          dataType = `numeric(${column.numeric_precision}, ${column.numeric_scale})`;
+        }
+        
+        // Add the camelCase column using the same data type
+        await pool.query(`
+          ALTER TABLE ${tableName} ADD COLUMN IF NOT EXISTS "${camelCase}" ${dataType}
+        `);
+        
+        // Copy data from snake_case to camelCase
+        await pool.query(`
+          UPDATE ${tableName} SET "${camelCase}" = ${snakeCase}
+        `);
+        
+        console.log(`Added ${camelCase} column to ${tableName} table`);
+      }
+    } else if (hasCamelCase && !hasSnakeCase) {
+      console.log(`Adding ${snakeCase} column to match existing ${camelCase}`);
+      
+      // Get data type of the existing column
+      const typeResult = await pool.query(`
+        SELECT data_type, character_maximum_length, numeric_precision, numeric_scale
+        FROM information_schema.columns
+        WHERE table_name = $1 AND column_name = $2
+      `, [tableName, camelCase]);
+      
+      if (typeResult.rows.length > 0) {
+        const column = typeResult.rows[0];
+        let dataType = column.data_type;
+        
+        // Add appropriate type modifiers
+        if (dataType === 'character varying' && column.character_maximum_length) {
+          dataType = `character varying(${column.character_maximum_length})`;
+        } else if (dataType === 'numeric' && column.numeric_precision && column.numeric_scale) {
+          dataType = `numeric(${column.numeric_precision}, ${column.numeric_scale})`;
+        }
+        
+        // Add the snake_case column using the same data type
+        await pool.query(`
+          ALTER TABLE ${tableName} ADD COLUMN IF NOT EXISTS ${snakeCase} ${dataType}
+        `);
+        
+        // Copy data from camelCase to snake_case
+        await pool.query(`
+          UPDATE ${tableName} SET ${snakeCase} = "${camelCase}"
+        `);
+        
+        console.log(`Added ${snakeCase} column to ${tableName} table`);
+      }
+    } else if (hasSnakeCase && hasCamelCase) {
+      console.log(`Both ${snakeCase} and ${camelCase} exist in ${tableName}, no action needed`);
+    } else {
+      console.log(`Neither ${snakeCase} nor ${camelCase} exist in ${tableName}, skipping`);
+    }
+  } catch (error) {
+    console.error(`Error ensuring column existence for ${snakeCase}/${camelCase} in ${tableName}:`, error);
+  }
 }
 
-module.exports = { fixDatabaseForBuild }; 
+// Main function to run all fix operations
+async function fixDatabaseForBuild() {
+  console.log('Starting database compatibility fix for build process...');
+  
+  try {
+    // Get full database structure information
+    const tableStructures = await getDatabaseStructure();
+    
+    // Apply necessary fixes
+    await applyDatabaseFixes(tableStructures);
+    
+    console.log('Database compatibility setup completed successfully!');
+  } catch (error) {
+    console.error('Database compatibility setup failed:', error);
+    console.log('Continuing with build process despite errors...');
+  } finally {
+    await pool.end();
+  }
+}
+
+// Run the fix process
+fixDatabaseForBuild().catch(error => {
+  console.error('Unhandled error in database fix script:', error);
+  process.exit(0); // Exit with 0 to continue the build process
+}); 

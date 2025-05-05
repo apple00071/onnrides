@@ -99,27 +99,38 @@ try {
   });
 }
 
-// Add interface for booking row type
+// Update the interface to support both naming conventions
 interface BookingRow {
   id: string;
-  bookingId: string;
+  bookingId?: string;
+  booking_id?: string;
   status: string;
-  start_date: Date;
-  end_date: Date;
+  startDate?: Date;
+  start_date?: Date;
+  endDate?: Date;
+  end_date?: Date;
   formatted_pickup: string;
   formatted_dropoff: string;
   pickup_datetime: Date;
   dropoff_datetime: Date;
-  total_amount: number;
-  payment_status: string;
-  created_at: Date;
-  updated_at: Date;
-  vehicle_id: string;
+  totalAmount?: number;
+  total_amount?: number;
+  totalPrice?: number;
+  total_price?: number;
+  paymentStatus?: string;
+  payment_status?: string;
+  createdAt?: Date;
+  created_at?: Date;
+  updatedAt?: Date;
+  updated_at?: Date;
+  vehicleId?: string;
+  vehicle_id?: string;
   vehicle_name: string;
   vehicle_type: string;
   vehicle_location: string;
   vehicle_images: string;
-  vehicle_price_per_hour: number;
+  vehiclePricePerHour?: number;
+  vehicle_price_per_hour?: number;
 }
 
 // GET /api/bookings - List user's bookings
@@ -143,68 +154,68 @@ export async function GET(request: NextRequest) {
     const countResult = await query(`
       SELECT COUNT(*) 
       FROM bookings 
-      WHERE user_id = $1
+      WHERE "userId" = $1
     `, [session.user.id]);
 
     const totalBookings = parseInt(countResult.rows[0].count);
     const totalPages = Math.ceil(totalBookings / limit);
 
-    // Get all bookings with vehicle information
+    // Update query to use camelCase column names
     const result = await query(`
       SELECT 
         b.id, 
-        b.booking_id, 
+        b."bookingId" as booking_id, 
         b.status, 
-        b.start_date, 
-        b.end_date,
+        b."startDate" as start_date,
+        b."endDate" as end_date,
         
         -- Apply IST conversion correctly using AT TIME ZONE
-        (b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as pickup_datetime,
-        (b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as dropoff_datetime,
+        (b."startDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as pickup_datetime,
+        (b."endDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as dropoff_datetime,
         
         -- Create formatted dates for display
-        TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
-        TO_CHAR(b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
+        TO_CHAR(b."startDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
+        TO_CHAR(b."endDate" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
         
-        b.total_price as total_amount, 
-        b.payment_status,
-        b.created_at,
-        b.updated_at,
+        b."totalPrice" as total_amount,
+        b."paymentStatus" as payment_status,
+        b."createdAt" as created_at,
+        b."updatedAt" as updated_at,
         v.id as vehicle_id,
         v.name as vehicle_name,
         v.type as vehicle_type,
         v.location as vehicle_location,
         v.images as vehicle_images,
-        v.price_per_hour as vehicle_price_per_hour
+        v."pricePerHour" as vehicle_price_per_hour
       FROM bookings b
-      JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.user_id = $1
-      ORDER BY b.created_at DESC
+      JOIN vehicles v ON b."vehicleId" = v.id
+      WHERE b."userId" = $1
+      ORDER BY b."createdAt" DESC
       LIMIT $2 OFFSET $3
     `, [session.user.id, limit, offset]);
 
-    // Format the bookings
+    // Update the bookings mapping to handle both column naming conventions
     const bookings = result.rows.map((booking: BookingRow) => ({
       id: booking.id,
-      booking_id: booking.bookingId,
+      booking_id: booking.booking_id || booking.bookingId,
       status: booking.status,
-      start_date: booking.start_date,
-      end_date: booking.end_date,
+      start_date: booking.start_date || booking.startDate,
+      end_date: booking.end_date || booking.endDate,
       formatted_pickup: booking.formatted_pickup,
       formatted_dropoff: booking.formatted_dropoff,
       pickup_datetime: booking.pickup_datetime,
       dropoff_datetime: booking.dropoff_datetime,
-      total_price: parseFloat(booking.total_amount?.toString() || '0'),
-      payment_status: booking.payment_status || 'pending',
-      created_at: booking.created_at,
-      updated_at: booking.updated_at,
+      total_price: parseFloat((booking.total_amount || booking.totalAmount || booking.total_price || booking.totalPrice || 0).toString()),
+      payment_status: booking.payment_status || booking.paymentStatus || 'pending',
+      created_at: booking.created_at || booking.createdAt,
+      updated_at: booking.updated_at || booking.updatedAt,
       vehicle: {
-        id: booking.vehicle_id,
+        id: booking.vehicle_id || booking.vehicleId,
         name: booking.vehicle_name,
         type: booking.vehicle_type,
         location: booking.vehicle_location,
         images: booking.vehicle_images,
-        price_per_hour: booking.vehicle_price_per_hour
+        price_per_hour: booking.vehicle_price_per_hour || booking.vehiclePricePerHour
       }
     }));
 
@@ -379,9 +390,25 @@ export async function POST(request: NextRequest): Promise<Response> {
     });
     
     try {
-      // Create booking using Prisma's create method
+      // Update the INSERT query to handle both camelCase and snake_case
       const createdBooking = await query(`
-        INSERT INTO bookings (id, "userId", "vehicleId", "startDate", "endDate", "totalHours", "totalPrice", status, "paymentStatus", "pickupLocation", "bookingId", "paymentDetails", "dropoffLocation", "createdAt", "updatedAt")
+        INSERT INTO bookings (
+          id, 
+          "userId", 
+          "vehicleId", 
+          "startDate", 
+          "endDate", 
+          "totalHours", 
+          "totalPrice", 
+          status, 
+          "paymentStatus", 
+          "pickupLocation", 
+          "bookingId", 
+          "paymentDetails", 
+          "dropoffLocation", 
+          "createdAt", 
+          "updatedAt"
+        )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING id
       `, [
@@ -429,8 +456,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         currency: razorpayOrder.currency
       });
 
-      // IMPORTANT FIX: Update the booking with the Razorpay order ID in paymentDetails
-      // This is crucial for payment verification to work properly
+      // Update the payment details
       await query(`
         UPDATE bookings 
         SET "paymentDetails" = $1::jsonb

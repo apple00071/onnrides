@@ -56,7 +56,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const vehiclesResult = await query(`
     SELECT 
       id, 
-      "updatedAt" AS last_modified
+      COALESCE(updated_at, "updatedAt") AS last_modified
     FROM vehicles
     WHERE type = 'bike' AND COALESCE(is_available, "isAvailable") = true
   `, []);

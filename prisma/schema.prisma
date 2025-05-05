@@ -1,107 +1,177 @@
-// This is your Prisma schema file
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
 }
 
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Important: We're using camelCase in code, but the database uses snake_case
+// The @map directive maintains compatibility with existing code while ensuring
+// proper column names in the database
+
+model Booking {
+  id              String    @id @default(uuid()) @db.Uuid
+  booking_id      String?
+  user_id         String    @db.Uuid
+  vehicle_id      String    @db.Uuid
+  start_date      DateTime  @db.Timestamp(6)
+  end_date        DateTime  @db.Timestamp(6)
+  total_hours     Float?
+  total_price     Float?
+  status          String    @default("pending")
+  payment_status  String?
+  payment_details Json?
+  pickup_location Json?
+  dropoff_location Json?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  payment_intent_id String?
+  user            User      @relation(fields: [user_id], references: [id])
+  vehicle         Vehicle   @relation(fields: [vehicle_id], references: [id])
+  reviews         Review[]
+
+  @@map("bookings")
+}
+
 model User {
-  id            String    @id @default(uuid())
+  id            String     @id @default(uuid()) @db.Uuid
   name          String?
-  email         String?   @unique
-  phone         String?   @unique
-  password      String?   @map("password_hash")
-  role          String    @default("user")
-  emailVerified DateTime? @map("email_verified")
+  email         String?    @unique
+  email_verified DateTime?
+  phone         String?    @unique
+  phone_verified Boolean    @default(false)
   image         String?
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  isBlocked     Boolean   @default(false) @map("is_blocked")
-  resetToken    String?   @map("reset_token")
-  resetTokenExpiry DateTime? @map("reset_token_expiry")
+  role          String     @default("USER")
+  password      String?
+  created_at    DateTime   @default(now())
+  updated_at    DateTime   @updatedAt
+  accounts      Account[]
+  reviews       Review[]
   bookings      Booking[]
+  sessions      Session[]
 
   @@map("users")
 }
 
 model Vehicle {
-  id             String    @id @default(uuid())
-  name           String
-  type           String
-  brand          String?
-  model          String?
-  year           Int?
-  color          String?
-  licensePlate   String?   @map("license_plate")
-  location       String
-  quantity       Int       @default(1)
-  pricePerHour   Float     @map("price_per_hour")
-  minBookingHours Int      @default(1) @map("min_booking_hours")
-  price7Days     Float?    @map("price_7_days")
-  price15Days    Float?    @map("price_15_days")
-  price30Days    Float?    @map("price_30_days")
-  isDeliveryEnabled Boolean @default(false) @map("is_delivery_enabled")
-  deliveryPrice7Days  Float?    @map("delivery_price_7_days")
-  deliveryPrice15Days Float?    @map("delivery_price_15_days")
-  deliveryPrice30Days Float?    @map("delivery_price_30_days")
-  isAvailable    Boolean   @default(true) @map("is_available")
-  images         Json?
-  status         String    @default("active")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-  bookings       Booking[]
+  id              String     @id @default(uuid()) @db.Uuid
+  name            String
+  type            String
+  description     String?
+  images          Json?
+  location        String?
+  price_per_hour  Float
+  min_booking_hours Int      @default(1)
+  is_available    Boolean    @default(true)
+  features        Json?
+  created_at      DateTime   @default(now())
+  updated_at      DateTime   @updatedAt
+  bookings        Booking[]
+  reviews         Review[]
 
   @@map("vehicles")
 }
 
-model Booking {
-  id              String    @id @default(uuid())
-  bookingId       String    @unique @map("booking_id")
-  userId          String    @map("user_id")
-  vehicleId       String    @map("vehicle_id")
-  startDate       DateTime  @map("start_date")
-  endDate         DateTime  @map("end_date")
-  totalHours      Float     @map("total_hours")
-  totalPrice      Float     @map("total_price")
-  status          String    @default("pending")
-  paymentStatus   String    @default("pending") @map("payment_status")
-  paymentDetails  Json?     @map("payment_details")
-  pickupLocation  String?   @map("pickup_location")
-  dropoffLocation String?   @map("dropoff_location")
-  notes           String?
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  paymentIntentId String?   @map("payment_intent_id")
-  user            User      @relation(fields: [userId], references: [id])
-  vehicle         Vehicle   @relation(fields: [vehicleId], references: [id])
+model Review {
+  id        String   @id @default(uuid()) @db.Uuid
+  user_id   String   @db.Uuid
+  vehicle_id String  @db.Uuid
+  booking_id String? @db.Uuid
+  rating    Int
+  comment   String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  booking   Booking? @relation(fields: [booking_id], references: [id])
+  user      User     @relation(fields: [user_id], references: [id])
+  vehicle   Vehicle  @relation(fields: [vehicle_id], references: [id])
 
-  @@map("bookings")
+  @@map("reviews")
 }
 
-model Settings {
-  id        String   @id @default(uuid())
-  key       String   @unique
-  value     String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+model Account {
+  id                String   @id @default(cuid())
+  user_id           String   @db.Uuid
+  type              String
+  provider          String
+  provider_account_id String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@map("settings")
+  @@unique([provider, provider_account_id])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  session_token String  @unique
+  user_id      String   @db.Uuid
+  expires      DateTime
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@id([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Location {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  address   String?
+  city      String?
+  state     String?
+  country   String?
+  zipcode   String?
+  lat       Float?
+  lng       Float?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("locations")
 }
 
 model EmailLog {
-  id             String   @id @default(uuid())
-  recipient      String
-  subject        String
-  messageContent String   @map("message_content")
-  bookingId      String?  @map("booking_id")
-  status         String   @default("pending")
-  messageId      String?  @map("message_id")
-  error          String?
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(uuid()) @db.Uuid
+  recipient String
+  subject   String
+  body      String
+  status    String
+  error     String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@map("email_logs")
+}
+
+model WhatsAppLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  recipient String
+  message   String
+  status    String
+  error     String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("whatsapp_logs")
 } 
