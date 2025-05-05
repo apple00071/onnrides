@@ -11,8 +11,16 @@ export const CONNECTION_TIMEOUT = 5000; // 5 seconds
 const CONNECTION_STRING = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
 if (!CONNECTION_STRING) {
+  logger.error('Database connection string is missing');
   throw new Error('No database connection string provided');
 }
+
+// Log database configuration (without sensitive info)
+logger.info('Initializing database connection', {
+  environment: process.env.NODE_ENV,
+  host: new URL(CONNECTION_STRING).hostname,
+  ssl: process.env.NODE_ENV === 'production'
+});
 
 // Database Connection Setup
 const pool = new Pool({
@@ -21,7 +29,51 @@ const pool = new Pool({
   idleTimeoutMillis: 30000,
   ssl: process.env.NODE_ENV === 'production' ? {
     rejectUnauthorized: false
-  } : undefined
+  } : undefined,
+  connectionTimeoutMillis: CONNECTION_TIMEOUT
+});
+
+// Handle pool events
+pool.on('connect', () => {
+  logger.info('New database connection established');
+});
+
+pool.on('error', (err) => {
+  logger.error('Unexpected database error on idle client', err);
+});
+
+pool.on('acquire', () => {
+  logger.debug('Database connection acquired from pool');
+});
+
+pool.on('remove', () => {
+  logger.debug('Database connection removed from pool');
+});
+
+// Validate database connection
+async function validateConnection() {
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query('SELECT NOW()');
+      logger.info('Database connection validated successfully');
+      return true;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    logger.error('Failed to validate database connection:', error);
+    throw error;
+  }
+}
+
+// Initialize connection validation
+validateConnection().catch((error) => {
+  logger.error('Initial database connection validation failed:', error);
+  if (process.env.NODE_ENV === 'production') {
+    // In production, we might want to exit and let the process manager restart
+    process.exit(1);
+  }
 });
 
 // Export pool for use in other modules
@@ -94,6 +146,44 @@ interface UserRow {
   is_blocked: boolean;
 }
 
+// Query wrapper with retries and error handling
+export async function query(text: string, params: any[] = []): Promise<QueryResult> {
+  let retries = MAX_RETRIES;
+  let lastError;
+
+  while (retries > 0) {
+    try {
+      const start = Date.now();
+      const result = await pool.query(text, params);
+      const duration = Date.now() - start;
+
+      logger.debug('Executed query', {
+        text,
+        duration,
+        rows: result.rowCount
+      });
+
+      return result;
+    } catch (error) {
+      lastError = error;
+      logger.error('Database query error:', {
+        error,
+        query: text,
+        params,
+        retriesLeft: retries - 1
+      });
+
+      retries--;
+      if (retries > 0) {
+        logger.info(`Retrying query in ${RETRY_DELAY}ms...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 // Create Kysely instance
 export const db = new Kysely<Database>({
   dialect: new PostgresDialect({
@@ -140,44 +230,6 @@ function handleDatabaseError(error: any, operation: string) {
     default:
       throw new Error(`Database error: ${error.message}`);
   }
-}
-
-// Execute a query with retries
-export async function query(text: string, params: any[] = []): Promise<QueryResult> {
-  let retries = 0;
-  let lastError: any;
-
-  while (retries < MAX_RETRIES) {
-    try {
-      const start = Date.now();
-      const result = await pool.query(text, params);
-      const duration = Date.now() - start;
-
-      logger.debug('Executed query:', {
-        text,
-        duration,
-        rows: result.rowCount
-      });
-
-      return result;
-    } catch (error: any) {
-      lastError = error;
-      retries++;
-
-      logger.warn(`Query attempt ${retries} failed:`, {
-        error: error.message,
-        code: error.code,
-        query: text
-      });
-
-      if (retries < MAX_RETRIES) {
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-      }
-    }
-  }
-
-  handleDatabaseError(lastError, 'query');
-  throw lastError; // This line will never be reached due to handleDatabaseError throwing
 }
 
 // Initialize database connection
