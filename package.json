@@ -24,7 +24,9 @@
     "maintenance:off": "ts-node scripts/maintenance-mode.ts off",
     "test:redirect": "ts-node -r dotenv/config scripts/test-redirect.ts",
     "test:middleware": "ts-node -r dotenv/config scripts/check-middleware.ts",
-    "setup:settings": "ts-node -r dotenv/config scripts/setup-settings.ts"
+    "setup:settings": "ts-node -r dotenv/config scripts/setup-settings.ts",
+    "db:init": "ts-node -r tsconfig-paths/register scripts/init-db.ts",
+    "vercel-build": "npm run db:init && next build"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.525.0",
