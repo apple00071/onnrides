@@ -1,7 +1,6 @@
 import { Kysely, PostgresDialect } from 'kysely';
-import { QueryResult } from 'pg';
+import { Pool, QueryResult } from 'pg';
 import logger from '@/lib/logger';
-import { pool } from '@/server';
 
 // Constants for database operations
 export const MAX_RETRIES = 3;
@@ -14,6 +13,19 @@ const CONNECTION_STRING = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 if (!CONNECTION_STRING) {
   throw new Error('No database connection string provided');
 }
+
+// Database Connection Setup
+const pool = new Pool({
+  connectionString: CONNECTION_STRING,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  ssl: process.env.NODE_ENV === 'production' ? {
+    rejectUnauthorized: false
+  } : undefined
+});
+
+// Export pool for use in other modules
+export { pool };
 
 // Type Definitions
 interface Database {
@@ -81,17 +93,6 @@ interface UserRow {
   updated_at: Date;
   is_blocked: boolean;
 }
-
-// Database Connection Setup
-const pool = new Pool({
-  connectionString: CONNECTION_STRING,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-  ssl: process.env.NODE_ENV === 'production' ? {
-    rejectUnauthorized: false
-  } : undefined
-});
 
 // Create Kysely instance
 export const db = new Kysely<Database>({
