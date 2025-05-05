@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
         "id" TEXT PRIMARY KEY,
         "key" TEXT UNIQUE NOT NULL,
         "value" TEXT NOT NULL,
-        "createdAt" TIMESTAMP(6) NOT NULL DEFAULT NOW(),
-        "updatedAt" TIMESTAMP(6) NOT NULL DEFAULT NOW()
+        "created_at" TIMESTAMP(6) NOT NULL DEFAULT NOW(),
+        "updated_at" TIMESTAMP(6) NOT NULL DEFAULT NOW()
       )
     `);
     
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       
       if (rows.length === 0) {
         await client.query(
-          `INSERT INTO "settings" ("id", "key", "value", "createdAt", "updatedAt")
+          `INSERT INTO "settings" ("id", "key", "value", "created_at", "updated_at")
            VALUES ($1, $2, $3, NOW(), NOW())`,
           [randomUUID(), setting.key, setting.value]
         );
@@ -67,21 +67,17 @@ export async function GET(request: NextRequest) {
     const { rows: allSettings } = await client.query('SELECT * FROM settings');
     logger.info(`API: Settings table initialized with ${allSettings.length} settings`);
     
-    return NextResponse.json({
-      success: true,
-      message: 'Settings initialized successfully',
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Settings table initialized',
       settings: allSettings
     });
   } catch (error) {
     logger.error('API: Error initializing settings:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to initialize settings',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }, 
-      { status: 500 }
-    );
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Failed to initialize settings'
+    }, { status: 500 });
   } finally {
     client.release();
   }

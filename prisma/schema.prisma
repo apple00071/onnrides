@@ -14,6 +14,16 @@ datasource db {
 // The @map directive maintains compatibility with existing code while ensuring
 // proper column names in the database
 
+model Settings {
+  id         String   @id @default(uuid())
+  key        String   @unique
+  value      String
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
 model Booking {
   id              String    @id @default(uuid()) @db.Uuid
   booking_id      String?

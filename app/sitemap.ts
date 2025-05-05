@@ -8,7 +8,7 @@ interface Vehicle {
 
 interface VehicleRow {
   id: string;
-  last_modified: Date;
+  updated_at: Date;
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -56,14 +56,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const vehiclesResult = await query(`
     SELECT 
       id, 
-      COALESCE(updated_at, "updatedAt") AS last_modified
+      updated_at
     FROM vehicles
-    WHERE type = 'bike' AND COALESCE(is_available, "isAvailable") = true
+    WHERE type = 'bike' AND is_available = true
   `, []);
 
   const bikes = vehiclesResult.rows.map((row: VehicleRow) => ({
     id: row.id,
-    updated_at: row.last_modified
+    updated_at: row.updated_at
   })) as Vehicle[];
 
   // Generate URLs for individual bike pages
