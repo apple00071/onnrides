@@ -58,6 +58,20 @@ export async function GET(req: NextRequest) {
       logger.info('Connecting to database...');
       client = await pool.connect();
       logger.info('Database connection established successfully');
+
+      // First, check if is_blocked column exists
+      const checkColumnQuery = `
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_name = 'users'
+          AND column_name = 'is_blocked'
+        );
+      `;
+      const columnExists = await client.query(checkColumnQuery);
+      const hasIsBlockedColumn = columnExists.rows[0].exists;
+
+      logger.info('Checking is_blocked column:', { exists: hasIsBlockedColumn });
       
       // Build the SQL query with search conditions if needed
       let query = `
@@ -67,9 +81,12 @@ export async function GET(req: NextRequest) {
           email, 
           phone, 
           role,
-          "createdAt",
-          "updatedAt",
-          CASE WHEN is_blocked IS TRUE THEN TRUE ELSE FALSE END as is_blocked
+          created_at as "createdAt",
+          updated_at as "updatedAt",
+          ${hasIsBlockedColumn ? 
+            'CASE WHEN is_blocked IS TRUE THEN TRUE ELSE FALSE END' : 
+            'FALSE'
+          } as is_blocked
         FROM users
         WHERE LOWER(role) != 'admin'
       `;
@@ -82,7 +99,7 @@ export async function GET(req: NextRequest) {
       }
       
       // Add order by, limit and offset
-      query += ` ORDER BY "createdAt" DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      query += ` ORDER BY created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
       queryParams.push(limit, skip);
       
       // Execute the query

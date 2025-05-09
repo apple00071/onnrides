@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import { formatCurrency } from '@/lib/utils/currency';
 import { useSession } from 'next-auth/react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { formatDateTimeIST, toIST } from '@/lib/utils/timezone';
 import { Button } from '@/components/ui/button';
 import { TermsAndConditionsModal } from './TermsAndConditionsModal';
@@ -15,7 +15,8 @@ import {
   extractVehicleImage,
   DEFAULT_VEHICLE_IMAGE,
   preloadImage,
-  getValidImageUrl
+  getValidImageUrl,
+  preloadImages
 } from '@/lib/utils/image-utils';
 import { cn } from '@/lib/utils';
 import { Spinner } from '@/components/ui/spinner';
@@ -23,6 +24,8 @@ import { Vehicle } from '@/app/types';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { useRouter } from 'next/navigation';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Use the imported default fallback image
 const DEFAULT_FALLBACK_IMAGE = DEFAULT_VEHICLE_IMAGE;
@@ -64,14 +67,21 @@ export function BookingSummary({
   onTermsAccept,
   gstEnabled = false,
 }: BookingSummaryProps) {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
+  const router = useRouter();
   const [showTerms, setShowTerms] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(() => {
+    // Initialize from localStorage if available
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('termsAccepted') === 'true';
+    }
+    return false;
+  });
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [couponInput, setCouponInput] = useState(couponCode || '');
   const [imageUrl, setImageUrl] = useState<string>(DEFAULT_VEHICLE_IMAGE);
 
-  // Calculate prices including service charges and advance payment
+  // Memoize price calculations
   const priceCalculation = useMemo(() => {
     const basePrice = totalAmount;
     const gst = gstEnabled ? Math.round(basePrice * 0.18) : 0;
@@ -92,113 +102,146 @@ export function BookingSummary({
     };
   }, [totalAmount, couponDiscount, gstEnabled]);
 
+  // Optimize image loading
   useEffect(() => {
+    let mounted = true;
+
     const loadImage = async () => {
       if (!vehicle?.images?.length) {
-        setImageUrl(DEFAULT_VEHICLE_IMAGE);
-        setIsImageLoading(false);
+        if (mounted) {
+          setImageUrl(DEFAULT_VEHICLE_IMAGE);
+          setIsImageLoading(false);
+        }
         return;
       }
 
-      const validImageUrl = getValidImageUrl(vehicle.images);
-      
       try {
-        if (!validImageUrl.startsWith('data:')) {
-          await preloadImage(validImageUrl);
+        // Preload all vehicle images in parallel
+        await preloadImages(vehicle.images);
+        
+        if (mounted) {
+          const validImageUrl = getValidImageUrl(vehicle.images);
+          setImageUrl(validImageUrl);
         }
-        setImageUrl(validImageUrl);
       } catch (error) {
-        console.error('Error loading image:', error);
-        setImageUrl(DEFAULT_VEHICLE_IMAGE);
+        if (mounted) {
+          console.error('Error loading images:', error);
+          setImageUrl(DEFAULT_VEHICLE_IMAGE);
+        }
       } finally {
-        setIsImageLoading(false);
+        if (mounted) {
+          setIsImageLoading(false);
+        }
       }
     };
 
     loadImage();
-  }, [vehicle]);
 
-  const formatDate = (dateString: string) => {
+    return () => {
+      mounted = false;
+    };
+  }, [vehicle?.images]);
+
+  const formatDate = useCallback((dateString: string) => {
     const istDate = toIST(new Date(dateString));
     return istDate ? formatDateTimeIST(istDate) : 'Invalid date';
-  };
+  }, []);
 
-  const handleCouponChange = (value: string) => {
+  const handleCouponChange = useCallback((value: string) => {
     setCouponInput(value);
-  };
+  }, []);
 
-  const handleApplyCoupon = () => {
+  const handleApplyCoupon = useCallback(() => {
+    if (!couponInput.trim()) {
+      toast.error('Please enter a coupon code');
+      return;
+    }
     onCouponApply?.(couponInput);
-  };
+  }, [couponInput, onCouponApply]);
 
-  const handlePaymentClick = () => {
+  const handlePaymentClick = useCallback(() => {
+    if (!session) {
+      toast.error('Please sign in to proceed with the booking');
+      router.push('/auth/signin?callbackUrl=/bookings/new');
+      return;
+    }
+
+    if (!termsAccepted) {
+      toast.error('Please accept the terms and conditions to proceed');
+      setShowTerms(true);
+      return;
+    }
+
     onPaymentClick?.();
-  };
+  }, [session, termsAccepted, router, onPaymentClick]);
 
-  const handleTermsAccept = () => {
+  const handleTermsAccept = useCallback(() => {
     setTermsAccepted(true);
     setShowTerms(false);
+    // Store in localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('termsAccepted', 'true');
+    }
     onTermsAccept?.();
-  };
+    toast.success('Terms and conditions accepted');
+  }, [onTermsAccept]);
 
   if (!vehicle) {
-    return <div>Loading...</div>;
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-fit">
+        <Skeleton className="h-[500px] w-full rounded-xl" />
+        <Skeleton className="h-[500px] w-full rounded-xl" />
+      </div>
+    );
   }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-fit">
-      {/* Vehicle Details and Booking Time Container */}
+      {/* Vehicle Details Card */}
       <div className="bg-white rounded-xl shadow-lg p-6 h-fit border border-gray-100">
-        {/* Vehicle Details */}
         <div className="flex flex-col">
-          {/* Vehicle Name and Location */}
-          <h3 className="text-xl font-medium text-gray-900">{vehicle?.name}</h3>
-          {vehicle?.location && (
+          <h3 className="text-xl font-medium text-gray-900">{vehicle.name}</h3>
+          {vehicle.location && (
             <div className="flex items-center mt-1 text-gray-600">
               <MapPinIcon className="h-4 w-4 mr-1" />
-              <span className="text-sm">{Array.isArray(vehicle.location) ? vehicle.location[0] : vehicle.location}</span>
+              <span className="text-sm">
+                {Array.isArray(vehicle.location) ? vehicle.location[0] : vehicle.location}
+              </span>
             </div>
           )}
 
-          {/* Vehicle Image */}
-          <div className="relative w-full h-[280px] mt-4">
+          <div className="relative w-full h-[280px] mt-4 bg-gray-50 rounded-lg overflow-hidden">
             {isImageLoading ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+              <div className="absolute inset-0 flex items-center justify-center">
                 <LoadingSpinner size="lg" />
               </div>
             ) : (
               <Image
                 src={imageUrl}
-                alt={vehicle?.name || "Vehicle"}
+                alt={vehicle.name}
                 fill
                 className="object-contain"
                 priority
+                sizes="(max-width: 768px) 100vw, 50vw"
+                quality={75}
               />
             )}
           </div>
 
-          {/* Pickup and Dropoff Times */}
           <div className="mt-6 space-y-2">
             <div className="flex items-center gap-2">
-              <FaCalendarAlt className="text-gray-400 w-4 h-4" />
               <span className="text-gray-600 text-sm">Pickup:</span>
               <span className="text-sm text-gray-900">{formatDate(startDate)}</span>
             </div>
             <div className="flex items-center gap-2">
-              <FaCalendarAlt className="text-gray-400 w-4 h-4" />
               <span className="text-gray-600 text-sm">Drop-off:</span>
               <span className="text-sm text-gray-900">{formatDate(endDate)}</span>
             </div>
           </div>
-
-          {/* Additional Details */}
-          <div className="mt-6 space-y-4">
-            {/* Removed km limit and excess charges section */}
-          </div>
         </div>
       </div>
 
-      {/* Payment Details Container */}
+      {/* Payment Details Card */}
       <div className="bg-white rounded-xl shadow-lg p-6 h-fit border border-gray-100">
         <h4 className="font-medium text-gray-900 mb-4">Payment Details</h4>
         <div className="space-y-3">
@@ -258,14 +301,35 @@ export function BookingSummary({
           </div>
 
           <div className="pt-4">
-            <Button 
-              onClick={handlePaymentClick} 
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              Pay {formatCurrency(priceCalculation.advancePayment)}
-            </Button>
+            {!termsAccepted ? (
+              <Button 
+                onClick={() => setShowTerms(true)} 
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900"
+              >
+                Accept Terms & Conditions
+              </Button>
+            ) : (
+              <Button 
+                onClick={handlePaymentClick} 
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+              >
+                Pay {formatCurrency(priceCalculation.advancePayment)}
+              </Button>
+            )}
             <p className="text-xs text-gray-500 text-center mt-2">
-              By proceeding, you agree to our terms and conditions
+              {termsAccepted ? (
+                <>
+                  You have accepted our{' '}
+                  <button
+                    onClick={() => setShowTerms(true)}
+                    className="text-orange-500 hover:underline"
+                  >
+                    terms and conditions
+                  </button>
+                </>
+              ) : (
+                'Please accept the terms & conditions to proceed with payment'
+              )}
             </p>
           </div>
         </div>

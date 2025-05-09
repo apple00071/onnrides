@@ -1,10 +1,63 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
-export async function POST() {
+// Helper function to check if table exists
+async function tableExists(tableName: string): Promise<boolean> {
+  try {
+    const result = await query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = $1
+      );
+    `, [tableName]);
+    return result.rows[0].exists;
+  } catch (error) {
+    logger.error('Error checking table existence:', error);
+    return false;
+  }
+}
+
+// Helper function to create payments table if it doesn't exist
+async function ensurePaymentsTable() {
+  try {
+    const exists = await tableExists('payments');
+    if (!exists) {
+      logger.info('Creating payments table...');
+      await query(`
+        CREATE TABLE IF NOT EXISTS payments (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          booking_id UUID REFERENCES bookings(id),
+          user_id UUID REFERENCES users(id),
+          amount DECIMAL(10,2) NOT NULL,
+          status VARCHAR(20) NOT NULL DEFAULT 'pending',
+          reference VARCHAR(255),
+          provider VARCHAR(50),
+          metadata JSONB,
+          payment_reference TEXT,
+          order_id TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Add indices for better performance
+        CREATE INDEX IF NOT EXISTS idx_payments_booking_id ON payments(booking_id);
+        CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
+        CREATE INDEX IF NOT EXISTS idx_payments_payment_reference ON payments(payment_reference);
+        CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
+      `);
+      logger.info('Payments table created successfully');
+    }
+  } catch (error) {
+    logger.error('Error ensuring payments table:', error);
+    throw error;
+  }
+}
+
+export async function POST(request: NextRequest) {
   try {
     // Check for admin authentication
     const session = await getServerSession(authOptions);
@@ -12,49 +65,66 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    logger.info('Starting database cleanup...');
+
     // Start transaction
     await query('BEGIN');
 
-    logger.info('Deleting all payment records...');
-    const { rowCount: deletedPayments } = await query('DELETE FROM payments');
-    logger.info('Deleted payment records:', { count: deletedPayments });
+    try {
+      // Ensure payments table exists before proceeding
+      await ensurePaymentsTable();
 
-    logger.info('Deleting all booking records...');
-    const { rowCount: deletedBookings } = await query('DELETE FROM bookings');
-    logger.info('Deleted booking records:', { count: deletedBookings });
+      // Delete all payment records first (due to foreign key constraints)
+      logger.info('Deleting payment records...');
+      const { rowCount: deletedPayments } = await query('DELETE FROM payments');
+      logger.info('Deleted payment records:', { count: deletedPayments });
 
-    logger.info('Deleting all vehicle records...');
-    const { rowCount: deletedVehicles } = await query('DELETE FROM vehicles');
-    logger.info('Deleted vehicle records:', { count: deletedVehicles });
+      // Delete all booking records
+      logger.info('Deleting booking records...');
+      const { rowCount: deletedBookings } = await query('DELETE FROM bookings');
+      logger.info('Deleted booking records:', { count: deletedBookings });
 
-    logger.info('Resetting sequences...');
-    await query('ALTER SEQUENCE IF EXISTS bookings_id_seq RESTART WITH 1');
-    await query('ALTER SEQUENCE IF EXISTS payments_id_seq RESTART WITH 1');
+      // Delete all vehicle records
+      logger.info('Deleting vehicle records...');
+      const { rowCount: deletedVehicles } = await query('DELETE FROM vehicles');
+      logger.info('Deleted vehicle records:', { count: deletedVehicles });
 
-    // Commit transaction
-    await query('COMMIT');
+      // Reset sequences if they exist
+      logger.info('Resetting sequences...');
+      await query('ALTER SEQUENCE IF EXISTS bookings_id_seq RESTART WITH 1');
+      await query('ALTER SEQUENCE IF EXISTS payments_id_seq RESTART WITH 1');
+      await query('ALTER SEQUENCE IF EXISTS vehicles_id_seq RESTART WITH 1');
 
-    logger.info('Successfully cleaned up test data:', {
-      bookings: deletedBookings,
-      payments: deletedPayments,
-      vehicles: deletedVehicles
-    });
+      // Commit transaction
+      await query('COMMIT');
 
-    return NextResponse.json({
-      success: true,
-      message: 'Database cleaned up successfully',
-      data: {
-        deletedBookings,
+      logger.info('Database cleanup completed successfully:', {
         deletedPayments,
+        deletedBookings,
         deletedVehicles
-      }
-    });
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Database cleanup completed successfully',
+        data: {
+          deletedPayments,
+          deletedBookings,
+          deletedVehicles
+        }
+      });
+    } catch (error) {
+      // Rollback transaction on error
+      await query('ROLLBACK');
+      throw error;
+    }
   } catch (error) {
-    // Rollback on error
-    await query('ROLLBACK');
     logger.error('Error cleaning up database:', error);
     return NextResponse.json(
-      { error: 'Failed to clean up database' },
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error occurred' 
+      },
       { status: 500 }
     );
   }

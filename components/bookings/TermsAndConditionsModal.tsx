@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -22,11 +22,29 @@ export function TermsAndConditionsModal({
   onClose,
   onAccept,
 }: TermsAndConditionsModalProps) {
-  const [accepted, setAccepted] = useState(false);
+  const [accepted, setAccepted] = useState(() => {
+    // Initialize from localStorage if available
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('termsAccepted') === 'true';
+    }
+    return false;
+  });
+
+  // Reset accepted state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const storedAcceptance = localStorage.getItem('termsAccepted') === 'true';
+      setAccepted(storedAcceptance);
+    }
+  }, [isOpen]);
 
   const handleAccept = () => {
     logger.debug('Accept button clicked, checkbox state:', accepted);
     if (accepted) {
+      // Store acceptance in localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('termsAccepted', 'true');
+      }
       onAccept();
     }
   };
