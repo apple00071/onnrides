@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
+import { DEFAULT_VEHICLE_IMAGE } from '@/lib/utils/image-utils';
 import { 
   VehicleResponse, 
   CreateVehicleBody,
@@ -382,7 +383,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       const transformedVehicle = {
         id: vehicle.id,
         name: vehicle.name,
-        images: images,
+        images: images.length > 0 ? images : [DEFAULT_VEHICLE_IMAGE],
         description: vehicle.description || vehicle.name,
         transmission_type: vehicle.type === 'scooter' ? 'Automatic Transmission' : 'Manual Transmission',
         engine_capacity: vehicle.type === 'scooter' ? 110 : 350,
@@ -391,14 +392,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         price_7_days: vehicle.price_7_days,
         price_15_days: vehicle.price_15_days,
         price_30_days: vehicle.price_30_days,
-        type: vehicle.type
+        type: vehicle.type,
+        location: vehicle.location ? JSON.parse(vehicle.location) : ['Erragadda', 'Madhapur']
       };
 
       logger.info('Transformed vehicle data:', transformedVehicle);
       return transformedVehicle;
     });
 
-    return NextResponse.json(vehicles);
+    return NextResponse.json({ vehicles });
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
     return NextResponse.json(
@@ -407,72 +409,3 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 }
-
-// POST /api/vehicles - Create vehicle
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const {
-      name,
-      type,
-      location,
-      pricePerHour,
-      description,
-      features,
-      images,
-      status = 'active',
-    } = body as CreateVehicleBody;
-
-    // Validate required fields
-    if (!name || !type || !pricePerHour) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    // Ensure arrays are properly formatted for PostgreSQL
-    const locationJson = Array.isArray(location) 
-      ? JSON.stringify(location)
-      : JSON.stringify([location]);
-
-    const featuresArray = Array.isArray(features) ? features : [];
-    const imagesArray = Array.isArray(images) ? images : [];
-
-    const result = await query(
-      `INSERT INTO vehicles (
-        name, type, location, price_per_hour, description, 
-        features, images, status, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
-      RETURNING *`,
-      [
-        name,
-        type,
-        locationJson,
-        pricePerHour,
-        description || null,
-        featuresArray,
-        imagesArray,
-        status
-      ]
-    );
-
-    const vehicle = result.rows[0];
-
-    return NextResponse.json({
-      message: 'Vehicle created successfully',
-      vehicle: {
-        ...vehicle,
-        location: JSON.parse(vehicle.location),
-        images: vehicle.images || [],
-        features: vehicle.features || []
-      }
-    });
-  } catch (error) {
-    logger.error('Error creating vehicle:', error);
-    return NextResponse.json(
-      { error: 'Failed to create vehicle' },
-      { status: 500 }
-    );
-  }
-} 

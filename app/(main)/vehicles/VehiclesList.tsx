@@ -2,8 +2,10 @@
 
 import Image from 'next/image';
 import { Vehicle } from '@/lib/types';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils/currency';
 import { Button } from '@/components/ui/button';
+import { OptimizedImage } from '@/components/ui/optimized-image';
+import { DEFAULT_VEHICLE_IMAGE } from '@/lib/utils/image-utils';
 
 interface VehicleListProps {
   vehicles: Vehicle[];
@@ -34,11 +36,14 @@ export default function VehiclesList({ vehicles, onBookClick }: VehicleListProps
           className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow"
         >
           <div className="relative aspect-video">
-            <Image
-              src={Array.isArray(vehicle.images) ? vehicle.images[0] : vehicle.images}
+            <OptimizedImage
+              src={vehicle.images}
               alt={vehicle.name}
-              fill
-              className="object-cover"
+              className="w-full h-full"
+              fallback={DEFAULT_VEHICLE_IMAGE}
+              priority={false}
+              quality={75}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           </div>
           <div className="p-4">
@@ -46,7 +51,6 @@ export default function VehiclesList({ vehicles, onBookClick }: VehicleListProps
               <div>
                 <h3 className="text-lg font-semibold mb-1">{vehicle.name}</h3>
                 <p className="text-gray-500 capitalize">{vehicle.type}</p>
-                <p className="text-gray-500">{getLocationString(vehicle.location)}</p>
               </div>
               <div className="text-right">
                 <p className="text-lg font-bold">{formatCurrency(Number(vehicle.price_per_hour))}</p>
