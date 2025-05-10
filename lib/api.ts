@@ -15,7 +15,7 @@ export interface Booking {
 export interface Vehicle {
   id: string;
   name: string;
-  type: 'bike';
+  type: 'bike' | 'scooter';
   model: string;
   year: number;
   daily_rate: number;

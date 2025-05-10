@@ -44,7 +44,7 @@ export interface AuthUser {
 export interface Vehicle {
   id: string;
   name: string;
-  type: 'car' | 'bike' | 'scooter';
+  type: 'bike' | 'scooter';
   model: string;
   year: number;
   daily_rate: number;

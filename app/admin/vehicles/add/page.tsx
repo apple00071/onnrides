@@ -35,8 +35,8 @@ import logger from '@/lib/logger';
 import Image from 'next/image';
 
 const vehicleTypes = [
-  'Car',
   'Bike',
+  'Scooter',
 ] as const;
 
 const locations = [

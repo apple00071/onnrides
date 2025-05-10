@@ -254,278 +254,157 @@ async function getAvailableLocations(
   }
 }
 
-interface VehicleRow {
+interface DatabaseVehicle {
   id: string;
   name: string;
   type: string;
-  status: string;
+  images: string | null;
   price_per_hour: number;
-  price_7_days: number | null;
-  price_15_days: number | null;
-  price_30_days: number | null;
-  location: string;  // PostgreSQL returns this as a string
-  images: string;    // PostgreSQL returns this as a string
-  quantity: number;
-  min_booking_hours: number;
+  price_7_days: number;
+  price_15_days: number;
+  price_30_days: number;
+  description: string | null;
+  location: string | null;
   is_available: boolean;
-  created_at: string;
-  updated_at: string;
-  booked_locations: string[];
+  status: string;
 }
+
+const vehicles = [
+  {
+    id: '1',
+    name: "Honda Activa 6G",
+    images: ["https://onnbikes.com/bikes/honda-activa-6g.jpg"],
+    description: "Honda Activa 6G with comfortable seating and smooth handling.",
+    transmission_type: "Automatic Transmission",
+    engine_capacity: 110,
+    seating_capacity: 2,
+    price_per_hour: 20,
+    price_7_days: 140,
+    price_15_days: 200,
+    price_30_days: 280,
+    type: "scooter"
+  },
+  {
+    id: '2',
+    name: "Honda Dio",
+    images: ["https://onnbikes.com/bikes/honda-dio.jpg"],
+    description: "Honda Dio with stylish design and excellent mileage.",
+    transmission_type: "Automatic Transmission",
+    engine_capacity: 110,
+    seating_capacity: 2,
+    price_per_hour: 25,
+    price_7_days: 175,
+    price_15_days: 250,
+    price_30_days: 350,
+    type: "scooter"
+  },
+  {
+    id: '3',
+    name: "Suzuki Access 125",
+    images: ["https://onnbikes.com/bikes/suzuki-access-125.jpg"],
+    description: "Suzuki Access 125 with powerful engine and premium features.",
+    transmission_type: "Automatic Transmission",
+    engine_capacity: 125,
+    seating_capacity: 2,
+    price_per_hour: 30,
+    price_7_days: 210,
+    price_15_days: 300,
+    price_30_days: 420,
+    type: "scooter"
+  },
+  {
+    id: '4',
+    name: "Royal Enfield Classic 350",
+    images: ["https://onnbikes.com/bikes/royal-enfield-classic-350.jpg"],
+    description: "Royal Enfield Classic 350 with iconic design and powerful performance.",
+    transmission_type: "Manual Transmission",
+    engine_capacity: 350,
+    seating_capacity: 2,
+    price_per_hour: 42,
+    price_7_days: 294,
+    price_15_days: 420,
+    price_30_days: 588,
+    type: "bike"
+  }
+];
 
 // GET /api/vehicles - List all vehicles
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    // Extract query parameters
-    const url = new URL(request.url);
-    const pickupDateStr = url.searchParams.get('pickupDate');
-    const dropoffDateStr = url.searchParams.get('dropoffDate');
-    const vehicleId = url.searchParams.get('id');
-    const location = url.searchParams.get('location');
+    const { searchParams } = new URL(request.url);
+    const limit = searchParams.get('limit');
+    const featured = searchParams.get('featured');
 
-    // If there's a vehicle ID, fetch a single vehicle
-    if (vehicleId) {
-      try {
-        const vehicleQuery = `
-          SELECT 
-            id, 
-            name, 
-            type, 
-            location, 
-            quantity,
-            price_per_hour,
-            price_7_days, 
-            price_15_days, 
-            price_30_days,
-            min_booking_hours,
-            images, 
-            status, 
-            is_available,
-            created_at,
-            updated_at
-          FROM vehicles
-          WHERE id = $1::uuid
-        `;
-        
-        const result = await query(vehicleQuery, [vehicleId]);
-        
-        if (result.rows.length === 0) {
-          return NextResponse.json(
-            { error: 'Vehicle not found' },
-            { status: 404 }
-          );
-        }
-        
-        const vehicle = result.rows[0];
-        
-        // Make sure we're capturing both camelCase and snake_case versions of price
-        const pricePerHour = Number(vehicle.price_per_hour || 0);
-        const minBookingHours = Number(vehicle.min_booking_hours || 1);
-        
-        // Clean and parse locations
-        const locations = cleanLocationData(vehicle.location);
-        
-        // Parse images - ensuring it's an array
-        let images = [];
-        try {
-          images = Array.isArray(vehicle.images)
-            ? vehicle.images
-            : typeof vehicle.images === 'string'
-              ? JSON.parse(vehicle.images)
-              : [];
-        } catch (e) {
-          images = [];
-        }
-        
-        // Format the response
-        const formattedVehicle = {
-          id: vehicle.id,
-          name: vehicle.name,
-          type: vehicle.type,
-          price_per_hour: pricePerHour,
-          pricePerHour: pricePerHour,
-          min_booking_hours: minBookingHours,
-          minBookingHours: minBookingHours,
-          price_7_days: vehicle.price_7_days,
-          price_15_days: vehicle.price_15_days,
-          price_30_days: vehicle.price_30_days,
-          location: locations,
-          images: images,
-          status: vehicle.status,
-          is_available: vehicle.is_available || false,
-          isAvailable: vehicle.is_available || false,
-          created_at: vehicle.created_at,
-          updated_at: vehicle.updated_at
-        };
-        
-        return NextResponse.json(formattedVehicle);
-      } catch (error) {
-        logger.error('Error fetching vehicle details:', error);
-        return NextResponse.json(
-          { error: 'Failed to fetch vehicle details' },
-          { status: 500 }
-        );
-      }
-    }
-
-    const pickupDate = url.searchParams.get('pickupDate');
-    const dropoffDate = url.searchParams.get('dropoffDate');
-
-    // Base query with sorting logic
-    const baseQuery = `
+    let queryText = `
       SELECT 
-        v.id::text,
-        v.name,
-        v.type,
-        v.status,
-        v.price_per_hour,
-        v.price_7_days,
-        v.price_15_days,
-        v.price_30_days,
-        v.location,
-        v.images,
-        v.quantity,
-        v.min_booking_hours,
-        v.is_available,
-        v.created_at,
-        v.updated_at,
-        COALESCE(
-          array_agg(DISTINCT b.pickup_location) FILTER (WHERE b.pickup_location IS NOT NULL),
-          '{}'
-        ) as booked_locations
-      FROM vehicles v
-      LEFT JOIN bookings b ON v.id::uuid = b.vehicle_id
-      WHERE v.status = 'active'
-      GROUP BY v.id
-      ORDER BY 
-        -- First, prioritize Activa bikes
-        CASE WHEN LOWER(v.name) LIKE '%activa%' THEN 0 ELSE 1 END,
-        -- Then sort by price
-        v.price_per_hour ASC,
-        -- Finally sort by name for consistent ordering
-        v.name ASC
+        id, 
+        name, 
+        type,
+        images::text as images,
+        price_per_hour,
+        price_7_days,
+        price_15_days,
+        price_30_days,
+        description,
+        location,
+        is_available,
+        status
+      FROM vehicles 
+      WHERE is_available = true
     `;
 
-    const result = await query(baseQuery, []);
+    if (featured === 'true') {
+      queryText += ` AND status = 'active'`;
+    }
 
-    // Process vehicles
-    const processedVehicles = result.rows
-      .map((vehicle: VehicleRow) => {
-        try {
-          // Clean and parse locations
-          const locationArray = cleanLocationData(vehicle.location);
+    queryText += ` ORDER BY created_at DESC`;
 
-          // Handle images - could be string, array, or JSON string
-          let imagesArray: string[];
-          if (typeof vehicle.images === 'string') {
-            try {
-              imagesArray = JSON.parse(vehicle.images);
-            } catch {
-              // If not valid JSON, treat as comma-separated string
-              imagesArray = vehicle.images.split(',').map(img => img.trim());
-            }
-          } else if (Array.isArray(vehicle.images)) {
-            imagesArray = vehicle.images;
-          } else {
-            imagesArray = [];
-          }
+    if (limit) {
+      queryText += ` LIMIT $1`;
+    }
 
-          return {
-            ...vehicle,
-            location: locationArray,
-            images: imagesArray,
-            booked_locations: vehicle.booked_locations || []
-          };
-        } catch (error) {
-          logger.error('Error processing vehicle:', {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            vehicleId: vehicle.id,
-            location: vehicle.location,
-            images: vehicle.images
-          });
-          return null;
+    const result = await query(queryText, limit ? [limit] : []);
+
+    logger.info('Raw vehicles data:', result.rows);
+
+    const vehicles = result.rows.map((vehicle: DatabaseVehicle) => {
+      let images: string[] = [];
+      try {
+        if (vehicle.images) {
+          // Parse the JSON string into an array
+          const parsedImages = JSON.parse(vehicle.images);
+          images = Array.isArray(parsedImages) ? parsedImages : [];
         }
-      })
-      .filter(Boolean);
-
-    logger.info('Filtered vehicles:', {
-      totalVehicles: result.rows.length,
-      availableVehicles: processedVehicles.length,
-      requestedTimeRange: {
-        start: pickupDate,
-        end: dropoffDate
+      } catch (error) {
+        logger.error('Error parsing vehicle images:', error);
       }
+
+      const transformedVehicle = {
+        id: vehicle.id,
+        name: vehicle.name,
+        images: images,
+        description: vehicle.description || vehicle.name,
+        transmission_type: vehicle.type === 'scooter' ? 'Automatic Transmission' : 'Manual Transmission',
+        engine_capacity: vehicle.type === 'scooter' ? 110 : 350,
+        seating_capacity: 2,
+        price_per_hour: vehicle.price_per_hour,
+        price_7_days: vehicle.price_7_days,
+        price_15_days: vehicle.price_15_days,
+        price_30_days: vehicle.price_30_days,
+        type: vehicle.type
+      };
+
+      logger.info('Transformed vehicle data:', transformedVehicle);
+      return transformedVehicle;
     });
 
-    // Get available locations for each vehicle
-    const formattedVehicles = await Promise.all(
-      processedVehicles.map(async (vehicle: VehicleRow) => {
-        try {
-          // Calculate price based on duration if dates are provided
-          const price = Number(vehicle.price_per_hour || 0);
-          const minHours = Number(vehicle.min_booking_hours || 1);
-          
-          let pricing = null;
-          if (pickupDateStr && dropoffDateStr) {
-            const pickupDate = new Date(pickupDateStr);
-            const dropoffDate = new Date(dropoffDateStr);
-            pricing = calculatePrice(price, pickupDate, dropoffDate);
-          }
-
-          // Get available locations for this vehicle
-          const availableLocations = await getAvailableLocations(
-            vehicle.id,
-            vehicle.location,
-            pickupDateStr,
-            dropoffDateStr
-          );
-
-          // Parse images
-          let images = [];
-          try {
-            images = Array.isArray(vehicle.images)
-              ? vehicle.images
-              : typeof vehicle.images === 'string'
-                ? JSON.parse(vehicle.images)
-                : [];
-          } catch (e) {
-            images = [];
-          }
-
-          return {
-            id: vehicle.id,
-            name: vehicle.name,
-            type: vehicle.type,
-            price_per_hour: price,
-            pricePerHour: price,
-            min_booking_hours: minHours,
-            minBookingHours: minHours,
-            price_7_days: vehicle.price_7_days,
-            price_15_days: vehicle.price_15_days,
-            price_30_days: vehicle.price_30_days,
-            location: availableLocations,
-            images: images,
-            status: vehicle.status,
-            is_available: vehicle.is_available,
-            isAvailable: vehicle.is_available,
-            created_at: vehicle.created_at,
-            updated_at: vehicle.updated_at,
-            pricing: pricing
-          };
-        } catch (error) {
-          logger.error('Error formatting vehicle:', {
-            vehicleId: vehicle.id,
-            error: error instanceof Error ? error.message : 'Unknown error'
-          });
-          return null;
-        }
-      })
-    );
-
-    return NextResponse.json({ vehicles: formattedVehicles.filter(Boolean) });
+    return NextResponse.json(vehicles);
   } catch (error) {
     logger.error('Error fetching vehicles:', error);
-    return NextResponse.json({ error: 'Failed to fetch vehicles', vehicles: [] }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch vehicles' },
+      { status: 500 }
+    );
   }
 }
 

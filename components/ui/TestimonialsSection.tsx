@@ -1,104 +1,164 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Image from 'next/image';
+import { useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import TestimonialCard from './testimonial-card';
+import logger from '@/lib/logger';
+
+interface Review {
+  id: string;
+  name: string;
+  rating: number;
+  comment: string;
+  profilePhotoUrl: string;
+  createTime: string;
+}
 
 export default function TestimonialsSection() {
-  const testimonials = [
-    {
-      name: 'Rahul Sharma',
-      image: '/testimonials/user1.jpg',
-      role: 'Business Professional',
-      comment: 'Excellent service! The bike was in perfect condition and the booking process was seamless.',
-      rating: 5
-    },
-    {
-      name: 'Priya Patel',
-      image: '/testimonials/user2.jpg',
-      role: 'Travel Enthusiast',
-      comment: 'Great experience with OnnRides. The staff was very helpful and the prices are reasonable.',
-      rating: 5
-    },
-    {
-      name: 'Arun Kumar',
-      image: '/testimonials/user3.jpg',
-      role: 'Student',
-      comment: 'Perfect for weekend trips. Will definitely use their service again!',
-      rating: 4
-    }
-  ];
-
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % testimonials.length);
-    }, 5000);
+    const fetchReviews = async () => {
+      try {
+        const response = await fetch('/api/reviews', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        if (!response.ok) throw new Error('Failed to fetch reviews');
+        const data = await response.json();
+        setReviews(data);
+        setError(null);
+      } catch (err) {
+        logger.error('Error fetching reviews:', err);
+        setError('Failed to load reviews');
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    return () => clearInterval(timer);
-  }, [testimonials.length]);
+    fetchReviews();
+  }, []);
+
+  const nextReview = () => {
+    setCurrentIndex((prevIndex) => 
+      prevIndex + 1 >= reviews.length ? 0 : prevIndex + 1
+    );
+  };
+
+  const previousReview = () => {
+    setCurrentIndex((prevIndex) => 
+      prevIndex - 1 < 0 ? reviews.length - 1 : prevIndex - 1
+    );
+  };
+
+  // Auto-rotate testimonials every 5 seconds
+  useEffect(() => {
+    if (reviews.length <= 1) return;
+
+    const interval = setInterval(nextReview, 5000);
+    return () => clearInterval(interval);
+  }, [reviews.length]);
+
+  if (isLoading) {
+    return (
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto">
+            <div className="animate-pulse">
+              <div className="h-32 bg-gray-200 rounded-lg mb-4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto text-center">
+            <p className="text-red-500">{error}</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!reviews || reviews.length === 0) {
+    return null;
+  }
 
   return (
-    <section className="py-16 bg-gray-50">
+    <section className="py-16">
       <div className="container mx-auto px-4">
-        <h2 className="text-3xl font-bold text-center mb-12">What Our Customers Say</h2>
-        
-        <div className="max-w-4xl mx-auto">
-          <div className="relative">
-            {/* Testimonial Cards */}
-            <div className="overflow-hidden">
-              <div 
-                className="flex transition-transform duration-500 ease-in-out"
-                style={{ transform: `translateX(-${currentIndex * 100}%)` }}
-              >
-                {testimonials.map((testimonial, index) => (
-                  <div key={index} className="w-full flex-shrink-0">
-                    <div className="bg-white rounded-lg shadow-sm p-8 mx-4">
-                      <div className="flex items-center mb-6">
-                        <div className="relative w-16 h-16 rounded-full overflow-hidden">
-                          <Image
-                            src={testimonial.image}
-                            alt={testimonial.name}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <div className="ml-4">
-                          <h3 className="font-semibold text-lg">{testimonial.name}</h3>
-                          <p className="text-gray-600 text-sm">{testimonial.role}</p>
-                        </div>
-                      </div>
-                      <p className="text-gray-600 mb-4">{testimonial.comment}</p>
-                      <div className="flex text-yellow-400">
-                        {[...Array(5)].map((_, i) => (
-                          <svg
-                            key={i}
-                            className={`w-5 h-5 ${i < testimonial.rating ? 'fill-current' : 'stroke-current fill-none'}`}
-                            viewBox="0 0 24 24"
-                          >
-                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                          </svg>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold mb-4">What Our Customers Say</h2>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Don't just take our word for it - hear from our satisfied customers about their experience with OnnRides.
+          </p>
+        </div>
 
-            {/* Navigation Dots */}
-            <div className="flex justify-center mt-8">
-              {testimonials.map((_, index) => (
-                <button
-                  key={index}
-                  className={`w-3 h-3 rounded-full mx-1 ${
-                    currentIndex === index ? 'bg-yellow-400' : 'bg-gray-300'
-                  }`}
-                  onClick={() => setCurrentIndex(index)}
-                />
+        <div className="max-w-4xl mx-auto relative">
+          {reviews.length > 1 && (
+            <>
+              <button
+                onClick={previousReview}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-colors z-10"
+                aria-label="Previous review"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+
+              <button
+                onClick={nextReview}
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-colors z-10"
+                aria-label="Next review"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </>
+          )}
+
+          <div className="overflow-hidden">
+            <div className="flex transition-transform duration-500 ease-in-out">
+              {reviews.map((review, index) => (
+                <div
+                  key={review.id}
+                  className="w-full flex-shrink-0"
+                  style={{
+                    transform: `translateX(-${currentIndex * 100}%)`,
+                  }}
+                >
+                  <TestimonialCard {...review} />
+                </div>
               ))}
             </div>
           </div>
+
+          {reviews.length > 1 && (
+            <div className="flex justify-center space-x-2 mt-6">
+              {reviews.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentIndex(index)}
+                  className={`w-2 h-2 rounded-full transition-colors ${
+                    index === currentIndex
+                      ? 'bg-[#f26e24]'
+                      : 'bg-gray-300'
+                  }`}
+                  aria-label={`Go to review ${index + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>

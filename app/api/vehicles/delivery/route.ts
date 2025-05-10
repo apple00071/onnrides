@@ -41,9 +41,9 @@ export async function GET(request: NextRequest) {
     });
 
     // Get the appropriate price column based on duration
-    const priceColumn = `price_${duration}_days`;
+    const deliveryPriceColumn = `delivery_price_${duration}_days`;
 
-    // Query focusing on available vehicles
+    // Query focusing on available vehicles that are enabled for delivery partners
     const result = await query(`
       SELECT 
         id,
@@ -52,17 +52,19 @@ export async function GET(request: NextRequest) {
         location,
         images,
         price_per_hour,
-        price_7_days,
-        price_15_days,
-        price_30_days,
+        delivery_price_7_days,
+        delivery_price_15_days,
+        delivery_price_30_days,
         is_available,
-        quantity
+        quantity,
+        is_delivery_enabled
       FROM vehicles
       WHERE is_available = true
         AND quantity > 0
-        AND ${priceColumn} IS NOT NULL
+        AND is_delivery_enabled = true
+        AND ${deliveryPriceColumn} IS NOT NULL
         ${location ? "AND location ? $1" : ""}
-      ORDER BY ${priceColumn} ASC
+      ORDER BY ${deliveryPriceColumn} ASC
     `, location ? [location] : []);
 
     logger.info('Query executed successfully, processing results');
@@ -92,29 +94,26 @@ export async function GET(request: NextRequest) {
           parsedImages = vehicle.images ? [vehicle.images] : [];
         }
 
-        // Calculate delivery price (90% of regular price)
-        const regularPrice = vehicle[`price_${duration}_days`];
-        if (!regularPrice) {
-          logger.warn('Vehicle missing price for duration:', {
+        // Use delivery-specific pricing
+        const deliveryPrice = vehicle[`delivery_price_${duration}_days`];
+        if (!deliveryPrice) {
+          logger.warn('Vehicle missing delivery price for duration:', {
             vehicleId: vehicle.id,
             duration
           });
           return null;
         }
 
-        const deliveryPrice = Math.round(regularPrice * 0.9);
-
-        // Check which durations have prices available
+        // Check which durations have delivery prices available
         const available_durations = ['7', '15', '30'].filter(d => 
-          vehicle[`price_${d}_days`] !== null
+          vehicle[`delivery_price_${d}_days`] !== null
         ).map(Number);
 
         return {
           ...vehicle,
           location: parsedLocation,
           images: parsedImages,
-          price: deliveryPrice, // Delivery price is 90% of regular price
-          original_price: regularPrice,
+          price: deliveryPrice,
           duration: parseInt(duration),
           available_durations,
           is_delivery: true

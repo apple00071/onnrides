@@ -29,15 +29,13 @@ export async function generateMetadata({ params }: LocationPageProps): Promise<M
   const areas = getNearbyAreas(location);
 
   return {
-    title: `Bike & Car Rental in ${capitalizedLocation}, Hyderabad | OnnRides`,
-    description: `Rent bikes and cars in ${capitalizedLocation}, Hyderabad. Choose from Activa, Dio, Swift & more. Free delivery, no hidden charges. Book Now & Get 10% Off!`,
+    title: `Bike Rental in ${capitalizedLocation}, Hyderabad | OnnRides`,
+    description: `Rent bikes in ${capitalizedLocation}, Hyderabad. Choose from Activa, Dio & more. Free delivery, no hidden charges. Book Now & Get 10% Off!`,
     keywords: [
       `bike rental in ${location}`,
-      `car rental in ${location}`,
       `activa on rent in ${location}`,
       `bike rental near ${location}`,
       `two wheeler for rent in ${location}`,
-      `car rent in ${location}`,
       `bike rental ${location}`,
       `${location} bike rental`,
       `honda activa rental ${location}`,

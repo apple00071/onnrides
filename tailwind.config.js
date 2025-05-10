@@ -9,12 +9,12 @@ module.exports = {
   ],
   theme: {
   	screens: {
-  		'xs': '375px',    // Small phones
-  		'sm': '640px',    // Large phones/Small tablets
-  		'md': '768px',    // Tablets
-  		'lg': '1024px',   // Laptops/Desktops
-  		'xl': '1280px',   // Large Desktops
-  		'2xl': '1536px'   // Extra Large Screens
+  		xs: '375px',
+  		sm: '640px',
+  		md: '768px',
+  		lg: '1024px',
+  		xl: '1280px',
+  		'2xl': '1536px'
   	},
   	container: {
   		center: true,
@@ -23,14 +23,22 @@ module.exports = {
   			sm: '2rem',
   			lg: '4rem',
   			xl: '5rem',
-  			'2xl': '6rem',
-  		},
+  			'2xl': '6rem'
+  		}
   	},
   	extend: {
-      fontFamily: {
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
-        goodtimes: ['var(--font-goodtimes)', 'system-ui', 'sans-serif'],
-      },
+  		fontFamily: {
+  			sans: [
+  				'var(--font-inter)',
+  				'system-ui',
+  				'sans-serif'
+  			],
+  			goodtimes: [
+  				'var(--font-goodtimes)',
+  				'system-ui',
+  				'sans-serif'
+  			]
+  		},
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
@@ -81,6 +89,10 @@ module.exports = {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
+  		},
+  		backgroundImage: {
+  			'grid-pattern': 'linear-gradient(to right, #f5f5f5 1px, transparent 1px), linear-gradient(to bottom, #f5f5f5 1px, transparent 1px)',
+  			'grid-pattern-light': 'linear-gradient(to right, rgba(245, 245, 245, 0.5) 1px, transparent 1px), linear-gradient(to bottom, rgba(245, 245, 245, 0.5) 1px, transparent 1px)'
   		}
   	}
   },

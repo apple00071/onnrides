@@ -1,5 +1,5 @@
 {
-    "name": "OnnRides - Vehicle Rental Service",
+    "name": "OnnRides - Bike Rental Service",
     "short_name": "OnnRides",
     "icons": [
         {
@@ -15,5 +15,5 @@
     ],
     "theme_color": "#f26e24",
     "background_color": "#ffffff",
-    "description": "Best vehicle rental service in Hyderabad. Rent cars, bikes & scooters with doorstep delivery."
+    "description": "Best bike rental service in Hyderabad. Rent bikes & scooters with doorstep delivery."
 } 

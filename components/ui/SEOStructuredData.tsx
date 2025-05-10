@@ -55,7 +55,7 @@ export function BusinessStructuredData({
   priceRange = '₹₹',
 }: BusinessStructuredDataProps) {
   const locations = address.map((addr, index) => ({
-    '@type': 'LocalBusiness',
+    '@type': 'BikeRental',
     name: `${name} - ${addr.addressLocality}`,
     description,
     url: `${url}/locations/${addr.addressLocality.toLowerCase()}`,
@@ -83,7 +83,7 @@ export function BusinessStructuredData({
 
   const structuredData = {
     '@context': 'https://schema.org',
-    '@type': 'Organization',
+    '@type': 'BikeRental',
     name,
     description,
     url,
@@ -118,7 +118,7 @@ interface VehicleStructuredDataProps {
   offers: {
     price: string;
     priceCurrency: string;
-    availability: string; // Use InStock, OutOfStock, etc.
+    availability: string;
     validFrom?: string;
     priceValidUntil?: string;
   };
@@ -138,7 +138,7 @@ export function VehicleStructuredData({
 }: VehicleStructuredDataProps) {
   const structuredData = {
     '@context': 'https://schema.org',
-    '@type': 'Vehicle',
+    '@type': 'Motorcycle',
     name,
     description,
     image,

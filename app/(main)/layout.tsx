@@ -5,17 +5,16 @@ import LocationStructuredData from '@/components/ui/LocationStructuredData';
 import { locationData } from '@/data/locations';
 
 export const metadata: Metadata = {
-  title: 'OnnRides - Bike & Vehicle Rental Service in Hyderabad',
-  description: 'Rent bikes, scooters & vehicles in Hyderabad at affordable hourly & daily rates. Easy booking, multiple locations in Madhapur & Erragadda.',
+  title: 'OnnRides - Bike Rental Service in Hyderabad',
+  description: 'Rent bikes and scooters in Hyderabad at affordable hourly & daily rates. Easy booking, multiple locations in Madhapur & Erragadda.',
   keywords: [
     'bike rental Hyderabad',
     'scooter rental Hyderabad',
-    'vehicle rental Hyderabad',
     'Madhapur bike rental',
     'Erragadda bike rental',
-    'Hitec City vehicle rental',
+    'Hitec City bike rental',
     'Gachibowli bike rental',
-    'Kondapur vehicle rental',
+    'Kondapur bike rental',
     'hourly bike rental Hyderabad',
     'daily bike rental Hyderabad',
     'affordable bike rental',
@@ -24,8 +23,8 @@ export const metadata: Metadata = {
     'OnnRides Hyderabad'
   ],
   openGraph: {
-    title: 'OnnRides - Best Bike & Vehicle Rental Service in Hyderabad',
-    description: 'Rent bikes, scooters & vehicles in Hyderabad at affordable hourly & daily rates. Multiple locations with easy booking process.',
+    title: 'OnnRides - Best Bike Rental Service in Hyderabad',
+    description: 'Rent bikes and scooters in Hyderabad at affordable hourly & daily rates. Multiple locations with easy booking process.',
     url: 'https://www.onnrides.com',
     siteName: 'OnnRides',
     images: [
@@ -33,7 +32,7 @@ export const metadata: Metadata = {
         url: '/images/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'OnnRides - Bike & Vehicle Rental Service',
+        alt: 'OnnRides - Bike Rental Service',
       }
     ],
     locale: 'en_IN',
