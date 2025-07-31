@@ -1,0 +1,1 @@
+export { adminDb, adminAuth, adminStorage } from './admin'; 

@@ -1,8 +1,5 @@
 -- Create notification types enum
 CREATE TYPE notification_type AS ENUM (
-    'whatsapp_booking_confirmation',
-    'whatsapp_booking_cancellation',
-    'whatsapp_payment_confirmation',
     'email_booking_confirmation',
     'email_payment_confirmation',
     'email_document_reminder',

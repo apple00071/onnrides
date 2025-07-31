@@ -13,36 +13,14 @@ import ClientOnly from './(main)/providers/ClientOnly';
 import logger from '@/lib/logger';
 import { cn, suppressHydrationWarning } from '@/lib/utils';
 import GoogleAnalytics from './components/GoogleAnalytics';
-import { SpeedInsights } from '@vercel/speed-insights/next';
-import { Toaster } from '@/components/ui/toaster';
-import nextDynamic from 'next/dynamic';
-import { SidebarProvider } from '@/hooks/use-sidebar';
 import { Analytics } from '@vercel/analytics/react'
 import { goodTimes } from './fonts'
-import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
+import { SidebarProvider } from '@/hooks/use-sidebar';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SessionProvider } from '@/components/providers/session-provider';
 import { MaintenanceCheck } from '@/components/MaintenanceCheck';
 import { getBooleanSetting, SETTINGS } from '@/lib/settings';
-
-// Import ErrorBoundary dynamically with no SSR
-const ErrorBoundary = nextDynamic(
-  () => import('@/components/ErrorBoundary'),
-  { ssr: false }
-);
-
-// Import SpeedInsights dynamically with no SSR
-const ClientSpeedInsights = nextDynamic(
-  () => import('@vercel/speed-insights/next').then((mod) => ({ default: mod.SpeedInsights })),
-  { ssr: false }
-);
-
-// Import Toaster dynamically with no SSR
-const ClientToaster = nextDynamic(
-  () => import('@/components/ui/toaster').then((mod) => ({ default: mod.Toaster })),
-  { ssr: false }
-);
+import { ErrorBoundary, ClientSpeedInsights, ClientToaster } from './components/ClientComponents';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -379,7 +357,7 @@ export default async function RootLayout({
                         <MaintenanceCheck isMaintenanceMode={maintenanceMode}>
                           {children}
                         </MaintenanceCheck>
-                        <Toaster />
+                        <ClientToaster />
                         <ScriptLoader />
                       </SessionProvider>
                     </ThemeProvider>
@@ -390,7 +368,6 @@ export default async function RootLayout({
           </ErrorBoundary>
           <JsonLd data={structuredDataItems} />
           <ClientSpeedInsights />
-          <Toaster />
           <Analytics />
         </body>
       </html>
@@ -411,7 +388,7 @@ export default async function RootLayout({
             </div>
           </div>
           <ClientSpeedInsights />
-          <Toaster />
+          <ClientToaster />
         </body>
       </html>
     );

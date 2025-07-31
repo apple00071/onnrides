@@ -1,4 +1,6 @@
 import logger from '@/lib/logger';
+import { getFirebaseAdmin } from '@/lib/firebase/admin';
+import * as admin from 'firebase-admin';
 
 interface BookingConfirmationData {
   customerName: string;
@@ -13,12 +15,11 @@ interface BookingConfirmationData {
 
 export class WhatsAppService {
   private static instance: WhatsAppService;
-  private apiKey: string;
-  private apiUrl: string;
+  private messaging: admin.messaging.Messaging;
 
   private constructor() {
-    this.apiKey = process.env.WHATSAPP_API_KEY || '';
-    this.apiUrl = process.env.WHATSAPP_API_URL || '';
+    const app = getFirebaseAdmin();
+    this.messaging = app.messaging();
   }
 
   public static getInstance(): WhatsAppService {
@@ -30,28 +31,20 @@ export class WhatsAppService {
 
   public async sendBookingConfirmation(data: BookingConfirmationData): Promise<void> {
     try {
-      if (!this.apiKey || !this.apiUrl) {
-        logger.warn('WhatsApp API credentials not configured');
-        return;
-      }
-
       const message = this.createBookingConfirmationMessage(data);
 
-      const response = await fetch(this.apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
+      // Send message using Firebase Admin
+      await this.messaging.send({
+        notification: {
+          title: 'Booking Confirmation',
+          body: message,
         },
-        body: JSON.stringify({
-          phone: data.customerPhone,
-          message
-        })
+        data: {
+          type: 'booking_confirmation',
+          bookingId: data.bookingId,
+        },
+        token: data.customerPhone, // Assuming this is the Firebase messaging token
       });
-
-      if (!response.ok) {
-        throw new Error(`WhatsApp API responded with status: ${response.status}`);
-      }
 
       logger.info(`WhatsApp notification sent successfully to ${data.customerPhone}`);
     } catch (error) {

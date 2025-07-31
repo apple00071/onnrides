@@ -25,8 +25,13 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
 .env
+.env.local
+.env.development
+.env.development.local
+.env.test.local
+.env.production
+.env.production.local
 
 # vercel
 .vercel
@@ -35,34 +40,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Firebase
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
+firebase-adminsdk.json
+*-service-account.json
+
 # IDE
-.idea
-.vscode
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Logs
-logs
-*.log
-
-# Build output
-dist/
-build/
-
-# Cache
-.cache/
-.npm/
-
-# Temporary files
-*.swp
-*.swo
-*~
-
-# WhatsApp cache and auth
-.wwebjs_auth/
-.wwebjs_cache/
-whatsapp-auth/
-whatsapp-sessions/
+.vscode/
+.idea/

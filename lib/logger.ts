@@ -1,70 +1,22 @@
-import winston from 'winston';
-import 'winston-daily-rotate-file';
-
-// Check if we're in a browser environment in a way that works with ts-node
-const isBrowser = typeof process === 'undefined' || 
-                 !process.versions ||
-                 !process.versions.node;
+// Simple logger implementation that works in all environments
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Define log levels and colors
-const levels = {
-    error: 0,
-    warn: 1,
-    info: 2,
-    debug: 3
-};
-
-const colors = {
-    error: 'red',
-    warn: 'yellow',
-    info: 'blue',
-    debug: 'gray'
-};
-
-// Add colors to Winston
-winston.addColors(colors);
-
-// Create a custom format for browser-like output
-const browserFormat = winston.format.printf(({ level, message, timestamp, ...metadata }) => {
-    let msg = `${timestamp} [${level.toUpperCase()}] ${message}`;
-    if (Object.keys(metadata).length > 0) {
-        msg += ` ${JSON.stringify(metadata)}`;
+const logger = {
+    error: (message: string, meta?: any) => {
+        console.error(`[ERROR] ${message}`, meta ? meta : '');
+    },
+    warn: (message: string, meta?: any) => {
+        console.warn(`[WARN] ${message}`, meta ? meta : '');
+    },
+    info: (message: string, meta?: any) => {
+        console.info(`[INFO] ${message}`, meta ? meta : '');
+    },
+    debug: (message: string, meta?: any) => {
+        if (!isProduction) {
+            console.debug(`[DEBUG] ${message}`, meta ? meta : '');
+        }
     }
-    return msg;
-});
-
-// Create the logger instance
-const logger = isBrowser ? 
-    // Browser logger (console-based)
-    {
-        error: (...args: any[]) => console.error(...args),
-        warn: (...args: any[]) => console.warn(...args),
-        info: (...args: any[]) => console.info(...args),
-        debug: isProduction ? () => {} : (...args: any[]) => console.debug(...args)
-    } :
-    // Node.js logger (Winston-based)
-    winston.createLogger({
-        level: process.env.LOG_LEVEL || 'info',
-        levels,
-        format: winston.format.combine(
-            winston.format.timestamp(),
-            winston.format.colorize(),
-            winston.format.errors({ stack: true }),
-            winston.format.splat(),
-            browserFormat
-        ),
-        transports: [
-            new winston.transports.Console({
-                format: winston.format.combine(
-                    winston.format.colorize(),
-                    winston.format.simple()
-                )
-            })
-        ],
-        // Prevent Winston from exiting on error
-        exitOnError: false
-    });
+};
 
 // Export a type-safe logger interface
 export interface Logger {

@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node -r dotenv/config scripts/fix-database-build.js || echo 'Database compatibility script completed with warnings'",
-    "build": "node scripts/run-migrations.js && prisma generate && next build",
+    "build": "next build",
     "postbuild": "echo 'Build completed successfully!'",
     "start": "next start",
     "lint": "next lint",
@@ -26,7 +25,9 @@
     "test:middleware": "ts-node -r dotenv/config scripts/check-middleware.ts",
     "setup:settings": "ts-node -r dotenv/config scripts/setup-settings.ts",
     "db:init": "ts-node -r tsconfig-paths/register scripts/init-db.ts",
-    "vercel-build": "npm run db:init && next build"
+    "vercel-build": "npm run db:init && next build",
+    "firebase:init": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/init-firestore.ts",
+    "activate-admin": "ts-node -r dotenv/config scripts/activate-admin.ts"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.525.0",
@@ -61,7 +62,6 @@
     "@tanstack/react-table": "^8.21.3",
     "@vercel/analytics": "^1.5.0",
     "@vercel/blob": "^0.22.1",
-    "@vercel/postgres": "^0.10.0",
     "@vercel/speed-insights": "^1.0.10",
     "autoprefixer": "^10.4.17",
     "axios": "^1.6.7",
@@ -95,7 +95,6 @@
     "prisma": "^6.7.0",
     "puppeteer": "^24.4.0",
     "qrcode": "^1.5.3",
-    "qrcode-terminal": "^0.12.0",
     "razorpay": "^2.9.2",
     "react": "^18.2.0",
     "react-datepicker": "^8.3.0",
@@ -116,11 +115,10 @@
     "tsx": "^4.7.1",
     "twilio": "^4.22.0",
     "uuid": "^9.0.1",
-    "whatsapp-web.js": "^1.26.0",
-    "winston": "^3.11.0",
-    "winston-daily-rotate-file": "^5.0.0",
     "ws": "^8.18.1",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "firebase": "^10.8.0",
+    "firebase-admin": "^12.0.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
@@ -131,11 +129,11 @@
     "@types/js-cookie": "^3.0.6",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/luxon": "^3.4.2",
-    "@types/node": "^20.11.19",
+    "@types/node": "20.19.9",
     "@types/nodemailer": "^6.4.14",
     "@types/pg": "^8.11.13",
     "@types/qrcode": "^1.5.5",
-    "@types/react": "^18.2.57",
+    "@types/react": "18.3.23",
     "@types/react-datepicker": "^4.19.6",
     "@types/react-dom": "^18.2.19",
     "@types/uuid": "^9.0.8",
@@ -150,6 +148,6 @@
     "terser-webpack-plugin": "^5.3.10",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.3.3"
+    "typescript": "5.8.3"
   }
 }

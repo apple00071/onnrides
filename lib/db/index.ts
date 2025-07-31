@@ -1,21 +1,8 @@
-import { sql } from '@vercel/postgres';
+import { getAdminDb } from '../firebase/admin';
+import logger from '../logger';
+import { WhereFilterOp } from 'firebase-admin/firestore';
 import { createId } from '@paralleldrive/cuid2';
 import bcrypt from 'bcryptjs';
-import 'dotenv/config';
-import { Pool } from 'pg';
-import logger from '@/lib/logger';
-
-// Load environment variables
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is not set');
-}
-
-// Check if we're in a browser environment
-const isBrowser = typeof window !== 'undefined';
-
-export type QueryResult<T> = {
-  rows: T[];
-};
 
 export type DbUser = {
   id: string;
@@ -33,97 +20,158 @@ export type DbUser = {
 
 export type NewDbUser = Omit<DbUser, 'id' | 'created_at' | 'updated_at'>;
 
-// Create a connection pool only on the server side
-const pool = !isBrowser ? new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
-}) : null;
+class FirebaseDatabase {
+  private static instance: FirebaseDatabase;
+  private db: ReturnType<typeof getAdminDb>;
 
-// Function to execute a query with retries
-async function queryWithRetry(
-  text: string,
-  params?: any[],
-  retries = 3,
-  delay = 1000
-): Promise<any> {
-  if (isBrowser) {
-    throw new Error('Database operations are not available in the browser');
+  private constructor() {
+    this.db = getAdminDb();
   }
 
-  try {
-    return await pool?.query(text, params);
-  } catch (error) {
-    if (retries > 0 && error instanceof Error) {
-      // Check if error is a connection error
-      if (error.message.includes('connection') || error.message.includes('timeout')) {
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return queryWithRetry(text, params, retries - 1, delay * 2);
-      }
+  public static getInstance(): FirebaseDatabase {
+    if (!FirebaseDatabase.instance) {
+      FirebaseDatabase.instance = new FirebaseDatabase();
     }
-    throw error;
+    return FirebaseDatabase.instance;
+  }
+
+  async query<T>(collection: string, where?: { field: string; operator: WhereFilterOp; value: any }[]): Promise<T[]> {
+    try {
+      let query = this.db.collection(collection);
+
+      if (where) {
+        where.forEach(({ field, operator, value }) => {
+          query = query.where(field, operator, value) as any;
+        });
+      }
+
+      const snapshot = await query.get();
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
+    } catch (error) {
+      logger.error(`Error querying collection ${collection}:`, error);
+      throw error;
+    }
+  }
+
+  async get<T>(collection: string, id: string): Promise<T | null> {
+    try {
+      const doc = await this.db.collection(collection).doc(id).get();
+      if (!doc.exists) {
+        return null;
+      }
+      return { id: doc.id, ...doc.data() } as T;
+    } catch (error) {
+      logger.error(`Error getting document ${id} from ${collection}:`, error);
+      throw error;
+    }
+  }
+
+  async create<T>(collection: string, data: Omit<T, 'id'>): Promise<string> {
+    try {
+      const docRef = await this.db.collection(collection).add({
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      return docRef.id;
+    } catch (error) {
+      logger.error(`Error creating document in ${collection}:`, error);
+      throw error;
+    }
+  }
+
+  async update<T>(collection: string, id: string, data: Partial<T>): Promise<void> {
+    try {
+      await this.db.collection(collection).doc(id).update({
+        ...data,
+        updatedAt: new Date()
+      });
+    } catch (error) {
+      logger.error(`Error updating document ${id} in ${collection}:`, error);
+      throw error;
+    }
+  }
+
+  async delete(collection: string, id: string): Promise<void> {
+    try {
+      await this.db.collection(collection).doc(id).delete();
+    } catch (error) {
+      logger.error(`Error deleting document ${id} from ${collection}:`, error);
+      throw error;
+    }
+  }
+
+  // Legacy query function to maintain compatibility
+  async rawQuery<T>(text: string, params?: any[]): Promise<{ rows: T[] }> {
+    logger.warn('Legacy SQL query being used, should be migrated to Firestore:', text);
+    // For now, return empty result
+    return { rows: [] };
+  }
+
+  // User-related functions
+  async findUserByEmail(email: string): Promise<DbUser | null> {
+    try {
+      const snapshot = await this.db.collection('users')
+        .where('email', '==', email)
+        .limit(1)
+        .get();
+
+      if (snapshot.empty) {
+        return null;
+      }
+
+      const doc = snapshot.docs[0];
+      return {
+        id: doc.id,
+        ...doc.data(),
+        created_at: doc.data().createdAt.toDate(),
+        updated_at: doc.data().updatedAt.toDate(),
+      } as DbUser;
+    } catch (error) {
+      logger.error('Error finding user by email:', error);
+      throw error;
+    }
+  }
+
+  async createUser(data: Partial<NewDbUser>): Promise<DbUser> {
+    try {
+      const id = createId();
+      const now = new Date();
+      const userData: DbUser = {
+        id,
+        name: data.name || null,
+        email: data.email!,
+        password_hash: data.password_hash!,
+        role: data.role || 'user',
+        phone: data.phone || null,
+        reset_token: null,
+        reset_token_expiry: null,
+        is_blocked: false,
+        created_at: now,
+        updated_at: now,
+      };
+
+      await this.db.collection('users').doc(id).set(userData);
+      return userData;
+    } catch (error) {
+      logger.error('Error creating user:', error);
+      throw error;
+    }
   }
 }
 
-// Export the query function
-export async function query(text: string, params?: any[]) {
-  if (isBrowser) {
-    throw new Error('Database operations are not available in the browser');
-  }
+export const db = FirebaseDatabase.getInstance();
 
-  try {
-    return await queryWithRetry(text, params);
-  } catch (error) {
-    logger.error('Database query error:', { error, query: text, params });
-    throw error;
-  }
+// Export legacy query function to maintain compatibility
+export async function query<T>(text: string, params?: any[]): Promise<{ rows: T[] }> {
+  return db.rawQuery<T>(text, params);
 }
 
-// Initialize database tables
-export async function initializeDatabase() {
-  if (isBrowser) {
-    throw new Error('Database operations are not available in the browser');
-  }
-
-  try {
-    // Create WhatsApp logs table
-    await query(`
-      CREATE TABLE IF NOT EXISTS whatsapp_logs (
-        id SERIAL PRIMARY KEY,
-        message_id VARCHAR(255),
-        instance_id VARCHAR(100),
-        recipient_phone VARCHAR(20),
-        message_type VARCHAR(50),
-        message_content TEXT,
-        status VARCHAR(50) DEFAULT 'pending',
-        error_message TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        metadata JSONB DEFAULT '{}'::jsonb
-      );
-    `);
-
-    logger.info('Database tables initialized successfully');
-  } catch (error) {
-    logger.error('Error initializing database tables:', error);
-    throw error;
-  }
-}
-
-// Export the pool for direct access if needed (server-side only)
-export { pool };
-
+// Export user-related functions
 export async function findUserByEmail(email: string): Promise<DbUser | null> {
-  const result = await sql<DbUser>`SELECT * FROM users WHERE email = ${email} LIMIT 1`;
-  return result.rows[0] || null;
+  return db.findUserByEmail(email);
 }
 
 export async function createUser(data: Partial<NewDbUser>): Promise<DbUser> {
-  const result = await sql<DbUser>`
-    INSERT INTO users (id, name, email, password_hash, role) 
-    VALUES (${createId()}, ${data.name || null}, ${data.email}, ${data.password_hash}, ${data.role || 'user'}) 
-    RETURNING *
-  `;
-  return result.rows[0];
-}
-
-export { sql }; 
+  return db.createUser(data);
+} 

@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   // Disable source maps in production
   productionBrowserSourceMaps: false,
   images: {
@@ -120,8 +119,6 @@ const nextConfig = {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         'fluent-ffmpeg': false,
-        'whatsapp-web.js': false,
-        'qrcode-terminal': false,
         'fs': false,
         'puppeteer': false,
         'pg-native': false,
@@ -149,9 +146,6 @@ const nextConfig = {
         permanent: true,
       }
     ]
-  },
-  experimental: {
-    serverComponentsExternalPackages: ['whatsapp-web.js', 'fluent-ffmpeg', 'puppeteer', 'qrcode-terminal'],
   },
   // Temporarily disable TypeScript and ESLint errors in production
   typescript: {
