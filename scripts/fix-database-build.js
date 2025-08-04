@@ -11,9 +11,17 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Initialize PostgreSQL connection
+// Initialize PostgreSQL connection with proper Neon configuration
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes('.neon.tech') ? {
+    rejectUnauthorized: true,
+    ssl: true,
+  } : process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
+  // Add connection pool settings
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
 });
 
 // Get all tables and their columns for mapping
