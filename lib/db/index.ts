@@ -13,6 +13,27 @@ if (!process.env.DATABASE_URL) {
 // Check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined';
 
+// Parse database URL to determine if it's a Neon database
+const isNeonDb = process.env.DATABASE_URL.includes('.neon.tech');
+
+// Configure connection options
+const connectionOptions = {
+  connectionString: process.env.DATABASE_URL,
+  ssl: isNeonDb ? {
+    rejectUnauthorized: true,
+    // For Neon, we need to ensure we're using TLS
+    ssl: true,
+  } : process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
+};
+
+// Create a connection pool only on the server side with proper configuration
+const pool = !isBrowser ? new Pool({
+  ...connectionOptions,
+  max: 20, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
+  connectionTimeoutMillis: 2000, // How long to wait before timing out when connecting a new client
+}) : null;
+
 export type QueryResult<T> = {
   rows: T[];
 };
@@ -33,12 +54,6 @@ export type DbUser = {
 
 export type NewDbUser = Omit<DbUser, 'id' | 'created_at' | 'updated_at'>;
 
-// Create a connection pool only on the server side
-const pool = !isBrowser ? new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
-}) : null;
-
 // Function to execute a query with retries
 async function queryWithRetry(
   text: string,
@@ -51,15 +66,31 @@ async function queryWithRetry(
   }
 
   try {
-    return await pool?.query(text, params);
-  } catch (error) {
-    if (retries > 0 && error instanceof Error) {
-      // Check if error is a connection error
-      if (error.message.includes('connection') || error.message.includes('timeout')) {
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return queryWithRetry(text, params, retries - 1, delay * 2);
-      }
+    const client = await pool?.connect();
+    try {
+      const result = await client?.query(text, params);
+      return result;
+    } finally {
+      client?.release();
     }
+  } catch (error: any) {
+    logger.warn('Database query failed, retrying...', { 
+      error: error.message,
+      code: error.code,
+      retriesLeft: retries 
+    });
+    
+    if (retries > 0) {
+      // Add exponential backoff
+      const backoffDelay = delay * (Math.random() + 0.5); // Random delay between 0.5x and 1.5x
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      return queryWithRetry(text, params, retries - 1, delay * 2);
+    }
+    
+    logger.error('Database error:', { 
+      code: error.code,
+      operation: 'query execution'
+    });
     throw error;
   }
 }
@@ -85,23 +116,6 @@ export async function initializeDatabase() {
   }
 
   try {
-    // Create WhatsApp logs table
-    await query(`
-      CREATE TABLE IF NOT EXISTS whatsapp_logs (
-        id SERIAL PRIMARY KEY,
-        message_id VARCHAR(255),
-        instance_id VARCHAR(100),
-        recipient_phone VARCHAR(20),
-        message_type VARCHAR(50),
-        message_content TEXT,
-        status VARCHAR(50) DEFAULT 'pending',
-        error_message TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        metadata JSONB DEFAULT '{}'::jsonb
-      );
-    `);
-
     logger.info('Database tables initialized successfully');
   } catch (error) {
     logger.error('Error initializing database tables:', error);

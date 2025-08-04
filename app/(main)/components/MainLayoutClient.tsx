@@ -1,6 +1,5 @@
 'use client';
 
-import { Inter } from 'next/font/google';
 import Script from 'next/script';
 import { useEffect } from 'react';
 import logger from '@/lib/logger';
@@ -8,7 +7,7 @@ import Navbar from './Navbar';
 import Footer from './Footer';
 import { ProviderRegistry } from '../../providers/ProviderRegistry';
 
-const inter = Inter({ subsets: ['latin'] });
+// Remove Inter font import and configuration
 
 export default function MainLayoutClient({
   children,
@@ -24,7 +23,7 @@ export default function MainLayoutClient({
   }, []);
 
   return (
-    <div className={`${inter.className} min-h-screen bg-background`}>
+    <div className="min-h-screen bg-background">
       <Script 
         id="structured-data"
         type="application/ld+json"
