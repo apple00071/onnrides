@@ -1,8 +1,7 @@
-import { sql } from '@vercel/postgres';
+import { Pool } from 'pg';
 import { createId } from '@paralleldrive/cuid2';
 import bcrypt from 'bcryptjs';
 import 'dotenv/config';
-import { Pool } from 'pg';
 import logger from '@/lib/logger';
 
 // Load environment variables
@@ -23,16 +22,29 @@ const connectionOptions = {
     rejectUnauthorized: true,
     // For Neon, we need to ensure we're using TLS
     ssl: true,
-  } : process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
+  } : process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
+  // Add connection pool settings
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+  // Add retry settings
+  retryDelay: 1000,
+  maxRetries: 3
 };
 
 // Create a connection pool only on the server side with proper configuration
-const pool = !isBrowser ? new Pool({
-  ...connectionOptions,
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-  connectionTimeoutMillis: 2000, // How long to wait before timing out when connecting a new client
-}) : null;
+const pool = !isBrowser ? new Pool(connectionOptions) : null;
+
+// Add event listeners for the pool
+if (pool) {
+  pool.on('error', (err) => {
+    logger.error('Unexpected error on idle client', err);
+  });
+
+  pool.on('connect', () => {
+    logger.info('New database connection established');
+  });
+}
 
 export type QueryResult<T> = {
   rows: T[];
@@ -74,24 +86,26 @@ async function queryWithRetry(
       client?.release();
     }
   } catch (error: any) {
-    logger.warn('Database query failed, retrying...', { 
-      error: error.message,
-      code: error.code,
-      retriesLeft: retries 
-    });
-    
     if (retries > 0) {
+      logger.warn('Database query failed, retrying...', { 
+        error: error.message,
+        code: error.code,
+        retriesLeft: retries 
+      });
+      
       // Add exponential backoff
-      const backoffDelay = delay * (Math.random() + 0.5); // Random delay between 0.5x and 1.5x
+      const backoffDelay = delay * (Math.random() + 0.5);
       await new Promise(resolve => setTimeout(resolve, backoffDelay));
       return queryWithRetry(text, params, retries - 1, delay * 2);
     }
     
     logger.error('Database error:', { 
       code: error.code,
+      detail: error.detail,
+      hint: error.hint,
       operation: 'query execution'
     });
-    throw error;
+    throw new Error(`Database query execution failed: ${error.message}`);
   }
 }
 
@@ -104,7 +118,7 @@ export async function query(text: string, params?: any[]) {
   try {
     return await queryWithRetry(text, params);
   } catch (error) {
-    logger.error('Database query error:', { error, query: text, params });
+    logger.error('Database error:', error);
     throw error;
   }
 }
@@ -127,17 +141,14 @@ export async function initializeDatabase() {
 export { pool };
 
 export async function findUserByEmail(email: string): Promise<DbUser | null> {
-  const result = await sql<DbUser>`SELECT * FROM users WHERE email = ${email} LIMIT 1`;
+  const result = await query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email]);
   return result.rows[0] || null;
 }
 
 export async function createUser(data: Partial<NewDbUser>): Promise<DbUser> {
-  const result = await sql<DbUser>`
-    INSERT INTO users (id, name, email, password_hash, role) 
-    VALUES (${createId()}, ${data.name || null}, ${data.email}, ${data.password_hash}, ${data.role || 'user'}) 
-    RETURNING *
-  `;
+  const result = await query(
+    'INSERT INTO users (id, name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+    [createId(), data.name || null, data.email, data.password_hash, data.role || 'user']
+  );
   return result.rows[0];
-}
-
-export { sql }; 
+} 
