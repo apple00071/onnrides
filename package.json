@@ -25,7 +25,7 @@
     "test:middleware": "ts-node -r dotenv/config scripts/check-middleware.ts",
     "setup:settings": "ts-node -r dotenv/config scripts/setup-settings.ts",
     "db:init": "node -r dotenv/config scripts/fix-database-build.js && node scripts/run-migrations.js",
-    "vercel-build": "npm run db:init && next build"
+    "vercel-build": "prisma generate && next build"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.525.0",
