@@ -7,7 +7,7 @@ export const revalidate = 3600; // Revalidate every hour
 export async function GET() {
   try {
     const result = await query(
-      'SELECT * FROM vehicles WHERE is_active = true ORDER BY created_at DESC'
+      "SELECT * FROM vehicles WHERE status = 'active' ORDER BY name ASC"
     );
     return NextResponse.json({ vehicles: result.rows });
   } catch (error) {

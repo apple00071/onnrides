@@ -35,11 +35,15 @@
 
   /* Base HTML Elements */
   html {
-    @apply text-base antialiased scroll-smooth;
+    @apply text-base antialiased scroll-smooth font-sans;
   }
 
   body {
-    @apply text-text-primary bg-background;
+    @apply text-text-primary bg-background font-sans;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-sans font-semibold;
   }
 }
 

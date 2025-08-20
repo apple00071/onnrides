@@ -17,7 +17,7 @@ import { Toaster } from '@/components/ui/toaster';
 import nextDynamic from 'next/dynamic';
 import { SidebarProvider } from '@/hooks/use-sidebar';
 import { Analytics } from '@vercel/analytics/react'
-import { goodTimes } from './fonts'
+import { inter } from './fonts'
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { ThemeProvider } from '@/components/providers/theme-provider';
@@ -339,7 +339,10 @@ export default async function RootLayout({
     ];
 
     return (
-      <html lang="en" className="font-sans antialiased" {...suppressHydrationWarning()}>
+      <html lang="en" className={cn(
+        "antialiased",
+        inter.variable
+      )} {...suppressHydrationWarning()}>
         <head>
           <meta charSet="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
