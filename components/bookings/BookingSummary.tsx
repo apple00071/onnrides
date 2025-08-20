@@ -161,8 +161,21 @@ export function BookingSummary({
 
   const handlePaymentClick = useCallback(() => {
     if (!session) {
+      // Save current booking details to localStorage
+      const bookingState = {
+        vehicleId: vehicle?.id,
+        startDate,
+        endDate,
+        totalAmount,
+        couponCode,
+        couponDiscount,
+        location: vehicle?.location?.[0] || '',
+        returnUrl: window.location.href
+      };
+      localStorage.setItem('pendingBooking', JSON.stringify(bookingState));
+      
       toast.error('Please sign in to proceed with the booking');
-      router.push('/auth/signin?callbackUrl=/bookings/new');
+      router.push('/auth/signin');
       return;
     }
 
@@ -173,7 +186,7 @@ export function BookingSummary({
     }
 
     onPaymentClick?.();
-  }, [session, termsAccepted, router, onPaymentClick]);
+  }, [session, termsAccepted, router, onPaymentClick, vehicle, startDate, endDate, totalAmount, couponCode, couponDiscount]);
 
   const handleTermsAccept = useCallback(() => {
     setTermsAccepted(true);

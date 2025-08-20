@@ -23,7 +23,9 @@ async function runMigrations() {
       '027_fix_price_column_type.sql',
       '028_fix_min_hours_column_type.sql',
       '030_standardize_column_names.sql',
-      '031_safe_column_handling.sql'
+      '031_safe_column_handling.sql',
+      '032_add_is_blocked_column.sql',
+      '033_add_booking_type.sql'
     ];
     
     // Create migrations table if it doesn't exist

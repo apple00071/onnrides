@@ -1,16 +1,24 @@
 // Simple logger that works in both Edge and Node.js environments
+const isProduction = process.env.NODE_ENV === 'production';
+
 const logger = {
   info: (message: string, meta?: any) => {
-    console.log(`[INFO] ${message}`, meta || '');
+    if (!isProduction || message.startsWith('[ERROR]') || message.startsWith('[CRITICAL]')) {
+      console.log(`[INFO] ${message}`, meta || '');
+    }
   },
   warn: (message: string, meta?: any) => {
-    console.warn(`[WARN] ${message}`, meta || '');
+    if (!isProduction || message.startsWith('[ERROR]') || message.startsWith('[CRITICAL]')) {
+      console.warn(`[WARN] ${message}`, meta || '');
+    }
   },
   error: (message: string, meta?: any) => {
+    // Always log errors
     console.error(`[ERROR] ${message}`, meta || '');
   },
   debug: (message: string, meta?: any) => {
-    if (process.env.NODE_ENV !== 'production') {
+    // Never log debug in production
+    if (!isProduction) {
       console.debug(`[DEBUG] ${message}`, meta || '');
     }
   }

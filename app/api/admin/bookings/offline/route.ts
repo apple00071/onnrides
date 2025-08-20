@@ -73,16 +73,21 @@ export async function POST(request: NextRequest) {
 
         const newUser = await query(
           `INSERT INTO users (
+            id,
             name, 
             phone, 
             email, 
             password_hash,
-            role, 
-            is_blocked,
-            created_at, 
+            role,
+            created_at,
             updated_at
           )
-           VALUES ($1, $2, $3, $4, 'user', false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           VALUES (
+            gen_random_uuid(),
+            $1, $2, $3, $4, 'user',
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+           )
            RETURNING id`,
           [customerName, customerPhone, customerEmail, hashedPassword]
         );
@@ -130,15 +135,16 @@ export async function POST(request: NextRequest) {
           status,
           payment_status,
           payment_details,
+          booking_type,
           created_at,
           updated_at
         ) VALUES (
           gen_random_uuid(),
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'offline',
           CURRENT_TIMESTAMP, 
           CURRENT_TIMESTAMP
         )
-        RETURNING id`,
+        RETURNING id, booking_type`,
         [
           bookingId,
           userId,
@@ -161,38 +167,49 @@ export async function POST(request: NextRequest) {
 
       const vehicleName = vehicleResult.rows[0]?.name || 'Unknown Vehicle';
 
-      // Send notifications
-      try {
+      // Send notifications asynchronously without waiting
+      Promise.all([
         // Send WhatsApp notification
-        const whatsappService = WhatsAppService.getInstance();
-        await whatsappService.sendBookingConfirmation({
-          customerName,
-          customerPhone,
-          vehicleType: 'Vehicle',
-          vehicleModel: vehicleName,
-          startDate: startDateTime.toLocaleString(),
-          endDate: endDateTime.toLocaleString(),
-          bookingId,
-          totalAmount: totalAmount.toString(),
-        });
+        (async () => {
+          try {
+            const whatsappService = WhatsAppService.getInstance();
+            await whatsappService.sendBookingConfirmation({
+              customerName,
+              customerPhone,
+              vehicleType: 'Vehicle',
+              vehicleModel: vehicleName,
+              startDate: startDateTime.toLocaleString(),
+              endDate: endDateTime.toLocaleString(),
+              bookingId,
+              totalAmount: totalAmount.toString(),
+            });
+          } catch (error) {
+            logger.warn('WhatsApp notification failed:', error);
+          }
+        })(),
 
         // Send email confirmation if email is provided
-        if (customerEmail) {
-          const emailService = EmailService.getInstance();
-          await emailService.sendBookingConfirmation(customerEmail, {
-            userName: customerName,
-            vehicleName,
-            bookingId,
-            startDate: startDateTime.toLocaleString(),
-            endDate: endDateTime.toLocaleString(),
-            amount: totalAmount.toString(),
-            paymentId: paymentReference || 'N/A'
-          });
-        }
-      } catch (notificationError) {
-        logger.error('Error sending notifications:', notificationError);
-        // Don't throw error here, as booking is already created
-      }
+        (async () => {
+          if (customerEmail) {
+            try {
+              const emailService = EmailService.getInstance();
+              await emailService.sendBookingConfirmation(customerEmail, {
+                userName: customerName,
+                vehicleName,
+                bookingId,
+                startDate: startDateTime.toLocaleString(),
+                endDate: endDateTime.toLocaleString(),
+                amount: totalAmount.toString(),
+                paymentId: paymentReference || 'N/A'
+              });
+            } catch (error) {
+              logger.warn('Email notification failed:', error);
+            }
+          }
+        })()
+      ]).catch(error => {
+        logger.warn('Notifications failed:', error);
+      });
 
       await query('COMMIT');
 
@@ -202,7 +219,16 @@ export async function POST(request: NextRequest) {
         data: {
           bookingId,
           id: bookingResult.rows[0].id,
-          totalHours
+          totalHours,
+          booking: {
+            ...bookingResult.rows[0],
+            vehicle_name: vehicleName,
+            user_name: customerName,
+            user_email: customerEmail,
+            user_phone: customerPhone,
+            formatted_pickup: startDateTime.toLocaleString(),
+            formatted_dropoff: endDateTime.toLocaleString()
+          }
         }
       });
     } catch (error) {

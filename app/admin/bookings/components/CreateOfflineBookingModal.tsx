@@ -14,6 +14,7 @@ import { CalendarIcon, Loader2, XCircle, Plus, Upload, Trash, ChevronDown, Chevr
 import { formatCurrency } from '@/lib/utils/currency-formatter';
 import logger from '@/lib/logger';
 import { SignatureCanvas } from '@/components/ui/SignatureCanvas';
+import { format } from 'date-fns';
 
 interface CreateOfflineBookingModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ interface CreateOfflineBookingModalProps {
   onSuccess: () => void;
 }
 
+// Update FormData interface to include termsAgreed
 interface FormData {
   // Customer Details
   customerName: string;
@@ -54,17 +56,210 @@ interface FormData {
   paymentReference?: string;
   notes?: string;
   signature?: string;
-  
-  // Terms & Conditions
+  bookingLocation: string;
+  useVehicleLocation: boolean;
+  registration_number: string;
   termsAgreed: boolean[];
 }
 
+// Update Vehicle interface
 interface Vehicle {
   id: string;
   name: string;
+  registration_number: string;
   price_per_hour: number;
+  price_7_days: number | null;
+  price_15_days: number | null;
+  price_30_days: number | null;
   location: string;
 }
+
+// Add locations array
+const LOCATIONS = [
+  'Madhapur',
+  'Erragadda'
+];
+
+// Update the calculateRentalPrice function with proper pricing logic
+const calculateRentalPrice = (
+  startDate: string,
+  startTime: string,
+  endDate: string,
+  endTime: string,
+  vehicle: Vehicle
+): { baseAmount: number } => {
+  const start = new Date(`${startDate}T${startTime}`);
+  const end = new Date(`${endDate}T${endTime}`);
+  const durationHours = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+  const startDay = start.getDay(); // 0 = Sunday, 1 = Monday, ...
+  const isWeekend = startDay === 0 || startDay === 6; // Weekend is Saturday or Sunday
+  
+  // Validate inputs to prevent NaN results
+  const hourlyRate = typeof vehicle.price_per_hour === 'number' && !isNaN(vehicle.price_per_hour) 
+    ? vehicle.price_per_hour 
+    : 0;
+  
+  const price7Days = typeof vehicle.price_7_days === 'number' && !isNaN(vehicle.price_7_days) && vehicle.price_7_days > 0
+    ? vehicle.price_7_days
+    : null;
+    
+  const price15Days = typeof vehicle.price_15_days === 'number' && !isNaN(vehicle.price_15_days) && vehicle.price_15_days > 0
+    ? vehicle.price_15_days
+    : null;
+    
+  const price30Days = typeof vehicle.price_30_days === 'number' && !isNaN(vehicle.price_30_days) && vehicle.price_30_days > 0
+    ? vehicle.price_30_days
+    : null;
+
+  // First check for special duration pricing
+  const durationDays = durationHours / 24;
+
+  // If duration is 30 days or more and 30-day price is set
+  if (durationDays >= 30 && price30Days) {
+    // For durations close to 30 days, use the 30-day price
+    if (durationDays <= 31) {
+      return { baseAmount: price30Days };
+    }
+    const fullMonths = Math.floor(durationDays / 30);
+    const remainingDays = durationDays % 30;
+    const remainingHours = remainingDays * 24;
+    const remainingAmount = calculateRentalPrice(
+      new Date(start.getTime() + fullMonths * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      startTime,
+      endDate,
+      endTime,
+      vehicle
+    ).baseAmount;
+    return { baseAmount: (fullMonths * price30Days) + remainingAmount };
+  }
+
+  // If duration is 15 days or more and 15-day price is set
+  if (durationDays >= 15 && price15Days) {
+    // For durations close to 15 days, use the 15-day price
+    if (durationDays <= 16) {
+      return { baseAmount: price15Days };
+    }
+    const full15Days = Math.floor(durationDays / 15);
+    const remainingDays = durationDays % 15;
+    const remainingHours = remainingDays * 24;
+    const remainingAmount = calculateRentalPrice(
+      new Date(start.getTime() + full15Days * 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      startTime,
+      endDate,
+      endTime,
+      vehicle
+    ).baseAmount;
+    return { baseAmount: (full15Days * price15Days) + remainingAmount };
+  }
+
+  // If duration is 7 days or more and 7-day price is set
+  if (durationDays >= 7 && price7Days) {
+    // For durations close to 7 days, use the 7-day price
+    if (durationDays <= 8) {
+      return { baseAmount: price7Days };
+    }
+    const fullWeeks = Math.floor(durationDays / 7);
+    const remainingDays = durationDays % 7;
+    const remainingHours = remainingDays * 24;
+    const remainingAmount = calculateRentalPrice(
+      new Date(start.getTime() + fullWeeks * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      startTime,
+      endDate,
+      endTime,
+      vehicle
+    ).baseAmount;
+    return { baseAmount: (fullWeeks * price7Days) + remainingAmount };
+  }
+
+  // Handle weekend and weekday pricing for shorter durations
+  if (isWeekend) {
+    // Weekend bookings always charge for 24 hours minimum
+    return { baseAmount: Math.max(24, durationHours) * hourlyRate };
+  } else {
+    // Weekday bookings
+    if (durationHours <= 12) {
+      // For durations up to 12 hours, charge for full 12 hours
+      return { baseAmount: 12 * hourlyRate };
+    } else {
+      // For durations over 12 hours, charge for actual hours
+      return { baseAmount: durationHours * hourlyRate };
+    }
+  }
+};
+
+// Add helper function to format date for display
+const formatDateForDisplay = (date: string) => {
+  if (!date) return '';
+  return format(new Date(date), 'dd/MM/yyyy');
+};
+
+// Add helper function to format time for display
+const formatTimeForDisplay = (time: string) => {
+  if (!time) return '';
+  const [hours, minutes] = time.split(':');
+  const hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+};
+
+// Add helper function to format time in 12-hour format
+const formatTimeFor12Hour = (time: string): string => {
+  const [hours, minutes] = time.split(':');
+  const hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+};
+
+// Add helper function to parse displayed time back to 24h format
+const parseTimeToISO = (time12h: string): string => {
+  if (!time12h) return '';
+  const [time, period] = time12h.split(' ');
+  let [hours, minutes] = time.split(':');
+  let hour = parseInt(hours, 10);
+  
+  if (period === 'PM' && hour !== 12) hour += 12;
+  if (period === 'AM' && hour === 12) hour = 0;
+  
+  return `${hour.toString().padStart(2, '0')}:${minutes}`;
+};
+
+// Update generateTimeOptions to filter out past times
+const generateTimeOptions = (selectedDate: string) => {
+  const options = [];
+  const now = new Date();
+  const selectedDateTime = selectedDate ? new Date(selectedDate) : null;
+  const isToday = selectedDateTime?.toDateString() === now.toDateString();
+
+  for (let hour = 0; hour < 24; hour++) {
+    for (let minute = 0; minute < 60; minute += 30) {
+      const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      
+      // Skip past times if it's today
+      if (isToday) {
+        const timeDate = new Date(selectedDateTime!.setHours(hour, minute));
+        if (timeDate < now) continue;
+      }
+
+      options.push({
+        value: time,
+        label: formatTimeFor12Hour(time)
+      });
+    }
+  }
+  return options;
+};
+
+// Add helper function to format duration
+const formatDuration = (hours: number): string => {
+  if (hours < 24) {
+    return `${hours} hour${hours === 1 ? '' : 's'}`;
+  }
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  return `${days} day${days === 1 ? '' : 's'}${remainingHours ? ` ${remainingHours} hour${remainingHours === 1 ? '' : 's'}` : ''}`;
+};
 
 export default function CreateOfflineBookingModal({ 
   isOpen, 
@@ -81,7 +276,6 @@ export default function CreateOfflineBookingModal({
     customerDetails: true,
     emergencyContacts: true,
     vehiclePricing: true,
-    rentalPeriod: true,
     notes: true,
     documents: true,
     signature: true,
@@ -131,11 +325,112 @@ const initialFormData: FormData = {
   paymentReference: '',
   notes: '',
   signature: '',
-    
+  bookingLocation: '',
+  useVehicleLocation: true,
+  registration_number: '',
   termsAgreed: [false, false, false, false, false]
 };
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
+
+  // Validation functions
+  const validatePhoneNumber = (phone: string): boolean => {
+    // Indian phone number format: 10 digits, optionally starting with +91
+    const phoneRegex = /^(?:\+91)?[6-9]\d{9}$/;
+    return phoneRegex.test(phone.replace(/\s+/g, ''));
+  };
+
+  const validateAadhaar = (aadhaar: string): boolean => {
+    // Aadhaar format: 12 digits
+    const aadhaarRegex = /^\d{12}$/;
+    return aadhaarRegex.test(aadhaar.replace(/\s+/g, ''));
+  };
+
+  const validateEmergencyContacts = (formData: FormData): boolean => {
+    // Check if emergency contacts are different from customer's phone
+    const contacts = [
+      formData.emergencyContact1,
+      formData.emergencyContact2,
+      formData.fatherPhone,
+      formData.motherPhone
+    ].filter(contact => contact.length > 0);
+
+    // Check if all provided contacts are valid phone numbers
+    const areValidNumbers = contacts.every(contact => validatePhoneNumber(contact));
+    if (!areValidNumbers) return false;
+
+    // Check if emergency contacts are different from each other
+    const uniqueContacts = new Set(contacts.map(contact => contact.replace(/\s+/g, '')));
+    if (uniqueContacts.size !== contacts.length) return false;
+
+    // Check if emergency contacts are different from customer's phone
+    if (formData.customerPhone && contacts.some(contact => 
+      contact.replace(/\s+/g, '') === formData.customerPhone.replace(/\s+/g, '')
+    )) {
+      return false;
+    }
+
+    return true;
+  };
+
+  // Add helper function to calculate max DOB
+  const calculateMaxDOB = () => {
+    const today = new Date();
+    const minAge = 19;
+    today.setFullYear(today.getFullYear() - minAge);
+    return today.toISOString().split('T')[0];
+  };
+
+  // Add validation function
+  const validateAge = (dob: string) => {
+    const birthDate = new Date(dob);
+    const today = new Date();
+    const age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      return age - 1;
+    }
+    return age;
+  };
+
+  // Add helper function to calculate hours between two dates
+  const calculateHours = (startDate: string, startTime: string, endDate: string, endTime: string): number => {
+    const start = new Date(`${startDate}T${startTime}`);
+    const end = new Date(`${endDate}T${endTime}`);
+    const diffMs = end.getTime() - start.getTime();
+    const hours = diffMs / (1000 * 60 * 60);
+    return Math.ceil(hours); // Round up to nearest hour
+  };
+
+  // Add function to validate date and time selection
+  const validateDateTime = (startDate: string, startTime: string, endDate: string, endTime: string): boolean => {
+    const start = new Date(`${startDate}T${startTime}`);
+    const end = new Date(`${endDate}T${endTime}`);
+    const now = new Date();
+
+    // Ensure start date is not in the past
+    if (start < now) {
+      toast.error('Start date and time cannot be in the past');
+      return false;
+    }
+
+    // Ensure end date is after start date
+    if (end <= start) {
+      toast.error('End date and time must be after start date and time');
+      return false;
+    }
+
+    // Minimum booking duration (e.g., 4 hours)
+    const minHours = 4;
+    const hours = calculateHours(startDate, startTime, endDate, endTime);
+    if (hours < minHours) {
+      toast.error(`Minimum booking duration is ${minHours} hours`);
+      return false;
+    }
+
+    return true;
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -169,9 +464,83 @@ const initialFormData: FormData = {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  // Update handleInputChange to handle select elements
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    let shouldUpdate = true;
+    let updatedFormData = { ...formData, [name]: value };
+
+    // Phone number validation
+    if (name === 'customerPhone' || name === 'fatherPhone' || 
+        name === 'motherPhone' || name === 'emergencyContact1' || 
+        name === 'emergencyContact2') {
+      if (value && !validatePhoneNumber(value)) {
+        toast.error('Please enter a valid Indian phone number');
+        shouldUpdate = false;
+      }
+    }
+
+    // Aadhaar validation
+    if (name === 'customerAadhaar') {
+      if (value && !validateAadhaar(value)) {
+        toast.error('Please enter a valid 12-digit Aadhaar number');
+        shouldUpdate = false;
+      }
+    }
+
+    // Validate emergency contacts
+    if (['emergencyContact1', 'emergencyContact2', 'fatherPhone', 'motherPhone'].includes(name)) {
+      const hasEmergencyContacts = updatedFormData.emergencyContact1 || 
+                                  updatedFormData.emergencyContact2 || 
+                                  updatedFormData.fatherPhone || 
+                                  updatedFormData.motherPhone;
+      
+      if (hasEmergencyContacts && !validateEmergencyContacts(updatedFormData)) {
+        toast.error('Emergency contacts must be different from each other and customer\'s phone');
+        shouldUpdate = false;
+      }
+    }
+
+    // Age validation
+    if (name === 'customerDob') {
+      const age = validateAge(value);
+      if (age < 19) {
+        toast.error('Renter must be at least 19 years old');
+        shouldUpdate = false;
+      }
+    }
+
+    // Calculate pricing when date/time fields are updated
+    if (['startDate', 'startTime', 'endDate', 'endTime'].includes(name) && selectedVehicle) {
+      const { startDate, startTime, endDate, endTime } = updatedFormData;
+      
+      // Only calculate if all date/time fields are filled
+      if (startDate && startTime && endDate && endTime) {
+        if (validateDateTime(startDate, startTime, endDate, endTime)) {
+          const { baseAmount } = calculateRentalPrice(
+            startDate,
+            startTime,
+            endDate,
+            endTime,
+            selectedVehicle
+          );
+          
+          updatedFormData = {
+            ...updatedFormData,
+            baseRate: baseAmount,
+            totalAmount: baseAmount + Number(updatedFormData.securityDeposit || 0)
+          };
+        } else {
+          shouldUpdate = false;
+        }
+      }
+    }
+
+    if (shouldUpdate) {
+      setFormData(updatedFormData);
+    }
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -190,6 +559,44 @@ const initialFormData: FormData = {
           totalAmount: vehicle.price_per_hour + prev.securityDeposit
         }));
       }
+    }
+  };
+
+  // Update the handleVehicleSelect function with correct price calculation
+  const handleVehicleSelect = (vehicleId: string) => {
+    const vehicle = vehicles.find(v => v.id === vehicleId);
+    if (vehicle) {
+      setSelectedVehicle(vehicle);
+      
+      // Update form with vehicle ID and recalculate price if dates are selected
+      const updatedFormData = { 
+        ...formData, 
+        vehicleId,
+        registration_number: vehicle.registration_number || ''
+      };
+      
+      if (updatedFormData.startDate && updatedFormData.startTime && 
+          updatedFormData.endDate && updatedFormData.endTime) {
+        if (validateDateTime(
+          updatedFormData.startDate, 
+          updatedFormData.startTime, 
+          updatedFormData.endDate, 
+          updatedFormData.endTime
+        )) {
+          const { baseAmount } = calculateRentalPrice(
+            updatedFormData.startDate, 
+            updatedFormData.startTime, 
+            updatedFormData.endDate, 
+            updatedFormData.endTime,
+            vehicle
+          );
+          
+          updatedFormData.baseRate = baseAmount;
+          updatedFormData.totalAmount = baseAmount + Number(updatedFormData.securityDeposit || 0);
+        }
+      }
+      
+      setFormData(updatedFormData);
     }
   };
 
@@ -258,7 +665,9 @@ const initialFormData: FormData = {
         paymentStatus: formData.paymentStatus,
         paymentReference: formData.paymentReference,
         notes: formData.notes,
-        signature: signatureData
+        signature: signatureData,
+        bookingLocation: formData.bookingLocation,
+        securityDeposit: formData.securityDeposit
       };
       
       const response = await fetch('/api/admin/bookings/offline', {
@@ -327,13 +736,14 @@ const initialFormData: FormData = {
                   </div>
                   
                   <div className="space-y-1 sm:space-y-2">
-                    <Label htmlFor="customerDob" className="text-sm">Date of Birth *</Label>
+                    <Label htmlFor="customerDob" className="text-sm">Date of Birth * (Must be 19 or older)</Label>
                     <Input 
                       id="customerDob" 
                       name="customerDob" 
                       type="date" 
                       value={formData.customerDob} 
                       onChange={handleInputChange} 
+                      max={calculateMaxDOB()}
                       required
                       className="h-10 text-sm sm:text-base"
                     />
@@ -513,15 +923,15 @@ const initialFormData: FormData = {
             </CardContent>
           </Card>
 
-          {/* Vehicle & Pricing */}
-          <Card>
-            <CardContent className="pt-4 pb-2">
+          {/* Vehicle & Rental Details */}
+          <Card className="rounded-lg overflow-hidden">
+            <CardContent className="pt-6 pb-4">
               <button 
                 type="button"
-                className="flex justify-between items-center w-full text-left mb-2" 
+                className="flex justify-between items-center w-full text-left mb-4" 
                 onClick={() => toggleSection('vehiclePricing')}
               >
-                <h3 className="text-lg font-medium">Vehicle & Pricing</h3>
+                <h3 className="text-lg font-medium">Vehicle & Rental Details</h3>
                 {expandedSections.vehiclePricing ? 
                   <ChevronUp className="h-5 w-5" /> : 
                   <ChevronDown className="h-5 w-5" />
@@ -529,21 +939,21 @@ const initialFormData: FormData = {
               </button>
               
               {expandedSections.vehiclePricing && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="vehicleId">Vehicle *</Label>
+                <div className="space-y-6 mt-4">
+                  {/* Vehicle Selection */}
+                  <div className="space-y-4">
+                    <Label htmlFor="vehicleId" className="text-sm font-medium">Select Vehicle *</Label>
                     <Select
-                      onValueChange={(value: string) => handleSelectChange('vehicleId', value)}
                       value={formData.vehicleId}
-                      disabled={vehiclesLoading}
+                      onValueChange={handleVehicleSelect}
                     >
-                      <SelectTrigger id="vehicleId">
-                        <SelectValue placeholder={vehiclesLoading ? "Loading vehicles..." : "Select a vehicle"} />
+                      <SelectTrigger className="h-12 rounded-lg">
+                        <SelectValue placeholder="Select a vehicle" />
                       </SelectTrigger>
                       <SelectContent>
                         {vehicles.map((vehicle) => (
                           <SelectItem key={vehicle.id} value={vehicle.id}>
-                            {vehicle.name}
+                            {vehicle.name} - ₹{vehicle.price_per_hour}/hr
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -551,149 +961,181 @@ const initialFormData: FormData = {
                   </div>
 
                   {selectedVehicle && (
-                    <div className="md:col-span-2 p-3 bg-gray-50 rounded-md">
-                      <div className="flex flex-wrap gap-2 items-center">
-                        <span className="font-medium">{selectedVehicle.name}</span>
-                        <Badge variant="outline">{formatCurrency(selectedVehicle.price_per_hour)}/hour</Badge>
-                        <span className="text-sm text-gray-500 ml-auto">
-                          Location: {selectedVehicle.location}
-                        </span>
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="registration_number" className="text-sm font-medium">Registration Number *</Label>
+                        <Input
+                          id="registration_number"
+                          name="registration_number"
+                          type="text"
+                          placeholder="Enter vehicle registration number"
+                          value={formData.registration_number || ''}
+                          onChange={handleInputChange}
+                          required
+                          className="h-12 rounded-lg"
+                        />
                       </div>
-                    </div>
+
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">Select Pickup Location *</Label>
+                        <div className="flex gap-4">
+                          {LOCATIONS.map((location) => (
+                            <div
+                              key={location}
+                              className={`flex-1 p-4 rounded-lg border ${
+                                formData.bookingLocation === location 
+                                ? 'border-primary bg-primary/5' 
+                                : 'bg-white hover:bg-gray-50'
+                              } cursor-pointer transition-colors`}
+                              onClick={() => setFormData(prev => ({
+                                ...prev,
+                                bookingLocation: location
+                              }))}
+                            >
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="radio"
+                                  id={`location-${location}`}
+                                  name="bookingLocation"
+                                  className="w-4 h-4"
+                                  checked={formData.bookingLocation === location}
+                                  onChange={() => setFormData(prev => ({
+                                    ...prev,
+                                    bookingLocation: location
+                                  }))}
+                                />
+                                <Label 
+                                  htmlFor={`location-${location}`} 
+                                  className={`text-sm cursor-pointer font-medium ${
+                                    formData.bookingLocation === location 
+                                    ? 'text-primary' 
+                                    : 'text-gray-700'
+                                  }`}
+                                >
+                                  {location}
+                                </Label>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Date and Time Selection */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="startDate" className="text-sm font-medium">Start Date *</Label>
+                          <div className="relative">
+                            <Input
+                              id="startDate"
+                              name="startDate"
+                              type="date"
+                              min={new Date().toISOString().split('T')[0]}
+                              value={formData.startDate}
+                              onChange={handleInputChange}
+                              required
+                              className="h-12 rounded-lg appearance-none w-full"
+                              style={{ colorScheme: 'normal' }}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="startTime" className="text-sm font-medium">Start Time *</Label>
+                          <div className="relative">
+                            <select
+                              id="startTime"
+                              name="startTime"
+                              value={formData.startTime}
+                              onChange={handleInputChange}
+                              required
+                              className="h-12 rounded-lg w-full border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                            >
+                              <option value="">Select time</option>
+                              {generateTimeOptions(formData.startDate).map(({ value, label }) => (
+                                <option key={value} value={value}>{label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="endDate" className="text-sm font-medium">End Date *</Label>
+                          <div className="relative">
+                            <Input
+                              id="endDate"
+                              name="endDate"
+                              type="date"
+                              min={formData.startDate || new Date().toISOString().split('T')[0]}
+                              value={formData.endDate}
+                              onChange={handleInputChange}
+                              required
+                              className="h-12 rounded-lg appearance-none w-full"
+                              style={{ colorScheme: 'normal' }}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="endTime" className="text-sm font-medium">End Time *</Label>
+                          <div className="relative">
+                            <select
+                              id="endTime"
+                              name="endTime"
+                              value={formData.endTime}
+                              onChange={handleInputChange}
+                              required
+                              className="h-12 rounded-lg w-full border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                            >
+                              <option value="">Select time</option>
+                              {generateTimeOptions(formData.endDate).map(({ value, label }) => (
+                                <option key={value} value={value}>{label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="securityDeposit" className="text-sm font-medium">Security Deposit (₹) *</Label>
+                        <Input
+                          id="securityDeposit"
+                          name="securityDeposit"
+                          type="number"
+                          min="0"
+                          step="100"
+                          value={formData.securityDeposit}
+                          onChange={handleInputChange}
+                          required
+                          className="h-12 rounded-lg"
+                          placeholder="Enter security deposit amount"
+                        />
+                      </div>
+
+                      {/* Price Breakdown */}
+                      <div className="p-6 bg-gray-50 rounded-lg space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">Duration</span>
+                          <span className="font-medium">
+                            {formatDuration(calculateHours(formData.startDate, formData.startTime, formData.endDate, formData.endTime))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">Rental Amount</span>
+                          <span className="font-medium">₹{formData.baseRate}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">Security Deposit</span>
+                          <span className="font-medium">₹{formData.securityDeposit}</span>
+                        </div>
+                        <div className="flex justify-between items-center font-semibold">
+                          <span>Total Amount</span>
+                          <span>₹{formData.baseRate + Number(formData.securityDeposit || 0)}</span>
+                        </div>
+                      </div>
+                    </>
                   )}
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="baseRate">Base Rate (₹) *</Label>
-                    <Input
-                      id="baseRate" 
-                      name="baseRate" 
-                      type="number" 
-                      value={formData.baseRate.toString()} 
-                      onChange={handleInputChange} 
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="securityDeposit">Security Deposit (₹) *</Label>
-                    <Input
-                      id="securityDeposit" 
-                      name="securityDeposit" 
-                      type="number" 
-                      value={formData.securityDeposit.toString()} 
-                      onChange={handleInputChange} 
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="totalAmount">Total Amount (₹) *</Label>
-                    <Input
-                      id="totalAmount"
-                      name="totalAmount" 
-                      type="number"
-                      value={formData.totalAmount.toString()} 
-                      onChange={handleInputChange} 
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="paymentMethod">Payment Method *</Label>
-                    <Select
-                      onValueChange={(value: string) => handleSelectChange('paymentMethod', value as 'cash' | 'upi' | 'card')}
-                      value={formData.paymentMethod}
-                    >
-                      <SelectTrigger id="paymentMethod">
-                        <SelectValue placeholder="Select payment method" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="upi">UPI</SelectItem>
-                        <SelectItem value="card">Card</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
           
-          {/* Rental Period */}
-          <Card>
-            <CardContent className="pt-4 pb-2">
-              <button 
-                type="button"
-                className="flex justify-between items-center w-full text-left mb-2" 
-                onClick={() => toggleSection('rentalPeriod')}
-              >
-                <h3 className="text-lg font-medium">Rental Period</h3>
-                {expandedSections.rentalPeriod ? 
-                  <ChevronUp className="h-5 w-5" /> : 
-                  <ChevronDown className="h-5 w-5" />
-                }
-              </button>
-              
-              {expandedSections.rentalPeriod && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="startDate">Start Date *</Label>
-                    <div className="flex">
-                      <Input 
-                        id="startDate" 
-                        name="startDate" 
-                        type="date" 
-                        value={formData.startDate} 
-                        onChange={handleInputChange} 
-                        required 
-                      />
-                      <CalendarIcon className="w-4 h-4 ml-2 text-gray-500 self-center" />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="startTime">Start Time *</Label>
-                    <Input 
-                      id="startTime" 
-                      name="startTime" 
-                      type="time" 
-                      value={formData.startTime} 
-                      onChange={handleInputChange} 
-                      required 
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="endDate">End Date *</Label>
-                    <div className="flex">
-                      <Input 
-                        id="endDate" 
-                        name="endDate" 
-                        type="date" 
-                        value={formData.endDate} 
-                        onChange={handleInputChange} 
-                        required 
-                      />
-                      <CalendarIcon className="w-4 h-4 ml-2 text-gray-500 self-center" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="endTime">End Time *</Label>
-                    <Input
-                      id="endTime" 
-                      name="endTime" 
-                      type="time" 
-                      value={formData.endTime} 
-                      onChange={handleInputChange} 
-                      required 
-                    />
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Notes */}
           <Card>
             <CardContent className="pt-4 pb-2">
