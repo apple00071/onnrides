@@ -4,20 +4,18 @@ import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-export async function GET(
-  request: Request,
-  { params }: { params: { bookingId: string } }
-) {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user) {
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    // Get all bookings that don't have a return record yet
     const result = await query(`
       SELECT 
         b.id,
@@ -32,25 +30,21 @@ export async function GET(
       FROM bookings b
       JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.id = $1 AND b.user_id = $2
-    `, [params.bookingId, session.user.id]);
-
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Booking not found' },
-        { status: 404 }
-      );
-    }
+      WHERE NOT EXISTS (
+        SELECT 1 FROM vehicle_returns vr WHERE vr.booking_id = b.id
+      )
+      ORDER BY b.created_at DESC
+    `);
 
     return NextResponse.json({
       success: true,
-      data: result.rows[0]
+      data: result.rows
     });
   } catch (error) {
-    logger.error('Error fetching booking details:', error);
+    logger.error('Error fetching eligible bookings:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch booking details' },
+      { success: false, error: 'Failed to fetch eligible bookings' },
       { status: 500 }
     );
   }
-}
+} 

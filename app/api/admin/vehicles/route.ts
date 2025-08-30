@@ -92,6 +92,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
   const result = await query(`
     SELECT * FROM vehicles 
+    WHERE status = 'active' AND is_available = true
     ORDER BY created_at
   `);
 

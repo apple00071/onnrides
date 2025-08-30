@@ -19,8 +19,7 @@ export async function getCurrentUser() {
         id: true,
         name: true,
         email: true,
-        role: true,
-        isBlocked: true
+        role: true
       }
     });
     
@@ -30,8 +29,7 @@ export async function getCurrentUser() {
       id: user.id,
       name: user.name || '',
       email: user.email || '',
-      role: user.role || 'user',
-      isBlocked: user.isBlocked || false
+      role: user.role || 'user'
     };
   } catch (error) {
     console.error('Error getting current user:', error);

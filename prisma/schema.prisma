@@ -33,9 +33,11 @@ model Booking {
   end_date        DateTime  @db.Timestamp(6)
   total_hours     Float?
   total_price     Float?
+  security_deposit Float?   @default(0)
   status          String    @default("pending")
   payment_status  String?
   payment_details Json?
+  booking_type    String?   @default("online")
   pickup_location Json?
   dropoff_location Json?
   created_at      DateTime  @default(now())
@@ -44,6 +46,7 @@ model Booking {
   user            User      @relation(fields: [user_id], references: [id])
   vehicle         Vehicle   @relation(fields: [vehicle_id], references: [id])
   reviews         Review[]
+  vehicle_return  VehicleReturn?
 
   @@map("bookings")
 }
@@ -64,6 +67,7 @@ model User {
   reviews       Review[]
   bookings      Booking[]
   sessions      Session[]
+  processed_returns VehicleReturn[] @relation("ProcessedReturns")
 
   @@map("users")
 }
@@ -194,4 +198,22 @@ model WhatsAppLog {
   updated_at DateTime @updatedAt
 
   @@map("whatsapp_logs")
+}
+
+model VehicleReturn {
+  id                String   @id @default(uuid()) @db.Uuid
+  booking_id        String   @unique @db.Uuid
+  condition_notes   String?
+  damages          Json?
+  additional_charges Float   @default(0)
+  odometer_reading  Float?
+  fuel_level       Float?
+  status           String   @default("pending")
+  processed_by     String   @db.Uuid
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  booking          Booking  @relation(fields: [booking_id], references: [id])
+  processed_by_user User    @relation("ProcessedReturns", fields: [processed_by], references: [id])
+
+  @@map("vehicle_returns")
 } 

@@ -12,11 +12,9 @@ import ClientOnly from './(main)/providers/ClientOnly';
 import logger from '@/lib/logger';
 import { cn, suppressHydrationWarning } from '@/lib/utils';
 import GoogleAnalytics from './components/GoogleAnalytics';
-import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Toaster } from '@/components/ui/toaster';
 import nextDynamic from 'next/dynamic';
 import { SidebarProvider } from '@/hooks/use-sidebar';
-import { Analytics } from '@vercel/analytics/react'
 import { inter } from './fonts'
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
@@ -28,12 +26,6 @@ import { getBooleanSetting, SETTINGS } from '@/lib/settings';
 // Import ErrorBoundary dynamically with no SSR
 const ErrorBoundary = nextDynamic(
   () => import('@/components/ErrorBoundary'),
-  { ssr: false }
-);
-
-// Import SpeedInsights dynamically with no SSR
-const ClientSpeedInsights = nextDynamic(
-  () => import('@vercel/speed-insights/next').then((mod) => ({ default: mod.SpeedInsights })),
   { ssr: false }
 );
 
@@ -68,7 +60,7 @@ export const headers = {
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: https: blob:;
     font-src 'self' data:;
-    connect-src 'self' https://api.razorpay.com https://va.vercel-scripts.com;
+    connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://va.vercel-scripts.com;
     frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com;
     object-src 'none';
   `.replace(/\s+/g, ' ').trim(),
@@ -389,9 +381,7 @@ export default async function RootLayout({
             </Providers>
           </ErrorBoundary>
           <JsonLd data={structuredDataItems} />
-          <ClientSpeedInsights />
           <Toaster />
-          <Analytics />
         </body>
       </html>
     );
@@ -410,7 +400,6 @@ export default async function RootLayout({
               </div>
             </div>
           </div>
-          <ClientSpeedInsights />
           <Toaster />
         </body>
       </html>

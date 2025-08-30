@@ -47,10 +47,15 @@ export async function POST(request: NextRequest) {
       startDate,
       endDate,
       totalAmount,
+      rentalAmount,
+      securityDeposit,
+      paidAmount,
       paymentMethod,
       paymentStatus,
       paymentReference,
-      notes
+      notes,
+      signature,
+      bookingLocation
     } = body;
 
     // Start a transaction
@@ -93,7 +98,6 @@ export async function POST(request: NextRequest) {
         );
         userId = newUser.rows[0].id;
 
-        // Log the creation of offline user
         logger.info('Created new offline user:', {
           userId,
           name: customerName,
@@ -102,14 +106,14 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Generate booking ID (format: OR001, OR002, etc.)
+      // Generate booking ID
       const bookingCountResult = await query(
         'SELECT COUNT(*) as count FROM bookings'
       );
       const count = parseInt(bookingCountResult.rows[0].count) + 1;
       const bookingId = `OR${count.toString().padStart(3, '0')}`;
 
-      // Calculate total_hours between startDate and endDate
+      // Calculate total_hours
       const startDateTime = new Date(startDate);
       const endDateTime = new Date(endDate);
       const totalHours = calculateHours(startDateTime, endDateTime);
@@ -118,7 +122,13 @@ export async function POST(request: NextRequest) {
       const paymentDetails = JSON.stringify({
         method: paymentMethod,
         reference: paymentReference,
-        notes
+        rental_amount: rentalAmount,
+        security_deposit: securityDeposit,
+        total_amount: totalAmount,
+        paid_amount: paidAmount,
+        notes,
+        signature,
+        location: bookingLocation
       });
 
       // Create booking
@@ -132,6 +142,7 @@ export async function POST(request: NextRequest) {
           end_date,
           total_hours,
           total_price,
+          security_deposit,
           status,
           payment_status,
           payment_details,
@@ -140,11 +151,11 @@ export async function POST(request: NextRequest) {
           updated_at
         ) VALUES (
           gen_random_uuid(),
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'offline',
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
           CURRENT_TIMESTAMP, 
           CURRENT_TIMESTAMP
         )
-        RETURNING id, booking_type`,
+        RETURNING id`,
         [
           bookingId,
           userId,
@@ -153,9 +164,11 @@ export async function POST(request: NextRequest) {
           formatISOWithTZ(endDateTime),
           totalHours,
           totalAmount,
+          securityDeposit,
           'confirmed',
           paymentStatus,
-          paymentDetails
+          paymentDetails,
+          'offline'
         ]
       );
 
@@ -167,7 +180,7 @@ export async function POST(request: NextRequest) {
 
       const vehicleName = vehicleResult.rows[0]?.name || 'Unknown Vehicle';
 
-      // Send notifications asynchronously without waiting
+      // Send notifications asynchronously
       Promise.all([
         // Send WhatsApp notification
         (async () => {
@@ -221,7 +234,7 @@ export async function POST(request: NextRequest) {
           id: bookingResult.rows[0].id,
           totalHours,
           booking: {
-            ...bookingResult.rows[0],
+            id: bookingResult.rows[0].id,
             vehicle_name: vehicleName,
             user_name: customerName,
             user_email: customerEmail,

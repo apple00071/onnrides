@@ -24,6 +24,7 @@ import { BookingsTable } from './components/BookingsTable';
 import CreateOfflineBookingModal from './components/CreateOfflineBookingModal';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateTimeIST } from '@/lib/utils/timezone';
+import { useRouter } from 'next/navigation';
 
 interface Booking {
   id: string;
@@ -103,6 +104,7 @@ const formatLocation = (location: string | string[] | null | undefined) => {
 };
 
 export default function AdminBookingsPage() {
+  const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -144,22 +146,22 @@ export default function AdminBookingsPage() {
         end_date: booking.ist_end_date || booking.end_date,
         pickup_datetime: booking.ist_start_date || booking.start_date,
         dropoff_datetime: booking.ist_end_date || booking.end_date,
-          formatted_pickup: booking.formatted_pickup,
-          formatted_dropoff: booking.formatted_dropoff,
+        formatted_pickup: booking.formatted_pickup,
+        formatted_dropoff: booking.formatted_dropoff,
         total_price: booking.total_price,
         status: booking.status,
         payment_status: booking.payment_status,
-        booking_type: booking.booking_type || 'online',
+        booking_type: booking.booking_type,
         created_at: booking.ist_created_at || booking.created_at,
         updated_at: booking.ist_updated_at || booking.updated_at,
         vehicle: {
           name: booking.vehicle_name,
           location: booking.vehicle_location
         },
-          user: {
-            name: booking.user_name,
-            email: booking.user_email,
-            phone: booking.user_phone
+        user: {
+          name: booking.user_name,
+          email: booking.user_email,
+          phone: booking.user_phone
         }
       }));
       
@@ -319,18 +321,12 @@ export default function AdminBookingsPage() {
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-end">
-        <Button onClick={() => setIsCreateModalOpen(true)}>
+        <Button onClick={() => router.push('/admin/offline-booking')}>
           Create Offline Booking
         </Button>
       </div>
 
       <BookingsTable />
-
-      <CreateOfflineBookingModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={handleBookingCreated}
-      />
 
       {/* View Booking Modal */}
       <Dialog open={showViewModal} onOpenChange={setShowViewModal}>

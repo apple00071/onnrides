@@ -10,6 +10,7 @@ import {
   FaCalendarAlt,
   FaFileAlt,
   FaSignOutAlt,
+  FaExchangeAlt,
 } from 'react-icons/fa';
 import { signOut } from 'next-auth/react';
 
@@ -18,11 +19,19 @@ const navigation = [
   { name: 'Users', href: '/admin/users', icon: FaUsers },
   { name: 'Vehicles', href: '/admin/vehicles', icon: FaCar },
   { name: 'Bookings', href: '/admin/bookings', icon: FaCalendarAlt },
+  { name: 'Vehicle Returns', href: '/admin/vehicle-returns', icon: FaExchangeAlt },
   { name: 'Documents', href: '/admin/documents', icon: FaFileAlt },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
+
+  const isActive = (href: string) => {
+    if (href === '/admin') {
+      return pathname === href;
+    }
+    return pathname.startsWith(href);
+  };
 
   return (
     <div className="flex h-screen flex-col justify-between border-r bg-white">
@@ -33,7 +42,7 @@ export default function Sidebar() {
 
         <nav className="space-y-2">
           {navigation.map((item) => {
-            const isActive = pathname === item.href;
+            const active = isActive(item.href);
             const Icon = item.icon;
 
             return (
@@ -43,7 +52,7 @@ export default function Sidebar() {
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-4 py-2 text-gray-500 transition-all hover:text-gray-900',
                   {
-                    'bg-gray-100 text-gray-900': isActive,
+                    'bg-gray-100 text-gray-900': active,
                   }
                 )}
               >

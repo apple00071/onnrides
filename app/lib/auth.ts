@@ -1,33 +1,26 @@
-import { SignJWT, jwtVerify } from 'jose';
-import { query } from '@/lib/db';
-import type { User as DbUser } from './schema';
-import { findUserById } from './db';
-import { NextResponse } from 'next/server';
-import { getServerSession, type DefaultSession, type NextAuthOptions } from 'next-auth';
+import { NextAuthOptions, getServerSession } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
+import { DefaultSession, DefaultUser } from 'next-auth';
 import logger from '@/lib/logger';
-import type { JWT } from 'next-auth/jwt';
+import { query } from '@/lib/db';
 
+// Extend the built-in session types
 declare module "next-auth" {
-  interface User {
-    id: string;
-    email: string;
-    name: string;
+  interface User extends DefaultUser {
     role: "user" | "admin";
+    id: string;
   }
 
-  interface Session extends DefaultSession {
+  interface Session {
     user: User & DefaultSession["user"];
   }
 }
 
-declare module 'next-auth/jwt' {
+declare module "next-auth/jwt" {
   interface JWT {
-    id: string;
-    email: string;
-    name: string;
     role: "user" | "admin";
+    id: string;
   }
 }
 
@@ -51,14 +44,14 @@ export const authOptions: NextAuthOptions = {
           }
 
           const result = await query(`
-            SELECT id, email, name, password, role, "isBlocked"
+            SELECT id, email, name, password_hash, role, is_blocked
             FROM users
             WHERE email = $1
           `, [credentials.email]);
           
           const user = result.rows[0];
           
-          if (!user || !user.password) {
+          if (!user || !user.password_hash) {
             logger.warn('User not found or no password:', credentials.email);
             return null;
           }
@@ -74,7 +67,7 @@ export const authOptions: NextAuthOptions = {
 
           const isPasswordValid = await bcrypt.compare(
             credentials.password,
-            user.password
+            user.password_hash
           );
 
           if (!isPasswordValid) {
@@ -167,4 +160,9 @@ export async function verifyAdmin(request: Request): Promise<boolean> {
   }
 
   return session.user?.role === 'admin';
+} 
+
+export async function getCurrentUser() {
+  const session = await getServerSession(authOptions);
+  return session?.user;
 } 

@@ -2,7 +2,7 @@ import { type AuthOptions, type DefaultSession } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import type { User, UserRole } from '@/lib/types';
+import type { User, UserRole } from '@/lib/types/auth';
 import { comparePasswords } from './utils';
 
 declare module 'next-auth' {
@@ -19,18 +19,6 @@ declare module 'next-auth' {
     is_blocked: boolean;
   }
 }
-
-type TokenUser = {
-  id: string;
-  email: string;
-  name: string;
-  role: UserRole;
-  phone: string | null;
-  created_at: string;
-  is_blocked: boolean;
-};
-
-type SessionUser = User & DefaultSession['user'];
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -66,22 +54,20 @@ export const authOptions: AuthOptions = {
           }
 
           // Check if admin login is requested but user is not an admin
-          if (credentials.isAdmin === 'true' && user.role !== 'admin') {
+          if (credentials.isAdmin === 'true' && user.role.toLowerCase() !== 'admin') {
             logger.debug('Admin access denied for user:', credentials.email);
             return null;
           }
 
-          const userWithRole = {
+          return {
             id: user.id,
             email: user.email,
             name: user.name || '',
-            role: user.role as UserRole,
+            role: user.role.toLowerCase() as UserRole,
             phone: user.phone,
             created_at: user.created_at,
             is_blocked: user.is_blocked
           } satisfies User;
-
-          return userWithRole;
         } catch (error) {
           logger.error('Auth error:', error);
           return null;
@@ -97,39 +83,37 @@ export const authOptions: AuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
-    signIn: '/auth/signin',
-    error: '/auth/signin', // Redirect to sign-in page on error
+    signIn: '/admin-login',
+    error: '/admin-login',
   },
   callbacks: {
     async jwt({ token, user, trigger }) {
       if (trigger === 'signIn' && user) {
         const typedUser = user as User;
-        const tokenUser: TokenUser = {
+        return {
+          ...token,
           id: typedUser.id,
           name: typedUser.name,
           email: typedUser.email,
-          role: typedUser.role as UserRole,
+          role: typedUser.role,
           phone: typedUser.phone,
           created_at: typedUser.created_at,
           is_blocked: typedUser.is_blocked
         };
-        return { ...token, ...tokenUser };
       }
       return token;
     },
     async session({ session, token }) {
-      const tokenUser = token as TokenUser;
-      const user = {
+      session.user = {
         ...session.user,
-        id: tokenUser.id,
-        name: tokenUser.name || '',
-        email: tokenUser.email,
-        role: tokenUser.role as UserRole,
-        phone: tokenUser.phone,
-        created_at: tokenUser.created_at,
-        is_blocked: tokenUser.is_blocked
-      } satisfies SessionUser;
-      session.user = user;
+        id: token.id,
+        name: token.name || '',
+        email: token.email,
+        role: token.role as UserRole,
+        phone: token.phone,
+        created_at: token.created_at,
+        is_blocked: token.is_blocked
+      };
       return session;
     }
   },
