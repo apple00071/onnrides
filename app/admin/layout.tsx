@@ -22,13 +22,26 @@ export default async function AdminLayout({
   try {
     const session = await getServerSession(authOptions);
 
+    // Check if user is not logged in
     if (!session?.user) {
-      redirect('/admin-login?callbackUrl=n /admin/dashboard');
+      const currentPath = '/admin/dashboard';
+      redirect(`/admin-login?callbackUrl=${encodeURIComponent(currentPath)}`);
     }
 
-    if (session.user.role?.toLowerCase() !== 'admin') {
-      logger.warn('Non-admin user attempted to access admin area:', session.user.email);
+    // Check if user is not an admin (case insensitive check)
+    const userRole = session.user.role?.toLowerCase();
+    if (userRole !== 'admin') {
+      logger.warn('Non-admin user attempted to access admin area:', {
+        email: session.user.email,
+        role: session.user.role
+      });
       redirect('/');
+    }
+
+    // Check if user is blocked
+    if (session.user.is_blocked) {
+      logger.warn('Blocked admin user attempted to access admin area:', session.user.email);
+      redirect('/admin-login?error=Account%20is%20blocked');
     }
 
     return (
@@ -41,6 +54,6 @@ export default async function AdminLayout({
     );
   } catch (error) {
     logger.error('Error in admin layout:', error);
-    redirect('/admin-login?callbackUrl=/admin/dashboard');
+    redirect('/admin-login?error=An%20error%20occurred');
   }
 } 

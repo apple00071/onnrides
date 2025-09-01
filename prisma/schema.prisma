@@ -25,28 +25,24 @@ model Settings {
 }
 
 model Booking {
-  id              String    @id @default(uuid()) @db.Uuid
-  booking_id      String?
-  user_id         String    @db.Uuid
-  vehicle_id      String    @db.Uuid
-  start_date      DateTime  @db.Timestamp(6)
-  end_date        DateTime  @db.Timestamp(6)
-  total_hours     Float?
-  total_price     Float?
-  security_deposit Float?   @default(0)
-  status          String    @default("pending")
-  payment_status  String?
-  payment_details Json?
-  booking_type    String?   @default("online")
-  pickup_location Json?
-  dropoff_location Json?
-  created_at      DateTime  @default(now())
-  updated_at      DateTime  @updatedAt
-  payment_intent_id String?
-  user            User      @relation(fields: [user_id], references: [id])
-  vehicle         Vehicle   @relation(fields: [vehicle_id], references: [id])
+  id                String   @id @default(uuid()) @db.Uuid
+  booking_id       String   @unique
+  user_id          String   @db.Uuid
+  vehicle_id       String   @db.Uuid
+  start_date       DateTime @db.Timestamptz(6)
+  end_date         DateTime @db.Timestamptz(6)
+  total_price      Decimal  @db.Decimal(10, 2)
+  status           String   @default("pending")
+  notes            String?  @db.Text
+  booking_type     String   @default("online")
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @default(now()) @db.Timestamptz(6)
+  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  vehicle          Vehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
+  payments         Payment[]
+  vehicle_return   VehicleReturn?
+  trip_initiation  TripInitiation?
   reviews         Review[]
-  vehicle_return  VehicleReturn?
 
   @@map("bookings")
 }
@@ -110,9 +106,9 @@ model Review {
   comment   String?
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
-  booking   Booking? @relation(fields: [booking_id], references: [id])
-  user      User     @relation(fields: [user_id], references: [id])
-  vehicle   Vehicle  @relation(fields: [vehicle_id], references: [id])
+  booking   Booking? @relation(fields: [booking_id], references: [id], onDelete: SetNull)
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  vehicle   Vehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
 
   @@map("reviews")
 }
@@ -212,8 +208,46 @@ model VehicleReturn {
   processed_by     String   @db.Uuid
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
-  booking          Booking  @relation(fields: [booking_id], references: [id])
-  processed_by_user User    @relation("ProcessedReturns", fields: [processed_by], references: [id])
+  booking          Booking  @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+  processed_by_user User    @relation("ProcessedReturns", fields: [processed_by], references: [id], onDelete: Cascade)
 
   @@map("vehicle_returns")
+}
+
+model TripInitiation {
+  id                    String   @id @default(uuid()) @db.Uuid
+  booking_id           String   @unique @db.Uuid
+  checklist_completed  Boolean  @default(false)
+  customer_name        String?  @db.VarChar(255)
+  customer_phone       String?  @db.VarChar(20)
+  customer_email       String?  @db.VarChar(255)
+  customer_dl_number   String?  @db.VarChar(50)
+  customer_address     String?  @db.Text
+  emergency_contact    String?  @db.VarChar(20)
+  emergency_name       String?  @db.VarChar(255)
+  customer_aadhaar_number String? @db.VarChar(20)
+  customer_dob         String?  @db.VarChar(20)
+  vehicle_number       String?  @db.VarChar(50)
+  documents            Json     @default("{}")
+  terms_accepted       Boolean  @default(false)
+  notes               String?  @db.Text
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime @default(now()) @db.Timestamptz(6)
+  booking             Booking  @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+
+  @@map("trip_initiations")
+}
+
+model Payment {
+  id                String   @id @default(uuid()) @db.Uuid
+  booking_id        String   @db.Uuid
+  amount            Decimal  @db.Decimal(10, 2)
+  status            String   @default("pending")
+  method            String?
+  reference         String?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @default(now()) @db.Timestamptz(6)
+  booking           Booking  @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+
+  @@map("payments")
 } 

@@ -36,13 +36,13 @@ export const authOptions: AuthOptions = {
 
         try {
           const result = await query(
-            'SELECT * FROM users WHERE email = $1 LIMIT 1',
+            'SELECT * FROM users WHERE email = $1 AND is_blocked = false LIMIT 1',
             [credentials.email]
           );
           const user = result.rows[0];
 
           if (!user) {
-            logger.debug('User not found:', credentials.email);
+            logger.debug('User not found or blocked:', credentials.email);
             return null;
           }
 
@@ -53,8 +53,11 @@ export const authOptions: AuthOptions = {
             return null;
           }
 
+          // Normalize role to lowercase
+          const normalizedRole = (user.role || '').toLowerCase();
+
           // Check if admin login is requested but user is not an admin
-          if (credentials.isAdmin === 'true' && user.role.toLowerCase() !== 'admin') {
+          if (credentials.isAdmin === 'true' && normalizedRole !== 'admin') {
             logger.debug('Admin access denied for user:', credentials.email);
             return null;
           }
@@ -63,10 +66,10 @@ export const authOptions: AuthOptions = {
             id: user.id,
             email: user.email,
             name: user.name || '',
-            role: user.role.toLowerCase() as UserRole,
+            role: normalizedRole as UserRole,
             phone: user.phone,
             created_at: user.created_at,
-            is_blocked: user.is_blocked
+            is_blocked: false
           } satisfies User;
         } catch (error) {
           logger.error('Auth error:', error);
@@ -75,33 +78,28 @@ export const authOptions: AuthOptions = {
       }
     })
   ],
-  session: {
-    strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-  jwt: {
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
   pages: {
     signIn: '/admin-login',
     error: '/admin-login',
   },
   callbacks: {
-    async jwt({ token, user, trigger }) {
-      if (trigger === 'signIn' && user) {
-        const typedUser = user as User;
+    async jwt({ token, user }) {
+      if (user) {
         return {
           ...token,
-          id: typedUser.id,
-          name: typedUser.name,
-          email: typedUser.email,
-          role: typedUser.role,
-          phone: typedUser.phone,
-          created_at: typedUser.created_at,
-          is_blocked: typedUser.is_blocked
+          id: user.id,
+          name: user.name || '',
+          email: user.email,
+          role: user.role.toLowerCase() as UserRole,
+          phone: user.phone || null,
+          created_at: user.created_at || new Date().toISOString(),
+          is_blocked: false
         };
       }
-      return token;
+      return {
+        ...token,
+        role: token.role.toLowerCase() as UserRole
+      };
     },
     async session({ session, token }) {
       session.user = {
@@ -109,13 +107,17 @@ export const authOptions: AuthOptions = {
         id: token.id,
         name: token.name || '',
         email: token.email,
-        role: token.role as UserRole,
+        role: token.role.toLowerCase() as UserRole,
         phone: token.phone,
         created_at: token.created_at,
         is_blocked: token.is_blocked
       };
       return session;
     }
+  },
+  session: {
+    strategy: 'jwt',
+    maxAge: 24 * 60 * 60, // 24 hours
   },
   debug: process.env.NODE_ENV === 'development',
   secret: process.env.NEXTAUTH_SECRET

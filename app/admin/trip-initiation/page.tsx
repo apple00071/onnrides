@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import InitiateBookingModal from './components/InitiateBookingModal';
 import { TestModal } from './components/TestModal';
+import ViewBookingModal from './components/ViewBookingModal';
 
 // Define booking interface
 interface BookingWithRelations {
@@ -66,6 +67,7 @@ export default function TripInitiationPage() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [selectedBooking, setSelectedBooking] = useState<BookingWithRelations | null>(null);
   const [isInitiateModalOpen, setIsInitiateModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const { toast } = useToast();
 
   // Fetch bookings on mount and when page, filters change
@@ -93,38 +95,49 @@ export default function TripInitiationPage() {
       }
 
       // Map the data to match BookingWithRelations interface
-      const mappedBookings = result.data.map((booking: any) => ({
-        id: booking.id,
-        booking_id: booking.booking_id || '',
-        user_id: booking.user_id,
-        vehicle_id: booking.vehicle_id,
-        start_date: booking.original_start_date,
-        end_date: booking.original_end_date,
-        total_price: booking.total_price || 0,
-        status: booking.status,
-        payment_status: booking.payment_status || 'pending',
-        payment_method: booking.payment_method,
-        payment_reference: booking.payment_reference,
-        notes: booking.notes,
-        booking_type: booking.booking_type || 'online',
-        created_at: booking.created_at,
-        updated_at: booking.updated_at,
-        vehicle: booking.vehicle_name ? {
-          id: booking.vehicle_id,
-          name: booking.vehicle_name
-        } : undefined,
-        user: booking.user_name ? {
-          id: booking.user_id,
-          name: booking.user_name,
-          phone: booking.user_phone || '',
-          email: booking.user_email
-        } : undefined,
-        documents: booking.documents || {},
-        // We'll identify missing information based on booking type
-        // For online bookings, we might need to check for ID verification
-        // For offline bookings, we need to ensure all customer details are complete
-        missing_info: identifyMissingInformation(booking)
-      }));
+      const mappedBookings = result.data.map((booking: any) => {
+        // Get effective values from the API response
+        const effectiveUserName = booking.effective_user_name || booking.user?.name;
+        const effectiveUserPhone = booking.effective_user_phone || booking.user?.phone;
+        const effectiveUserEmail = booking.effective_user_email || booking.user?.email;
+        const effectiveVehicleName = booking.effective_vehicle_name || booking.vehicle?.name;
+
+        return {
+          id: booking.id,
+          booking_id: booking.booking_id || '',
+          user_id: booking.user_id,
+          vehicle_id: booking.vehicle_id,
+          start_date: booking.start_date,
+          end_date: booking.end_date,
+          total_price: booking.total_price || 0,
+          status: booking.status,
+          payment_status: booking.payment_status || 'pending',
+          payment_method: booking.payment_method,
+          payment_reference: booking.payment_reference,
+          notes: booking.notes,
+          booking_type: booking.booking_type || 'online',
+          created_at: booking.created_at,
+          updated_at: booking.updated_at,
+          vehicle: {
+            id: booking.vehicle_id,
+            name: effectiveVehicleName || 'Vehicle not assigned',
+            type: booking.vehicle_type
+          },
+          user: {
+            id: booking.user_id,
+            name: effectiveUserName || 'Customer not assigned',
+            phone: effectiveUserPhone || '',
+            email: effectiveUserEmail
+          },
+          documents: booking.documents || {},
+          missing_info: identifyMissingInformation({
+            ...booking,
+            user_name: effectiveUserName,
+            user_phone: effectiveUserPhone,
+            documents: booking.documents || {}
+          })
+        };
+      });
 
       setBookings(mappedBookings);
       setTotalPages(result.pagination.totalPages);
@@ -209,6 +222,11 @@ export default function TripInitiationPage() {
 
   const handleRefresh = () => {
     fetchBookings();
+  };
+
+  const handleViewBooking = (booking: BookingWithRelations) => {
+    setSelectedBooking(booking);
+    setIsViewModalOpen(true);
   };
 
   if (error) {
@@ -296,10 +314,12 @@ export default function TripInitiationPage() {
               <TabsContent value="pending" className="mt-0 h-full">
                 <BookingsTable 
                   bookings={filteredBookings.filter(b => 
-                    b.status === 'confirmed' && b.payment_status === 'completed'
+                    (b.status === 'confirmed' && b.payment_status === 'completed') ||
+                    (b.booking_type === 'offline' && b.status === 'confirmed')
                   )}
                   loading={loading}
                   onInitiate={handleInitiateTrip}
+                  onView={handleViewBooking}
                 />
               </TabsContent>
               
@@ -308,6 +328,7 @@ export default function TripInitiationPage() {
                   bookings={filteredBookings.filter(b => b.status === 'initiated')}
                   loading={loading}
                   onInitiate={handleInitiateTrip}
+                  onView={handleViewBooking}
                 />
               </TabsContent>
               
@@ -316,6 +337,7 @@ export default function TripInitiationPage() {
                   bookings={filteredBookings}
                   loading={loading}
                   onInitiate={handleInitiateTrip}
+                  onView={handleViewBooking}
                 />
               </TabsContent>
             </div>
@@ -349,17 +371,27 @@ export default function TripInitiationPage() {
         </div>
       </div>
       
-      {/* Initiate Booking Modal */}
+      {/* Modals */}
       {selectedBooking && (
-        <InitiateBookingModal
-          booking={selectedBooking}
-          isOpen={isInitiateModalOpen}
-          onClose={() => {
-            setIsInitiateModalOpen(false);
-            setSelectedBooking(null);
-          }}
-          onInitiated={handleTripInitiated}
-        />
+        <>
+          <InitiateBookingModal
+            booking={selectedBooking}
+            isOpen={isInitiateModalOpen}
+            onClose={() => {
+              setIsInitiateModalOpen(false);
+              setSelectedBooking(null);
+            }}
+            onInitiated={handleTripInitiated}
+          />
+          <ViewBookingModal
+            booking={selectedBooking}
+            isOpen={isViewModalOpen}
+            onClose={() => {
+              setIsViewModalOpen(false);
+              setSelectedBooking(null);
+            }}
+          />
+        </>
       )}
     </div>
   );
@@ -369,11 +401,13 @@ export default function TripInitiationPage() {
 function BookingsTable({ 
   bookings, 
   loading, 
-  onInitiate 
+  onInitiate,
+  onView
 }: { 
   bookings: BookingWithRelations[],
   loading: boolean,
-  onInitiate: (booking: BookingWithRelations) => void
+  onInitiate: (booking: BookingWithRelations) => void,
+  onView: (booking: BookingWithRelations) => void
 }) {
   return (
     <div className="w-full overflow-x-auto">
@@ -411,11 +445,19 @@ function BookingsTable({
                   {booking.booking_id}
                 </td>
                 <td className="px-4 py-4 text-sm text-gray-900">
-                  {booking.vehicle?.name || 'N/A'}
+                  {booking.vehicle?.name || (
+                    <span className="text-gray-500">Vehicle not assigned</span>
+                  )}
                 </td>
                 <td className="px-4 py-4 text-sm">
-                  <div>{booking.user?.name || 'N/A'}</div>
-                  <div className="text-xs text-gray-500">{booking.user?.phone || 'N/A'}</div>
+                  <div>
+                    {booking.user?.name || (
+                      <span className="text-gray-500">Customer not assigned</span>
+                    )}
+                  </div>
+                  {booking.user?.phone && (
+                    <div className="text-xs text-gray-500">{booking.user.phone}</div>
+                  )}
                 </td>
                 <td className="px-4 py-4 text-sm text-gray-900">
                   {formatDateTime(booking.start_date)}
@@ -445,7 +487,7 @@ function BookingsTable({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {}}
+                      onClick={() => onView(booking)}
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       View

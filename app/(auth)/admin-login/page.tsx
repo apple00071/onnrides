@@ -5,20 +5,34 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Redirect if already authenticated as admin
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.role === 'admin') {
+      router.replace('/admin/dashboard');
+    }
+  }, [session, status, router]);
+
   // Handle error from URL
   useEffect(() => {
     const error = searchParams.get('error');
-    if (error === 'unauthorized') {
-      toast.error('You are not authorized to access the admin area');
+    if (error) {
+      const errorMessages: { [key: string]: string } = {
+        'unauthorized': 'You are not authorized to access the admin area',
+        'Account is blocked': 'Your account has been blocked. Please contact support.',
+        'An error occurred': 'An error occurred. Please try again.',
+        'CredentialsSignin': 'Invalid email or password'
+      };
+      toast.error(errorMessages[error] || 'An error occurred');
     }
   }, [searchParams]);
 
@@ -27,12 +41,14 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
+      const callbackUrl = searchParams.get('callbackUrl') || '/admin/dashboard';
+      
       const result = await signIn('credentials', {
         email,
         password,
         isAdmin: 'true',
         redirect: false,
-        callbackUrl: '/admin/dashboard'
+        callbackUrl: decodeURIComponent(callbackUrl)
       });
 
       if (!result?.ok) {
@@ -40,15 +56,24 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // Use router.replace to prevent back button from returning to login
-      router.replace('/admin/dashboard');
+      // Get the callback URL from the search params or use default
+      router.replace(decodeURIComponent(callbackUrl));
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error('Login error:', error);
       toast.error('An error occurred during login');
     } finally {
       setLoading(false);
     }
   };
+
+  // Show loading state while checking session
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#f26e24]"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#fff8f0] py-12 px-4 sm:px-6 lg:px-8">

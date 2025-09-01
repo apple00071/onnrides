@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/ca
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Eye, History } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { formatCurrency } from '@/lib/utils/currency-formatter';
 import { ViewBookingModal } from './ViewBookingModal';
@@ -13,6 +13,7 @@ import { ViewHistoryModal } from './ViewHistoryModal';
 import { useToast } from '@/hooks/use-toast';
 import logger from '@/lib/logger';
 import { type Booking, type User, type Vehicle } from "@/lib/schema";
+import { formatDate, formatTime } from '@/lib/utils/time-formatter';
 
 interface BookingWithRelations {
   id: string;
@@ -40,6 +41,8 @@ interface BookingWithRelations {
     phone: string;
     email?: string;
   };
+  formatted_pickup?: string;
+  formatted_dropoff?: string;
 }
 
 interface ViewBookingModalProps {
@@ -89,31 +92,17 @@ export function BookingsTable() {
 
       // Map the data to match BookingWithRelations interface
       const mappedBookings = result.data.map((booking: any) => ({
-        id: booking.id,
-        booking_id: booking.booking_id || '',
-        user_id: booking.user_id,
-        vehicle_id: booking.vehicle_id,
-        start_date: booking.original_start_date,
-        end_date: booking.original_end_date,
+        ...booking,
+        vehicle: booking.vehicle,
+        user: booking.user,
+        start_date: booking.start_date,
+        end_date: booking.end_date,
         total_price: parseFloat(booking.total_price) || 0,
         status: booking.status,
         payment_status: booking.payment_status || 'pending',
         payment_method: booking.payment_method,
         payment_reference: booking.payment_reference,
-        notes: booking.notes,
-        booking_type: booking.booking_type || 'online',
-        created_at: booking.created_at,
-        updated_at: booking.updated_at,
-        vehicle: booking.vehicle_name ? {
-          id: booking.vehicle_id,
-          name: booking.vehicle_name
-        } : undefined,
-        user: booking.user_name ? {
-          id: booking.user_id,
-          name: booking.user_name,
-          phone: booking.user_phone || '',
-          email: booking.user_email
-        } : undefined
+        booking_type: booking.booking_type || 'online'
       }));
 
       console.log('Mapped bookings:', mappedBookings);
@@ -214,24 +203,6 @@ export function BookingsTable() {
     }
   };
 
-  const formatDateTime = (dateStr: string) => {
-    try {
-      const date = parseISO(dateStr);
-      const istDate = toZonedTime(date, 'Asia/Kolkata');
-      const formattedDate = format(istDate, 'dd MMM yyyy');
-      const formattedTime = format(istDate, 'h:mm aa');
-      return (
-        <div className="flex flex-col">
-          <span className="font-medium">{formattedDate}</span>
-          <span className="text-gray-500">{formattedTime}</span>
-        </div>
-      );
-    } catch (error) {
-      logger.error('Error formatting date:', error);
-      return dateStr;
-    }
-  };
-
   if (error) {
     return (
       <div className="text-center py-4 text-red-500">
@@ -303,10 +274,16 @@ export function BookingsTable() {
                       </div>
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
-                      {formatDateTime(booking.start_date)}
+                      <div className="flex flex-col">
+                        <span className="font-medium">{formatDate(booking.start_date)}</span>
+                        <span className="text-gray-500">{formatTime(booking.start_date)}</span>
+                      </div>
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
-                      {formatDateTime(booking.end_date)}
+                      <div className="flex flex-col">
+                        <span className="font-medium">{formatDate(booking.end_date)}</span>
+                        <span className="text-gray-500">{formatTime(booking.end_date)}</span>
+                      </div>
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
                       {booking.total_price ? formatCurrency(booking.total_price) : '₹0'}

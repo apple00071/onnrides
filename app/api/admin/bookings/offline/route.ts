@@ -106,6 +106,18 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // Get vehicle details
+      const vehicleResult = await query(
+        'SELECT id, name, type FROM vehicles WHERE id = $1',
+        [vehicleId]
+      );
+
+      if (!vehicleResult.rows.length) {
+        throw new Error('Vehicle not found');
+      }
+
+      const vehicle = vehicleResult.rows[0];
+
       // Generate booking ID
       const bookingCountResult = await query(
         'SELECT COUNT(*) as count FROM bookings'
@@ -128,7 +140,17 @@ export async function POST(request: NextRequest) {
         paid_amount: paidAmount,
         notes,
         signature,
-        location: bookingLocation
+        location: bookingLocation,
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        customer_email: customerEmail,
+        vehicle_name: vehicle.name,
+        vehicle_type: vehicle.type,
+        documents: {},
+        userName: customerName,  // Backward compatibility
+        userPhone: customerPhone,  // Backward compatibility
+        userEmail: customerEmail,  // Backward compatibility
+        vehicleName: vehicle.name  // Backward compatibility
       });
 
       // Create booking
@@ -155,7 +177,7 @@ export async function POST(request: NextRequest) {
           CURRENT_TIMESTAMP, 
           CURRENT_TIMESTAMP
         )
-        RETURNING id`,
+        RETURNING id, booking_id, user_id, vehicle_id, start_date, end_date, total_price, status, payment_status, booking_type`,
         [
           bookingId,
           userId,
@@ -172,13 +194,7 @@ export async function POST(request: NextRequest) {
         ]
       );
 
-      // Get vehicle details for notifications
-      const vehicleResult = await query(
-        'SELECT name FROM vehicles WHERE id = $1',
-        [vehicleId]
-      );
-
-      const vehicleName = vehicleResult.rows[0]?.name || 'Unknown Vehicle';
+      const booking = bookingResult.rows[0];
 
       // Send notifications asynchronously
       Promise.all([
@@ -189,8 +205,8 @@ export async function POST(request: NextRequest) {
             await whatsappService.sendBookingConfirmation({
               customerName,
               customerPhone,
-              vehicleType: 'Vehicle',
-              vehicleModel: vehicleName,
+              vehicleType: vehicle.type || 'Vehicle',
+              vehicleModel: vehicle.name,
               startDate: startDateTime.toLocaleString(),
               endDate: endDateTime.toLocaleString(),
               bookingId,
@@ -208,7 +224,7 @@ export async function POST(request: NextRequest) {
               const emailService = EmailService.getInstance();
               await emailService.sendBookingConfirmation(customerEmail, {
                 userName: customerName,
-                vehicleName,
+                vehicleName: vehicle.name,
                 bookingId,
                 startDate: startDateTime.toLocaleString(),
                 endDate: endDateTime.toLocaleString(),
@@ -231,14 +247,21 @@ export async function POST(request: NextRequest) {
         message: 'Offline booking created successfully',
         data: {
           bookingId,
-          id: bookingResult.rows[0].id,
+          id: booking.id,
           totalHours,
           booking: {
-            id: bookingResult.rows[0].id,
-            vehicle_name: vehicleName,
-            user_name: customerName,
-            user_email: customerEmail,
-            user_phone: customerPhone,
+            ...booking,
+            vehicle: {
+              id: vehicle.id,
+              name: vehicle.name,
+              type: vehicle.type
+            },
+            user: {
+              id: userId,
+              name: customerName,
+              email: customerEmail,
+              phone: customerPhone
+            },
             formatted_pickup: startDateTime.toLocaleString(),
             formatted_dropoff: endDateTime.toLocaleString()
           }

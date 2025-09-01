@@ -39,12 +39,21 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
   // Check if mobile on mount and window resize
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+      const isMobileView = window.innerWidth < 768;
+      setIsMobile(isMobileView);
+      if (!isMobileView) {
+        setIsMobileNavOpen(false);
+      }
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Close mobile nav when route changes
+  useEffect(() => {
+    setIsMobileNavOpen(false);
+  }, [pathname]);
 
   // Authentication check effect
   useEffect(() => {
@@ -85,7 +94,7 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
           className={cn(
             "fixed inset-y-0 left-0 z-40 bg-[#f26e24] transition-all duration-300",
             isCollapsed ? "w-16" : "w-64",
-            isMobileNavOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+            isMobile ? (isMobileNavOpen ? "translate-x-0" : "-translate-x-full") : "translate-x-0"
           )}
         >
           <div className="flex h-full flex-col">
@@ -153,6 +162,7 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
         <button
           className="fixed top-4 left-4 z-50 rounded-md bg-[#f26e24] p-2 text-white md:hidden"
           onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+          aria-label="Toggle menu"
         >
           <Menu className="h-6 w-6" />
         </button>
@@ -160,7 +170,7 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
         {/* Main Content */}
         <div className={cn(
           "flex-1 transition-all duration-300",
-          isCollapsed ? "md:ml-16" : "md:ml-64"
+          isMobile ? "ml-0" : (isCollapsed ? "md:ml-16" : "md:ml-64")
         )}>
           <main className="min-h-screen bg-gray-50 p-4 md:p-8">
             {children}

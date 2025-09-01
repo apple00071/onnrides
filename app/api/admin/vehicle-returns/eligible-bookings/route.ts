@@ -4,6 +4,11 @@ import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+// Mark this route as dynamic
+export const dynamic = 'force-dynamic';
+// Optionally, you can also add runtime configuration
+export const runtime = 'nodejs';
+
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
