@@ -203,6 +203,23 @@ export function BookingsTable() {
     }
   };
 
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return 'success';
+      case 'confirmed':
+        return 'confirmed';
+      case 'active':
+        return 'active';
+      case 'cancelled':
+        return 'destructive';
+      case 'pending':
+        return 'warning';
+      default:
+        return 'secondary';
+    }
+  };
+
   if (error) {
     return (
       <div className="text-center py-4 text-red-500">
@@ -265,12 +282,12 @@ export function BookingsTable() {
                       {booking.booking_id || '—'}
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
-                      {booking.vehicle?.name || '—'}
+                      <div className="font-medium">{booking.vehicle?.name}</div>
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
-                      <div className="flex flex-col no-underline">
-                        <span className="text-gray-900 no-underline decoration-0">{booking.user?.name || '—'}</span>
-                        <span className="text-gray-500 text-[10px] no-underline decoration-0">{booking.user?.phone || '—'}</span>
+                      <div>
+                        <div className="font-medium">{booking.user?.name}</div>
+                        <div className="text-sm text-muted-foreground">{booking.user?.phone}</div>
                       </div>
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
@@ -289,17 +306,27 @@ export function BookingsTable() {
                       {booking.total_price ? formatCurrency(booking.total_price) : '₹0'}
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
-                      <Badge variant={booking.booking_type === 'offline' ? 'secondary' : 'outline'}>
-                        {booking.booking_type === 'offline' ? 'Offline' : 'Online'}
-                      </Badge>
+                      <span className="text-gray-700 capitalize">
+                        {booking.booking_type}
+                      </span>
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
-                      <Badge variant={booking.status === 'confirmed' ? 'default' : booking.status === 'cancelled' ? 'destructive' : 'secondary'} className="rounded-full text-xs">
+                      <Badge 
+                        variant={getStatusBadgeVariant(booking.status)}
+                        className="capitalize"
+                      >
                         {booking.status}
                       </Badge>
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
-                      <Badge variant={booking.payment_status === 'completed' ? 'default' : booking.payment_status === 'cancelled' ? 'destructive' : 'secondary'} className="rounded-full text-xs">
+                      <Badge 
+                        variant={
+                          booking.payment_status === 'completed' ? 'success' :
+                          booking.payment_status === 'pending' ? 'warning' :
+                          'secondary'
+                        }
+                        className="capitalize"
+                      >
                         {booking.payment_status}
                       </Badge>
                     </td>

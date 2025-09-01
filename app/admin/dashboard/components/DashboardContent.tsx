@@ -1,18 +1,17 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { FaUsers, FaRupeeSign, FaCalendarCheck, FaCar, FaPlus, FaUserCog, FaChartBar } from 'react-icons/fa';
+import { FaUsers, FaCalendarCheck, FaCar, FaPlus, FaUserCog, FaChartBar } from 'react-icons/fa';
 import { StatsCard } from './StatsCard';
 import { QuickActionCard } from './QuickActionCard';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
+import { formatDateTime } from '@/lib/utils/time-formatter';
 
 interface DashboardData {
   totalUsers: number;
-  totalRevenue: number;
   totalBookings: number;
   totalVehicles: number;
   bookingGrowth: number | null;
-  revenueGrowth: number | null;
   recentBookings: Array<{
     id: string;
     amount: string;
@@ -80,20 +79,13 @@ export default function DashboardContent() {
   return (
     <div className="space-y-6">
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatsCard
           title="Total Users"
           value={data.totalUsers.toLocaleString()}
           icon={<FaUsers className="h-6 w-6" />}
           change={data.bookingGrowth ? `${data.bookingGrowth.toFixed(1)}%` : 'N/A'}
           trend={data.bookingGrowth && data.bookingGrowth > 0 ? 'up' : 'down'}
-        />
-        <StatsCard
-          title="Total Revenue"
-          value={`₹${data.totalRevenue.toLocaleString()}`}
-          icon={<FaRupeeSign className="h-6 w-6" />}
-          change={data.revenueGrowth ? `${data.revenueGrowth.toFixed(1)}%` : 'N/A'}
-          trend={data.revenueGrowth && data.revenueGrowth > 0 ? 'up' : 'down'}
         />
         <StatsCard
           title="Total Bookings"
@@ -152,7 +144,7 @@ export default function DashboardContent() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {format(new Date(booking.start_date), 'MMM d, yyyy')}
+                    {formatDateTime(booking.start_date)}
                   </td>
                 </tr>
               ))}
@@ -181,7 +173,7 @@ export default function DashboardContent() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-900">{activity.message}</p>
-                  <p className="text-xs text-gray-500">{activity.timestamp}</p>
+                  <p className="text-xs text-gray-500">{formatDateTime(activity.timestamp)}</p>
                 </div>
               </div>
             </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 import logger from '@/lib/logger';
+import { formatDateTime } from '@/lib/utils/time-formatter';
 
 interface Ride {
   id: string;
@@ -174,8 +175,8 @@ export default function MyRidesPage() {
             <div key={ride.id} className="bg-white rounded-lg shadow-md p-6">
               <h3 className="text-xl font-semibold mb-2">{ride.vehicle.name}</h3>
               <div className="text-gray-600">
-                <p>Start: {new Date(ride.start_date).toLocaleString()}</p>
-                <p>End: {new Date(ride.end_date).toLocaleString()}</p>
+                <p>Start: {formatDateTime(ride.start_date)}</p>
+                <p>End: {formatDateTime(ride.end_date)}</p>
                 <p className="mt-2">
                   Status: <span className="capitalize">{ride.status}</span>
                 </p>

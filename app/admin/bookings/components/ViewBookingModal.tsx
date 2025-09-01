@@ -5,6 +5,12 @@ import { Badge } from '@/components/ui/badge';
 import { formatDateTime } from '@/lib/utils/time-formatter';
 import { formatCurrency } from '@/lib/utils/currency-formatter';
 
+interface VehicleReturn {
+  additional_charges: number;
+  condition_notes?: string;
+  created_at: string;
+}
+
 interface Booking {
   id: string;
   booking_id: string;
@@ -29,6 +35,7 @@ interface Booking {
   booking_type: 'online' | 'offline';
   created_at: string;
   updated_at: string;
+  vehicle_return?: VehicleReturn;
 }
 
 interface ViewBookingModalProps {
@@ -38,6 +45,13 @@ interface ViewBookingModalProps {
 }
 
 export function ViewBookingModal({ booking, isOpen, onClose }: ViewBookingModalProps) {
+  // Helper function to calculate total amount
+  const calculateTotalAmount = () => {
+    const baseAmount = booking.total_price;
+    const additionalCharges = booking.vehicle_return?.additional_charges || 0;
+    return baseAmount + additionalCharges;
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
@@ -159,6 +173,49 @@ export function ViewBookingModal({ booking, isOpen, onClose }: ViewBookingModalP
                   <div>
                     <h4 className="text-xs text-gray-500">Payment Reference</h4>
                     <p className="text-sm text-gray-900">{booking.payment_reference}</p>
+                  </div>
+                )}
+                <div>
+                  <h4 className="text-xs text-gray-500">Base Amount</h4>
+                  <p className="text-sm text-gray-900">{formatCurrency(booking.total_price)}</p>
+                </div>
+                {booking.vehicle_return?.additional_charges && booking.vehicle_return.additional_charges > 0 && (
+                  <>
+                    <div>
+                      <h4 className="text-xs text-gray-500">Additional Charges</h4>
+                      <p className="text-sm font-medium text-orange-600">
+                        {formatCurrency(booking.vehicle_return.additional_charges)}
+                      </p>
+                    </div>
+                    <div>
+                      <h4 className="text-xs text-gray-500">Total Amount</h4>
+                      <p className="text-sm font-medium text-gray-900">
+                        {formatCurrency(calculateTotalAmount())}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Vehicle Return Info */}
+          {booking.vehicle_return && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Return Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-xs text-gray-500">Return Date</h4>
+                  <p className="text-sm text-gray-900">
+                    {formatDateTime(booking.vehicle_return?.created_at || '')}
+                  </p>
+                </div>
+                {booking.vehicle_return?.condition_notes && (
+                  <div className="col-span-2">
+                    <h4 className="text-xs text-gray-500">Condition Notes</h4>
+                    <p className="text-sm text-gray-900 whitespace-pre-wrap">
+                      {booking.vehicle_return.condition_notes}
+                    </p>
                   </div>
                 )}
               </div>

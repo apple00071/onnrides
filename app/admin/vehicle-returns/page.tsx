@@ -22,6 +22,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { showToast } from "@/lib/utils/toast-helper";
+import { formatDateTime } from '@/lib/utils/time-formatter';
 
 interface Booking {
   id: string;
@@ -52,6 +54,8 @@ interface VehicleReturn {
   status: string;
   additional_charges: number;
   processed_by_name: string;
+  booking_id: string;
+  created_at: string;
 }
 
 export default function VehicleReturnsPage() {
@@ -80,11 +84,7 @@ export default function VehicleReturnsPage() {
       setBookings(data.data);
     } catch (err) {
       console.error('Error fetching bookings:', err);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: err instanceof Error ? err.message : "Failed to fetch bookings"
-      });
+      showToast.error(err instanceof Error ? err.message : 'Failed to fetch bookings');
     }
   };
 
@@ -111,12 +111,7 @@ export default function VehicleReturnsPage() {
       setTotalItems(data.pagination?.totalItems || 0);
     } catch (err) {
       console.error('Error fetching vehicle returns:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: err instanceof Error ? err.message : "Failed to fetch vehicle returns"
-      });
+      showToast.error(err instanceof Error ? err.message : 'Failed to fetch vehicle returns');
     } finally {
       setLoading(false);
     }
@@ -131,14 +126,14 @@ export default function VehicleReturnsPage() {
     switch (status.toLowerCase()) {
       case 'completed':
         return 'success';
-      case 'active':
-        return 'success';
-      case 'disputed':
-        return 'destructive';
+      case 'confirmed':
+        return 'info';
       case 'cancelled':
         return 'destructive';
+      case 'pending':
+        return 'warning';
       default:
-        return 'default';
+        return 'secondary';
     }
   };
 
@@ -156,9 +151,9 @@ export default function VehicleReturnsPage() {
     <div className="container mx-auto py-6">
       <Card>
         <CardHeader>
-          <CardTitle>Vehicle Returns</CardTitle>
+          <CardTitle>Booking Completion</CardTitle>
           <CardDescription>
-            Manage and track vehicle returns from rentals
+            Manage and track completed bookings and vehicle returns
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -168,13 +163,13 @@ export default function VehicleReturnsPage() {
                 variant={activeTab === 'bookings' ? 'default' : 'outline'}
                 onClick={() => setActiveTab('bookings')}
               >
-                Bookings
+                Active Bookings
               </Button>
               <Button
                 variant={activeTab === 'returns' ? 'default' : 'outline'}
                 onClick={() => setActiveTab('returns')}
               >
-                Processed Returns
+                Completed Bookings
               </Button>
             </div>
           </div>
@@ -214,21 +209,23 @@ export default function VehicleReturnsPage() {
                               <div className="text-sm text-muted-foreground">{booking.user?.phone || 'No phone'}</div>
                             </div>
                           </TableCell>
-                          <TableCell>{new Date(booking.start_date).toLocaleString()}</TableCell>
-                          <TableCell>{new Date(booking.end_date).toLocaleString()}</TableCell>
+                          <TableCell>{formatDateTime(booking.start_date)}</TableCell>
+                          <TableCell>{formatDateTime(booking.end_date)}</TableCell>
                           <TableCell>
-                            <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
+                            <Badge variant={getStatusBadgeVariant(booking.status)}>
                               {booking.status}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleProcessReturn(booking.id)}
-                            >
-                              Process Return
-                            </Button>
+                            {booking.status !== 'completed' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleProcessReturn(booking.id)}
+                              >
+                                Complete Booking
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -247,55 +244,62 @@ export default function VehicleReturnsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Return Date</TableHead>
+                      <TableHead>Booking ID</TableHead>
                       <TableHead>Vehicle</TableHead>
                       <TableHead>Customer</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>Return Date</TableHead>
                       <TableHead>Additional Charges</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>Processed By</TableHead>
-                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {returns.map((return_) => (
-                      <TableRow key={return_.id}>
+                    {returns.map((returnItem) => (
+                      <TableRow key={returnItem.id}>
+                        <TableCell>{returnItem.booking_id}</TableCell>
                         <TableCell>
-                          {formatDate(return_.return_date)}
-                        </TableCell>
-                        <TableCell>
-                          <div>{return_.vehicle_name}</div>
-                          <div className="text-sm text-gray-500">
-                            {return_.vehicle_type}
+                          <div>
+                            <div>{returnItem.vehicle_name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {returnItem.vehicle_type}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div>{return_.user_name}</div>
-                          <div className="text-sm text-gray-500">
-                            {return_.user_email}
+                          <div>
+                            <div>{returnItem.user_name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {returnItem.user_email}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={getStatusBadgeVariant(return_.status)}>
-                            {return_.status}
+                          {formatDateTime(returnItem.created_at)}
+                        </TableCell>
+                        <TableCell>
+                          {returnItem.additional_charges > 0 ? (
+                            <div className="text-orange-600 font-medium">
+                              ₹{returnItem.additional_charges}
+                            </div>
+                          ) : (
+                            <div className="text-muted-foreground">No charges</div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusBadgeVariant(returnItem.status)}>
+                            {returnItem.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          ${return_.additional_charges.toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          {return_.processed_by_name}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.push(`/admin/vehicle-returns/${return_.id}`)}
-                          >
-                            View Details
-                          </Button>
-                        </TableCell>
+                        <TableCell>{returnItem.processed_by_name}</TableCell>
                       </TableRow>
                     ))}
+                    {returns.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-4">
+                          No completed bookings found
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               )}

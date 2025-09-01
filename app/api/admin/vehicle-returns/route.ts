@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { randomUUID } from 'crypto';
 
 export async function GET(request: Request) {
   try {
@@ -121,9 +122,13 @@ export async function POST(request: Request) {
     await query('BEGIN');
 
     try {
+      // Generate a new UUID for the vehicle return
+      const returnId = randomUUID();
+
       // Create vehicle return record
       const returnResult = await query(
         `INSERT INTO vehicle_returns (
+          id,
           booking_id,
           condition_notes,
           damages,
@@ -131,17 +136,24 @@ export async function POST(request: Request) {
           odometer_reading,
           fuel_level,
           status,
-          processed_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          processed_by,
+          created_at,
+          updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9,
+          CURRENT_TIMESTAMP,
+          CURRENT_TIMESTAMP
+        )
         RETURNING *`,
         [
+          returnId,
           booking_id,
-          condition_notes,
-          damages || [],
+          condition_notes || '',
+          JSON.stringify(damages || []), // Convert array to JSON string
           additional_charges || 0,
-          odometer_reading,
-          fuel_level,
-          status || 'pending',
+          odometer_reading || 0,
+          fuel_level || 100,
+          'completed',
           session.user.id
         ]
       );

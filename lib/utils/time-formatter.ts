@@ -1,7 +1,34 @@
-import { parseISO, isValid } from 'date-fns';
+import { parseISO, isValid, isFuture } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 
 const TIMEZONE = 'Asia/Kolkata';
+
+export function getCurrentIST(): Date {
+  return new Date();
+}
+
+export function isDateInFuture(dateStr: string): boolean {
+  try {
+    const date = parseISO(dateStr);
+    return isFuture(date);
+  } catch (error) {
+    console.error('Error checking if date is in future:', error);
+    return false;
+  }
+}
+
+export function formatIST(date: Date | string): string {
+  try {
+    const parsedDate = typeof date === 'string' ? parseISO(date) : date;
+    if (!isValid(parsedDate)) {
+      return '—';
+    }
+    return formatInTimeZone(parsedDate, TIMEZONE, 'dd MMM yyyy hh:mm aa');
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return '—';
+  }
+}
 
 export function formatDateTime(dateStr: string | null | undefined): string {
   if (!dateStr) return '—';

@@ -26,7 +26,7 @@ model Settings {
 
 model Booking {
   id                String   @id @default(uuid()) @db.Uuid
-  booking_id       String   @unique
+  booking_id        String   @unique
   user_id          String   @db.Uuid
   vehicle_id       String   @db.Uuid
   start_date       DateTime @db.Timestamptz(6)
@@ -37,6 +37,44 @@ model Booking {
   booking_type     String   @default("online")
   created_at       DateTime @default(now()) @db.Timestamptz(6)
   updated_at       DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Customer Information
+  customer_name    String?
+  phone_number     String?
+  email           String?
+  alternate_phone  String?
+  dl_number       String?
+  dl_expiry_date  DateTime? @db.Timestamptz(6)
+  permanent_address String?  @db.Text
+  
+  // Vehicle Details
+  vehicle_model    String?
+  registration_number String?
+  
+  // Rental Details
+  purpose_of_rent  String?
+  
+  // Payment Details
+  payment_method   String?
+  paid_amount     Decimal?  @db.Decimal(10, 2)
+  due_amount      Decimal?  @db.Decimal(10, 2)
+  payment_status   String?
+  payment_reference String?
+  security_deposit_amount Decimal? @db.Decimal(10, 2)
+  
+  // Documents
+  dl_scan         String?
+  aadhar_scan     String?
+  selfie          String?
+  agreement_scan  String?
+  
+  // Physical Documents Verification
+  original_dl_verified Boolean @default(false)
+  voter_id_verified   Boolean @default(false)
+  
+  // Terms and Conditions
+  terms_accepted   Boolean @default(false)
+  
   user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   vehicle          Vehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Cascade)
   payments         Payment[]

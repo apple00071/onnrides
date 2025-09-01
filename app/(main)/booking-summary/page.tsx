@@ -14,6 +14,7 @@ import { initializeRazorpayPayment } from '@/app/providers/RazorpayProvider';
 import { toIST, formatISOWithTZ, isWeekendIST } from '@/lib/utils/timezone';
 import { formatRazorpayAmount } from '@/app/lib/razorpayAmount';
 import { VehicleType, VehicleStatus, Vehicle, BookingSummaryDetails } from '@/app/types';
+import { formatDateTime } from '@/lib/utils/time-formatter';
 
 interface PriceDetails {
   price_per_hour: number;
@@ -45,7 +46,7 @@ function PendingPaymentAlert({ payment, onClose }: {
             Order ID: {payment.order_id}
           </p>
           <p className="mt-1 text-xs text-yellow-600">
-            Time: {new Date(payment.timestamp).toLocaleString()}
+            Time: {formatDateTime(payment.timestamp)}
           </p>
           <div className="mt-2">
             <button

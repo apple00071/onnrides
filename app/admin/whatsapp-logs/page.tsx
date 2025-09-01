@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { formatDateTime } from '@/lib/utils/time-formatter';
 
 interface WhatsAppLog {
     id: string;
@@ -117,16 +118,7 @@ export default function WhatsAppLogsPage() {
                             {logs.map((log) => (
                                 <tr key={log.id} className="border-b">
                                     <td className="py-2 px-4">
-                                        {new Date(log.created_at).toLocaleString('en-IN', {
-                                            timeZone: 'Asia/Kolkata',
-                                            day: '2-digit',
-                                            month: 'short',
-                                            year: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                            second: '2-digit',
-                                            hour12: true
-                                        })}
+                                        {formatDateTime(log.created_at)}
                                     </td>
                                     <td className="py-2 px-4">{log.recipient}</td>
                                     <td className="py-2 px-4 max-w-md truncate">

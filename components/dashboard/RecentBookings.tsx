@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDateTime } from "@/lib/utils/time-formatter";
 
 interface Booking {
   id: string;
@@ -17,8 +18,8 @@ interface Booking {
     type: string;
   };
   status: string | null;
-  start_date: Date;
-  end_date: Date;
+  start_date: string;
+  end_date: string;
   total_price: number | null;
 }
 
@@ -36,10 +37,15 @@ export function RecentBookings({ data }: RecentBookingsProps) {
         <div className="space-y-8">
           {data.map((booking) => (
             <div key={booking.id} className="flex items-center">
-              <div className="ml-4 space-y-1">
+              <div className="ml-4 space-y-1 w-full">
+                <div className="flex justify-between items-center">
                 <p className="text-sm font-medium leading-none">
                   {booking.user_name || (booking.users?.name) || 'Anonymous User'}
                 </p>
+                  <span className="text-xs text-muted-foreground">
+                    ID: {booking.id}
+                  </span>
+                </div>
                 <p className="text-sm text-muted-foreground">
                   {booking.vehicle_name || (booking.vehicles?.name) || 'Unknown Vehicle'} 
                   ({booking.vehicle_type || (booking.vehicles?.type) || 'Unknown Type'})
@@ -47,7 +53,7 @@ export function RecentBookings({ data }: RecentBookingsProps) {
                 <div className="flex items-center pt-2">
                   <div className="ml-auto flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">
-                      {new Date(booking.start_date).toLocaleDateString()} - {new Date(booking.end_date).toLocaleDateString()}
+                      {formatDateTime(booking.start_date)} - {formatDateTime(booking.end_date)}
                     </span>
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       booking.status === 'completed' ? 'bg-green-100 text-green-800' :

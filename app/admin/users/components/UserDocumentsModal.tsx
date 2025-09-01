@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Eye, Trash2, CheckCircle2, XCircle, X } from 'lucide-react';
 import { DocumentPreview } from '@/components/documents/DocumentPreview';
+import { formatDateTime } from '@/lib/utils/time-formatter';
 
 interface Document {
   id: string;
@@ -65,13 +66,8 @@ export default function UserDocumentsModal({
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    if (!dateString) return 'Not available';
+    return formatDateTime(dateString);
   };
 
   const handleDeleteDocument = async () => {

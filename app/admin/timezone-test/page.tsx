@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDateTimeIST } from '@/lib/utils/timezone';
+import { formatDateTime } from '@/lib/utils/time-formatter';
 import logger from '@/lib/logger';
 
 // Simple AdminCard component
@@ -129,7 +130,7 @@ export default function TimezoneTestPage() {
               <p><strong>Environment:</strong> {testData.metadata.serverEnvironment}</p>
               <p><strong>Server Timezone:</strong> {testData.metadata.systemTimeZone}</p>
               <p><strong>Vercel Region:</strong> {testData.metadata.vercelRegion}</p>
-              <p><strong>Timestamp:</strong> {new Date(testData.metadata.timestamp).toLocaleString()}</p>
+              <p><strong>Timestamp:</strong> {formatDateTime(testData.metadata.timestamp)}</p>
             </div>
           </AdminCard>
           

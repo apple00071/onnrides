@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useToast } from '@/components/ui/use-toast';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
+import { showToast } from "@/lib/utils/toast-helper";
+import { Loader2 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -14,24 +20,12 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import * as z from 'zod';
 
 const formSchema = z.object({
   booking_id: z.string().min(1, 'Booking ID is required'),
@@ -40,7 +34,6 @@ const formSchema = z.object({
   additional_charges: z.number().min(0),
   odometer_reading: z.number().min(0),
   fuel_level: z.number().min(0).max(100),
-  status: z.enum(['pending', 'completed', 'disputed']),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -48,7 +41,6 @@ type FormData = z.infer<typeof formSchema>;
 export default function NewVehicleReturnPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [bookingDetails, setBookingDetails] = useState<any>(null);
 
@@ -60,14 +52,12 @@ export default function NewVehicleReturnPage() {
       additional_charges: 0,
       odometer_reading: 0,
       fuel_level: 100,
-      status: 'pending',
     },
   });
 
   useEffect(() => {
     const bookingId = searchParams.get('bookingId');
     if (bookingId) {
-      form.setValue('booking_id', bookingId);
       fetchBookingDetails(bookingId);
     } else {
       router.push('/admin/vehicle-returns');
@@ -84,15 +74,10 @@ export default function NewVehicleReturnPage() {
       }
 
       setBookingDetails(data.data);
-      // Use the formatted booking_id instead of UUID
-      form.setValue('booking_id', data.data.booking_id);
+      form.setValue('booking_id', bookingId);
     } catch (error) {
       console.error('Error fetching booking details:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to fetch booking details'
-      });
+      showToast.error('Failed to fetch booking details');
       router.push('/admin/vehicle-returns');
     }
   };
@@ -100,37 +85,29 @@ export default function NewVehicleReturnPage() {
   const onSubmit = async (data: FormData) => {
     try {
       setLoading(true);
-      
       const response = await fetch('/api/admin/vehicle-returns', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          status: 'completed',
+          booking_id: bookingDetails.id
+        }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to process vehicle return');
-      }
-
       const result = await response.json();
-      if (!result.success) {
+
+      if (!response.ok) {
         throw new Error(result.error || 'Failed to process vehicle return');
       }
 
-      toast({
-        title: 'Success',
-        description: 'Vehicle return processed successfully',
-      });
-
+      showToast.success('Vehicle return processed successfully');
       router.push('/admin/vehicle-returns');
     } catch (error) {
       console.error('Error processing vehicle return:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to process vehicle return',
-      });
+      showToast.error('Failed to process vehicle return');
     } finally {
       setLoading(false);
     }
@@ -140,139 +117,69 @@ export default function NewVehicleReturnPage() {
     <div className="container mx-auto py-6">
       <Card>
         <CardHeader>
-          <CardTitle>Process Vehicle Return</CardTitle>
+          <CardTitle>Complete Booking</CardTitle>
           <CardDescription>
-            Enter the details for the returned vehicle
+            Enter the final details to complete the booking
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="booking_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Booking ID</FormLabel>
-                    <FormControl>
-                      <Input {...field} disabled />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {bookingDetails && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-accent/10 rounded-lg mb-6">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Vehicle Details</h3>
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Name</p>
-                          <p className="text-base">{bookingDetails.vehicle?.name || 'Not assigned'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Type</p>
-                          <p className="text-base">{bookingDetails.vehicle?.type || 'Not specified'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Customer Details</h3>
-                      <div className="space-y-2">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Name</p>
-                          <p className="text-base">{bookingDetails.user?.name || 'Not assigned'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Contact</p>
-                          <p className="text-base">{bookingDetails.user?.phone || 'No phone'}</p>
-                          <p className="text-sm text-muted-foreground">{bookingDetails.user?.email || 'No email'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="col-span-1 md:col-span-2">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Rental Details</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Start Date</p>
-                          <p className="text-base">{new Date(bookingDetails.start_date).toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">End Date</p>
-                          <p className="text-base">{new Date(bookingDetails.end_date).toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Total Price</p>
-                          <p className="text-base">₹{bookingDetails.total_price}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Status</p>
-                          <p className="text-base capitalize">{bookingDetails.status}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+              <div className="space-y-4">
+                <div>
+                  <Label>Booking ID</Label>
+                  <p className="text-base font-medium mt-1">
+                    {bookingDetails?.booking_id || 'Loading...'}
+                  </p>
                 </div>
-              )}
 
-              <FormField
-                control={form.control}
-                name="condition_notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Condition Notes</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        placeholder="Enter notes about vehicle condition"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                {bookingDetails && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-accent/10 rounded-lg mb-6">
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-lg font-semibold mb-4">Vehicle Details</h3>
+                        <div className="space-y-2">
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Name</p>
+                            <p className="text-base">{bookingDetails.vehicle?.name || 'Not assigned'}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Type</p>
+                            <p className="text-base">{bookingDetails.vehicle?.type || 'Not specified'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-lg font-semibold mb-4">Customer Details</h3>
+                        <div className="space-y-2">
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Name</p>
+                            <p className="text-base">{bookingDetails.user?.name || 'Not assigned'}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Contact</p>
+                            <p className="text-base">{bookingDetails.user?.phone || 'No phone'}</p>
+                            <p className="text-sm text-muted-foreground">{bookingDetails.user?.email || 'No email'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
-              />
 
-              <FormField
-                control={form.control}
-                name="additional_charges"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Additional Charges (₹)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Enter any additional charges for damages or late returns
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="odometer_reading"
+                  name="condition_notes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Odometer Reading</FormLabel>
+                      <FormLabel>Condition Notes</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
+                        <Textarea
+                          placeholder="Enter notes about vehicle condition"
                           {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value))}
                         />
                       </FormControl>
                       <FormMessage />
@@ -282,63 +189,73 @@ export default function NewVehicleReturnPage() {
 
                 <FormField
                   control={form.control}
-                  name="fuel_level"
+                  name="additional_charges"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Fuel Level (%)</FormLabel>
+                      <FormLabel>Additional Charges (₹)</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
                           {...field}
-                          onChange={(e) => field.onChange(parseInt(e.target.value))}
-                          min={0}
-                          max={100}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="odometer_reading"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Odometer Reading</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="fuel_level"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fuel Level (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            min={0}
+                            max={100}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="disputed">Disputed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
+              <Button type="submit" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  'Complete Booking'
                 )}
-              />
-
-              <div className="flex justify-end space-x-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.back()}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? 'Processing...' : 'Process Return'}
-                </Button>
-              </div>
+              </Button>
             </form>
           </Form>
         </CardContent>

@@ -11,7 +11,7 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -20,23 +20,20 @@ export async function GET(
 
     const result = await query(`
       SELECT 
-        b.id,
-        b.booking_id,
-        b.start_date,
-        b.end_date,
-        b.status,
-        b.total_price,
-        u.id as user_id,
+        b.*,
         u.name as user_name,
         u.email as user_email,
         u.phone as user_phone,
-        v.id as vehicle_id,
         v.name as vehicle_name,
-        v.type as vehicle_type
+        v.type as vehicle_type,
+        vr.additional_charges,
+        vr.condition_notes,
+        vr.created_at as return_date
       FROM bookings b
       LEFT JOIN users u ON b.user_id = u.id
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.id = $1
+      LEFT JOIN vehicle_returns vr ON b.id = vr.booking_id
+      WHERE b.booking_id = $1
     `, [params.bookingId]);
 
     if (result.rows.length === 0) {
@@ -50,21 +47,30 @@ export async function GET(
     const formattedData = {
       id: booking.id,
       booking_id: booking.booking_id,
-      start_date: booking.start_date,
-      end_date: booking.end_date,
-      status: booking.status,
-      total_price: booking.total_price,
-      user: {
+      customer: {
         id: booking.user_id,
         name: booking.user_name,
         email: booking.user_email,
         phone: booking.user_phone
       },
       vehicle: {
-        id: booking.vehicle_id,
         name: booking.vehicle_name,
         type: booking.vehicle_type
-      }
+      },
+      amount: booking.total_price,
+      status: booking.status,
+      payment_status: booking.payment_status,
+      booking_type: booking.booking_type,
+      duration: {
+        from: booking.start_date,
+        to: booking.end_date
+      },
+      vehicle_return: booking.additional_charges ? {
+        additional_charges: booking.additional_charges,
+        condition_notes: booking.condition_notes,
+        return_date: booking.return_date
+      } : undefined,
+      notes: booking.notes
     };
 
     return NextResponse.json({
@@ -87,7 +93,7 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -99,7 +105,7 @@ export async function PATCH(
 
     // Check if booking exists and get current status
     const currentBookingResult = await query(`
-      SELECT status FROM bookings WHERE id = $1
+      SELECT status FROM bookings WHERE booking_id = $1
     `, [params.bookingId]);
 
     if (currentBookingResult.rows.length === 0) {
@@ -115,7 +121,7 @@ export async function PATCH(
     const result = await query(`
       UPDATE bookings 
       SET status = $1, updated_at = NOW() 
-      WHERE id = $2 
+      WHERE booking_id = $2 
       RETURNING *
     `, [status, params.bookingId]);
 
@@ -133,7 +139,7 @@ export async function PATCH(
       FROM bookings b
       JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.id = $1
+      WHERE b.booking_id = $1
     `, [params.bookingId]);
 
     const bookingDetails = bookingDetailsResult.rows[0];
@@ -167,7 +173,7 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -176,7 +182,7 @@ export async function DELETE(
 
     const deletedBookingResult = await query(`
       DELETE FROM bookings 
-      WHERE id = $1 
+      WHERE booking_id = $1 
       RETURNING *
     `, [params.bookingId]);
 

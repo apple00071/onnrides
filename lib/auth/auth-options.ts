@@ -9,7 +9,7 @@ import { query } from '@/lib/db';
 // Extend the built-in session types
 declare module "next-auth" {
   interface User extends DefaultUser {
-    role: "user" | "admin";
+    role: string;
     id: string;
   }
 
@@ -20,7 +20,7 @@ declare module "next-auth" {
 
 declare module "next-auth/jwt" {
   interface JWT {
-    role: "user" | "admin";
+    role: string;
     id: string;
   }
 }
@@ -68,7 +68,7 @@ export const authOptions: AuthOptions = {
             id: user.id,
             email: user.email || '',
             name: user.name || '',
-            role: (user.role || 'user') as "user" | "admin"
+            role: user.role?.toLowerCase() || 'user'
           };
         } catch (error) {
           logger.error('Error in authorize:', error);
@@ -80,23 +80,33 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = user.role;
+        // Ensure role is lowercase for consistency
+        token.role = user.role.toLowerCase();
         token.id = user.id;
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.role = token.role;
+        // Ensure role is lowercase for consistency
+        session.user.role = token.role.toLowerCase();
         session.user.id = token.id;
       }
       return session;
     },
     async redirect({ url, baseUrl }) {
+      // Always allow admin routes for admin users
+      if (url.startsWith('/admin')) {
+        return `${baseUrl}${url}`;
+      }
       // If the url is relative, prefix it with the base URL
-      if (url.startsWith('/')) return `${baseUrl}${url}`;
+      if (url.startsWith('/')) {
+        return `${baseUrl}${url}`;
+      }
       // If the url is on the same domain, allow it
-      if (new URL(url).origin === baseUrl) return url;
+      if (new URL(url).origin === baseUrl) {
+        return url;
+      }
       // Default to the base URL
       return baseUrl;
     },

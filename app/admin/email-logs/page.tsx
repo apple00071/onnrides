@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatDateTime } from '@/lib/utils/time-formatter';
 
 interface EmailLog {
     id: string;
@@ -165,16 +166,7 @@ export default function EmailLogsPage() {
                                         {getStatusBadge(log.status)}
                                     </td>
                                     <td className="py-2 px-4">
-                                        {new Date(log.created_at).toLocaleString('en-IN', {
-                                            timeZone: 'Asia/Kolkata',
-                                            day: '2-digit',
-                                            month: 'short',
-                                            year: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                            second: '2-digit',
-                                            hour12: true
-                                        })}
+                                        {formatDateTime(log.created_at)}
                                     </td>
                                     <td className="py-2 px-4">
                                         <Button

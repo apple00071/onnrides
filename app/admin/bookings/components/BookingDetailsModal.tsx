@@ -1,9 +1,17 @@
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { formatDateTime } from '@/lib/utils/time-formatter';
+
+interface VehicleReturn {
+  additional_charges: number;
+  condition_notes?: string;
+  return_date: string;
+}
 
 interface Booking {
   id: string;
+  booking_id: string;
   customer: {
     id: string;
     name: string;
@@ -24,6 +32,7 @@ interface Booking {
   amount: string;
   status: string;
   payment_status: string;
+  vehicle_return?: VehicleReturn;
 }
 
 interface BookingDetailsModalProps {
@@ -37,6 +46,13 @@ export default function BookingDetailsModal({
   onClose,
   booking
 }: BookingDetailsModalProps) {
+  // Calculate total amount including additional charges
+  const calculateTotalAmount = () => {
+    const baseAmount = Number(booking.amount.replace(/[^0-9.-]+/g, ""));
+    const additionalCharges = booking.vehicle_return?.additional_charges || 0;
+    return baseAmount + additionalCharges;
+  };
+
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
@@ -112,6 +128,41 @@ export default function BookingDetailsModal({
                       <p className="text-sm text-gray-900">Dropoff Location: {booking.dropoff_location}</p>
                     </div>
                   </div>
+
+                  {/* Payment Information */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Payment Information</h4>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-sm text-gray-900">Base Amount: {booking.amount}</p>
+                      {booking.vehicle_return?.additional_charges && booking.vehicle_return.additional_charges > 0 && (
+                        <>
+                          <p className="text-sm font-medium text-orange-600">
+                            Additional Charges: ₹{booking.vehicle_return.additional_charges}
+                          </p>
+                          <p className="text-sm font-medium text-gray-900">
+                            Total Amount: ₹{calculateTotalAmount()}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Return Information */}
+                  {booking.vehicle_return && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500">Return Information</h4>
+                      <div className="mt-2 space-y-1">
+                        <p className="text-sm text-gray-900">
+                          Return Date: {formatDateTime(booking.vehicle_return?.return_date || '')}
+                        </p>
+                        {booking.vehicle_return?.condition_notes && (
+                          <p className="text-sm text-gray-900">
+                            Condition Notes: {booking.vehicle_return.condition_notes}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Status</h4>

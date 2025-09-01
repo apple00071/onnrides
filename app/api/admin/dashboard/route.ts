@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
+import { formatISO } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -44,17 +45,17 @@ interface RawBookingResult {
   user_name: string;
   user_email: string;
   vehicle_name: string;
-  vehicle_model: string;
-  vehicle_brand: string;
+  vehicle_type: string;
 }
 
-interface RevenueData {
-  date: Date;
-  revenue: number;
+interface ActivityLogResult {
+  type: string;
+  message: string;
+  entity_id: string;
+  timestamp: Date;
 }
 
 interface DashboardData {
-  totalRevenue: number;
   totalBookings: number;
   recentBookings: RawBookingResult[];
 }
@@ -68,6 +69,24 @@ export async function GET() {
         { status: 403 }
       );
     }
+
+    // Get total users
+    const usersResult = await query(`
+      SELECT COUNT(*) as total
+      FROM users
+      WHERE role = 'user'
+    `);
+
+    const totalUsers = parseInt(usersResult.rows[0].total);
+
+    // Get total vehicles
+    const vehiclesResult = await query(`
+      SELECT COUNT(*) as total
+      FROM vehicles
+      WHERE status = 'active'
+    `);
+
+    const totalVehicles = parseInt(vehiclesResult.rows[0].total);
 
     // Get booking stats
     const bookingStatsResult = await query(`
@@ -106,34 +125,53 @@ export async function GET() {
       LIMIT 5
     `);
 
-    // Get revenue data
-    const revenueDataResult = await query(`
+    // Format dates before sending to frontend
+    const formattedBookings = recentBookingsResult.rows.map((booking: RawBookingResult) => ({
+      id: booking.id,
+      user_id: booking.user_id,
+      vehicle_id: booking.vehicle_id,
+      start_date: formatISO(booking.start_date),
+      end_date: formatISO(booking.end_date),
+      total_hours: booking.total_hours,
+      total_price: booking.total_price,
+      status: booking.status,
+      payment_status: booking.payment_status,
+      created_at: formatISO(booking.created_at),
+      user_name: booking.user_name,
+      user_email: booking.user_email,
+      vehicle_name: booking.vehicle_name,
+      vehicle_type: booking.vehicle_type,
+      amount: booking.total_price.toString()
+    }));
+
+    // Get recent activity
+    const recentActivityResult = await query(`
       SELECT 
-        DATE(created_at) as date,
-        SUM(total_price) as revenue
-      FROM bookings
-      WHERE status = 'completed'
-      GROUP BY DATE(created_at)
-      ORDER BY date ASC
-      LIMIT 30
+        type,
+        message,
+        entity_id,
+        created_at as timestamp
+      FROM activity_logs
+      ORDER BY created_at DESC
+      LIMIT 5
     `);
 
-    const formattedRevenueData = revenueDataResult.rows.map((data: { date: Date; revenue: string }) => ({
-      date: data.date,
-      revenue: parseFloat(data.revenue) || 0
+    const formattedActivity = recentActivityResult.rows.map((activity: ActivityLogResult) => ({
+      type: activity.type,
+      message: activity.message,
+      entity_id: activity.entity_id,
+      timestamp: formatISO(activity.timestamp)
     }));
 
     return NextResponse.json({
       success: true,
       data: {
-        stats: {
-          total: parseInt(bookingStats.total),
-          active: parseInt(bookingStats.active),
-          completed: parseInt(bookingStats.completed),
-          cancelled: parseInt(bookingStats.cancelled)
-        },
-        recentBookings: recentBookingsResult.rows,
-        revenueData: formattedRevenueData
+        totalUsers,
+        totalVehicles,
+        totalBookings: parseInt(bookingStats.total),
+        bookingGrowth: null, // Calculate this if needed
+        recentBookings: formattedBookings,
+        recentActivity: formattedActivity
       }
     });
 
