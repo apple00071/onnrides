@@ -25,13 +25,17 @@ export async function GET(
         b.start_date,
         b.end_date,
         b.status,
+        b.total_price,
+        u.id as user_id,
         u.name as user_name,
         u.email as user_email,
+        u.phone as user_phone,
+        v.id as vehicle_id,
         v.name as vehicle_name,
         v.type as vehicle_type
       FROM bookings b
-      JOIN users u ON b.user_id = u.id
-      JOIN vehicles v ON b.vehicle_id = v.id
+      LEFT JOIN users u ON b.user_id = u.id
+      LEFT JOIN vehicles v ON b.vehicle_id = v.id
       WHERE b.id = $1
     `, [params.bookingId]);
 
@@ -42,9 +46,30 @@ export async function GET(
       );
     }
 
+    const booking = result.rows[0];
+    const formattedData = {
+      id: booking.id,
+      booking_id: booking.booking_id,
+      start_date: booking.start_date,
+      end_date: booking.end_date,
+      status: booking.status,
+      total_price: booking.total_price,
+      user: {
+        id: booking.user_id,
+        name: booking.user_name,
+        email: booking.user_email,
+        phone: booking.user_phone
+      },
+      vehicle: {
+        id: booking.vehicle_id,
+        name: booking.vehicle_name,
+        type: booking.vehicle_type
+      }
+    };
+
     return NextResponse.json({
       success: true,
-      data: result.rows[0]
+      data: formattedData
     });
   } catch (error) {
     logger.error('Error fetching booking details:', error);

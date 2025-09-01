@@ -76,7 +76,7 @@ export default function NewVehicleReturnPage() {
 
   const fetchBookingDetails = async (bookingId: string) => {
     try {
-      const response = await fetch(`/api/admin/bookings?id=${bookingId}`);
+      const response = await fetch(`/api/admin/bookings/${bookingId}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -84,7 +84,8 @@ export default function NewVehicleReturnPage() {
       }
 
       setBookingDetails(data.data);
-      form.setValue('booking_id', bookingId);
+      // Use the formatted booking_id instead of UUID
+      form.setValue('booking_id', data.data.booking_id);
     } catch (error) {
       console.error('Error fetching booking details:', error);
       toast({
@@ -162,14 +163,62 @@ export default function NewVehicleReturnPage() {
               />
 
               {bookingDetails && (
-                <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-6">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Vehicle</p>
-                    <p className="text-sm">{bookingDetails.vehicle_name}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-accent/10 rounded-lg mb-6">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Vehicle Details</h3>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Name</p>
+                          <p className="text-base">{bookingDetails.vehicle?.name || 'Not assigned'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Type</p>
+                          <p className="text-base">{bookingDetails.vehicle?.type || 'Not specified'}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Customer</p>
-                    <p className="text-sm">{bookingDetails.user_name}</p>
+
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Customer Details</h3>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Name</p>
+                          <p className="text-base">{bookingDetails.user?.name || 'Not assigned'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Contact</p>
+                          <p className="text-base">{bookingDetails.user?.phone || 'No phone'}</p>
+                          <p className="text-sm text-muted-foreground">{bookingDetails.user?.email || 'No email'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-span-1 md:col-span-2">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Rental Details</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Start Date</p>
+                          <p className="text-base">{new Date(bookingDetails.start_date).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">End Date</p>
+                          <p className="text-base">{new Date(bookingDetails.end_date).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Total Price</p>
+                          <p className="text-base">₹{bookingDetails.total_price}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Status</p>
+                          <p className="text-base capitalize">{bookingDetails.status}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

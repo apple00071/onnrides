@@ -143,6 +143,15 @@ export function Sidebar() {
       {/* Mobile Header */}
       <div className="fixed top-0 left-0 right-0 h-16 bg-background border-b md:hidden z-50">
         <div className="flex h-full items-center justify-between px-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggle}
+            className="md:hidden"
+            aria-label={isOpen ? "Close menu" : "Open menu"}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
           <div className="relative h-8 w-28">
             <Image
               src="/logo.png"
@@ -153,15 +162,7 @@ export function Sidebar() {
               sizes="112px"
             />
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggle}
-            className="md:hidden"
-            aria-label={isOpen ? "Close menu" : "Open menu"}
-          >
-            <Menu className="h-6 w-6" />
-          </Button>
+          <div className="w-10" /> {/* Empty div for balanced spacing */}
         </div>
       </div>
 
@@ -171,18 +172,18 @@ export function Sidebar() {
           <>
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-40 bg-black/80 md:hidden"
+              transition={{ duration: 0.3 }}
+              className="fixed inset-0 z-40 bg-black/80 md:hidden backdrop-blur-sm"
               onClick={toggle}
             />
             <motion.div
-              initial={{ x: "100%" }}
+              initial={{ x: "-100%" }}
               animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 20 }}
-              className="fixed inset-y-0 right-0 z-50 w-full max-w-xs bg-background shadow-lg md:hidden"
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 z-50 w-[280px] bg-background shadow-lg md:hidden"
             >
               <div className="flex h-16 items-center justify-between px-4 border-b">
                 <div className="relative h-8 w-28">
@@ -201,19 +202,19 @@ export function Sidebar() {
                   onClick={toggle}
                   aria-label="Close menu"
                 >
-                  <X className="h-6 w-6" />
+                  <X className="h-5 w-5" />
                 </Button>
               </div>
               <ScrollArea className="flex-1 overflow-hidden">
-                <nav className="grid gap-1 p-4">
+                <nav className="grid gap-1 p-2">
                   {sidebarLinks.map((link) => (
                     <Link
                       key={link.href}
                       href={link.href}
                       onClick={toggle}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
-                        "hover:bg-accent hover:text-accent-foreground",
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
+                        "hover:bg-accent hover:text-accent-foreground transition-colors",
                         pathname === link.href ? "bg-accent" : "transparent"
                       )}
                     >

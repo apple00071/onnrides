@@ -33,6 +33,13 @@ interface Booking {
   user_email: string;
   vehicle_name: string;
   vehicle_type: string;
+  user?: {
+    name: string;
+    phone: string;
+  };
+  vehicle?: {
+    name: string;
+  };
 }
 
 interface VehicleReturn {
@@ -180,8 +187,8 @@ export default function VehicleReturnsPage() {
             <div className="text-red-500 text-center py-4">{error}</div>
           ) : (
             <>
-              <div className="rounded-md border">
-                {activeTab === 'bookings' ? (
+              {activeTab === 'bookings' && (
+                <div className="rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -199,27 +206,24 @@ export default function VehicleReturnsPage() {
                         <TableRow key={booking.id}>
                           <TableCell>{booking.booking_id}</TableCell>
                           <TableCell>
-                            <div>{booking.vehicle_name}</div>
-                            <div className="text-sm text-gray-500">
-                              {booking.vehicle_type}
-                            </div>
+                            {booking.vehicle?.name || 'Not assigned'}
                           </TableCell>
                           <TableCell>
-                            <div>{booking.user_name}</div>
-                            <div className="text-sm text-gray-500">
-                              {booking.user_email}
+                            <div>
+                              <div className="font-medium">{booking.user?.name || 'Not assigned'}</div>
+                              <div className="text-sm text-muted-foreground">{booking.user?.phone || 'No phone'}</div>
                             </div>
                           </TableCell>
-                          <TableCell>{formatDate(booking.start_date)}</TableCell>
-                          <TableCell>{formatDate(booking.end_date)}</TableCell>
+                          <TableCell>{new Date(booking.start_date).toLocaleString()}</TableCell>
+                          <TableCell>{new Date(booking.end_date).toLocaleString()}</TableCell>
                           <TableCell>
-                            <Badge variant={getStatusBadgeVariant(booking.status)}>
+                            <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
                               {booking.status}
                             </Badge>
                           </TableCell>
                           <TableCell>
                             <Button
-                              variant="default"
+                              variant="outline"
                               size="sm"
                               onClick={() => handleProcessReturn(booking.id)}
                             >
@@ -237,63 +241,64 @@ export default function VehicleReturnsPage() {
                       )}
                     </TableBody>
                   </Table>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Return Date</TableHead>
-                        <TableHead>Vehicle</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Additional Charges</TableHead>
-                        <TableHead>Processed By</TableHead>
-                        <TableHead>Actions</TableHead>
+                </div>
+              )}
+              {activeTab === 'returns' && (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Return Date</TableHead>
+                      <TableHead>Vehicle</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Additional Charges</TableHead>
+                      <TableHead>Processed By</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {returns.map((return_) => (
+                      <TableRow key={return_.id}>
+                        <TableCell>
+                          {formatDate(return_.return_date)}
+                        </TableCell>
+                        <TableCell>
+                          <div>{return_.vehicle_name}</div>
+                          <div className="text-sm text-gray-500">
+                            {return_.vehicle_type}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>{return_.user_name}</div>
+                          <div className="text-sm text-gray-500">
+                            {return_.user_email}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusBadgeVariant(return_.status)}>
+                            {return_.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          ${return_.additional_charges.toFixed(2)}
+                        </TableCell>
+                        <TableCell>
+                          {return_.processed_by_name}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/admin/vehicle-returns/${return_.id}`)}
+                          >
+                            View Details
+                          </Button>
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {returns.map((return_) => (
-                        <TableRow key={return_.id}>
-                          <TableCell>
-                            {formatDate(return_.return_date)}
-                          </TableCell>
-                          <TableCell>
-                            <div>{return_.vehicle_name}</div>
-                            <div className="text-sm text-gray-500">
-                              {return_.vehicle_type}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>{return_.user_name}</div>
-                            <div className="text-sm text-gray-500">
-                              {return_.user_email}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={getStatusBadgeVariant(return_.status)}>
-                              {return_.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            ${return_.additional_charges.toFixed(2)}
-                          </TableCell>
-                          <TableCell>
-                            {return_.processed_by_name}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => router.push(`/admin/vehicle-returns/${return_.id}`)}
-                            >
-                              View Details
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </div>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
 
               {activeTab === 'returns' && (
                 <div className="flex justify-between items-center mt-4">
