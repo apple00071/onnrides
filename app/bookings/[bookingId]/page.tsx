@@ -35,6 +35,27 @@ interface BookingDetails {
   dropoffLocation: string;
   createdAt: string;
   updatedAt: string;
+  // Add offline booking fields
+  bookingType: string;
+  customerName?: string;
+  phoneNumber?: string;
+  email?: string;
+  alternatePhone?: string;
+  aadharNumber?: string;
+  fatherNumber?: string;
+  motherNumber?: string;
+  dateOfBirth?: string;
+  dlNumber?: string;
+  dlExpiryDate?: string;
+  permanentAddress?: string;
+  registrationNumber?: string;
+  rentalAmount?: number;
+  securityDepositAmount?: number;
+  pendingAmount?: number;
+  paymentMethod?: string;
+  dlScan?: string;
+  aadharScan?: string;
+  selfie?: string;
 }
 
 // Helper function to format date in IST
@@ -147,6 +168,9 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
               <p><span className="font-semibold">Vehicle:</span> {booking.vehicle.name}</p>
               <p><span className="font-semibold">Type:</span> {booking.vehicle.type}</p>
               <p><span className="font-semibold">Location:</span> {parseLocation(booking.vehicle.location)}</p>
+              {booking.registrationNumber && (
+                <p><span className="font-semibold">Registration Number:</span> {booking.registrationNumber}</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -160,7 +184,7 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
             <div className="space-y-2">
               <p>
                 <span className="font-semibold">Status:</span>{' '}
-                <Badge variant={booking.status === 'confirmed' ? 'success' : 'secondary'}>
+                <Badge variant={booking.status === 'active' ? 'success' : 'secondary'}>
                   {booking.status}
                 </Badge>
               </p>
@@ -182,10 +206,48 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                     : booking.paymentStatus}
                 </Badge>
               </p>
-              <p><span className="font-semibold">Booking ID:</span> {booking.displayId}</p>
-              <p><span className="font-semibold">Reference ID:</span> {booking.bookingId}</p>
+              <p><span className="font-semibold">Booking ID:</span> {booking.displayId || booking.bookingId}</p>
+              <p><span className="font-semibold">Booking Type:</span> {booking.bookingType}</p>
               {booking.paymentReference && (
                 <p><span className="font-semibold">Payment Reference:</span> {booking.paymentReference}</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Customer Details */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Customer Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p><span className="font-semibold">Name:</span> {booking.customerName}</p>
+              <p><span className="font-semibold">Phone:</span> {booking.phoneNumber}</p>
+              {booking.email && <p><span className="font-semibold">Email:</span> {booking.email}</p>}
+              {booking.alternatePhone && (
+                <p><span className="font-semibold">Alternate Phone:</span> {booking.alternatePhone}</p>
+              )}
+              {booking.aadharNumber && (
+                <p><span className="font-semibold">Aadhar Number:</span> {booking.aadharNumber}</p>
+              )}
+              {booking.fatherNumber && (
+                <p><span className="font-semibold">Father's Number:</span> {booking.fatherNumber}</p>
+              )}
+              {booking.motherNumber && (
+                <p><span className="font-semibold">Mother's Number:</span> {booking.motherNumber}</p>
+              )}
+              {booking.dateOfBirth && (
+                <p><span className="font-semibold">Date of Birth:</span> {formatDateIST(booking.dateOfBirth)}</p>
+              )}
+              {booking.dlNumber && (
+                <p><span className="font-semibold">DL Number:</span> {booking.dlNumber}</p>
+              )}
+              {booking.dlExpiryDate && (
+                <p><span className="font-semibold">DL Expiry Date:</span> {formatDateIST(booking.dlExpiryDate)}</p>
+              )}
+              {booking.permanentAddress && (
+                <p><span className="font-semibold">Permanent Address:</span> {booking.permanentAddress}</p>
               )}
             </div>
           </CardContent>
@@ -225,9 +287,21 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <p><span className="font-semibold">Total Price:</span> {booking.totalPrice}</p>
+              {booking.rentalAmount && (
+                <p><span className="font-semibold">Rental Amount:</span> ₹{booking.rentalAmount}</p>
+              )}
+              {booking.securityDepositAmount && (
+                <p><span className="font-semibold">Security Deposit:</span> ₹{booking.securityDepositAmount}</p>
+              )}
+              <p><span className="font-semibold">Total Amount:</span> ₹{booking.totalPrice}</p>
               {booking.paidAmount && (
-                <p><span className="font-semibold">Paid Amount:</span> {booking.paidAmount}</p>
+                <p><span className="font-semibold">Paid Amount:</span> ₹{booking.paidAmount}</p>
+              )}
+              {booking.pendingAmount && (
+                <p><span className="font-semibold">Pending Amount:</span> ₹{booking.pendingAmount}</p>
+              )}
+              {booking.paymentMethod && (
+                <p><span className="font-semibold">Payment Method:</span> {booking.paymentMethod}</p>
               )}
               <p>
                 <span className="font-semibold">Booked on:</span>{' '}
@@ -240,6 +314,37 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
             </div>
           </CardContent>
         </Card>
+
+        {/* Documents */}
+        {(booking.dlScan || booking.aadharScan || booking.selfie) && (
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Documents</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {booking.dlScan && (
+                  <div>
+                    <p className="font-semibold mb-2">DL Scan</p>
+                    <img src={booking.dlScan} alt="DL Scan" className="w-full rounded-lg" />
+                  </div>
+                )}
+                {booking.aadharScan && (
+                  <div>
+                    <p className="font-semibold mb-2">Aadhar Scan</p>
+                    <img src={booking.aadharScan} alt="Aadhar Scan" className="w-full rounded-lg" />
+                  </div>
+                )}
+                {booking.selfie && (
+                  <div>
+                    <p className="font-semibold mb-2">Selfie</p>
+                    <img src={booking.selfie} alt="Selfie" className="w-full rounded-lg" />
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

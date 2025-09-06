@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth/auth-options';
+import { parseISO, format } from 'date-fns';
 
 export async function POST(request: Request) {
   try {
@@ -18,6 +19,10 @@ export async function POST(request: Request) {
       return new NextResponse('Start and end dates are required', { status: 400 });
     }
 
+    // Format timestamps for PostgreSQL
+    const formattedStartDate = format(parseISO(startDateTime), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+    const formattedEndDate = format(parseISO(endDateTime), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+
     // Query available vehicles that are not booked during the specified time period
     const result = await query(
       `SELECT v.id, v.name, v.type, v.location, v.price_per_hour
@@ -29,13 +34,13 @@ export async function POST(request: Request) {
          WHERE b.vehicle_id = v.id
          AND b.status NOT IN ('cancelled', 'completed')
          AND (
-           (b.start_date <= $1::timestamp AND b.end_date >= $1::timestamp)
-           OR (b.start_date <= $2::timestamp AND b.end_date >= $2::timestamp)
-           OR (b.start_date >= $1::timestamp AND b.end_date <= $2::timestamp)
+           (b.start_date <= $1::timestamptz AND b.end_date >= $1::timestamptz)
+           OR (b.start_date <= $2::timestamptz AND b.end_date >= $2::timestamptz)
+           OR (b.start_date >= $1::timestamptz AND b.end_date <= $2::timestamptz)
          )
        )
        ORDER BY v.name ASC`,
-      [startDateTime, endDateTime]
+      [formattedStartDate, formattedEndDate]
     );
 
     return NextResponse.json({ vehicles: result.rows });

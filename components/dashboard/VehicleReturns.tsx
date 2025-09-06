@@ -6,6 +6,7 @@ interface VehicleReturn {
   id: string;
   booking_id: string;
   vehicle_name: string;
+  vehicle_number: string;
   user_name: string;
   return_date: string;
   status: string;
@@ -31,9 +32,14 @@ export function VehicleReturns({ data }: VehicleReturnsProps) {
               <div key={item.id} className="flex items-center justify-between border-b pb-4 last:border-0">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">{item.vehicle_name}</p>
+                    <p className="text-sm font-medium">
+                      {item.vehicle_name}
+                      <span className="text-xs text-muted-foreground ml-1">
+                        ({item.vehicle_number})
+                      </span>
+                    </p>
                     <span className="text-xs text-muted-foreground">
-                      ID: {item.booking_id}
+                      ID: {item.id}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">Rented by: {item.user_name}</p>
@@ -50,7 +56,7 @@ export function VehicleReturns({ data }: VehicleReturnsProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <Link 
-                    href={`/admin/bookings?id=${item.booking_id}`}
+                    href={`/admin/bookings?id=${item.id}`}
                     className="text-xs text-blue-600 hover:text-blue-800"
                   >
                     View Details →

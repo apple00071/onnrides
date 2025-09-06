@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import { format, addHours, isBefore, isAfter, startOfToday, parse } from 'date-fns';
 import Link from 'next/link';
 import { Upload } from 'lucide-react';
 
@@ -14,73 +14,163 @@ interface Vehicle {
   price_per_hour: number;
 }
 
+interface FilePreview {
+  dlScan: string | null;
+  aadharScan: string | null;
+  selfie: string | null;
+}
+
 export default function OfflineBookingPage() {
   const router = useRouter();
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(false);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [startDate, setStartDate] = useState('');
-  const [startTime, setStartTime] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [fileUploads, setFileUploads] = useState({
+    dlScan: null as File | null,
+    aadharScan: null as File | null,
+    selfie: null as File | null,
+  });
+  const [filePreviews, setFilePreviews] = useState<FilePreview>({
+    dlScan: null,
+    aadharScan: null,
+    selfie: null,
+  });
+
+  // Validate Aadhar number
+  const validateAadhar = (aadhar: string) => {
+    const cleanAadhar = aadhar.replace(/\s/g, '');
+    return /^\d{12}$/.test(cleanAadhar);
+  };
+
+  // Format Aadhar number with spaces
+  const formatAadhar = (aadhar: string) => {
+    const cleanAadhar = aadhar.replace(/\s/g, '');
+    return cleanAadhar.replace(/(\d{4})/g, '$1 ').trim();
+  };
+
+  // Handle Aadhar input
+  const handleAadharChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, ''); // Keep only digits
+    if (value.length <= 12) {
+      const formattedValue = formatAadhar(value);
+      setFormData(prev => ({ ...prev, aadharNumber: formattedValue }));
+    }
+  };
+
+  // Calculate total and pending amounts
+  const calculateAmounts = (rental: string, deposit: string, paid: string) => {
+    const rentalAmount = parseFloat(rental) || 0;
+    const depositAmount = parseFloat(deposit) || 0;
+    const paidAmount = parseFloat(paid) || 0;
+    
+    const total = rentalAmount + depositAmount;
+    const pending = total - paidAmount;
+    
+    setFormData(prev => ({
+      ...prev,
+      totalAmount: total.toString(),
+      pendingAmount: pending.toString(),
+      paymentStatus: paidAmount >= total ? 'paid' : paidAmount > 0 ? 'partially_paid' : 'pending'
+    }));
+  };
+
+  // Handle amount changes
+  const handleAmountChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    calculateAmounts(
+      field === 'rentalAmount' ? value : formData.rentalAmount,
+      field === 'securityDepositAmount' ? value : formData.securityDepositAmount,
+      field === 'paidAmount' ? value : formData.paidAmount
+    );
+  };
+
   const [formData, setFormData] = useState({
-    // Customer Information
     customerName: '',
     phoneNumber: '',
     email: '',
     alternatePhone: '',
+    aadharNumber: '',
+    fatherNumber: '',
+    motherNumber: '',
+    dateOfBirth: '',
     dlNumber: '',
     dlExpiryDate: '',
     permanentAddress: '',
-
-    // Vehicle Details
     vehicleId: '',
     registrationNumber: '',
-
-    // Rental Details
-    purposeOfRent: '',
-
-    // Payment Details
-    paymentMethod: '',
+    rentalAmount: '',
+    securityDepositAmount: '',
+    totalAmount: '',
     paidAmount: '',
-    dueAmount: '',
+    pendingAmount: '',
+    paymentMethod: '',
     paymentStatus: '',
     paymentReference: '',
-    securityDepositAmount: '',
-
-    // Documents
-    dlScan: null,
-    aadharScan: null,
-    selfie: null,
-    agreementScan: null,
-
-    // Physical Documents Verification
-    originalDlVerified: false,
-    voterIdVerified: false,
-
-    // Terms and Conditions
     termsAccepted: false,
   });
 
-  // Fetch available vehicles when dates change
+  // Convert 24h time to 12h format for display
+  const to12Hour = (time24: string) => {
+    if (!time24) return '';
+    try {
+      const [hours, minutes] = time24.split(':').map(Number);
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const hours12 = hours % 12 || 12;
+      return `${hours12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+    } catch (error) {
+      return '';
+    }
+  };
+
+  // Handle start time change and auto-calculate end time
+  const handleStartTimeChange = (date: string, time: string) => {
+    setStartDate(date);
+    setStartTime(time);
+
+    if (date && time) {
+      try {
+        // Calculate end time (24 hours later)
+        const [hours, minutes] = time.split(':').map(Number);
+        const startDateTime = new Date(date);
+        startDateTime.setHours(hours, minutes);
+        const endDateTime = addHours(startDateTime, 24);
+        
+        setEndDate(format(endDateTime, 'yyyy-MM-dd'));
+        setEndTime(format(endDateTime, 'HH:mm'));
+      } catch (error) {
+        console.error('Error calculating end time:', error);
+      }
+    }
+  };
+
+  // Fetch available vehicles
   useEffect(() => {
     const fetchAvailableVehicles = async () => {
       if (!startDate || !startTime || !endDate || !endTime) return;
       
       try {
+        const startDateTime = `${startDate}T${startTime}:00`;
+        const endDateTime = `${endDate}T${endTime}:00`;
+
         const response = await fetch('/api/admin/vehicles/available', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            startDateTime: `${startDate}T${startTime}:00`,
-            endDateTime: `${endDate}T${endTime}:00`,
+            startDateTime,
+            endDateTime
           }),
         });
         
         if (response.ok) {
           const data = await response.json();
           setVehicles(data.vehicles);
+        } else {
+          console.error('Failed to fetch vehicles:', await response.text());
         }
       } catch (error) {
         console.error('Error fetching vehicles:', error);
@@ -90,46 +180,153 @@ export default function OfflineBookingPage() {
     fetchAvailableVehicles();
   }, [startDate, startTime, endDate, endTime]);
 
+  // Handle file upload
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, field: string) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Update file upload state
+      setFileUploads(prev => ({
+        ...prev,
+        [field]: file
+      }));
+
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFilePreviews(prev => ({
+          ...prev,
+          [field]: reader.result as string
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Validate the form
+  const validateForm = () => {
+    let isValid = true;
+    const newFormData = { ...formData };
+
+    if (!newFormData.customerName) {
+      newFormData.customerName = 'N/A'; // Default if empty
+    }
+    if (!newFormData.phoneNumber) {
+      newFormData.phoneNumber = 'N/A'; // Default if empty
+    }
+    if (!newFormData.aadharNumber) {
+      alert('Aadhar Number is required.');
+      isValid = false;
+    } else if (!validateAadhar(newFormData.aadharNumber)) {
+      alert('Please enter a valid 12-digit Aadhar number.');
+      isValid = false;
+    }
+    if (!newFormData.dlNumber) {
+      alert('DL Number is required.');
+      isValid = false;
+    }
+    if (!newFormData.dlExpiryDate) {
+      alert('DL Expiry Date is required.');
+      isValid = false;
+    }
+    if (!newFormData.permanentAddress) {
+      alert('Permanent Address is required.');
+      isValid = false;
+    }
+    if (!newFormData.vehicleId) {
+      alert('Please select a vehicle.');
+      isValid = false;
+    }
+    if (!newFormData.registrationNumber) {
+      alert('Registration Number is required.');
+      isValid = false;
+    }
+    if (!newFormData.rentalAmount) {
+      alert('Rental Amount is required.');
+      isValid = false;
+    }
+    if (!newFormData.securityDepositAmount) {
+      alert('Security Deposit Amount is required.');
+      isValid = false;
+    }
+    if (!newFormData.paidAmount) {
+      alert('Paid Amount is required.');
+      isValid = false;
+    }
+    if (!newFormData.paymentMethod) {
+      alert('Payment Method is required.');
+      isValid = false;
+    }
+    if (!newFormData.termsAccepted) {
+      alert('You must accept the terms and conditions.');
+      isValid = false;
+    }
+
+    setFormData(newFormData);
+    return isValid;
+  };
+
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    // Validate required file uploads
+    if (!fileUploads.dlScan || !fileUploads.aadharScan || !fileUploads.selfie) {
+      alert('Please upload all required documents (DL Scan, Aadhar Scan, and Selfie)');
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/bookings/offline', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          startDateTime: `${startDate}T${startTime}:00`,
-          endDateTime: `${endDate}T${endTime}:00`,
-        }),
+      const formDataToSend = new FormData();
+
+      // Add all form fields
+      Object.entries(formData).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          formDataToSend.append(key, value.toString());
+        }
       });
 
-      if (response.ok) {
-        router.push('/admin/bookings');
-      } else {
-        console.error('Failed to create booking');
+      // Add dates and times
+      formDataToSend.append('startDateTime', `${startDate}T${startTime}:00`);
+      formDataToSend.append('endDateTime', `${endDate}T${endTime}:00`);
+
+      // Add files with proper field names
+      if (fileUploads.dlScan) {
+        formDataToSend.append('dlScan', fileUploads.dlScan);
       }
+      if (fileUploads.aadharScan) {
+        formDataToSend.append('aadharScan', fileUploads.aadharScan);
+      }
+      if (fileUploads.selfie) {
+        formDataToSend.append('selfie', fileUploads.selfie);
+      }
+
+      const response = await fetch('/api/admin/bookings/offline', {
+        method: 'POST',
+        body: formDataToSend,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to create booking: ${errorText}`);
+      }
+
+      const result = await response.json();
+      router.push('/admin/bookings');
     } catch (error) {
-      console.error('Error creating booking:', error);
+      console.error('Failed to create booking:', error);
+      alert('Failed to create booking. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, field: string) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setFormData(prev => ({
-        ...prev,
-        [field]: file
-      }));
-    }
-  };
-
   return (
-    <form onSubmit={handleSubmit} className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold">Create Offline Booking</h1>
         <Link 
@@ -140,7 +337,7 @@ export default function OfflineBookingPage() {
         </Link>
       </div>
 
-      <div className="space-y-6">
+      <form onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-6">
         {/* Customer Information */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-medium mb-4">Customer Information</h2>
@@ -193,12 +390,60 @@ export default function OfflineBookingPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Aadhar Number <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.aadharNumber}
+                onChange={handleAadharChange}
+                placeholder="XXXX XXXX XXXX"
+                maxLength={14}
+                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Father's Number
+              </label>
+              <input
+                type="tel"
+                value={formData.fatherNumber}
+                onChange={(e) => setFormData(prev => ({ ...prev, fatherNumber: e.target.value }))}
+                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mother's Number
+              </label>
+              <input
+                type="tel"
+                value={formData.motherNumber}
+                onChange={(e) => setFormData(prev => ({ ...prev, motherNumber: e.target.value }))}
+                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Date of Birth
+              </label>
+              <input
+                type="date"
+                value={formData.dateOfBirth}
+                onChange={(e) => setFormData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                max={format(new Date(), 'yyyy-MM-dd')}
+                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 DL Number <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.dlNumber}
-                onChange={(e) => setFormData(prev => ({ ...prev, dlNumber: e.target.value }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, dlNumber: e.target.value.toUpperCase() }))}
                 className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
                 required
               />
@@ -211,6 +456,7 @@ export default function OfflineBookingPage() {
                 type="date"
                 value={formData.dlExpiryDate}
                 onChange={(e) => setFormData(prev => ({ ...prev, dlExpiryDate: e.target.value }))}
+                min={format(new Date(), 'yyyy-MM-dd')}
                 className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
                 required
               />
@@ -222,45 +468,7 @@ export default function OfflineBookingPage() {
               <textarea
                 value={formData.permanentAddress}
                 onChange={(e) => setFormData(prev => ({ ...prev, permanentAddress: e.target.value }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
                 rows={3}
-                required
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Vehicle Details */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-medium mb-4">Vehicle Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select Vehicle <span className="text-red-500">*</span>
-              </label>
-              <select 
-                value={formData.vehicleId}
-                onChange={(e) => setFormData(prev => ({ ...prev, vehicleId: e.target.value }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              >
-                <option value="">Select a vehicle</option>
-                {vehicles.map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.name} - {vehicle.type} ({vehicle.location || 'No location'}) - ₹{vehicle.price_per_hour}/hr
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-sm text-gray-500">Available vehicles: {vehicles.length}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Registration Number <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.registrationNumber}
-                onChange={(e) => setFormData(prev => ({ ...prev, registrationNumber: e.target.value }))}
                 className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
                 required
               />
@@ -280,18 +488,26 @@ export default function OfflineBookingPage() {
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => handleStartTimeChange(e.target.value, startTime)}
+                  min={format(new Date(), 'yyyy-MM-dd')}
                   className="flex-1 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
                   required
                 />
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  step="900"
-                  className="w-32 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                  required
-                />
+                <div className="relative w-40">
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => handleStartTimeChange(startDate, e.target.value)}
+                    step="3600"
+                    className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                    required
+                  />
+                  {startTime && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                      {to12Hour(startTime)}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <div>
@@ -303,28 +519,67 @@ export default function OfflineBookingPage() {
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate || format(new Date(), 'yyyy-MM-dd')}
                   className="flex-1 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
                   required
                 />
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  step="900"
-                  className="w-32 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                  required
-                />
+                <div className="relative w-40">
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    step="3600"
+                    className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                    required
+                  />
+                  {endTime && (
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                      {to12Hour(endTime)}
+                    </div>
+                  )}
+                </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Vehicle Details */}
+        <div className="bg-white rounded-lg shadow p-6 mt-6">
+          <h2 className="text-xl font-medium mb-4">Vehicle Details</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Select Vehicle <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.vehicleId}
+                onChange={(e) => setFormData(prev => ({ ...prev, vehicleId: e.target.value }))}
+                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                required
+              >
+                <option value="">Select a vehicle</option>
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.name} - {vehicle.type} ({vehicle.location || 'No location'}) - ₹{vehicle.price_per_hour}/hr
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-sm text-gray-500">
+                {vehicles.length > 0 
+                  ? `Available vehicles: ${vehicles.length}`
+                  : 'Please select date and time to see available vehicles'}
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Purpose of Rent
+                Registration Number <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                value={formData.purposeOfRent}
-                onChange={(e) => setFormData(prev => ({ ...prev, purposeOfRent: e.target.value }))}
+                value={formData.registrationNumber}
+                onChange={(e) => setFormData(prev => ({ ...prev, registrationNumber: e.target.value.toUpperCase() }))}
                 className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                required
               />
             </div>
           </div>
@@ -334,6 +589,75 @@ export default function OfflineBookingPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-medium mb-4">Payment Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Rental Amount <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                value={formData.rentalAmount}
+                onChange={(e) => handleAmountChange('rentalAmount', e.target.value)}
+                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Security Deposit Amount <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                value={formData.securityDepositAmount}
+                onChange={(e) => handleAmountChange('securityDepositAmount', e.target.value)}
+                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Total Amount
+              </label>
+              <input
+                type="number"
+                value={formData.totalAmount}
+                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                disabled
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Paid Amount <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                value={formData.paidAmount}
+                onChange={(e) => handleAmountChange('paidAmount', e.target.value)}
+                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Pending Amount
+              </label>
+              <input
+                type="number"
+                value={formData.pendingAmount}
+                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                disabled
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Payment Reference
+              </label>
+              <input
+                type="text"
+                value={formData.paymentReference}
+                onChange={(e) => setFormData(prev => ({ ...prev, paymentReference: e.target.value }))}
+                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Payment Method <span className="text-red-500">*</span>
@@ -353,64 +677,13 @@ export default function OfflineBookingPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Paid Amount <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                value={formData.paidAmount}
-                onChange={(e) => setFormData(prev => ({ ...prev, paidAmount: e.target.value }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Due Amount
-              </label>
-              <input
-                type="number"
-                value={formData.dueAmount}
-                onChange={(e) => setFormData(prev => ({ ...prev, dueAmount: e.target.value }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Status <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={formData.paymentStatus}
-                onChange={(e) => setFormData(prev => ({ ...prev, paymentStatus: e.target.value }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              >
-                <option value="">Select status</option>
-                <option value="paid">Paid</option>
-                <option value="pending">Pending</option>
-                <option value="partially_paid">Partially Paid</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Reference
+                Payment Status
               </label>
               <input
                 type="text"
-                value={formData.paymentReference}
-                onChange={(e) => setFormData(prev => ({ ...prev, paymentReference: e.target.value }))}
+                value={formData.paymentStatus}
                 className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Security Deposit Amount <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                value={formData.securityDepositAmount}
-                onChange={(e) => setFormData(prev => ({ ...prev, securityDepositAmount: e.target.value }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
+                disabled
               />
             </div>
           </div>
@@ -419,12 +692,30 @@ export default function OfflineBookingPage() {
         {/* Documents */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-medium mb-4">Documents</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 DL Scan <span className="text-red-500">*</span>
               </label>
-              <div className="flex items-center justify-center w-full">
+              <div className="flex flex-col items-center justify-center w-full">
+                {filePreviews.dlScan ? (
+                  <div className="relative w-full h-32 mb-2">
+                    <img
+                      src={filePreviews.dlScan}
+                      alt="DL Preview"
+                      className="w-full h-full object-contain rounded-lg"
+                    />
+                    <button
+                      onClick={() => {
+                        setFileUploads(prev => ({ ...prev, dlScan: null }));
+                        setFilePreviews(prev => ({ ...prev, dlScan: null }));
+                      }}
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
                     <Upload className="w-8 h-8 mb-2 text-gray-500" />
@@ -432,19 +723,40 @@ export default function OfflineBookingPage() {
                   </div>
                   <input
                     type="file"
+                    name="dlScan"
                     className="hidden"
                     onChange={(e) => handleFileUpload(e, 'dlScan')}
                     accept="image/*,.pdf"
                     required
                   />
                 </label>
+                )}
               </div>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Aadhar Scan <span className="text-red-500">*</span>
               </label>
-              <div className="flex items-center justify-center w-full">
+              <div className="flex flex-col items-center justify-center w-full">
+                {filePreviews.aadharScan ? (
+                  <div className="relative w-full h-32 mb-2">
+                    <img
+                      src={filePreviews.aadharScan}
+                      alt="Aadhar Preview"
+                      className="w-full h-full object-contain rounded-lg"
+                    />
+                    <button
+                      onClick={() => {
+                        setFileUploads(prev => ({ ...prev, aadharScan: null }));
+                        setFilePreviews(prev => ({ ...prev, aadharScan: null }));
+                      }}
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
                     <Upload className="w-8 h-8 mb-2 text-gray-500" />
@@ -452,19 +764,40 @@ export default function OfflineBookingPage() {
                   </div>
                   <input
                     type="file"
+                    name="aadharScan"
                     className="hidden"
                     onChange={(e) => handleFileUpload(e, 'aadharScan')}
                     accept="image/*,.pdf"
                     required
                   />
                 </label>
+                )}
               </div>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Selfie <span className="text-red-500">*</span>
               </label>
-              <div className="flex items-center justify-center w-full">
+              <div className="flex flex-col items-center justify-center w-full">
+                {filePreviews.selfie ? (
+                  <div className="relative w-full h-32 mb-2">
+                    <img
+                      src={filePreviews.selfie}
+                      alt="Selfie Preview"
+                      className="w-full h-full object-contain rounded-lg"
+                    />
+                    <button
+                      onClick={() => {
+                        setFileUploads(prev => ({ ...prev, selfie: null }));
+                        setFilePreviews(prev => ({ ...prev, selfie: null }));
+                      }}
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
                     <Upload className="w-8 h-8 mb-2 text-gray-500" />
@@ -472,63 +805,15 @@ export default function OfflineBookingPage() {
                   </div>
                   <input
                     type="file"
+                    name="selfie"
                     className="hidden"
                     onChange={(e) => handleFileUpload(e, 'selfie')}
                     accept="image/*"
                     required
                   />
                 </label>
+                )}
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Agreement Scan
-              </label>
-              <div className="flex items-center justify-center w-full">
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                    <p className="text-sm text-gray-500">Click to upload agreement</p>
-                  </div>
-                  <input
-                    type="file"
-                    className="hidden"
-                    onChange={(e) => handleFileUpload(e, 'agreementScan')}
-                    accept="image/*,.pdf"
-                  />
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Physical Documents Verification */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-medium mb-4">Physical Documents Verification</h2>
-          <div className="space-y-4">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="originalDlVerified"
-                checked={formData.originalDlVerified}
-                onChange={(e) => setFormData(prev => ({ ...prev, originalDlVerified: e.target.checked }))}
-                className="h-4 w-4 text-[#f26e24] focus:ring-[#f26e24] border-gray-300 rounded"
-              />
-              <label htmlFor="originalDlVerified" className="ml-2 block text-sm text-gray-900">
-                Original Driving License
-              </label>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="voterIdVerified"
-                checked={formData.voterIdVerified}
-                onChange={(e) => setFormData(prev => ({ ...prev, voterIdVerified: e.target.checked }))}
-                className="h-4 w-4 text-[#f26e24] focus:ring-[#f26e24] border-gray-300 rounded"
-              />
-              <label htmlFor="voterIdVerified" className="ml-2 block text-sm text-gray-900">
-                Voter ID
-              </label>
             </div>
           </div>
         </div>
@@ -576,13 +861,13 @@ export default function OfflineBookingPage() {
           </button>
           <button
             type="submit"
-            disabled={loading || !formData.termsAccepted}
-            className="px-6 py-2 bg-[#f26e24] text-white rounded-md hover:bg-[#d95e1d] focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading}
+            className="px-6 py-2 bg-[#f26e24] text-white rounded-md hover:bg-[#d95e1d] focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50 disabled:opacity-50"
           >
             {loading ? 'Creating...' : 'Create Booking'}
           </button>
         </div>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 } 

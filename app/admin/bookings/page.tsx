@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDateTime } from '@/lib/utils/time-formatter';
+import { Loader2 } from 'lucide-react';
 
 interface Booking {
   id: string;
@@ -14,21 +15,21 @@ interface Booking {
   user: {
     name: string;
     phone: string;
-    email: string;
   };
   start_date: string;
   end_date: string;
   total_price: number;
-  booking_type: string;
   status: string;
   payment_status: string;
+  booking_type: string;
+  registration_number: string;
 }
 
 export default function BookingsPage() {
+  const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
   useEffect(() => {
     fetchBookings();
@@ -38,43 +39,47 @@ export default function BookingsPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/admin/bookings');
-      const result = await response.json();
-      
-      if (result.success) {
-        setBookings(result.data || []);
+      const response = await fetch('/api/admin/bookings', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setBookings(data.data);
       } else {
-        setError(result.error || 'Failed to fetch bookings');
+        throw new Error(data.error || 'Failed to fetch bookings');
       }
     } catch (error) {
-      console.error('Error fetching bookings:', error);
-      setError('Failed to fetch bookings. Please try again.');
+      console.error('Failed to fetch bookings:', error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch bookings');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRowClick = (bookingId: string) => {
-    router.push(`/admin/bookings/${bookingId}`);
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#f26e24]"></div>
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-red-600">Error</h2>
-          <p className="mt-2 text-gray-600">{error}</p>
-          <button 
-            onClick={fetchBookings}
-            className="mt-4 bg-[#f26e24] text-white px-4 py-2 rounded-md hover:bg-[#d95e1d] transition-colors"
+      <div className="container mx-auto p-6">
+        <div className="flex flex-col items-center justify-center gap-4 py-12">
+          <p className="text-red-600">{error}</p>
+          <button
+            onClick={() => fetchBookings()}
+            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90"
           >
             Retry
           </button>
@@ -84,29 +89,29 @@ export default function BookingsPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-semibold">Booking Management</h1>
+          <h1 className="text-2xl font-bold">Booking Management</h1>
           <p className="text-gray-600">{bookings.length} bookings found</p>
         </div>
         <button
           onClick={() => router.push('/admin/offline-booking')}
-          className="bg-[#f26e24] text-white px-4 py-2 rounded-md hover:bg-[#d95e1d] transition-colors"
+          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90"
         >
           Create Offline Booking
         </button>
       </div>
 
       {bookings.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
+        <div className="text-center py-12 bg-white rounded-lg">
           <p className="text-gray-600">No bookings found</p>
-                  </div>
-                ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow">
-          <table className="min-w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b">
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead className="bg-gray-50">
+              <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VEHICLE</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CUSTOMER</th>
@@ -121,15 +126,14 @@ export default function BookingsPage() {
             <tbody className="divide-y divide-gray-200">
               {bookings.map((booking) => (
                 <tr 
-                  key={booking.id}
-                  onClick={() => handleRowClick(booking.booking_id)}
-                  className="hover:bg-gray-50 cursor-pointer transition-colors"
+                  key={booking.id} 
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => router.push(`/admin/bookings/${booking.id}`)}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {booking.booking_id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {booking.vehicle.name}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.id}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{booking.vehicle.name}</div>
+                    <div className="text-sm text-gray-500">{booking.registration_number}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{booking.user.name}</div>
@@ -144,14 +148,14 @@ export default function BookingsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     ₹{booking.total_price.toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                    {booking.booking_type}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {booking.booking_type.charAt(0).toUpperCase() + booking.booking_type.slice(1)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                       booking.status === 'completed' ? 'bg-green-100 text-green-800' :
                       booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                      booking.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                      booking.status === 'active' ? 'bg-blue-100 text-blue-800' :
                       'bg-yellow-100 text-yellow-800'
                     }`}>
                       {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
@@ -163,14 +167,14 @@ export default function BookingsPage() {
                       'bg-yellow-100 text-yellow-800'
                     }`}>
                       {booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)}
-                      </span>
+                    </span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-            </div>
-          )}
+        </div>
+      )}
     </div>
   );
 } 

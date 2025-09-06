@@ -13,7 +13,6 @@ import logger from '@/lib/logger';
 import { cn, suppressHydrationWarning } from '@/lib/utils';
 import GoogleAnalytics from './components/GoogleAnalytics';
 import { Toaster } from '@/components/ui/toaster';
-import nextDynamic from 'next/dynamic';
 import { SidebarProvider } from '@/hooks/use-sidebar';
 import { inter } from './fonts'
 import { useSession } from 'next-auth/react';
@@ -22,18 +21,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SessionProvider } from '@/components/providers/session-provider';
 import { MaintenanceCheck } from '@/components/MaintenanceCheck';
 import { getBooleanSetting, SETTINGS } from '@/lib/settings';
-
-// Import ErrorBoundary dynamically with no SSR
-const ErrorBoundary = nextDynamic(
-  () => import('@/components/ErrorBoundary'),
-  { ssr: false }
-);
-
-// Import Toaster dynamically with no SSR
-const ClientToaster = nextDynamic(
-  () => import('@/components/ui/toaster').then((mod) => ({ default: mod.Toaster })),
-  { ssr: false }
-);
+import { DynamicErrorBoundary, DynamicToaster } from './components/DynamicClientComponents';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -355,7 +343,7 @@ export default async function RootLayout({
           {isProduction && GA_MEASUREMENT_ID && <GoogleAnalytics GA_MEASUREMENT_ID={GA_MEASUREMENT_ID} />}
         </head>
         <body className="min-h-screen bg-background font-sans antialiased">
-          <ErrorBoundary>
+          <DynamicErrorBoundary>
             <Providers session={session}>
               <AuthProvider>
                 <ClientOnly>
@@ -371,7 +359,7 @@ export default async function RootLayout({
                         <MaintenanceCheck isMaintenanceMode={maintenanceMode}>
                           {children}
                         </MaintenanceCheck>
-                        <Toaster />
+                        <DynamicToaster />
                         <ScriptLoader />
                       </SessionProvider>
                     </ThemeProvider>
@@ -379,9 +367,9 @@ export default async function RootLayout({
                 </ClientOnly>
               </AuthProvider>
             </Providers>
-          </ErrorBoundary>
+          </DynamicErrorBoundary>
           <JsonLd data={structuredDataItems} />
-          <Toaster />
+          <DynamicToaster />
         </body>
       </html>
     );
@@ -400,7 +388,7 @@ export default async function RootLayout({
               </div>
             </div>
           </div>
-          <Toaster />
+          <DynamicToaster />
         </body>
       </html>
     );

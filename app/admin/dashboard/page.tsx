@@ -8,6 +8,7 @@ import { VehicleReturns } from "@/components/dashboard/VehicleReturns";
 import { query } from "@/lib/db";
 import logger from "@/lib/logger";
 import { formatISO } from "date-fns";
+import { generateBookingId } from "@/lib/utils/booking-id";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -78,6 +79,7 @@ interface BookingResult {
   end_date: Date;
   total_price: number;
   booking_type: string;
+  registration_number: string;
 }
 
 async function getRecentBookings() {
@@ -86,20 +88,27 @@ async function getRecentBookings() {
       WITH booking_status AS (
       SELECT 
         b.id::text as id,
-          b.booking_id,
-        u.name as user_name,
-        u.email as user_email,
+        b.booking_id,
+        CASE 
+          WHEN b.booking_type = 'offline' THEN b.customer_name
+          ELSE u.name
+        END as user_name,
+        CASE 
+          WHEN b.booking_type = 'offline' THEN b.email
+          ELSE u.email
+        END as user_email,
         v.name as vehicle_name,
         v.type as vehicle_type,
-          CASE 
-            WHEN b.booking_type = 'offline' AND b.status = 'confirmed' THEN 'active'
-            ELSE b.status
-          END as status,
+        b.registration_number as vehicle_number,
+        CASE 
+          WHEN b.booking_type = 'offline' AND b.status = 'confirmed' THEN 'active'
+          ELSE b.status
+        END as status,
         b.start_date,
         b.end_date,
-          b.total_price,
-          b.booking_type,
-          b.created_at
+        b.total_price,
+        b.booking_type,
+        b.created_at
       FROM bookings b
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
       LEFT JOIN users u ON b.user_id = u.id
@@ -113,7 +122,8 @@ async function getRecentBookings() {
 
     return result.rows.map((booking: BookingResult) => ({
       ...booking,
-      id: booking.booking_id, // Use booking_id instead of UUID
+      id: `OR${booking.booking_id.substring(0, 3).toUpperCase()}`,
+      user_name: booking.user_name || 'Anonymous User',
       start_date: formatISO(booking.start_date),
       end_date: formatISO(booking.end_date)
     }));
@@ -135,7 +145,11 @@ async function getVehicleReturns() {
           b.booking_id,
           b.end_date at time zone 'Asia/Kolkata' as return_date,
           v.name as vehicle_name,
-          u.name as user_name,
+          b.registration_number as vehicle_number,
+          CASE 
+            WHEN b.booking_type = 'offline' THEN b.customer_name
+            ELSE u.name
+          END as user_name,
           CASE 
             WHEN b.booking_type = 'offline' AND b.status = 'confirmed' THEN 'active'
             ELSE b.status
@@ -143,7 +157,7 @@ async function getVehicleReturns() {
           b.booking_type
         FROM bookings b
         JOIN vehicles v ON b.vehicle_id = v.id
-        JOIN users u ON b.user_id = u.id
+        LEFT JOIN users u ON b.user_id = u.id
         WHERE b.status NOT IN ('completed', 'cancelled')
       )
       SELECT 
@@ -162,14 +176,16 @@ async function getVehicleReturns() {
       id: string;
       booking_id: string;
       return_date: Date; 
-      vehicle_name: string; 
+      vehicle_name: string;
+      vehicle_number: string;
       user_name: string; 
       status: string;
       booking_type: string;
       is_overdue: boolean;
     }) => ({
       ...row,
-      booking_id: row.booking_id,
+      id: `OR${row.booking_id.substring(0, 3).toUpperCase()}`,
+      user_name: row.user_name || 'Anonymous User',
       return_date: formatISO(row.return_date)
     }));
   } catch (error) {

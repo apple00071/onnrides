@@ -1,17 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    esmExternals: true,
-    serverComponentsExternalPackages: [
-      'pg',
-      'winston',
-      'winston-daily-rotate-file',
-      'fluent-ffmpeg',
-      'whatsapp-web.js',
-      'puppeteer',
-      'qrcode-terminal'
-    ]
+    esmExternals: true
   },
+  transpilePackages: [
+    'pg',
+    'winston',
+    'winston-daily-rotate-file',
+    'fluent-ffmpeg',
+    'whatsapp-web.js',
+    'puppeteer',
+    'qrcode-terminal'
+  ],
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {

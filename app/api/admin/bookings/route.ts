@@ -27,6 +27,7 @@ interface BookingRow {
   payment_reference?: string;
   payment_method?: string;
   booking_type?: string;
+  registration_number?: string;
 }
 
 interface TransformedBooking {
@@ -141,39 +142,20 @@ export async function GET(request: Request) {
         p.status as payment_status,
         p.reference as payment_reference,
         p.method as payment_method,
-        COALESCE(
-          CASE 
-            WHEN b.booking_type = 'offline' AND b.payment_details IS NOT NULL THEN 
-              b.payment_details->>'customer_name'
-          END,
-          b.payment_details->>'userName',
-          u.name
-        ) as effective_user_name,
-        COALESCE(
-          CASE 
-            WHEN b.booking_type = 'offline' AND b.payment_details IS NOT NULL THEN 
-              b.payment_details->>'customer_phone'
-          END,
-          b.payment_details->>'userPhone',
-          u.phone
-        ) as effective_user_phone,
-        COALESCE(
-          CASE 
-            WHEN b.booking_type = 'offline' AND b.payment_details IS NOT NULL THEN 
-              b.payment_details->>'customer_email'
-          END,
-          b.payment_details->>'userEmail',
-          u.email
-        ) as effective_user_email,
-        COALESCE(
-          CASE 
-            WHEN b.booking_type = 'offline' AND b.payment_details IS NOT NULL THEN 
-              b.payment_details->>'vehicle_name'
-          END,
-          b.payment_details->>'vehicleName',
-          v.name
-        ) as effective_vehicle_name,
-        b.payment_details::text as payment_details_json,
+        CASE 
+          WHEN b.booking_type = 'offline' THEN b.customer_name
+          ELSE u.name
+        END as effective_user_name,
+        CASE 
+          WHEN b.booking_type = 'offline' THEN b.phone_number
+          ELSE u.phone
+        END as effective_user_phone,
+        CASE 
+          WHEN b.booking_type = 'offline' THEN b.email
+          ELSE u.email
+        END as effective_user_email,
+        COALESCE(v.name, 'Vehicle not assigned') as effective_vehicle_name,
+        b.registration_number,
         b.start_date::text as start_date,
         b.end_date::text as end_date,
         b.created_at::text as created_at,
@@ -193,39 +175,20 @@ export async function GET(request: Request) {
         v.name as vehicle_name,
         v.type as vehicle_type,
         v.id as vehicle_id,
-        COALESCE(
-          CASE 
-            WHEN b.booking_type = 'offline' AND b.payment_details IS NOT NULL THEN 
-              b.payment_details->>'customer_name'
-          END,
-          b.payment_details->>'userName',
-          u.name
-        ) as effective_user_name,
-        COALESCE(
-          CASE 
-            WHEN b.booking_type = 'offline' AND b.payment_details IS NOT NULL THEN 
-              b.payment_details->>'customer_phone'
-          END,
-          b.payment_details->>'userPhone',
-          u.phone
-        ) as effective_user_phone,
-        COALESCE(
-          CASE 
-            WHEN b.booking_type = 'offline' AND b.payment_details IS NOT NULL THEN 
-              b.payment_details->>'customer_email'
-          END,
-          b.payment_details->>'userEmail',
-          u.email
-        ) as effective_user_email,
-        COALESCE(
-          CASE 
-            WHEN b.booking_type = 'offline' AND b.payment_details IS NOT NULL THEN 
-              b.payment_details->>'vehicle_name'
-          END,
-          b.payment_details->>'vehicleName',
-          v.name
-        ) as effective_vehicle_name,
-        b.payment_details::text as payment_details_json,
+        CASE 
+          WHEN b.booking_type = 'offline' THEN b.customer_name
+          ELSE u.name
+        END as effective_user_name,
+        CASE 
+          WHEN b.booking_type = 'offline' THEN b.phone_number
+          ELSE u.phone
+        END as effective_user_phone,
+        CASE 
+          WHEN b.booking_type = 'offline' THEN b.email
+          ELSE u.email
+        END as effective_user_email,
+        COALESCE(v.name, 'Vehicle not assigned') as effective_vehicle_name,
+        b.registration_number,
         b.start_date::text as start_date,
         b.end_date::text as end_date,
         b.created_at::text as created_at,
@@ -245,68 +208,45 @@ export async function GET(request: Request) {
 
     // Map the data to match BookingWithRelations interface
     const mappedBookings = result.rows.map((booking: any) => {
-      // Parse payment_details if it exists
-      let paymentDetails: PaymentDetails = {};
-      try {
-        if (booking.payment_details_json) {
-          paymentDetails = typeof booking.payment_details_json === 'string' 
-            ? JSON.parse(booking.payment_details_json)
-            : booking.payment_details_json;
-        }
-      } catch (error) {
-        logger.warn('Failed to parse payment_details:', error);
-      }
+      // For offline bookings, set status to 'active'
+      const status = booking.booking_type === 'offline' ? 'active' : booking.status;
 
-      // Get effective values
-      const effectiveUserName = booking.effective_user_name || 
-        paymentDetails.customer_name || 
-        paymentDetails.userName || 
-        booking.user_name;
-      const effectiveUserPhone = booking.effective_user_phone || 
-        paymentDetails.customer_phone || 
-        paymentDetails.userPhone || 
-        booking.user_phone;
-      const effectiveUserEmail = booking.effective_user_email || 
-        paymentDetails.customer_email || 
-        paymentDetails.userEmail || 
-        booking.user_email;
-      const effectiveVehicleName = booking.effective_vehicle_name || 
-        paymentDetails.vehicle_name || 
-        paymentDetails.vehicleName || 
-        booking.vehicle_name;
+      // Format booking ID as ORXXX
+      const displayId = `OR${booking.booking_id.substring(0, 3).toUpperCase()}`;
 
       return {
-        id: booking.id,
+        id: displayId,
         booking_id: booking.booking_id || '',
         user_id: booking.user_id,
         vehicle_id: booking.vehicle_id,
         start_date: booking.start_date,
         end_date: booking.end_date,
         total_price: parseFloat(String(booking.total_price)) || 0,
-        status: booking.status,
+        status: status,
         payment_status: booking.payment_status || 'pending',
-        payment_method: booking.payment_method || paymentDetails.method,
-        payment_reference: booking.payment_reference || paymentDetails.reference,
+        payment_method: booking.payment_method || null,
+        payment_reference: booking.payment_reference || null,
         booking_type: booking.booking_type || 'online',
         created_at: booking.created_at,
         updated_at: booking.updated_at,
+        registration_number: booking.registration_number,
         vehicle: {
           id: booking.vehicle_id,
-          name: effectiveVehicleName || 'Vehicle not assigned',
+          name: booking.effective_vehicle_name,
           type: booking.vehicle_type
         },
         user: {
           id: booking.user_id,
-          name: effectiveUserName || 'Customer not assigned',
-          phone: effectiveUserPhone || '',
-          email: effectiveUserEmail
+          name: booking.effective_user_name,
+          phone: booking.effective_user_phone,
+          email: booking.effective_user_email
         },
-        documents: paymentDetails.documents || {},
+        documents: {},
         missing_info: identifyMissingInformation({
           ...booking,
-          user_name: effectiveUserName,
-          user_phone: effectiveUserPhone,
-          documents: paymentDetails.documents || {}
+          user_name: booking.effective_user_name,
+          user_phone: booking.effective_user_phone,
+          documents: {}
         })
       };
     });
