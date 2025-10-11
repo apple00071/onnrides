@@ -3,8 +3,9 @@
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDateTime } from '@/lib/utils/time-formatter';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Eye } from 'lucide-react';
 import { BookingActions } from '@/components/bookings/BookingActions';
+import { DocumentViewerModal } from '@/components/ui/DocumentViewerModal';
 
 interface BookingDetails {
   id: string;
@@ -63,6 +64,8 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
   const [booking, setBooking] = useState<BookingDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
+  const [selectedDocumentIndex, setSelectedDocumentIndex] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -86,6 +89,52 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
       setError('Failed to fetch booking details. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Prepare documents for the modal
+  const prepareDocuments = () => {
+    if (!booking?.customer.documents) return [];
+
+    const documents = [];
+
+    if (booking.customer.documents.dl_scan) {
+      documents.push({
+        id: 'dl_scan',
+        title: "Driver's License",
+        url: booking.customer.documents.dl_scan,
+        type: booking.customer.documents.dl_scan.toLowerCase().includes('.pdf') ? 'pdf' as const : 'image' as const
+      });
+    }
+
+    if (booking.customer.documents.aadhar_scan) {
+      documents.push({
+        id: 'aadhar_scan',
+        title: 'Aadhar Card',
+        url: booking.customer.documents.aadhar_scan,
+        type: booking.customer.documents.aadhar_scan.toLowerCase().includes('.pdf') ? 'pdf' as const : 'image' as const
+      });
+    }
+
+    if (booking.customer.documents.selfie) {
+      documents.push({
+        id: 'selfie',
+        title: 'Customer Photo',
+        url: booking.customer.documents.selfie,
+        type: 'image' as const
+      });
+    }
+
+    return documents;
+  };
+
+  // Handle opening document modal
+  const openDocumentModal = (documentType: string) => {
+    const documents = prepareDocuments();
+    const index = documents.findIndex(doc => doc.id === documentType);
+    if (index !== -1) {
+      setSelectedDocumentIndex(index);
+      setIsDocumentModalOpen(true);
     }
   };
 
@@ -281,53 +330,58 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
             <h3 className="text-lg font-medium text-gray-900 mb-4">Uploaded Documents</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {booking.customer.documents.dl_scan && (
-                <div className="border rounded-lg p-4">
-                  <h4 className="font-medium text-gray-700 mb-2">Driver's License</h4>
-                  <a
-                    href={booking.customer.documents.dl_scan}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 underline"
+                <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <h4 className="font-medium text-gray-700 mb-3">Driver's License</h4>
+                  <button
+                    onClick={() => openDocumentModal('dl_scan')}
+                    className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                   >
-                    View DL Scan
-                  </a>
+                    <Eye className="h-4 w-4" />
+                    <span>View DL Scan</span>
+                  </button>
                 </div>
               )}
               {booking.customer.documents.aadhar_scan && (
-                <div className="border rounded-lg p-4">
-                  <h4 className="font-medium text-gray-700 mb-2">Aadhar Card</h4>
-                  <a
-                    href={booking.customer.documents.aadhar_scan}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 underline"
+                <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <h4 className="font-medium text-gray-700 mb-3">Aadhar Card</h4>
+                  <button
+                    onClick={() => openDocumentModal('aadhar_scan')}
+                    className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                   >
-                    View Aadhar Scan
-                  </a>
+                    <Eye className="h-4 w-4" />
+                    <span>View Aadhar Scan</span>
+                  </button>
                 </div>
               )}
               {booking.customer.documents.selfie && (
-                <div className="border rounded-lg p-4">
-                  <h4 className="font-medium text-gray-700 mb-2">Customer Photo</h4>
-                  <a
-                    href={booking.customer.documents.selfie}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 underline"
+                <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <h4 className="font-medium text-gray-700 mb-3">Customer Photo</h4>
+                  <button
+                    onClick={() => openDocumentModal('selfie')}
+                    className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                   >
-                    View Selfie
-                  </a>
+                    <Eye className="h-4 w-4" />
+                    <span>View Selfie</span>
+                  </button>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        <BookingActions 
-          bookingId={booking.booking_id} 
+        <BookingActions
+          bookingId={booking.booking_id}
           currentStatus={booking.status}
         />
       </div>
+
+      {/* Document Viewer Modal */}
+      <DocumentViewerModal
+        isOpen={isDocumentModalOpen}
+        onClose={() => setIsDocumentModalOpen(false)}
+        documents={prepareDocuments()}
+        initialDocumentIndex={selectedDocumentIndex}
+      />
     </div>
   );
-} 
+}

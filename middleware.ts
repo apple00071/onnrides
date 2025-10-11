@@ -49,15 +49,26 @@ export async function middleware(request: NextRequest) {
     const pathname = new URL(request.url).pathname;
     const isAdminRoute = pathname.startsWith('/admin');
 
-    // Skip maintenance mode and auth check for admin login page and API routes
-    if (pathname === '/admin-login' || pathname.startsWith('/api/')) {
+    // Always allow API routes to proceed
+    if (pathname.startsWith('/api/')) {
       return undefined;
     }
 
-    // Handle admin routes - check authentication
+    // Always allow admin login page to proceed (bypass maintenance mode completely)
+    if (pathname === '/admin-login') {
+      console.log('Admin login page accessed, bypassing all checks');
+      return undefined;
+    }
+
+    // Always allow maintenance page to proceed
+    if (pathname === '/maintenance') {
+      return undefined;
+    }
+
+    // Handle admin routes - check authentication first
     if (isAdminRoute) {
       try {
-        const token = await getToken({ 
+        const token = await getToken({
           req: request,
           secret: process.env.NEXTAUTH_SECRET
         });
@@ -90,6 +101,7 @@ export async function middleware(request: NextRequest) {
         }
 
         // For authenticated admin users, let the request proceed (bypass maintenance mode)
+        console.log('Authenticated admin user, bypassing maintenance mode');
         return undefined;
       } catch (error) {
         logger.error('Auth check error:', error);
@@ -100,11 +112,7 @@ export async function middleware(request: NextRequest) {
     // For non-admin routes, check maintenance mode
     const inMaintenanceMode = await isMaintenanceMode(request);
     if (inMaintenanceMode) {
-      // Allow access to maintenance page itself
-      if (pathname === '/maintenance') {
-        return undefined;
-      }
-
+      console.log('Maintenance mode active, redirecting to maintenance page');
       // Redirect all other routes to maintenance page
       return NextResponse.redirect(new URL('/maintenance', request.url));
     }
@@ -121,6 +129,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/admin/:path*',
-    '/((?!_next/static|_next/image|favicon.ico|api/auth).*)',
+    '/admin-login',
+    '/((?!_next/static|_next/image|favicon.ico|api|auth|logo.png|site.webmanifest).*)',
   ],
-}; 
+};

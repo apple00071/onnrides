@@ -1,6 +1,4 @@
 import { Metadata } from 'next';
-import Image from 'next/image';
-import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Site Under Maintenance - OnnRides',
@@ -12,14 +10,12 @@ export default function MaintenancePage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
         <div className="mb-6">
-          <Image
+          <img
             src="/logo.png"
             alt="OnnRides Logo"
             width={140}
             height={40}
             className="mx-auto"
-            priority
-            unoptimized
           />
         </div>
         

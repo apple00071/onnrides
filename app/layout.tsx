@@ -44,12 +44,13 @@ const defaultRobotRules = {
 export const headers = {
   'Content-Security-Policy': `
     default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://api.razorpay.com https://va.vercel-scripts.com https://sdk.cashfree.com;
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://checkout.razorpay.com https://api.razorpay.com https://va.vercel-scripts.com https://sdk.cashfree.com https://www.googletagmanager.com https://www.google-analytics.com https://googleads.g.doubleclick.net;
+    script-src-elem 'self' 'unsafe-inline' blob: https://checkout.razorpay.com https://api.razorpay.com https://va.vercel-scripts.com https://sdk.cashfree.com https://www.googletagmanager.com https://www.google-analytics.com https://googleads.g.doubleclick.net;
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: https: blob:;
     font-src 'self' data:;
-    connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://va.vercel-scripts.com;
-    frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com;
+    connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://va.vercel-scripts.com https://sdk.cashfree.com https://www.google-analytics.com https://analytics.google.com https://www.google.com https://googleads.g.doubleclick.net;
+    frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://www.googletagmanager.com;
     object-src 'none';
   `.replace(/\s+/g, ' ').trim(),
   'X-Content-Type-Options': 'nosniff',

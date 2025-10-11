@@ -2,7 +2,6 @@
 
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
-import Image from 'next/image';
 
 interface MaintenanceCheckProps {
   children: React.ReactNode;
@@ -22,7 +21,9 @@ export function MaintenanceCheck({ children, isMaintenanceMode }: MaintenanceChe
     '/auth/signup',
     '/auth/forgot-password',
     '/auth/reset-password',
-    '/auth/error'
+    '/auth/error',
+    '/admin-login',
+    '/maintenance'
   ];
   
   // Check if current path is in allowed paths
@@ -37,13 +38,12 @@ export function MaintenanceCheck({ children, isMaintenanceMode }: MaintenanceChe
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
           <div className="mb-6">
-            <Image
+            <img
               src="/logo.png"
               alt="OnnRides Logo"
               width={140}
               height={40}
               className="mx-auto"
-              priority
             />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Site Under Maintenance</h1>
