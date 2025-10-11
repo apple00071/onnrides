@@ -22,7 +22,7 @@ const bookingId = generateBookingId();
 ## Date and Time Formatting
 
 All dates should be formatted in Indian Standard Time (IST) with the following format:
-- Format: `DD MMM YYYY, h:mm a` (e.g., "15 Mar 2025, 7:56 AM")
+- Format: `DD/MM/YYYY h:mm a` (e.g., "15/03/2025 7:56 AM")
 
 ### Implementation
 
@@ -46,13 +46,13 @@ const formattedNow = formatIST(nowIST);
 
 ### Date-only Formatting
 For dates without time:
-- Format: `DD MMM YYYY` (e.g., "15 Mar 2025")
-- Function: `formatISTDateOnly()`
+- Format: `DD/MM/YYYY` (e.g., "15/03/2025")
+- Function: `formatDate()`
 
 ### Time-only Formatting
 For times without dates:
 - Format: `h:mm a` (e.g., "7:56 AM")
-- Function: `formatISTTimeOnly()`
+- Function: `formatTime()`
 
 ### Duration Formatting
 For durations:

@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth';
 
 export async function GET(
   request: Request,
-  { params }: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -18,8 +18,9 @@ export async function GET(
       );
     }
 
+    const resolvedParams = await params;
     const result = await query(`
-      SELECT 
+      SELECT
         b.*,
         u.name as user_name,
         u.email as user_email,
@@ -34,7 +35,7 @@ export async function GET(
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
       LEFT JOIN vehicle_returns vr ON b.id = vr.booking_id
       WHERE b.booking_id = $1
-    `, [params.bookingId]);
+    `, [resolvedParams.bookingId]);
 
     if (result.rows.length === 0) {
       return NextResponse.json(
@@ -44,20 +45,64 @@ export async function GET(
     }
 
     const booking = result.rows[0];
+
+    // Determine customer information based on booking type
+    const customerInfo = booking.booking_type === 'offline' ? {
+      id: booking.user_id,
+      name: booking.customer_name,
+      email: booking.email,
+      phone: booking.phone_number,
+      alternate_phone: booking.alternate_phone,
+      aadhar_number: booking.aadhar_number,
+      father_number: booking.father_number,
+      mother_number: booking.mother_number,
+      date_of_birth: booking.date_of_birth,
+      dl_number: booking.dl_number,
+      dl_expiry_date: booking.dl_expiry_date,
+      permanent_address: booking.permanent_address,
+      documents: {
+        dl_scan: booking.dl_scan,
+        aadhar_scan: booking.aadhar_scan,
+        selfie: booking.selfie
+      }
+    } : {
+      id: booking.user_id,
+      name: booking.user_name,
+      email: booking.user_email,
+      phone: booking.user_phone,
+      alternate_phone: null,
+      aadhar_number: null,
+      father_number: null,
+      mother_number: null,
+      date_of_birth: null,
+      dl_number: null,
+      dl_expiry_date: null,
+      permanent_address: null,
+      documents: {
+        dl_scan: null,
+        aadhar_scan: null,
+        selfie: null
+      }
+    };
+
     const formattedData = {
       id: booking.id,
       booking_id: booking.booking_id,
-      customer: {
-        id: booking.user_id,
-        name: booking.user_name,
-        email: booking.user_email,
-        phone: booking.user_phone
-      },
+      customer: customerInfo,
       vehicle: {
         name: booking.vehicle_name,
-        type: booking.vehicle_type
+        type: booking.vehicle_type,
+        model: booking.vehicle_model,
+        registration_number: booking.registration_number
       },
       amount: booking.total_price,
+      rental_amount: booking.rental_amount,
+      security_deposit_amount: booking.security_deposit_amount,
+      total_amount: booking.total_amount,
+      paid_amount: booking.paid_amount,
+      pending_amount: booking.pending_amount,
+      payment_method: booking.payment_method,
+      payment_reference: booking.payment_reference,
       status: booking.status,
       payment_status: booking.payment_status,
       booking_type: booking.booking_type,
@@ -70,7 +115,8 @@ export async function GET(
         condition_notes: booking.condition_notes,
         return_date: booking.return_date
       } : undefined,
-      notes: booking.notes
+      notes: booking.notes,
+      terms_accepted: booking.terms_accepted
     };
 
     return NextResponse.json({
@@ -88,7 +134,7 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -100,13 +146,14 @@ export async function PATCH(
       );
     }
 
+    const resolvedParams = await params;
     const body = await request.json();
     const { status } = body;
 
     // Check if booking exists and get current status
     const currentBookingResult = await query(`
       SELECT status FROM bookings WHERE booking_id = $1
-    `, [params.bookingId]);
+    `, [resolvedParams.bookingId]);
 
     if (currentBookingResult.rows.length === 0) {
       return NextResponse.json(
@@ -119,11 +166,11 @@ export async function PATCH(
 
     // Update booking status
     const result = await query(`
-      UPDATE bookings 
-      SET status = $1, updated_at = NOW() 
-      WHERE booking_id = $2 
+      UPDATE bookings
+      SET status = $1, updated_at = NOW()
+      WHERE booking_id = $2
       RETURNING *
-    `, [status, params.bookingId]);
+    `, [status, resolvedParams.bookingId]);
 
     const booking = result.rows[0];
 
@@ -140,7 +187,7 @@ export async function PATCH(
       JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
       WHERE b.booking_id = $1
-    `, [params.bookingId]);
+    `, [resolvedParams.bookingId]);
 
     const bookingDetails = bookingDetailsResult.rows[0];
 
@@ -168,7 +215,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -180,11 +227,12 @@ export async function DELETE(
       );
     }
 
+    const resolvedParams = await params;
     const deletedBookingResult = await query(`
-      DELETE FROM bookings 
-      WHERE booking_id = $1 
+      DELETE FROM bookings
+      WHERE booking_id = $1
       RETURNING *
-    `, [params.bookingId]);
+    `, [resolvedParams.bookingId]);
 
     if (deletedBookingResult.rows.length === 0) {
       return NextResponse.json(

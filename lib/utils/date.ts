@@ -1,68 +1,70 @@
 /**
- * Formats a date into a human-readable string in 12-hour format
- * Example: "Thu, Apr 24, 2025, 05:30 AM"
+ * Formats a date into a human-readable string in 12-hour format in IST
+ * Example: "24/03/2025 5:30 AM"
  * @param date - Date object or date string to format
  * @returns Formatted date string
  */
 export function formatDateTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  
+
   // Handle invalid dates
   if (isNaN(d.getTime())) {
     console.error('Invalid date provided to formatDateTime:', date);
     return 'Invalid date';
   }
 
-  return d.toLocaleString('en-US', {
-    weekday: 'short', // Thu
-    month: 'short',   // Apr
-    day: 'numeric',   // 24
+  return d.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',   // 24
+    month: '2-digit', // 03
     year: 'numeric',  // 2025
-    hour: '2-digit',  // 05
+    hour: 'numeric',  // 5
     minute: '2-digit',// 30
     hour12: true      // AM/PM
   });
 }
 
 /**
- * Formats a date into a short date string
- * Example: "24 Apr 2025"
+ * Formats a date into a short date string in IST
+ * Example: "24/03/2025"
  * @param date - Date object or date string to format
  * @returns Formatted date string
  */
 export function formatShortDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  
+
   // Handle invalid dates
   if (isNaN(d.getTime())) {
     console.error('Invalid date provided to formatShortDate:', date);
     return 'Invalid date';
   }
 
-  return d.toLocaleString('en-US', {
-    day: 'numeric',   // 24
-    month: 'short',   // Apr
+  return d.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',   // 24
+    month: '2-digit', // 03
     year: 'numeric'   // 2025
   });
 }
 
 /**
- * Formats a time into a 12-hour format string
- * Example: "05:30 AM"
+ * Formats a time into a 12-hour format string in IST
+ * Example: "5:30 AM"
  * @param date - Date object or date string to format
  * @returns Formatted time string
  */
 export function formatTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  
+
   // Handle invalid dates
   if (isNaN(d.getTime())) {
     console.error('Invalid date provided to formatTime:', date);
     return 'Invalid time';
   }
 
-  return d.toLocaleString('en-US', {
-    hour: '2-digit',  // 05
+  return d.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: 'numeric',  // 5
     minute: '2-digit',// 30
     hour12: true      // AM/PM
   });

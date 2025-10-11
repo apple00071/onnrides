@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import logger from '@/lib/logger';
 import { uploadFile } from '@/lib/upload';
+import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
 
 // Type definitions for request body
 interface CustomerInfo {
@@ -36,7 +37,7 @@ interface TripInitiationRequest {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
   try {
     // Verify admin authentication
@@ -48,7 +49,8 @@ export async function POST(
       );
     }
 
-    const bookingId = params.bookingId;
+    const resolvedParams = await params;
+    const bookingId = resolvedParams.bookingId;
     if (!bookingId) {
       return NextResponse.json(
         { success: false, error: 'Booking ID is required' },
@@ -135,13 +137,30 @@ export async function POST(
     }
 
     // Update booking status
-    await prisma.bookings.update({
+    await prisma.booking.update({
       where: { id: bookingId },
       data: {
         status: 'initiated',
         updated_at: new Date()
       }
     });
+
+    // Send WhatsApp trip start confirmation
+    try {
+      const whatsappService = WhatsAppNotificationService.getInstance();
+      await whatsappService.sendTripStartConfirmation({
+        booking_id: bookingId,
+        customer_name: customerInfo.name,
+        customer_phone: customerInfo.phone,
+        vehicle_number: vehicleNumber,
+        emergency_contact: customerInfo.emergencyContact,
+        emergency_name: customerInfo.emergencyName
+      });
+
+      logger.info('Trip start WhatsApp notification sent successfully', { bookingId });
+    } catch (whatsappError) {
+      logger.error('Failed to send trip start WhatsApp notification:', whatsappError);
+    }
 
     return NextResponse.json({
       success: true,

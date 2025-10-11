@@ -5,13 +5,15 @@ import { query } from '@/lib/db';
 
 export async function GET(
   request: Request,
-  { params }: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
+
+    const resolvedParams = await params;
 
     const result = await query(`
       SELECT 
@@ -39,8 +41,8 @@ export async function GET(
       LEFT JOIN users u ON b.user_id = u.id
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
       LEFT JOIN payments p ON b.id = p.booking_id
-      WHERE b.id = $1 AND (b.user_id = $2 OR $3 = 'admin')
-    `, [params.bookingId, session.user.id, session.user.role]);
+      WHERE b.booking_id = $1 AND (b.user_id = $2 OR $3 = 'admin')
+    `, [resolvedParams.bookingId, session.user.id, session.user.role]);
 
     if (result.rows.length === 0) {
       return new NextResponse('Booking not found', { status: 404 });

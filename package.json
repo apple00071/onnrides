@@ -25,6 +25,8 @@
     "test:middleware": "ts-node -r dotenv/config scripts/check-middleware.ts",
     "setup:settings": "ts-node -r dotenv/config scripts/setup-settings.ts",
     "db:init": "node -r dotenv/config scripts/fix-database-build.js && node scripts/run-migrations.js",
+    "test:wasender": "ts-node -r dotenv/config scripts/test-wasender.ts",
+    "whatsapp:server": "ts-node -r dotenv/config scripts/whatsapp-test-server.ts",
     "vercel-build": "prisma generate && next build"
   },
   "dependencies": {
@@ -116,6 +118,7 @@
     "twilio": "^4.22.0",
     "uuid": "^9.0.1",
     "victory-vendor": "^37.3.6",
+    "wasenderapi": "^0.1.5",
     "winston": "^3.11.0",
     "winston-daily-rotate-file": "^5.0.0",
     "ws": "^8.18.1",

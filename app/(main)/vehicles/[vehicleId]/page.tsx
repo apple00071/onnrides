@@ -60,9 +60,10 @@ function cleanLocationData(locationData: any): string[] {
 }
 
 // Define metadata for SEO
-export async function generateMetadata({ params }: { params: { vehicleId: string } }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ vehicleId: string }> }): Promise<Metadata> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?id=${params.vehicleId}`, { cache: 'no-store' });
+    const resolvedParams = await params;
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?id=${resolvedParams.vehicleId}`, { cache: 'no-store' });
     const vehicle = await response.json();
 
     return {
@@ -77,10 +78,11 @@ export async function generateMetadata({ params }: { params: { vehicleId: string
   }
 }
 
-export default async function VehicleDetailsPage({ params }: { params: { vehicleId: string } }) {
+export default async function VehicleDetailsPage({ params }: { params: Promise<{ vehicleId: string }> }) {
   try {
+    const resolvedParams = await params;
     // Server-side fetch vehicle details
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?id=${params.vehicleId}`, { 
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?id=${resolvedParams.vehicleId}`, {
       cache: 'no-store',
     });
     
@@ -103,13 +105,13 @@ export default async function VehicleDetailsPage({ params }: { params: { vehicle
       <div className="container mx-auto py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            <VehicleDetailsClient params={params} />
+            <VehicleDetailsClient params={resolvedParams} />
           </div>
           <div className="lg:col-span-1">
-            <BookVehicleForm 
-              vehicleId={params.vehicleId} 
-              locations={locations} 
-              price={price} 
+            <BookVehicleForm
+              vehicleId={resolvedParams.vehicleId}
+              locations={locations}
+              price={price}
             />
           </div>
         </div>

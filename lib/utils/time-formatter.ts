@@ -23,7 +23,7 @@ export function formatIST(date: Date | string): string {
     if (!isValid(parsedDate)) {
       return '—';
     }
-    return formatInTimeZone(parsedDate, TIMEZONE, 'dd MMM yyyy hh:mm aa');
+    return formatInTimeZone(parsedDate, TIMEZONE, 'dd/MM/yyyy h:mm a');
   } catch (error) {
     console.error('Error formatting date:', error);
     return '—';
@@ -37,7 +37,7 @@ export function formatDateTime(dateStr: string | null | undefined): string {
     if (!isValid(date)) {
       return '—';
     }
-    return formatInTimeZone(date, TIMEZONE, 'dd MMM yyyy hh:mm aa');
+    return formatInTimeZone(date, TIMEZONE, 'dd/MM/yyyy h:mm a');
   } catch (error) {
     console.error('Error formatting date:', error);
     return dateStr || '—';
@@ -51,7 +51,7 @@ export function formatDateTimeIST(dateStr: string | null | undefined): string {
     if (!isValid(date)) {
       return '—';
     }
-    return formatInTimeZone(date, TIMEZONE, 'dd MMM yyyy hh:mm aa');
+    return formatInTimeZone(date, TIMEZONE, 'dd/MM/yyyy h:mm a');
   } catch (error) {
     console.error('Error formatting date:', error);
     return dateStr || '—';
@@ -65,7 +65,7 @@ export function formatDate(dateStr: string | null | undefined): string {
     if (!isValid(date)) {
       return '—';
     }
-    return formatInTimeZone(date, TIMEZONE, 'dd MMM yyyy');
+    return formatInTimeZone(date, TIMEZONE, 'dd/MM/yyyy');
   } catch (error) {
     console.error('Error formatting date:', error);
     return dateStr || '—';
@@ -79,7 +79,7 @@ export function formatTime(dateStr: string | null | undefined): string {
     if (!isValid(date)) {
       return '—';
     }
-    return formatInTimeZone(date, TIMEZONE, 'hh:mm aa');
+    return formatInTimeZone(date, TIMEZONE, 'h:mm a');
   } catch (error) {
     console.error('Error formatting time:', error);
     return dateStr || '—';

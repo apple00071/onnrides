@@ -6,6 +6,7 @@ import { verifyEmailConfig } from '@/lib/email/config';
 import { EmailService } from '@/lib/email/service';
 import { formatIST } from '@/lib/utils/time-formatter';
 import { AdminNotificationService } from '@/lib/notifications/admin-notification';
+import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
 
 // New route segment config
 export const dynamic = 'force-dynamic';
@@ -188,6 +189,40 @@ export async function POST(request: NextRequest): Promise<Response> {
       // Replace the direct email call with the new function
       await sendEmailConfirmation(booking);
 
+      // Send WhatsApp notifications
+      try {
+        const whatsappService = WhatsAppNotificationService.getInstance();
+
+        // Send payment confirmation
+        await whatsappService.sendPaymentConfirmation({
+          booking_id: booking.booking_id || booking.id,
+          payment_id: paymentEntity.id,
+          amount: Number(paymentEntity.amount) / 100, // Convert from paise to rupees
+          customer_name: booking.customer_name || booking.user_name,
+          phone_number: booking.phone_number || booking.user_phone
+        });
+
+        // Send booking confirmation
+        await whatsappService.sendBookingConfirmation({
+          id: booking.id,
+          booking_id: booking.booking_id || booking.id,
+          customer_name: booking.customer_name || booking.user_name,
+          phone_number: booking.phone_number || booking.user_phone,
+          email: booking.email || booking.user_email,
+          vehicle_model: booking.vehicle_name,
+          registration_number: booking.registration_number,
+          start_date: new Date(booking.start_date),
+          end_date: new Date(booking.end_date),
+          total_amount: Number(booking.total_price),
+          pickup_location: booking.pickup_location,
+          status: booking.status
+        });
+
+        logger.info('WhatsApp notifications sent successfully for payment webhook');
+      } catch (whatsappError) {
+        logger.error('Failed to send WhatsApp notifications from payment webhook:', whatsappError);
+      }
+
       // Send notification to admins
       try {
         const adminNotificationService = AdminNotificationService.getInstance();
@@ -200,7 +235,7 @@ export async function POST(request: NextRequest): Promise<Response> {
           status: 'success',
           transaction_time: new Date()
         });
-        
+
         logger.info('Admin payment webhook notification sent successfully');
       } catch (adminNotifyError) {
         logger.error('Failed to send admin webhook payment notification:', adminNotifyError);

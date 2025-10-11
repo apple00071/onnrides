@@ -18,7 +18,7 @@ interface BookingHistoryEntry {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
   try {
     // Verify admin authentication
@@ -30,21 +30,23 @@ export async function GET(
       );
     }
 
+    const resolvedParams = await params;
+
     // Fetch booking history using direct SQL
     const historyResult = await query(`
-      SELECT 
-        bh.id, 
-        bh."bookingId", 
-        bh.action, 
-        bh.details, 
-        bh."createdAt", 
+      SELECT
+        bh.id,
+        bh."bookingId",
+        bh.action,
+        bh.details,
+        bh."createdAt",
         bh."createdBy",
         u.name as "userName"
       FROM "bookingHistory" bh
       LEFT JOIN users u ON bh."userId" = u.id
       WHERE bh."bookingId" = $1
       ORDER BY bh."createdAt" DESC
-    `, [params.bookingId]);
+    `, [resolvedParams.bookingId]);
 
     // Format the history entries
     const formattedHistory = historyResult.rows.map((entry: BookingHistoryEntry) => ({

@@ -128,9 +128,9 @@ export default function BookingsPage() {
                 <tr 
                   key={booking.id} 
                   className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => router.push(`/admin/bookings/${booking.id}`)}
+                  onClick={() => router.push(`/admin/bookings/${booking.booking_id}`)}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.id}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.booking_id}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{booking.vehicle.name}</div>
                     <div className="text-sm text-gray-500">{booking.registration_number}</div>

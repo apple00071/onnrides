@@ -7,7 +7,7 @@ import { addHours } from 'date-fns';
 
 export async function POST(
   request: Request,
-  { params }: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -19,6 +19,7 @@ export async function POST(
       );
     }
 
+    const resolvedParams = await params;
     const body = await request.json();
     const { hours } = body;
 
@@ -32,7 +33,7 @@ export async function POST(
     // Get current booking details
     const currentBookingResult = await query(`
       SELECT * FROM bookings WHERE booking_id = $1
-    `, [params.bookingId]);
+    `, [resolvedParams.bookingId]);
 
     if (currentBookingResult.rows.length === 0) {
       return NextResponse.json(
@@ -57,7 +58,7 @@ export async function POST(
         updated_at = NOW()
       WHERE booking_id = $3 
       RETURNING *
-    `, [newEndDate, additionalPrice, params.bookingId]);
+    `, [newEndDate, additionalPrice, resolvedParams.bookingId]);
 
     return NextResponse.json({
       success: true,

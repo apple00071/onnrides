@@ -4,10 +4,11 @@ import logger from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { vehicleId: string } }
+  { params }: { params: Promise<{ vehicleId: string }> }
 ) {
   try {
-    const { vehicleId } = params;
+    const resolvedParams = await params;
+    const { vehicleId } = resolvedParams;
     const url = new URL(request.url);
     const duration = url.searchParams.get('duration') || '7';
 

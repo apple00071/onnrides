@@ -5,10 +5,22 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "regions": ["bom1"],
+  "crons": [
+    {
+      "path": "/api/cron/whatsapp-reminders",
+      "schedule": "0 9 * * *"
+    }
+  ],
   "functions": {
     "app/api/**/*": {
       "memory": 1024,
       "maxDuration": 10
+    },
+    "app/api/cron/whatsapp-reminders/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/whatsapp/reminders/route.ts": {
+      "maxDuration": 60
     }
   },
   "outputDirectory": ".next",

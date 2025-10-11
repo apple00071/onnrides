@@ -1,0 +1,43 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { WhatsAppReminderService } from '../../../../lib/whatsapp/reminder-service';
+
+// This endpoint can be called by external cron services like Vercel Cron or GitHub Actions
+export async function GET(request: NextRequest) {
+  try {
+    // Verify the request is from a trusted source (optional)
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+    
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({
+        success: false,
+        error: 'Unauthorized'
+      }, { status: 401 });
+    }
+
+    console.log('Starting scheduled WhatsApp reminders...');
+    
+    const reminderService = WhatsAppReminderService.getInstance();
+    await reminderService.runAllReminders();
+    
+    console.log('Scheduled WhatsApp reminders completed successfully');
+    
+    return NextResponse.json({
+      success: true,
+      message: 'WhatsApp reminders sent successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error in scheduled WhatsApp reminders:', error);
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to send reminders',
+      timestamp: new Date().toISOString()
+    }, { status: 500 });
+  }
+}
+
+// Also support POST for manual triggers
+export async function POST(request: NextRequest) {
+  return GET(request);
+}

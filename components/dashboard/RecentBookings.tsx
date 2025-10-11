@@ -45,7 +45,7 @@ export function RecentBookings({ data }: RecentBookingsProps) {
                     {booking.user_name || 'Anonymous User'}
                   </p>
                   <span className="text-xs text-muted-foreground">
-                    ID: {booking.id}
+                    ID: {booking.booking_id || booking.id}
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">

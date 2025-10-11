@@ -24,30 +24,31 @@ interface UpdateVehicleBody {
 // GET /api/vehicles/[vehicleId] - Get vehicle by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { vehicleId: string } }
+  { params }: { params: Promise<{ vehicleId: string }> }
 ) {
   try {
-    logger.info('Fetching vehicle details:', { vehicleId: params.vehicleId });
-    
+    const resolvedParams = await params;
+    logger.info('Fetching vehicle details:', { vehicleId: resolvedParams.vehicleId });
+
     const result = await query(`
-      SELECT 
-        id, 
-        name, 
-        type, 
-        location, 
+      SELECT
+        id,
+        name,
+        type,
+        location,
         price_per_hour,
         price_7_days,
         price_15_days,
         price_30_days,
         images,
-        created_at, 
+        created_at,
         updated_at
       FROM vehicles
       WHERE id = $1
-    `, [params.vehicleId]);
+    `, [resolvedParams.vehicleId]);
 
     if (result.rowCount === 0) {
-      logger.warn('Vehicle not found:', { vehicleId: params.vehicleId });
+      logger.warn('Vehicle not found:', { vehicleId: resolvedParams.vehicleId });
       return new NextResponse(
         JSON.stringify({ error: 'Vehicle not found' }),
         { 
@@ -221,7 +222,7 @@ export async function GET(
 // PUT /api/vehicles/[vehicleId] - Update vehicle
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { vehicleId: string } }
+  { params }: { params: Promise<{ vehicleId: string }> }
 ) {
   try {
     // Check if user is authenticated and is an admin
@@ -230,6 +231,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const resolvedParams = await params;
     const body = await request.json();
     const {
       name,
@@ -291,7 +293,7 @@ export async function PUT(
       delivery_price_15_days,
       delivery_price_30_days,
       new Date(),
-      params.vehicleId
+      resolvedParams.vehicleId
     ]);
 
     if (updatedVehicle.rowCount === 0) {
@@ -314,7 +316,7 @@ export async function PUT(
 // DELETE /api/vehicles/[vehicleId] - Delete vehicle
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { vehicleId: string } }
+  { params }: { params: Promise<{ vehicleId: string }> }
 ) {
   try {
     // Check if user is authenticated and is an admin
@@ -323,12 +325,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const resolvedParams = await params;
+
     // Check for active bookings
     const bookingsResult = await query(`
-      SELECT COUNT(*) FROM bookings 
-      WHERE vehicle_id = $1 
+      SELECT COUNT(*) FROM bookings
+      WHERE vehicle_id = $1
       AND status IN ('pending', 'confirmed', 'active')
-    `, [params.vehicleId]);
+    `, [resolvedParams.vehicleId]);
 
     if (parseInt(bookingsResult.rows[0].count) > 0) {
       return NextResponse.json(
@@ -342,7 +346,7 @@ export async function DELETE(
       DELETE FROM vehicles
       WHERE id = $1
       RETURNING *
-    `, [params.vehicleId]);
+    `, [resolvedParams.vehicleId]);
 
     if (result.rowCount === 0) {
       return NextResponse.json(

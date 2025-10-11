@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth/auth-options';
 import { query } from '@/lib/db';
 import { randomUUID } from 'crypto';
 import { generateBookingId } from '@/lib/utils/booking-id';
+import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
 
 export async function POST(request: Request) {
   try {
@@ -149,6 +150,31 @@ export async function POST(request: Request) {
           data.paymentReference
         ]
       );
+    }
+
+    // Send WhatsApp notification for offline booking
+    try {
+      const whatsappService = WhatsAppNotificationService.getInstance();
+      const booking = result.rows[0];
+
+      await whatsappService.sendOfflineBookingConfirmation({
+        id: booking.id,
+        booking_id: bookingId,
+        customer_name: data.customerName,
+        phone_number: data.phoneNumber,
+        email: data.email,
+        vehicle_model: data.vehicleModel,
+        registration_number: data.registrationNumber,
+        start_date: new Date(data.startDateTime),
+        end_date: new Date(data.endDateTime),
+        total_amount: Number(data.totalAmount),
+        pickup_location: 'Office Location', // Default for offline bookings
+        status: 'active'
+      });
+
+      console.log('Offline booking WhatsApp notification sent successfully', { bookingId });
+    } catch (whatsappError) {
+      console.error('Failed to send offline booking WhatsApp notification:', whatsappError);
     }
 
     return NextResponse.json({ success: true, booking: result.rows[0] });

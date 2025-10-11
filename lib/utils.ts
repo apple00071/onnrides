@@ -14,17 +14,19 @@ export const suppressHydrationWarning = () => ({
 });
 
 /**
- * Format a date string or Date object into a localized string
+ * Format a date string or Date object into a localized string in IST
  * @param date Date string or Date object
- * @returns Formatted date string
+ * @returns Formatted date string in DD/MM/YYYY h:mm a format
  */
 export function formatDate(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString('en-US', {
+  return d.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
+    hour: 'numeric',
     minute: '2-digit',
+    hour12: true
   });
 }
