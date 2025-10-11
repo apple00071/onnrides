@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
     const pathname = new URL(request.url).pathname;
     const isAdminRoute = pathname.startsWith('/admin');
 
-    // Skip auth check for admin login page and API routes
+    // Skip maintenance mode and auth check for admin login page and API routes
     if (pathname === '/admin-login' || pathname.startsWith('/api/')) {
       return undefined;
     }
@@ -89,7 +89,7 @@ export async function middleware(request: NextRequest) {
           return NextResponse.redirect(new URL('/', request.url));
         }
 
-        // For authenticated admin users, let the request proceed
+        // For authenticated admin users, let the request proceed (bypass maintenance mode)
         return undefined;
       } catch (error) {
         logger.error('Auth check error:', error);
@@ -97,7 +97,19 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // For non-admin routes, proceed as normal
+    // For non-admin routes, check maintenance mode
+    const inMaintenanceMode = await isMaintenanceMode(request);
+    if (inMaintenanceMode) {
+      // Allow access to maintenance page itself
+      if (pathname === '/maintenance') {
+        return undefined;
+      }
+
+      // Redirect all other routes to maintenance page
+      return NextResponse.redirect(new URL('/maintenance', request.url));
+    }
+
+    // For non-admin routes not in maintenance mode, proceed as normal
     return undefined;
   } catch (error) {
     logger.error('Middleware error:', error);

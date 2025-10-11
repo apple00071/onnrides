@@ -19,6 +19,7 @@ export default function MaintenancePage() {
             height={40}
             className="mx-auto"
             priority
+            unoptimized
           />
         </div>
         
