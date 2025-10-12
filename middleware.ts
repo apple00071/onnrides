@@ -3,10 +3,10 @@ import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import logger from '@/lib/logger';
 
-// Cache the maintenance mode status for 60 seconds
+// Cache the maintenance mode status for 5 minutes (longer cache for better performance)
 let maintenanceMode: boolean = false;
 let lastCheck = 0;
-const CACHE_DURATION = 60 * 1000; // 60 seconds
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
   const now = Date.now();
@@ -22,11 +22,14 @@ async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
     const host = request.headers.get('host') || 'localhost:3000';
     const baseUrl = `${protocol}://${host}`;
 
-    // Call the maintenance check API
+    // Call the maintenance check API with optimized headers
     const response = await fetch(`${baseUrl}/api/maintenance/check`, {
       headers: {
-        'x-middleware-bypass': '1' // Add a custom header to identify middleware requests
-      }
+        'x-middleware-bypass': '1', // Add a custom header to identify middleware requests
+        'cache-control': 'no-cache'
+      },
+      // Add timeout to prevent hanging requests
+      signal: AbortSignal.timeout(5000) // 5 second timeout
     });
     
     if (!response.ok) {
