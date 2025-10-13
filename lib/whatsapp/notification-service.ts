@@ -47,6 +47,74 @@ export interface TripInitiationData {
   emergency_name?: string;
 }
 
+export interface BookingCancellationData {
+  booking_id: string;
+  customer_name?: string;
+  customer_phone?: string;
+  vehicle_model?: string;
+  start_date: Date;
+  end_date: Date;
+  cancellation_reason?: string;
+  refund_amount?: number;
+  refund_status?: string;
+}
+
+export interface BookingExtensionData {
+  booking_id: string;
+  customer_name?: string;
+  customer_phone?: string;
+  vehicle_model?: string;
+  original_end_date: Date;
+  new_end_date: Date;
+  additional_hours: number;
+  additional_amount: number;
+  total_amount: number;
+}
+
+export interface BookingCompletionData {
+  booking_id: string;
+  customer_name?: string;
+  customer_phone?: string;
+  vehicle_model?: string;
+  start_date: Date;
+  end_date: Date;
+  total_amount: number;
+  feedback_link?: string;
+}
+
+export interface VehicleReturnData {
+  booking_id: string;
+  customer_name?: string;
+  customer_phone?: string;
+  vehicle_model?: string;
+  vehicle_number?: string;
+  return_date: Date;
+  condition_notes?: string;
+  additional_charges?: number;
+  final_amount?: number;
+}
+
+export interface PaymentReminderData {
+  booking_id: string;
+  customer_name?: string;
+  customer_phone?: string;
+  vehicle_model?: string;
+  amount_due: number;
+  due_date?: Date;
+  payment_link?: string;
+  reminder_type: 'first' | 'second' | 'final';
+}
+
+export interface BookingModificationData {
+  booking_id: string;
+  customer_name?: string;
+  customer_phone?: string;
+  modification_type: 'dates' | 'vehicle' | 'location' | 'other';
+  old_details: string;
+  new_details: string;
+  modified_by: string;
+}
+
 export class WhatsAppNotificationService {
   private static instance: WhatsAppNotificationService;
   private wasenderService: WaSenderService;
@@ -366,6 +434,333 @@ Thank you for choosing OnnRides! 🚗`;
       return result;
     } catch (error) {
       logger.error('Error sending offline booking confirmation WhatsApp:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send booking cancellation notification
+   */
+  async sendBookingCancellation(cancellationData: BookingCancellationData): Promise<boolean> {
+    try {
+      if (!cancellationData.customer_phone) {
+        logger.warn('No phone number provided for booking cancellation', { bookingId: cancellationData.booking_id });
+        return false;
+      }
+
+      const refundInfo = cancellationData.refund_amount
+        ? `\n💰 *Refund Information:*\n• Refund Amount: ₹${cancellationData.refund_amount}\n• Status: ${cancellationData.refund_status || 'Processing'}\n• Refund will be processed within 5-7 business days`
+        : '';
+
+      const message = `❌ *Booking Cancelled*
+
+Dear ${cancellationData.customer_name || 'Customer'},
+
+Your booking has been cancelled successfully.
+
+📋 *Cancelled Booking Details:*
+• Booking ID: ${cancellationData.booking_id}
+• Vehicle: ${cancellationData.vehicle_model}
+• Original Pickup: ${formatIST(cancellationData.start_date)}
+• Original Return: ${formatIST(cancellationData.end_date)}
+${cancellationData.cancellation_reason ? `• Reason: ${cancellationData.cancellation_reason}` : ''}${refundInfo}
+
+We're sorry to see you go! If you need to book again in the future, we'll be here to help.
+
+📞 *Contact Us:*
+For any queries: +91 8309031203
+Email: contact@onnrides.com
+
+Thank you for considering OnnRides! 🚗`;
+
+      const result = await this.wasenderService.sendTextMessage(cancellationData.customer_phone, message);
+
+      if (result) {
+        await this.logWhatsAppMessage(cancellationData.customer_phone, message, 'booking_cancellation', 'delivered');
+        logger.info('Booking cancellation WhatsApp sent', { bookingId: cancellationData.booking_id });
+      } else {
+        await this.logWhatsAppMessage(cancellationData.customer_phone, message, 'booking_cancellation', 'failed');
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error sending booking cancellation WhatsApp:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send booking extension notification
+   */
+  async sendBookingExtension(extensionData: BookingExtensionData): Promise<boolean> {
+    try {
+      if (!extensionData.customer_phone) {
+        logger.warn('No phone number provided for booking extension', { bookingId: extensionData.booking_id });
+        return false;
+      }
+
+      const message = `⏰ *Booking Extended!*
+
+Dear ${extensionData.customer_name || 'Customer'},
+
+Your booking has been successfully extended!
+
+📋 *Extension Details:*
+• Booking ID: ${extensionData.booking_id}
+• Vehicle: ${extensionData.vehicle_model}
+• Original Return: ${formatIST(extensionData.original_end_date)}
+• New Return Date: ${formatIST(extensionData.new_end_date)}
+• Additional Hours: ${extensionData.additional_hours}
+
+💰 *Payment Information:*
+• Additional Amount: ₹${extensionData.additional_amount}
+• New Total Amount: ₹${extensionData.total_amount}
+
+⚠️ *Important:*
+Please ensure you return the vehicle by the new return date to avoid additional charges.
+
+📞 *Contact Us:*
+For any queries: +91 8309031203
+Email: contact@onnrides.com
+
+Thank you for choosing OnnRides! 🚗`;
+
+      const result = await this.wasenderService.sendTextMessage(extensionData.customer_phone, message);
+
+      if (result) {
+        await this.logWhatsAppMessage(extensionData.customer_phone, message, 'booking_extension', 'delivered');
+        logger.info('Booking extension WhatsApp sent', { bookingId: extensionData.booking_id });
+      } else {
+        await this.logWhatsAppMessage(extensionData.customer_phone, message, 'booking_extension', 'failed');
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error sending booking extension WhatsApp:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send booking completion notification
+   */
+  async sendBookingCompletion(completionData: BookingCompletionData): Promise<boolean> {
+    try {
+      if (!completionData.customer_phone) {
+        logger.warn('No phone number provided for booking completion', { bookingId: completionData.booking_id });
+        return false;
+      }
+
+      const feedbackSection = completionData.feedback_link
+        ? `\n⭐ *Share Your Experience:*\nWe'd love to hear about your experience! Please share your feedback: ${completionData.feedback_link}`
+        : '\n⭐ *Share Your Experience:*\nWe\'d love to hear about your experience! Please contact us with your feedback.';
+
+      const message = `✅ *Trip Completed!*
+
+Dear ${completionData.customer_name || 'Customer'},
+
+Thank you for choosing OnnRides! Your trip has been completed successfully.
+
+📋 *Completed Trip Details:*
+• Booking ID: ${completionData.booking_id}
+• Vehicle: ${completionData.vehicle_model}
+• Trip Duration: ${formatIST(completionData.start_date)} to ${formatIST(completionData.end_date)}
+• Total Amount: ₹${completionData.total_amount}
+
+🎉 *Thank You!*
+We hope you had a wonderful experience with our vehicle. Your safety and satisfaction are our top priorities.${feedbackSection}
+
+🚗 *Book Again:*
+Need another ride? Visit our website or contact us anytime!
+
+📞 *Contact Us:*
+For any queries: +91 8309031203
+Email: contact@onnrides.com
+
+Drive safe and see you again soon! 🛣️`;
+
+      const result = await this.wasenderService.sendTextMessage(completionData.customer_phone, message);
+
+      if (result) {
+        await this.logWhatsAppMessage(completionData.customer_phone, message, 'booking_completion', 'delivered');
+        logger.info('Booking completion WhatsApp sent', { bookingId: completionData.booking_id });
+      } else {
+        await this.logWhatsAppMessage(completionData.customer_phone, message, 'booking_completion', 'failed');
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error sending booking completion WhatsApp:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send vehicle return confirmation
+   */
+  async sendVehicleReturnConfirmation(returnData: VehicleReturnData): Promise<boolean> {
+    try {
+      if (!returnData.customer_phone) {
+        logger.warn('No phone number provided for vehicle return confirmation', { bookingId: returnData.booking_id });
+        return false;
+      }
+
+      const additionalChargesInfo = returnData.additional_charges && returnData.additional_charges > 0
+        ? `\n💰 *Additional Charges:*\n• Amount: ₹${returnData.additional_charges}\n• Final Total: ₹${returnData.final_amount || 'TBD'}`
+        : '';
+
+      const conditionInfo = returnData.condition_notes
+        ? `\n📝 *Vehicle Condition:*\n${returnData.condition_notes}`
+        : '';
+
+      const message = `🔄 *Vehicle Returned Successfully!*
+
+Dear ${returnData.customer_name || 'Customer'},
+
+Your vehicle has been returned and inspected successfully!
+
+📋 *Return Details:*
+• Booking ID: ${returnData.booking_id}
+• Vehicle: ${returnData.vehicle_model}${returnData.vehicle_number ? ` (${returnData.vehicle_number})` : ''}
+• Return Date: ${formatIST(returnData.return_date)}${conditionInfo}${additionalChargesInfo}
+
+✅ *Return Complete:*
+Thank you for returning the vehicle in good condition. Your booking is now officially completed.
+
+🎉 *Thank You!*
+We appreciate your business and hope you had a great experience with OnnRides!
+
+📞 *Contact Us:*
+For any queries: +91 8309031203
+Email: contact@onnrides.com
+
+See you again soon! 🚗`;
+
+      const result = await this.wasenderService.sendTextMessage(returnData.customer_phone, message);
+
+      if (result) {
+        await this.logWhatsAppMessage(returnData.customer_phone, message, 'vehicle_return', 'delivered');
+        logger.info('Vehicle return confirmation WhatsApp sent', { bookingId: returnData.booking_id });
+      } else {
+        await this.logWhatsAppMessage(returnData.customer_phone, message, 'vehicle_return', 'failed');
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error sending vehicle return confirmation WhatsApp:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send payment reminder
+   */
+  async sendPaymentReminder(reminderData: PaymentReminderData): Promise<boolean> {
+    try {
+      if (!reminderData.customer_phone) {
+        logger.warn('No phone number provided for payment reminder', { bookingId: reminderData.booking_id });
+        return false;
+      }
+
+      const urgencyLevel = reminderData.reminder_type === 'final' ? '🚨 URGENT' :
+                          reminderData.reminder_type === 'second' ? '⚠️ REMINDER' : '💳 PAYMENT DUE';
+
+      const dueDateInfo = reminderData.due_date
+        ? `\n⏰ *Due Date:* ${formatIST(reminderData.due_date)}`
+        : '';
+
+      const paymentLinkInfo = reminderData.payment_link
+        ? `\n💳 *Pay Now:* ${reminderData.payment_link}`
+        : '\n💳 *Payment:* Please contact us to complete your payment.';
+
+      const message = `${urgencyLevel} *Payment Reminder*
+
+Dear ${reminderData.customer_name || 'Customer'},
+
+This is a ${reminderData.reminder_type} reminder for your pending payment.
+
+📋 *Payment Details:*
+• Booking ID: ${reminderData.booking_id}
+• Vehicle: ${reminderData.vehicle_model}
+• Amount Due: ₹${reminderData.amount_due}${dueDateInfo}${paymentLinkInfo}
+
+⚠️ *Important:*
+${reminderData.reminder_type === 'final'
+  ? 'This is your final reminder. Please complete payment immediately to avoid booking cancellation.'
+  : 'Please complete your payment to confirm your booking and avoid any delays.'}
+
+📞 *Contact Us:*
+For payment assistance: +91 8309031203
+Email: contact@onnrides.com
+
+Thank you for choosing OnnRides! 🚗`;
+
+      const result = await this.wasenderService.sendTextMessage(reminderData.customer_phone, message);
+
+      if (result) {
+        await this.logWhatsAppMessage(reminderData.customer_phone, message, 'payment_reminder', 'delivered');
+        logger.info('Payment reminder WhatsApp sent', { bookingId: reminderData.booking_id });
+      } else {
+        await this.logWhatsAppMessage(reminderData.customer_phone, message, 'payment_reminder', 'failed');
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error sending payment reminder WhatsApp:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send booking modification notification
+   */
+  async sendBookingModification(modificationData: BookingModificationData): Promise<boolean> {
+    try {
+      if (!modificationData.customer_phone) {
+        logger.warn('No phone number provided for booking modification', { bookingId: modificationData.booking_id });
+        return false;
+      }
+
+      const modificationIcon = modificationData.modification_type === 'dates' ? '📅' :
+                              modificationData.modification_type === 'vehicle' ? '🚗' :
+                              modificationData.modification_type === 'location' ? '📍' : '📝';
+
+      const message = `${modificationIcon} *Booking Modified*
+
+Dear ${modificationData.customer_name || 'Customer'},
+
+Your booking has been updated by our admin team.
+
+📋 *Modification Details:*
+• Booking ID: ${modificationData.booking_id}
+• Modified By: ${modificationData.modified_by}
+• Change Type: ${modificationData.modification_type.charAt(0).toUpperCase() + modificationData.modification_type.slice(1)}
+
+🔄 *Changes Made:*
+• Previous: ${modificationData.old_details}
+• Updated: ${modificationData.new_details}
+
+✅ *Next Steps:*
+Please review the changes and contact us if you have any questions or concerns.
+
+📞 *Contact Us:*
+For any queries: +91 8309031203
+Email: contact@onnrides.com
+
+Thank you for your understanding! 🚗`;
+
+      const result = await this.wasenderService.sendTextMessage(modificationData.customer_phone, message);
+
+      if (result) {
+        await this.logWhatsAppMessage(modificationData.customer_phone, message, 'booking_modification', 'delivered');
+        logger.info('Booking modification WhatsApp sent', { bookingId: modificationData.booking_id });
+      } else {
+        await this.logWhatsAppMessage(modificationData.customer_phone, message, 'booking_modification', 'failed');
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error sending booking modification WhatsApp:', error);
       return false;
     }
   }

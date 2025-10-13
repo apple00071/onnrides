@@ -4,6 +4,7 @@ import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { randomUUID } from 'crypto';
+import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
 
 export async function GET(request: Request) {
   try {
@@ -98,9 +99,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if booking exists and is not already returned
+    // Check if booking exists and get customer details for WhatsApp notification
     const bookingCheck = await query(
-      `SELECT id, status, vehicle_id FROM bookings WHERE id = $1`,
+      `SELECT
+        b.id,
+        b.booking_id,
+        b.status,
+        b.vehicle_id,
+        b.total_price,
+        u.name as customer_name,
+        u.phone as customer_phone,
+        v.name as vehicle_name,
+        v.registration_number as vehicle_number
+      FROM bookings b
+      JOIN users u ON b.user_id = u.id
+      JOIN vehicles v ON b.vehicle_id = v.id
+      WHERE b.id = $1`,
       [booking_id]
     );
 
@@ -111,7 +125,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (bookingCheck.rows[0].status === 'completed') {
+    const bookingDetails = bookingCheck.rows[0];
+
+    if (bookingDetails.status === 'completed') {
       return NextResponse.json(
         { success: false, error: 'Vehicle already returned for this booking' },
         { status: 400 }
@@ -168,13 +184,35 @@ export async function POST(request: Request) {
 
       // Update vehicle availability
       await query(
-        `UPDATE vehicles 
-        SET is_available = true, updated_at = CURRENT_TIMESTAMP 
+        `UPDATE vehicles
+        SET is_available = true, updated_at = CURRENT_TIMESTAMP
         WHERE id = $1`,
-        [bookingCheck.rows[0].vehicle_id]
+        [bookingDetails.vehicle_id]
       );
 
       await query('COMMIT');
+
+      // Send WhatsApp vehicle return confirmation
+      try {
+        const whatsappService = WhatsAppNotificationService.getInstance();
+        const finalAmount = bookingDetails.total_price + (additional_charges || 0);
+
+        await whatsappService.sendVehicleReturnConfirmation({
+          booking_id: bookingDetails.booking_id,
+          customer_name: bookingDetails.customer_name,
+          customer_phone: bookingDetails.customer_phone,
+          vehicle_model: bookingDetails.vehicle_name,
+          vehicle_number: bookingDetails.vehicle_number,
+          return_date: new Date(),
+          condition_notes: condition_notes || undefined,
+          additional_charges: additional_charges || 0,
+          final_amount: finalAmount
+        });
+
+        logger.info('Vehicle return WhatsApp notification sent successfully', { bookingId: booking_id });
+      } catch (whatsappError) {
+        logger.error('Failed to send vehicle return WhatsApp notification:', whatsappError);
+      }
 
       return NextResponse.json({
         success: true,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { validatePaymentVerification } from '@/lib/razorpay';
+import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -152,6 +153,24 @@ export async function POST(request: NextRequest) {
         new Date(),
         bookingData.id
       ]);
+
+      // Send WhatsApp payment failure notification
+      try {
+        const whatsappService = WhatsAppNotificationService.getInstance();
+        await whatsappService.sendPaymentReminder({
+          booking_id: bookingData.booking_id,
+          customer_name: bookingData.customer_name,
+          customer_phone: bookingData.phone_number,
+          vehicle_model: bookingData.vehicle_model,
+          amount_due: bookingData.total_price,
+          due_date: new Date(bookingData.start_date),
+          reminder_type: 'first'
+        });
+
+        logger.info('Payment failure WhatsApp notification sent', { bookingId: bookingData.booking_id });
+      } catch (whatsappError) {
+        logger.error('Failed to send payment failure WhatsApp notification:', whatsappError);
+      }
 
       throw error;
     }

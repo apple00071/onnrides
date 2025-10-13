@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
 
 export async function GET(
   request: Request,
@@ -148,11 +149,27 @@ export async function PATCH(
 
     const resolvedParams = await params;
     const body = await request.json();
-    const { status } = body;
+    const {
+      status,
+      start_date,
+      end_date,
+      vehicle_id,
+      pickup_location,
+      total_price,
+      modification_reason
+    } = body;
 
-    // Check if booking exists and get current status
+    // Get current booking details for comparison
     const currentBookingResult = await query(`
-      SELECT status FROM bookings WHERE booking_id = $1
+      SELECT
+        b.*,
+        u.name as user_name,
+        u.phone as user_phone,
+        v.name as vehicle_name
+      FROM bookings b
+      JOIN users u ON b.user_id = u.id
+      JOIN vehicles v ON b.vehicle_id = v.id
+      WHERE b.booking_id = $1
     `, [resolvedParams.bookingId]);
 
     if (currentBookingResult.rows.length === 0) {
@@ -162,15 +179,72 @@ export async function PATCH(
       );
     }
 
-    const currentStatus = currentBookingResult.rows[0].status;
+    const currentBooking = currentBookingResult.rows[0];
+    const modifications = [];
 
-    // Update booking status
+    // Build update query dynamically based on provided fields
+    const updateFields = [];
+    const updateValues = [];
+    let paramIndex = 1;
+
+    if (status && status !== currentBooking.status) {
+      updateFields.push(`status = $${paramIndex++}`);
+      updateValues.push(status);
+      modifications.push(`Status: ${currentBooking.status} → ${status}`);
+    }
+
+    if (start_date && start_date !== currentBooking.start_date.toISOString()) {
+      updateFields.push(`start_date = $${paramIndex++}`);
+      updateValues.push(new Date(start_date));
+      modifications.push(`Start Date: ${currentBooking.start_date.toISOString().split('T')[0]} → ${new Date(start_date).toISOString().split('T')[0]}`);
+    }
+
+    if (end_date && end_date !== currentBooking.end_date.toISOString()) {
+      updateFields.push(`end_date = $${paramIndex++}`);
+      updateValues.push(new Date(end_date));
+      modifications.push(`End Date: ${currentBooking.end_date.toISOString().split('T')[0]} → ${new Date(end_date).toISOString().split('T')[0]}`);
+    }
+
+    if (vehicle_id && vehicle_id !== currentBooking.vehicle_id) {
+      updateFields.push(`vehicle_id = $${paramIndex++}`);
+      updateValues.push(vehicle_id);
+
+      // Get new vehicle name
+      const newVehicleResult = await query(`SELECT name FROM vehicles WHERE id = $1`, [vehicle_id]);
+      const newVehicleName = newVehicleResult.rows[0]?.name || 'Unknown Vehicle';
+      modifications.push(`Vehicle: ${currentBooking.vehicle_name} → ${newVehicleName}`);
+    }
+
+    if (pickup_location && pickup_location !== currentBooking.pickup_location) {
+      updateFields.push(`pickup_location = $${paramIndex++}`);
+      updateValues.push(pickup_location);
+      modifications.push(`Pickup Location: ${currentBooking.pickup_location || 'Not set'} → ${pickup_location}`);
+    }
+
+    if (total_price && total_price !== currentBooking.total_price) {
+      updateFields.push(`total_price = $${paramIndex++}`);
+      updateValues.push(total_price);
+      modifications.push(`Total Price: ₹${currentBooking.total_price} → ₹${total_price}`);
+    }
+
+    if (updateFields.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'No fields to update' },
+        { status: 400 }
+      );
+    }
+
+    // Add updated_at field
+    updateFields.push(`updated_at = NOW()`);
+    updateValues.push(resolvedParams.bookingId);
+
+    // Execute update
     const result = await query(`
       UPDATE bookings
-      SET status = $1, updated_at = NOW()
-      WHERE booking_id = $2
+      SET ${updateFields.join(', ')}
+      WHERE booking_id = $${paramIndex}
       RETURNING *
-    `, [status, resolvedParams.bookingId]);
+    `, updateValues);
 
     const booking = result.rows[0];
 
@@ -194,10 +268,74 @@ export async function PATCH(
     // Handle vehicle availability based on status
     if (status === 'completed' || status === 'cancelled') {
       await query(`
-        UPDATE vehicles 
-        SET is_available = true, updated_at = NOW() 
+        UPDATE vehicles
+        SET is_available = true, updated_at = NOW()
         WHERE id = $1
       `, [bookingDetails.vehicle_id]);
+    }
+
+    // Send WhatsApp notifications based on changes made
+    if (modifications.length > 0 && currentBooking) {
+      try {
+        const whatsappService = WhatsAppNotificationService.getInstance();
+
+        // Check if status changed to cancelled or completed
+        const statusChange = modifications.find(mod => mod.includes('Status:'));
+        if (statusChange) {
+          if (statusChange.includes('→ cancelled')) {
+            await whatsappService.sendBookingCancellation({
+              booking_id: currentBooking.booking_id,
+              customer_name: currentBooking.user_name,
+              customer_phone: currentBooking.user_phone,
+              vehicle_model: currentBooking.vehicle_name,
+              start_date: new Date(currentBooking.start_date),
+              end_date: new Date(currentBooking.end_date),
+              cancellation_reason: modification_reason || 'Cancelled by admin',
+              refund_amount: currentBooking.total_price,
+              refund_status: 'Processing'
+            });
+
+            logger.info('Admin booking cancellation WhatsApp notification sent', { bookingId: resolvedParams.bookingId });
+          } else if (statusChange.includes('→ completed')) {
+            await whatsappService.sendBookingCompletion({
+              booking_id: currentBooking.booking_id,
+              customer_name: currentBooking.user_name,
+              customer_phone: currentBooking.user_phone,
+              vehicle_model: currentBooking.vehicle_name,
+              start_date: new Date(currentBooking.start_date),
+              end_date: new Date(currentBooking.end_date),
+              total_amount: currentBooking.total_price
+            });
+
+            logger.info('Booking completion WhatsApp notification sent', { bookingId: resolvedParams.bookingId });
+          }
+        }
+
+        // Send general modification notification for non-status changes
+        const nonStatusModifications = modifications.filter(mod => !mod.includes('Status:'));
+        if (nonStatusModifications.length > 0) {
+          const modificationType = nonStatusModifications.some(mod => mod.includes('Date')) ? 'dates' :
+                                  nonStatusModifications.some(mod => mod.includes('Vehicle')) ? 'vehicle' :
+                                  nonStatusModifications.some(mod => mod.includes('Location')) ? 'location' : 'other';
+
+          await whatsappService.sendBookingModification({
+            booking_id: currentBooking.booking_id,
+            customer_name: currentBooking.user_name,
+            customer_phone: currentBooking.user_phone,
+            modification_type: modificationType,
+            old_details: nonStatusModifications.map(mod => mod.split(' → ')[0].split(': ')[1]).join(', '),
+            new_details: nonStatusModifications.map(mod => mod.split(' → ')[1]).join(', '),
+            modified_by: session.user.name || session.user.email || 'Admin'
+          });
+
+          logger.info('Booking modification WhatsApp notification sent', {
+            bookingId: resolvedParams.bookingId,
+            modifications: nonStatusModifications
+          });
+        }
+      } catch (whatsappError) {
+        logger.error('Failed to send WhatsApp notification for booking changes:', whatsappError);
+      }
     }
 
     return NextResponse.json({
