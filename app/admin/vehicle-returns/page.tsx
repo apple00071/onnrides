@@ -221,7 +221,7 @@ export default function VehicleReturnsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleProcessReturn(booking.id)}
+                                onClick={() => handleProcessReturn(booking.booking_id)}
                               >
                                 Complete Booking
                               </Button>

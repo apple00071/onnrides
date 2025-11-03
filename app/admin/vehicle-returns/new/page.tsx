@@ -66,18 +66,24 @@ export default function NewVehicleReturnPage() {
 
   const fetchBookingDetails = async (bookingId: string) => {
     try {
+      console.log('Fetching booking details for ID:', bookingId);
       const response = await fetch(`/api/admin/bookings/${bookingId}`);
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(`Booking "${bookingId}" not found. Please check the booking ID and try again.`);
+        }
         throw new Error(data.error || 'Failed to fetch booking details');
       }
 
       setBookingDetails(data.data);
       form.setValue('booking_id', bookingId);
+      console.log('Successfully loaded booking details for:', bookingId);
     } catch (error) {
       console.error('Error fetching booking details:', error);
-      showToast.error('Failed to fetch booking details');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch booking details';
+      showToast.error(errorMessage);
       router.push('/admin/vehicle-returns');
     }
   };
