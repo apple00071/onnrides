@@ -1,5 +1,10 @@
-import { isDateInFuture, getCurrentIST, formatIST } from './time-formatter';
+import { isDateInFuture, formatIST } from './time-formatter';
 import logger from '../../lib/logger';
+
+// Helper function to ensure consistent date comparison in IST
+export function toIST(date: Date): Date {
+  return new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+}
 
 /**
  * Error types for booking validation
@@ -68,27 +73,31 @@ export function validateBookingDates(booking: BookingDates): BookingValidationRe
       return { isValid: false, errors };
     }
     
-    // Check if pickup date is in the future
-    if (!isDateInFuture(pickupDate)) {
+    // Convert dates to Date objects if they're strings
+    const pickup = typeof pickupDate === 'string' ? new Date(pickupDate) : pickupDate;
+    const dropoff = typeof dropoffDate === 'string' ? new Date(dropoffDate) : dropoffDate;
+    const now = new Date();
+    
+    // Log the dates for debugging
+    logger.info('Validating booking dates', {
+      pickup: { raw: pickupDate, parsed: pickup, ist: toIST(pickup) },
+      dropoff: { raw: dropoffDate, parsed: dropoff, ist: toIST(dropoff) },
+      now: { utc: now, ist: toIST(now) }
+    });
+
+    // Check if pickup date is in the future (in IST)
+    if (toIST(pickup) <= toIST(now)) {
       errors.push({
         code: BookingValidationError.PAST_PICKUP_TIME,
-        message: `Pickup time must be in the future. Current time: ${formatIST(getCurrentIST())}`
+        message: `Pickup time must be in the future. Selected: ${formatIST(pickup)}, Current time: ${formatIST(now)}`
       });
     }
     
-    // Check if dropoff date is in the future
-    if (!isDateInFuture(dropoffDate)) {
-      errors.push({
-        code: BookingValidationError.PAST_DROPOFF_TIME,
-        message: `Dropoff time must be in the future. Current time: ${formatIST(getCurrentIST())}`
-      });
-    }
-    
-    // Check if dropoff is after pickup
-    if (dropoffDate <= pickupDate) {
+    // Check if dropoff date is after pickup (in IST)
+    if (toIST(dropoff) <= toIST(pickup)) {
       errors.push({
         code: BookingValidationError.DROPOFF_BEFORE_PICKUP,
-        message: 'Dropoff time must be after pickup time'
+        message: `Dropoff time must be after pickup time. Pickup: ${formatIST(pickup)}, Dropoff: ${formatIST(dropoff)}`
       });
     }
     

@@ -7,10 +7,20 @@ export function getCurrentIST(): Date {
   return new Date();
 }
 
-export function isDateInFuture(dateStr: string): boolean {
+export function isDateInFuture(dateStr: string | Date): boolean {
   try {
-    const date = parseISO(dateStr);
-    return isFuture(date);
+    const date = typeof dateStr === 'string' ? parseISO(dateStr) : dateStr;
+    if (!isValid(date)) {
+      console.error('Invalid date:', dateStr);
+      return false;
+    }
+    
+    // Convert both dates to the same timezone (IST) for comparison
+    const now = new Date();
+    const istNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const istDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    
+    return istDate > istNow;
   } catch (error) {
     console.error('Error checking if date is in future:', error);
     return false;
