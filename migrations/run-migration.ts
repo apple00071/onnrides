@@ -5,7 +5,7 @@ const path = require('path');
 
 async function runMigration(specificFile?: string) {
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || "postgres://neondb_owner:fpBXEsTct9g1@ep-long-dream-a6avbuml-pooler.us-west-2.aws.neon.tech/neondb?sslmode=require"
+    connectionString: process.env.DATABASE_URL || "postgresql://neondb_owner:npg_6XQq8mjZWPAN@ep-soft-lake-a8c1s7oz-pooler.eastus2.azure.neon.tech/neondb?sslmode=require"
   });
 
   try {

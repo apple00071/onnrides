@@ -11,25 +11,17 @@ import { Button } from '@/components/ui/button';
 
 type PaymentStatus = 'loading' | 'success' | 'failed' | 'cancelled';
 
-interface PaymentStatusPageProps {
-  searchParams: {
-    status?: string;
-    error?: string;
-    booking_id?: string;
-    payment_id?: string;
-  };
-}
-
-export default function PaymentStatusPage({ searchParams }: PaymentStatusPageProps) {
+export default function PaymentStatusPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession();
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('loading');
   
-  // Get parameters from URL
-  const status = searchParams.status;
-  const bookingId = searchParams.booking_id;
-  const errorType = searchParams.error;
-  const paymentId = searchParams.payment_id;
+  // Get parameters from URL using useSearchParams hook
+  const status = searchParams.get('status');
+  const bookingId = searchParams.get('booking_id');
+  const errorType = searchParams.get('error');
+  const paymentId = searchParams.get('payment_id');
   
   useEffect(() => {
     if (sessionStatus === 'loading') return;

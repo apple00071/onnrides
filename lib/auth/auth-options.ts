@@ -48,8 +48,8 @@ export const authOptions: AuthOptions = {
               name,
               role
             FROM users 
-            WHERE email = $1
-          `, [credentials.email.toLowerCase()]);
+            WHERE LOWER(email) = LOWER($1)
+          `, [credentials.email]);
 
           const user = result.rows[0];
 

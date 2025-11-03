@@ -98,7 +98,7 @@ export default function WhatsAppLogsPage() {
 
     return (
         <div className="w-full py-8">
-            <Card className="w-full overflow-hidden">
+            <Card className="w-full overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm">
                 <CardHeader>
                     <CardTitle>WhatsApp Logs</CardTitle>
                     <CardDescription>History of all WhatsApp messages sent through the platform</CardDescription>

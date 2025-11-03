@@ -2,8 +2,8 @@ const { Pool } = require('pg');
 
 const pool = new Pool({
   user: "neondb_owner",
-  password: "fpBXEsTct9g1",
-  host: "ep-long-dream-a6avbuml-pooler.us-west-2.aws.neon.tech",
+  password: "npg_6XQq8mjZWPAN",
+  host: "ep-soft-lake-a8c1s7oz-pooler.eastus2.azure.neon.tech",
   port: 5432,
   database: "neondb",
   ssl: {

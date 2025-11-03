@@ -244,7 +244,7 @@ export default function TripInitiationPage() {
     <div className="flex flex-col min-h-screen w-full">
       <div className="flex justify-between items-center h-16 px-4 border-b bg-white w-full">
         <h1 className="text-2xl font-bold">Trip Initiation</h1>
-        <Button onClick={handleRefresh} variant="outline" className="gap-2">
+        <Button onClick={handleRefresh} variant="outline" className="gap-2 border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:border-transparent">
           <RefreshCw className="h-4 w-4" />
           Refresh
         </Button>
@@ -266,7 +266,7 @@ export default function TripInitiationPage() {
                   <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     placeholder="Search bookings..."
-                    className="pl-8 w-full"
+                    className="pl-8 w-full border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 rounded-md"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -274,7 +274,7 @@ export default function TripInitiationPage() {
                 
                 <div className="flex flex-col space-y-2 sm:space-y-0 sm:flex-row sm:space-x-2">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full sm:w-[130px]">
+                    <SelectTrigger className="w-full sm:w-[130px] border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 rounded-md">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -287,7 +287,7 @@ export default function TripInitiationPage() {
                   </Select>
                   
                   <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-full sm:w-[130px]">
+                    <SelectTrigger className="w-full sm:w-[130px] border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 rounded-md">
                       <SelectValue placeholder="Type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -304,10 +304,10 @@ export default function TripInitiationPage() {
         
         <div className="p-4 flex-1 overflow-hidden">
           <Tabs defaultValue="pending" className="w-full h-full flex flex-col">
-            <TabsList className="mb-4">
-              <TabsTrigger value="pending">Pending Initiation</TabsTrigger>
-              <TabsTrigger value="initiated">Initiated</TabsTrigger>
-              <TabsTrigger value="all">All Bookings</TabsTrigger>
+            <TabsList className="mb-4 bg-gray-100 p-1 rounded-lg">
+              <TabsTrigger value="pending" className="data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm rounded-md">Pending Initiation</TabsTrigger>
+              <TabsTrigger value="initiated" className="data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm rounded-md">Initiated</TabsTrigger>
+              <TabsTrigger value="all" className="data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm rounded-md">All Bookings</TabsTrigger>
             </TabsList>
             
             <div className="flex-1 min-h-0">
@@ -354,6 +354,7 @@ export default function TripInitiationPage() {
                   size="sm"
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
+                  className="border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:border-transparent rounded-md"
                 >
                   Previous
                 </Button>
@@ -362,6 +363,7 @@ export default function TripInitiationPage() {
                   size="sm"
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
+                  className="border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:border-transparent rounded-md"
                 >
                   Next
                 </Button>
@@ -410,17 +412,17 @@ function BookingsTable({
   onView: (booking: BookingWithRelations) => void
 }) {
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="w-full overflow-x-auto bg-white border border-gray-200 rounded-lg shadow-sm">
       <table className="w-full table-auto">
-        <thead className="bg-gray-50">
+        <thead className="bg-gray-50 border-b border-gray-200">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vehicle</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Start</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200 bg-white">
@@ -441,15 +443,15 @@ function BookingsTable({
           ) : (
             bookings.map((booking) => (
               <tr key={booking.id} className="hover:bg-gray-50">
-                <td className="px-4 py-4 text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {booking.booking_id}
                 </td>
-                <td className="px-4 py-4 text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {booking.vehicle?.name || (
                     <span className="text-gray-500">Vehicle not assigned</span>
                   )}
                 </td>
-                <td className="px-4 py-4 text-sm">
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <div>
                     {booking.user?.name || (
                       <span className="text-gray-500">Customer not assigned</span>
@@ -459,35 +461,38 @@ function BookingsTable({
                     <div className="text-xs text-gray-500">{booking.user.phone}</div>
                   )}
                 </td>
-                <td className="px-4 py-4 text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {formatDateTime(booking.start_date)}
                 </td>
-                <td className="px-4 py-4 text-sm">
-                  <Badge variant={booking.booking_type === 'offline' ? 'secondary' : 'default'}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    booking.booking_type === 'offline' 
+                      ? 'bg-blue-100 text-blue-800' 
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
                     {booking.booking_type}
-                  </Badge>
+                  </span>
                 </td>
-                <td className="px-4 py-4 text-sm">
-                  <Badge
-                    variant={
-                      booking.status === 'cancelled'
-                        ? 'destructive'
-                        : booking.status === 'confirmed'
-                        ? 'success'
-                        : booking.status === 'initiated'
-                        ? 'outline'
-                        : 'warning'
-                    }
-                  >
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    booking.status === 'cancelled'
+                      ? 'bg-red-100 text-red-800'
+                      : booking.status === 'confirmed'
+                      ? 'bg-green-100 text-green-800'
+                      : booking.status === 'initiated'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
                     {booking.status}
-                  </Badge>
+                  </span>
                 </td>
-                <td className="px-4 py-4 text-sm">
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <div className="flex space-x-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => onView(booking)}
+                      className="border-gray-300 hover:bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:border-transparent rounded-md"
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       View
@@ -497,6 +502,11 @@ function BookingsTable({
                       size="sm"
                       onClick={() => onInitiate(booking)}
                       disabled={booking.status === 'cancelled'}
+                      className={`focus:ring-2 focus:ring-orange-500 focus:border-transparent rounded-md ${
+                        booking.status === 'initiated' 
+                          ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-300' 
+                          : 'bg-orange-600 hover:bg-orange-700 text-white border-transparent'
+                      }`}
                     >
                       <PlayCircle className="h-4 w-4 mr-1" />
                       {booking.status === 'initiated' ? 'Update' : 'Initiate'}
