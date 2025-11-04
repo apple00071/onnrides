@@ -16,7 +16,8 @@ import {
   UserCircleIcon,
   Bars3Icon,
   XMarkIcon,
-  ArrowLeftOnRectangleIcon
+  ArrowLeftOnRectangleIcon,
+  CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 
 export default function AdminDashboardLayout({
@@ -33,7 +34,8 @@ export default function AdminDashboardLayout({
     { name: 'Vehicles', href: '/admin/vehicles', icon: TruckIcon },
     { name: 'Users', href: '/admin/users', icon: UsersIcon },
     { name: 'Bookings', href: '/admin/bookings', icon: CalendarIcon },
-    { name: 'Documents', href: '/admin/documents', icon: DocumentTextIcon },
+    { name: 'Trip Initiation', href: '/admin/trip-initiation', icon: DocumentTextIcon },
+    { name: 'Finance', href: '/admin/finance', icon: CurrencyDollarIcon },
     { name: 'Reports', href: '/admin/reports', icon: ChartBarIcon },
   ];
 

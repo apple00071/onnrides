@@ -88,18 +88,85 @@ export async function GET() {
 
     const totalVehicles = parseInt(vehiclesResult.rows[0].total);
 
-    // Get booking stats
+    // Get total bookings
     const bookingStatsResult = await query(`
-      SELECT 
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status = 'active') as active,
-        COUNT(*) FILTER (WHERE status = 'completed') as completed,
-        COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled
+      SELECT COUNT(*) as total
       FROM bookings
-      WHERE status IN ('active', 'completed', 'cancelled')
     `);
 
-    const bookingStats = bookingStatsResult.rows[0];
+    const totalBookings = parseInt(bookingStatsResult.rows[0].total);
+
+    // Get today's operational metrics
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Active rentals today (bookings that are active and current date falls within their rental period)
+    const activeRentalsResult = await query(`
+      SELECT COUNT(*) as active_rentals
+      FROM bookings
+      WHERE status = 'active'
+      AND start_date <= $2
+      AND end_date >= $1
+    `, [today, tomorrow]);
+
+    const activeRentals = parseInt(activeRentalsResult.rows[0].active_rentals);
+
+    // Today's revenue (completed bookings today)
+    const todayRevenueResult = await query(`
+      SELECT COALESCE(SUM(paid_amount), 0) as today_revenue
+      FROM bookings
+      WHERE status = 'completed'
+      AND DATE(created_at) = DATE($1)
+      AND payment_status = 'completed'
+    `, [today]);
+
+    const todayRevenue = parseFloat(todayRevenueResult.rows[0].today_revenue || 0);
+
+    // Overdue returns (active bookings where end_date has passed)
+    const overdueReturnsResult = await query(`
+      SELECT COUNT(*) as overdue_returns
+      FROM bookings
+      WHERE status = 'active'
+      AND end_date < $1
+    `, [today]);
+
+    const overdueReturns = parseInt(overdueReturnsResult.rows[0].overdue_returns);
+
+    // Available vehicles
+    const availableVehiclesResult = await query(`
+      SELECT COUNT(*) as available_vehicles
+      FROM vehicles
+      WHERE status = 'active'
+      AND is_available = true
+    `);
+
+    const availableVehicles = parseInt(availableVehiclesResult.rows[0].available_vehicles);
+
+    // Today's pickups (bookings starting today)
+    const todayPickupsResult = await query(`
+      SELECT COUNT(*) as today_pickups
+      FROM bookings
+      WHERE DATE(start_date) = DATE($1)
+      AND status IN ('confirmed', 'active', 'initiated')
+    `, [today]);
+
+    const todayPickups = parseInt(todayPickupsResult.rows[0].today_pickups);
+
+    // Today's returns (bookings ending today)
+    const todayReturnsResult = await query(`
+      SELECT COUNT(*) as today_returns
+      FROM bookings
+      WHERE DATE(end_date) = DATE($1)
+      AND status = 'active'
+    `, [today]);
+
+    const todayReturns = parseInt(todayReturnsResult.rows[0].today_returns);
+
+    // Maintenance due (vehicles with upcoming maintenance - placeholder for now)
+    const maintenanceDue = 0; // This would need a maintenance tracking system
+
 
     // Get recent bookings
     const recentBookingsResult = await query(`
@@ -168,8 +235,16 @@ export async function GET() {
       data: {
         totalUsers,
         totalVehicles,
-        totalBookings: parseInt(bookingStats.total),
+        totalBookings,
         bookingGrowth: null, // Calculate this if needed
+        // Operational metrics
+        activeRentals,
+        todayRevenue,
+        overdueReturns,
+        availableVehicles,
+        todayPickups,
+        todayReturns,
+        maintenanceDue,
         recentBookings: formattedBookings,
         recentActivity: formattedActivity
       }

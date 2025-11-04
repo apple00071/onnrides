@@ -12,6 +12,14 @@ interface DashboardData {
   totalBookings: number;
   totalVehicles: number;
   bookingGrowth: number | null;
+  // Operational metrics
+  activeRentals: number;
+  todayRevenue: number;
+  overdueReturns: number;
+  availableVehicles: number;
+  todayPickups: number;
+  todayReturns: number;
+  maintenanceDue: number;
   recentBookings: Array<{
     id: string;
     amount: string;
@@ -102,6 +110,47 @@ export default function DashboardContent() {
           trend="up"
         />
       </div>
+
+      {/* Today's Operations Summary */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium text-gray-900">Today's Operations</h3>
+          <span className="text-sm text-gray-500">{format(new Date(), 'EEEE, MMMM do, yyyy')}</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-blue-600">{data.activeRentals}</div>
+            <div className="text-sm text-gray-600">Active Rentals</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-green-600">₹{data.todayRevenue.toLocaleString()}</div>
+            <div className="text-sm text-gray-600">Today's Revenue</div>
+          </div>
+          <div className="text-center">
+            <div className={`text-2xl font-bold ${data.overdueReturns > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {data.overdueReturns}
+            </div>
+            <div className="text-sm text-gray-600">Overdue Returns</div>
+          </div>
+          <div className="text-center">
+            <div className={`text-2xl font-bold ${data.availableVehicles < 3 ? 'text-orange-600' : 'text-green-600'}`}>
+              {data.availableVehicles}
+            </div>
+            <div className="text-sm text-gray-600">Available Vehicles</div>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Pickups Today:</span>
+            <span className="font-medium">{data.todayPickups}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Returns Today:</span>
+            <span className="font-medium">{data.todayReturns}</span>
+          </div>
+        </div>
+      </div>
+
 
       {/* Recent Bookings */}
       <div className="bg-white rounded-lg shadow overflow-hidden">

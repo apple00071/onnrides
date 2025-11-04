@@ -31,6 +31,15 @@ interface VehicleReturnData {
   status: string;
 }
 
+interface OperationalMetrics {
+  activeRentals: number;
+  todayRevenue: number;
+  overdueReturns: number;
+  availableVehicles: number;
+  todayPickups: number;
+  todayReturns: number;
+}
+
 async function getBookingStats(): Promise<BookingStatsData> {
   try {
     const result = await query(`
@@ -63,6 +72,98 @@ async function getBookingStats(): Promise<BookingStatsData> {
       activeBookings: 0,
       completedBookings: 0,
       cancelledBookings: 0
+    };
+  }
+}
+
+async function getOperationalMetrics(): Promise<OperationalMetrics> {
+  try {
+    // Get today's operational metrics
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Active rentals today
+    const activeRentalsResult = await query(`
+      SELECT COUNT(*) as active_rentals
+      FROM bookings
+      WHERE status = 'active'
+      AND start_date <= $2
+      AND end_date >= $1
+    `, [today, tomorrow]);
+
+    const activeRentals = parseInt(activeRentalsResult.rows[0].active_rentals);
+
+    // Today's revenue
+    const todayRevenueResult = await query(`
+      SELECT COALESCE(SUM(paid_amount), 0) as today_revenue
+      FROM bookings
+      WHERE status = 'completed'
+      AND DATE(created_at) = DATE($1)
+      AND payment_status = 'completed'
+    `, [today]);
+
+    const todayRevenue = parseFloat(todayRevenueResult.rows[0].today_revenue || 0);
+
+    // Overdue returns
+    const overdueReturnsResult = await query(`
+      SELECT COUNT(*) as overdue_returns
+      FROM bookings
+      WHERE status = 'active'
+      AND end_date < $1
+    `, [today]);
+
+    const overdueReturns = parseInt(overdueReturnsResult.rows[0].overdue_returns);
+
+    // Available vehicles
+    const availableVehiclesResult = await query(`
+      SELECT COUNT(*) as available_vehicles
+      FROM vehicles
+      WHERE status = 'active'
+      AND is_available = true
+    `);
+
+    const availableVehicles = parseInt(availableVehiclesResult.rows[0].available_vehicles);
+
+    // Today's pickups
+    const todayPickupsResult = await query(`
+      SELECT COUNT(*) as today_pickups
+      FROM bookings
+      WHERE DATE(start_date) = DATE($1)
+      AND status IN ('confirmed', 'active', 'initiated')
+    `, [today]);
+
+    const todayPickups = parseInt(todayPickupsResult.rows[0].today_pickups);
+
+    // Today's returns
+    const todayReturnsResult = await query(`
+      SELECT COUNT(*) as today_returns
+      FROM bookings
+      WHERE DATE(end_date) = DATE($1)
+      AND status = 'active'
+    `, [today]);
+
+    const todayReturns = parseInt(todayReturnsResult.rows[0].today_returns);
+
+
+    return {
+      activeRentals,
+      todayRevenue,
+      overdueReturns,
+      availableVehicles,
+      todayPickups,
+      todayReturns
+    };
+  } catch (error) {
+    logger.error('Error fetching operational metrics:', error);
+    return {
+      activeRentals: 0,
+      todayRevenue: 0,
+      overdueReturns: 0,
+      availableVehicles: 0,
+      todayPickups: 0,
+      todayReturns: 0
     };
   }
 }
@@ -196,11 +297,21 @@ async function getVehicleReturns() {
 
 export default async function DashboardPage() {
   try {
-    const [bookingStats, vehicleReturns, recentBookings] = await Promise.allSettled([
+    const [bookingStats, vehicleReturns, recentBookings, operationalMetrics] = await Promise.allSettled([
       getBookingStats(),
       getVehicleReturns(),
       getRecentBookings(),
+      getOperationalMetrics(),
     ]);
+
+    const metrics = operationalMetrics.status === 'fulfilled' ? operationalMetrics.value : {
+      activeRentals: 0,
+      todayRevenue: 0,
+      overdueReturns: 0,
+      availableVehicles: 0,
+      todayPickups: 0,
+      todayReturns: 0
+    };
 
     return (
       <DashboardShell>
@@ -218,6 +329,48 @@ export default async function DashboardPage() {
             }} 
           />
         </div>
+
+        {/* Today's Operations Summary */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">Today's Operations</h3>
+            <span className="text-sm text-gray-500">{new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{metrics.activeRentals}</div>
+              <div className="text-sm text-gray-600">Active Rentals</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">₹{metrics.todayRevenue.toLocaleString()}</div>
+              <div className="text-sm text-gray-600">Today's Revenue</div>
+            </div>
+            <div className="text-center">
+              <div className={`text-2xl font-bold ${metrics.overdueReturns > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {metrics.overdueReturns}
+              </div>
+              <div className="text-sm text-gray-600">Overdue Returns</div>
+            </div>
+            <div className="text-center">
+              <div className={`text-2xl font-bold ${metrics.availableVehicles < 3 ? 'text-orange-600' : 'text-green-600'}`}>
+                {metrics.availableVehicles}
+              </div>
+              <div className="text-sm text-gray-600">Available Vehicles</div>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Pickups Today:</span>
+              <span className="font-medium">{metrics.todayPickups}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Returns Today:</span>
+              <span className="font-medium">{metrics.todayReturns}</span>
+            </div>
+          </div>
+        </div>
+
+
         <div className="grid gap-4 md:grid-cols-2">
           <VehicleReturns 
             data={vehicleReturns.status === 'fulfilled' ? vehicleReturns.value : []} 

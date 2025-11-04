@@ -90,7 +90,11 @@ export async function POST(request: Request) {
       fuel_level,
       status,
       remaining_payment_collected,
-      remaining_payment_method
+      remaining_payment_method,
+      security_deposit_deductions,
+      security_deposit_refund_amount,
+      security_deposit_refund_method,
+      deduction_reasons
     } = body;
 
     // Validate required fields
@@ -155,10 +159,14 @@ export async function POST(request: Request) {
           fuel_level,
           status,
           processed_by,
+          security_deposit_deductions,
+          security_deposit_refund_amount,
+          security_deposit_refund_method,
+          deduction_reasons,
           created_at,
           updated_at
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9,
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
           CURRENT_TIMESTAMP,
           CURRENT_TIMESTAMP
         )
@@ -172,7 +180,11 @@ export async function POST(request: Request) {
           odometer_reading || 0,
           fuel_level || 100,
           'completed',
-          session.user.id
+          session.user.id,
+          security_deposit_deductions || 0,
+          security_deposit_refund_amount || 0,
+          security_deposit_refund_method || null,
+          deduction_reasons || null
         ]
       );
 

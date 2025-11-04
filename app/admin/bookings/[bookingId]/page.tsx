@@ -192,7 +192,7 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
               booking.payment_status === 'completed' ? 'bg-green-100 text-green-800' :
               'bg-yellow-100 text-yellow-800'
             }`}>
-              {booking.booking_type === 'online' && booking.payment_status === 'completed' ? 
+              {booking.booking_type === 'online' && booking.payment_status === 'completed' && booking.status !== 'cancelled' && booking.status !== 'completed' ? 
                 'Payment: 5% Collected' : 
                 `Payment: ${booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)}`
               }
@@ -299,8 +299,8 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
                       <p>Reference: {booking.payment_reference}</p>
                     )}
                     
-                    {/* Add payment collection for offline bookings with pending amounts */}
-                    {booking.pending_amount && booking.pending_amount > 0 && (
+                    {/* Add payment collection for offline bookings with pending amounts - only for active bookings */}
+                    {booking.pending_amount && booking.pending_amount > 0 && booking.status !== 'cancelled' && booking.status !== 'completed' && (
                       <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                         <p className="text-sm font-medium text-orange-800 mb-2">Collect Pending Payment</p>
                         <p className="text-lg font-bold text-orange-600 mb-2">

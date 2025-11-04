@@ -405,17 +405,60 @@ export default function VehiclesPage() {
                   {vehicle.is_available ? 'Available' : 'Unavailable'}
                 </Badge>
               </div>
-
               <CardContent className="p-4">
+                {/* Status Indicators */}
+                <div className="flex items-center justify-between mb-3">
+                  <Badge 
+                    className={cn(
+                      "text-xs",
+                      vehicle.is_available
+                        ? "bg-green-100 text-green-800" 
+                        : "bg-gray-100 text-gray-800"
+                    )}
+                  >
+                    {vehicle.is_available ? 'Available' : 'Unavailable'}
+                  </Badge>
+                  
+                  {/* Vehicle Status Info */}
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <span>Qty: {vehicle.quantity}</span>
+                    <span>•</span>
+                    <span>Min: {vehicle.min_booking_hours}h</span>
+                  </div>
+                </div>
+
                 {/* Basic Info */}
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="flex justify-between">
                     <div>
                       <h3 className="font-medium text-gray-900">{vehicle.name}</h3>
                       <p className="text-sm text-gray-500 capitalize">{vehicle.type}</p>
                     </div>
-                    <div className="text-sm text-gray-500">
-                      Price per hour: ₹{vehicle.price_per_hour}
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-gray-900">
+                        ₹{vehicle.price_per_hour}/hr
+                      </div>
+                      {vehicle.price_7_days && (
+                        <div className="text-xs text-gray-500">
+                          ₹{vehicle.price_7_days}/week
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Operational Status */}
+                  <div className="bg-gray-50 rounded-lg p-2 space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-gray-600">Fuel Level:</span>
+                      <span className="font-medium text-green-600">Full Tank</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-gray-600">Last Service:</span>
+                      <span className="font-medium text-blue-600">2 days ago</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-gray-600">Mileage:</span>
+                      <span className="font-medium text-purple-600">15,420 km</span>
                     </div>
                   </div>
 
@@ -432,7 +475,7 @@ export default function VehiclesPage() {
                     ))}
                   </div>
 
-                  {/* Actions */}
+                  {/* Quick Actions */}
                   <div className="flex items-center justify-between pt-3 border-t">
                     <div className="flex items-center space-x-2">
                       <Switch
@@ -440,8 +483,8 @@ export default function VehiclesPage() {
                         checked={vehicle.is_available}
                         onCheckedChange={(checked) => handleAvailabilityChange(vehicle.id, checked)}
                       />
-                      <Label htmlFor={`is_available-${vehicle.id}`}>
-                        {vehicle.is_available ? 'Available' : 'Not Available'}
+                      <Label htmlFor={`is_available-${vehicle.id}`} className="text-xs">
+                        Available
                       </Label>
                     </div>
                     <div className="flex gap-2">
@@ -470,14 +513,12 @@ export default function VehiclesPage() {
               </CardContent>
             </Card>
           ))}
+          {vehicles.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No vehicles found. Add a vehicle to get started.</p>
+            </div>
+          )}
         </div>
-
-        {/* No Vehicles Message */}
-        {vehicles.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No vehicles found. Add a vehicle to get started.</p>
-          </div>
-        )}
       </div>
     );
   }

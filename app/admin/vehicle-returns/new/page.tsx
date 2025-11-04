@@ -36,6 +36,10 @@ const formSchema = z.object({
   fuel_level: z.number().min(0).max(100),
   collect_remaining_payment: z.boolean().optional(),
   payment_method: z.string().optional(),
+  security_deposit_deductions: z.number().min(0).optional(),
+  security_deposit_refund_amount: z.number().min(0).optional(),
+  security_deposit_refund_method: z.string().optional(),
+  deduction_reasons: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -56,6 +60,10 @@ export default function NewVehicleReturnPage() {
       fuel_level: 100,
       collect_remaining_payment: false,
       payment_method: 'cash',
+      security_deposit_deductions: 0,
+      security_deposit_refund_amount: 0,
+      security_deposit_refund_method: 'cash',
+      deduction_reasons: '',
     },
   });
 
@@ -82,7 +90,13 @@ export default function NewVehicleReturnPage() {
       }
 
       setBookingDetails(data.data);
-      form.setValue('booking_id', bookingId);
+      form.setValue('booking_id', data.data.booking_id);
+      
+      // Initialize security deposit refund amount if there's a security deposit
+      if (data.data.security_deposit_amount && data.data.security_deposit_amount > 0) {
+        form.setValue('security_deposit_refund_amount', data.data.security_deposit_amount);
+      }
+
       console.log('Successfully loaded booking details for:', bookingId);
       console.log('Booking details structure:', data.data);
     } catch (error) {
@@ -106,7 +120,11 @@ export default function NewVehicleReturnPage() {
           status: 'completed',
           booking_id: bookingDetails.id,
           remaining_payment_collected: data.collect_remaining_payment,
-          remaining_payment_method: data.collect_remaining_payment ? data.payment_method : null
+          remaining_payment_method: data.collect_remaining_payment ? data.payment_method : null,
+          security_deposit_deductions: data.security_deposit_deductions || 0,
+          security_deposit_refund_amount: data.security_deposit_refund_amount || 0,
+          security_deposit_refund_method: data.security_deposit_refund_method,
+          deduction_reasons: data.deduction_reasons
         }),
       });
 
@@ -366,6 +384,125 @@ export default function NewVehicleReturnPage() {
                             </FormItem>
                           )}
                         />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Security Deposit Management Section */}
+                  {bookingDetails && bookingDetails.security_deposit_amount && bookingDetails.security_deposit_amount > 0 && (
+                    <div className="border-t pt-6 mt-6">
+                      <h4 className="text-md font-semibold text-gray-900 mb-4">Security Deposit Management</h4>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                        <p className="text-sm font-medium text-green-800">Security Deposit Amount</p>
+                        <p className="text-lg font-bold text-green-600">
+                          ₹{bookingDetails.security_deposit_amount.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-green-700 mt-1">
+                          This amount was collected as security deposit and needs to be processed for refund.
+                        </p>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <FormField
+                          control={form.control}
+                          name="security_deposit_deductions"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Deductions (₹)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  onChange={(e) => {
+                                    const deductions = Number(e.target.value) || 0;
+                                    field.onChange(deductions);
+                                    // Auto-calculate refund amount
+                                    const refundAmount = Math.max(0, bookingDetails.security_deposit_amount - deductions);
+                                    form.setValue('security_deposit_refund_amount', refundAmount);
+                                  }}
+                                  min={0}
+                                  max={bookingDetails.security_deposit_amount}
+                                  placeholder="Enter deduction amount"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="security_deposit_refund_amount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Refund Amount (₹)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                  min={0}
+                                  max={bookingDetails.security_deposit_amount}
+                                  placeholder="Auto-calculated"
+                                  className="bg-gray-50"
+                                  readOnly
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <FormField
+                          control={form.control}
+                          name="deduction_reasons"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Deduction Reasons</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  {...field}
+                                  placeholder="Explain any deductions (damages, cleaning, fuel, etc.)"
+                                  className="min-h-[80px]"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="security_deposit_refund_method"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Refund Method</FormLabel>
+                              <FormControl>
+                                <select
+                                  {...field}
+                                  className="flex h-9 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-0 focus:border-blue-500"
+                                >
+                                  <option value="cash">Cash</option>
+                                  <option value="bank_transfer">Bank Transfer</option>
+                                  <option value="upi">UPI</option>
+                                  <option value="original_method">Same as Payment Method</option>
+                                </select>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-xs font-medium text-blue-800">Security Deposit Summary</p>
+                        <div className="text-xs text-blue-700 mt-1 space-y-1">
+                          <p>Original Deposit: ₹{bookingDetails.security_deposit_amount.toLocaleString()}</p>
+                          <p>Deductions: ₹{form.watch('security_deposit_deductions')?.toLocaleString() || '0'}</p>
+                          <p className="font-medium">Refund Amount: ₹{form.watch('security_deposit_refund_amount')?.toLocaleString() || bookingDetails.security_deposit_amount.toLocaleString()}</p>
+                        </div>
                       </div>
                     </div>
                   )}

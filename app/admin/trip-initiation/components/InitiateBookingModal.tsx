@@ -108,8 +108,24 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
     documentsVerified: false,
     paymentConfirmed: false,
     vehicleChecked: false,
-    customerBriefed: false
+    customerBriefed: false,
+    fuelLevelChecked: false,
+    odometerRecorded: false,
+    damageInspection: false,
+    cleanlinessCheck: false,
+    lightsIndicators: false,
+    brakesFunctional: false,
+    tiresPressure: false
   });
+
+  const [operationalData, setOperationalData] = useState({
+    fuelLevel: '',
+    odometerReading: '',
+    damageNotes: '',
+    cleanlinessNotes: '',
+    inspectionPhotos: [] as string[]
+  });
+
   const [documentFiles, setDocumentFiles] = useState<DocumentFiles>({
     dlFront: null,
     dlBack: null,
@@ -340,7 +356,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
         </DialogHeader>
 
         <Tabs defaultValue="customer" className="w-full">
-          <TabsList className="grid grid-cols-4 mb-4">
+          <TabsList className="grid grid-cols-5 mb-4">
             <TabsTrigger value="customer" className="flex items-center gap-1">
               <UserCircle className="h-4 w-4" />
               Customer
@@ -349,12 +365,16 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
               <Car className="h-4 w-4" />
               Vehicle
             </TabsTrigger>
+            <TabsTrigger value="operational" className="flex items-center gap-1">
+              <CheckCircle className="h-4 w-4" />
+              Inspection
+            </TabsTrigger>
             <TabsTrigger value="documents" className="flex items-center gap-1">
               <FileText className="h-4 w-4" />
               Documents
             </TabsTrigger>
             <TabsTrigger value="checklist" className="flex items-center gap-1">
-              <CheckCircle className="h-4 w-4" />
+              <PlayCircle className="h-4 w-4" />
               Checklist
             </TabsTrigger>
           </TabsList>
@@ -538,6 +558,105 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     placeholder="Add notes about the vehicle condition, special arrangements, etc."
                     rows={3}
                   />
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+          
+          {/* Operational Inspection Tab */}
+          <TabsContent value="operational" className="mt-0">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Pre-Rental Vehicle Inspection</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-700">Operational Data</h4>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Fuel Level (%)</label>
+                    <Input 
+                      type="number"
+                      value={operationalData.fuelLevel}
+                      onChange={(e) => setOperationalData(prev => ({ ...prev, fuelLevel: e.target.value }))}
+                      placeholder="Enter current fuel level (0-100)"
+                      min={0}
+                      max={100}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Odometer Reading (km)</label>
+                    <Input 
+                      type="number"
+                      value={operationalData.odometerReading}
+                      onChange={(e) => setOperationalData(prev => ({ ...prev, odometerReading: e.target.value }))}
+                      placeholder="Enter current mileage"
+                      min={0}
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-700">Inspection Notes</h4>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Damage Assessment</label>
+                    <Textarea 
+                      value={operationalData.damageNotes}
+                      onChange={(e) => setOperationalData(prev => ({ ...prev, damageNotes: e.target.value }))}
+                      placeholder="Note any existing damages, scratches, dents, etc."
+                      rows={3}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Cleanliness Check</label>
+                    <Textarea 
+                      value={operationalData.cleanlinessNotes}
+                      onChange={(e) => setOperationalData(prev => ({ ...prev, cleanlinessNotes: e.target.value }))}
+                      placeholder="Note vehicle cleanliness and any required cleaning"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-700">Vehicle Safety Checklist</h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    { key: 'fuelLevelChecked', label: 'Fuel level verified' },
+                    { key: 'odometerRecorded', label: 'Odometer reading recorded' },
+                    { key: 'damageInspection', label: 'Damage inspection completed' },
+                    { key: 'cleanlinessCheck', label: 'Cleanliness check completed' },
+                    { key: 'lightsIndicators', label: 'Lights and indicators working' },
+                    { key: 'brakesFunctional', label: 'Brakes functional' },
+                    { key: 'tiresPressure', label: 'Tires pressure checked' }
+                  ].map((item) => (
+                    <div key={item.key} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={item.key}
+                        checked={checklist[item.key as keyof typeof checklist]}
+                        onChange={() => handleChecklistChange(item.key as keyof typeof checklist)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor={item.key} className="text-sm text-gray-700">
+                        {item.label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-medium text-blue-800 mb-2">Inspection Summary</h4>
+                <div className="text-sm text-blue-700 space-y-1">
+                  <p>Fuel Level: {operationalData.fuelLevel || 'Not recorded'}%</p>
+                  <p>Odometer: {operationalData.odometerReading || 'Not recorded'} km</p>
+                  <p>Damage Notes: {operationalData.damageNotes || 'None'}</p>
+                  <p>Cleanliness: {operationalData.cleanlinessNotes || 'Not checked'}</p>
                 </div>
               </div>
             </div>
