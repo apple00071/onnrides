@@ -192,7 +192,10 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
               booking.payment_status === 'completed' ? 'bg-green-100 text-green-800' :
               'bg-yellow-100 text-yellow-800'
             }`}>
-              Payment: {booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)}
+              {booking.booking_type === 'online' && booking.payment_status === 'completed' ? 
+                'Payment: 5% Collected' : 
+                `Payment: ${booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)}`
+              }
             </span>
           </div>
         </div>
@@ -295,9 +298,86 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
                     {booking.payment_reference && (
                       <p>Reference: {booking.payment_reference}</p>
                     )}
+                    
+                    {/* Add payment collection for offline bookings with pending amounts */}
+                    {booking.pending_amount && booking.pending_amount > 0 && (
+                      <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <p className="text-sm font-medium text-orange-800 mb-2">Collect Pending Payment</p>
+                        <p className="text-lg font-bold text-orange-600 mb-2">
+                          Pending: ₹{booking.pending_amount.toLocaleString()}
+                        </p>
+                        <button
+                          onClick={async () => {
+                            const confirmed = confirm(`Collect pending payment of ₹${booking.pending_amount?.toLocaleString() || '0'}?`);
+                            if (confirmed) {
+                              try {
+                                const response = await fetch(`/api/admin/bookings/${booking.booking_id}/collect-payment`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                  },
+                                  body: JSON.stringify({
+                                    payment_method: 'cash',
+                                    amount: parseFloat(booking.pending_amount?.toString() || '0')
+                                  }),
+                                });
+
+                                const result = await response.json();
+
+                                if (result.success) {
+                                  alert(`Payment collected successfully! New status: ${result.data.payment_status}`);
+                                  // Refresh the page to show updated data
+                                  window.location.reload();
+                                } else {
+                                  alert(`Error: ${result.error}`);
+                                }
+                              } catch (error) {
+                                console.error('Payment collection error:', error);
+                                alert('Failed to collect payment. Please try again.');
+                              }
+                            }
+                          }}
+                          className="inline-flex items-center px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-0"
+                        >
+                          <span>Collect Payment</span>
+                        </button>
+                        <p className="text-xs text-orange-700 mt-2">
+                          Click to mark the pending amount as collected
+                        </p>
+                      </div>
+                    )}
                   </>
                 ) : (
-                  <p className="text-lg font-semibold">₹{booking.amount.toLocaleString()}</p>
+                  <>
+                    <p className="text-lg font-semibold">Total Booking Amount: ₹{booking.amount.toLocaleString()}</p>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
+                      <p className="text-sm font-medium text-blue-800">Online Booking - 5% Collection Policy</p>
+                      <p className="text-sm text-blue-700 mt-1">
+                        Collected Online: ₹{Math.round(booking.amount * 0.05).toLocaleString()} (5%)
+                      </p>
+                      <p className="text-sm text-blue-700">
+                        Remaining Amount: ₹{Math.round(booking.amount * 0.95).toLocaleString()} (95% - To be collected at pickup)
+                      </p>
+                    </div>
+                    <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                      <p className="text-sm font-medium text-orange-800 mb-2">Payment Collection</p>
+                      <button
+                        onClick={() => window.open(`/admin/vehicle-returns/new?bookingId=${booking.booking_id}`, '_blank')}
+                        className="inline-flex items-center px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-0"
+                      >
+                        <span>Collect Remaining Payment</span>
+                      </button>
+                      <p className="text-xs text-orange-700 mt-2">
+                        Use this to collect the remaining 95% payment when customer picks up the vehicle
+                      </p>
+                    </div>
+                    {booking.payment_method && (
+                      <p className="mt-2">Payment Method: {booking.payment_method}</p>
+                    )}
+                    {booking.payment_reference && (
+                      <p>Reference: {booking.payment_reference}</p>
+                    )}
+                  </>
                 )}
               </div>
             </div>

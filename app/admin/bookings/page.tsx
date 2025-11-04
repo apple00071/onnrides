@@ -166,7 +166,10 @@ export default function BookingsPage() {
                       booking.payment_status === 'completed' ? 'bg-green-100 text-green-800' :
                       'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)}
+                      {booking.booking_type === 'online' && booking.payment_status === 'completed' ? 
+                        '5% Collected' : 
+                        booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)
+                      }
                     </span>
                   </td>
                 </tr>

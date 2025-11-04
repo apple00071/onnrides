@@ -149,11 +149,20 @@ export function ViewBookingModal({ booking, isOpen, onClose }: ViewBookingModalP
                 <h4 className="text-xs text-gray-500">End Date & Time</h4>
                 <p className="text-sm text-gray-900">{formatDateTime(booking.end_date)}</p>
               </div>
-              <div>
+              <div className="col-span-2">
                 <h4 className="text-xs text-gray-500">Total Amount</h4>
                 <p className="text-sm font-medium text-gray-900">
                   {formatCurrency(booking.total_price)}
                 </p>
+                {booking.booking_type === 'online' && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mt-2">
+                    <p className="text-xs font-medium text-blue-800">Online Booking - 5% Collection Policy</p>
+                    <p className="text-xs text-blue-700">
+                      Collected: ₹{Math.round(booking.total_price * 0.05).toLocaleString()} (5%) | 
+                      Remaining: ₹{Math.round(booking.total_price * 0.95).toLocaleString()} (95%)
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

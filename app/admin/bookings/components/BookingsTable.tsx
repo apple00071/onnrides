@@ -327,7 +327,10 @@ export function BookingsTable() {
                         }
                         className="capitalize"
                       >
-                        {booking.payment_status}
+                        {booking.booking_type === 'online' && booking.payment_status === 'completed' ? 
+                          '5% Collected' : 
+                          booking.payment_status
+                        }
                       </Badge>
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">

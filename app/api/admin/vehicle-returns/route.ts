@@ -88,7 +88,9 @@ export async function POST(request: Request) {
       additional_charges,
       odometer_reading,
       fuel_level,
-      status
+      status,
+      remaining_payment_collected,
+      remaining_payment_method
     } = body;
 
     // Validate required fields
@@ -181,6 +183,23 @@ export async function POST(request: Request) {
         WHERE id = $1`,
         [booking_id]
       );
+
+      // If remaining payment was collected, update payment status
+      if (remaining_payment_collected) {
+        await query(
+          `UPDATE bookings 
+          SET payment_status = 'fully_paid', 
+              payment_method = COALESCE(payment_method, $1),
+              updated_at = CURRENT_TIMESTAMP 
+          WHERE id = $2`,
+          [remaining_payment_method || 'cash', booking_id]
+        );
+        
+        logger.info('Remaining payment collected for booking', { 
+          bookingId: booking_id, 
+          method: remaining_payment_method 
+        });
+      }
 
       // Update vehicle availability
       await query(
