@@ -25,8 +25,8 @@
   },
   "outputDirectory": ".next",
   "env": {
-    "DATABASE_URL": "postgresql://neondb_owner:npg_6XQq8mjZWPAN@ep-soft-lake-a8c1s7oz-pooler.eastus2.azure.neon.tech/neondb?sslmode=require",
-    "POSTGRES_URL": "postgresql://neondb_owner:npg_6XQq8mjZWPAN@ep-soft-lake-a8c1s7oz-pooler.eastus2.azure.neon.tech/neondb?sslmode=require",
+    "DATABASE_URL": "postgresql://neondb_owner:npg_rmT3YZLKSD1w@ep-red-union-ad764p71-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+    "POSTGRES_URL": "postgresql://neondb_owner:npg_rmT3YZLKSD1w@ep-red-union-ad764p71-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
     "NEXTAUTH_URL": "https://www.onnrides.com",
     "ADMIN_PHONE": "919182495481"
   },
