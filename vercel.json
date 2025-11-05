@@ -28,7 +28,11 @@
     "DATABASE_URL": "postgresql://neondb_owner:npg_rmT3YZLKSD1w@ep-red-union-ad764p71-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
     "POSTGRES_URL": "postgresql://neondb_owner:npg_rmT3YZLKSD1w@ep-red-union-ad764p71-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
     "NEXTAUTH_URL": "https://www.onnrides.com",
-    "ADMIN_PHONE": "919182495481"
+    "ADMIN_PHONE": "919182495481",
+    "RAZORPAY_KEY_ID": "rzp_live_RbFBxqulyXbmUf",
+    "RAZORPAY_KEY_SECRET": "043QBexJz7oGp9AM8CA3TWmH",
+    "NEXT_PUBLIC_RAZORPAY_KEY_ID": "rzp_live_RbFBxqulyXbmUf",
+    "NEXT_PUBLIC_RAZORPAY_KEY_SECRET": "043QBexJz7oGp9AM8CA3TWmH"
   },
   "git": {
     "deploymentEnabled": {
