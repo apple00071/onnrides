@@ -237,60 +237,119 @@ export async function PUT(request: NextRequest) {
     }
 
     const data = await request.json();
-    const { id, ...updateData } = data;
+    const { id, ...rawUpdate } = data;
 
-    // Process numeric fields
-    if (updateData.price_per_hour) {
-      updateData.price_per_hour = Number(updateData.price_per_hour);
-    }
-    if (updateData.quantity) {
-      updateData.quantity = Number(updateData.quantity);
-    }
-    if (updateData.min_booking_hours) {
-      updateData.min_booking_hours = Number(updateData.min_booking_hours);
-    }
-    
-    // Handle special pricing fields
-    updateData.price_7_days = updateData.price_7_days ? Number(updateData.price_7_days) : null;
-    updateData.price_15_days = updateData.price_15_days ? Number(updateData.price_15_days) : null;
-    updateData.price_30_days = updateData.price_30_days ? Number(updateData.price_30_days) : null;
-
-    // Handle delivery pricing fields
-    if (updateData.hasOwnProperty('delivery_price_7_days')) {
-      updateData.delivery_price_7_days = updateData.delivery_price_7_days ? Number(updateData.delivery_price_7_days) : null;
-    }
-    if (updateData.hasOwnProperty('delivery_price_15_days')) {
-      updateData.delivery_price_15_days = updateData.delivery_price_15_days ? Number(updateData.delivery_price_15_days) : null;
-    }
-    if (updateData.hasOwnProperty('delivery_price_30_days')) {
-      updateData.delivery_price_30_days = updateData.delivery_price_30_days ? Number(updateData.delivery_price_30_days) : null;
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Vehicle id is required for update' },
+        { status: 400 }
+      );
     }
 
-    // Handle is_delivery_enabled flag
-    if (updateData.hasOwnProperty('is_delivery_enabled')) {
-      updateData.is_delivery_enabled = Boolean(updateData.is_delivery_enabled);
+    const updateData: Record<string, any> = {};
+    const has = (key: string) => Object.prototype.hasOwnProperty.call(rawUpdate, key);
+
+    // Copy primitive fields directly
+    for (const key of Object.keys(rawUpdate)) {
+      if ([
+        'name',
+        'type',
+        'status',
+        'vehicle_category',
+      ].includes(key)) {
+        updateData[key] = rawUpdate[key];
+      }
     }
 
-    // Ensure location is properly formatted
-    if (updateData.location) {
-      let location = updateData.location;
+    // Numeric fields
+    if (has('price_per_hour')) {
+      updateData.price_per_hour = rawUpdate.price_per_hour != null
+        ? Number(rawUpdate.price_per_hour)
+        : null;
+    }
+    if (has('quantity')) {
+      updateData.quantity = rawUpdate.quantity != null
+        ? Number(rawUpdate.quantity)
+        : null;
+    }
+    if (has('min_booking_hours')) {
+      updateData.min_booking_hours = rawUpdate.min_booking_hours != null
+        ? Number(rawUpdate.min_booking_hours)
+        : null;
+    }
+
+    // Package prices
+    if (has('price_7_days')) {
+      updateData.price_7_days = rawUpdate.price_7_days
+        ? Number(rawUpdate.price_7_days)
+        : null;
+    }
+    if (has('price_15_days')) {
+      updateData.price_15_days = rawUpdate.price_15_days
+        ? Number(rawUpdate.price_15_days)
+        : null;
+    }
+    if (has('price_30_days')) {
+      updateData.price_30_days = rawUpdate.price_30_days
+        ? Number(rawUpdate.price_30_days)
+        : null;
+    }
+
+    // Delivery prices
+    if (has('delivery_price_7_days')) {
+      updateData.delivery_price_7_days = rawUpdate.delivery_price_7_days
+        ? Number(rawUpdate.delivery_price_7_days)
+        : null;
+    }
+    if (has('delivery_price_15_days')) {
+      updateData.delivery_price_15_days = rawUpdate.delivery_price_15_days
+        ? Number(rawUpdate.delivery_price_15_days)
+        : null;
+    }
+    if (has('delivery_price_30_days')) {
+      updateData.delivery_price_30_days = rawUpdate.delivery_price_30_days
+        ? Number(rawUpdate.delivery_price_30_days)
+        : null;
+    }
+
+    // Boolean flags
+    if (has('is_delivery_enabled')) {
+      updateData.is_delivery_enabled = Boolean(rawUpdate.is_delivery_enabled);
+    }
+    if (has('is_available')) {
+      updateData.is_available = Boolean(rawUpdate.is_available);
+    }
+
+    // Location
+    if (has('location')) {
+      let location = rawUpdate.location;
       if (typeof location === 'string') {
         location = [location];
       } else if (Array.isArray(location)) {
-        location = location.map(loc => loc.trim()).filter(Boolean);
-      } else if (typeof location === 'object' && location.name) {
+        location = location.map((loc: string) => loc.trim()).filter(Boolean);
+      } else if (typeof location === 'object' && location?.name) {
         location = Array.isArray(location.name) ? location.name : [location.name];
       }
       updateData.location = JSON.stringify(location);
     }
 
-    // Convert images to JSON if present
-    if (updateData.images) {
-      updateData.images = JSON.stringify(updateData.images);
+    // Images
+    if (has('images')) {
+      const images = Array.isArray(rawUpdate.images)
+        ? rawUpdate.images
+        : [];
+      updateData.images = JSON.stringify(images);
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { error: 'No valid fields provided to update' },
+        { status: 400 }
+      );
     }
 
     const setClauses = Object.entries(updateData)
-      .map(([key, value], index) => `${key} = $${index + 2}`)
+      .map(([key], index) => `${key} = $${index + 2}`)
       .join(', ');
 
     const values = [id, ...Object.values(updateData)];
@@ -309,11 +368,31 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Parse JSON fields before sending response
+    // Parse JSON fields before sending response (with fallbacks for legacy data)
+    let parsedLocation: any = [];
+    try {
+      parsedLocation = Array.isArray(result.rows[0].location)
+        ? result.rows[0].location
+        : typeof result.rows[0].location === 'string'
+          ? JSON.parse(result.rows[0].location)
+          : [];
+    } catch (e) {
+      parsedLocation = typeof result.rows[0].location === 'string'
+        ? [result.rows[0].location]
+        : [];
+    }
+
+    let parsedImages: any = [];
+    try {
+      parsedImages = normalizeImages(result.rows[0].images);
+    } catch (e) {
+      parsedImages = [];
+    }
+
     const vehicle = {
       ...result.rows[0],
-      location: JSON.parse(result.rows[0].location),
-      images: JSON.parse(result.rows[0].images)
+      location: parsedLocation,
+      images: parsedImages
     };
 
     return NextResponse.json({

@@ -28,8 +28,8 @@ export function VehicleReturns({ data }: VehicleReturnsProps) {
           {data.length === 0 ? (
             <p className="text-sm text-muted-foreground">No vehicles to return</p>
           ) : (
-            data.map((item) => (
-              <div key={item.id} className="flex items-center justify-between border-b pb-4 last:border-0">
+            data.map((item, index) => (
+              <div key={`${item.booking_id}-${item.id}-${index}`} className="flex items-center justify-between border-b pb-4 last:border-0">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium">

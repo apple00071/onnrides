@@ -375,7 +375,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     // Create booking in database with our reusable booking ID generator
     const bookingId = generateBookingId();
-    
+
     // IMPORTANT FIX: Store the dates as is without any timezone adjustment
     // These dates represent the exact times the user selected
     logger.info('Storing dates in database:', {
@@ -388,7 +388,78 @@ export async function POST(request: NextRequest): Promise<Response> {
         dropoffMinutes: dropoffDateTime.getUTCMinutes(),
       }
     });
-    
+
+    // Check for overlapping bookings for this vehicle at the selected location.
+    // We match the explicit pickup_location, but also count legacy bookings with
+    // NULL/empty/ambiguous pickup_location as blocking all locations.
+    const availabilityResult = await query(
+      `SELECT 
+         v.quantity,
+         COALESCE((
+           SELECT COUNT(*)
+           FROM bookings b
+           WHERE b.vehicle_id = v.id
+             AND (
+               trim(both '"' from b.pickup_location::text) = $2
+               OR b.pickup_location IS NULL
+               OR trim(both '"' from b.pickup_location::text) = ''
+               OR b.pickup_location::text = 'null'
+               OR b.pickup_location::text ILIKE '%"' || $2 || '"%'
+             )
+             AND b.status NOT IN ('cancelled', 'failed')
+             AND (b.payment_status IS NULL OR b.payment_status != 'failed')
+             AND (
+               (b.start_date - interval '2 hours', b.end_date + interval '2 hours') OVERLAPS ($3::timestamptz, $4::timestamptz)
+               OR ($3::timestamptz BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
+               OR ($4::timestamptz BETWEEN (b.start_date - interval '2 hours') AND (b.end_date + interval '2 hours'))
+             )
+         ), 0) AS overlapping_count
+       FROM vehicles v
+       WHERE v.id = $1`,
+      [vehicleId, location, pickupDateTime.toISOString(), dropoffDateTime.toISOString()]
+    );
+
+    if (!availabilityResult.rows.length) {
+      logger.error('Vehicle not found while checking availability', { vehicleId });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Vehicle not found for booking',
+        },
+        { status: 400 }
+      );
+    }
+
+    const availabilityRow = availabilityResult.rows[0] as any;
+    const vehicleQuantity = Number(availabilityRow.quantity ?? 1);
+    const overlappingCount = Number(availabilityRow.overlapping_count ?? 0);
+
+    logger.info('Availability check result before booking:', {
+      vehicleId,
+      location,
+      vehicleQuantity,
+      overlappingCount,
+      pickupDate: pickupDateTime.toISOString(),
+      dropoffDate: dropoffDateTime.toISOString(),
+    });
+
+    if (Number.isFinite(vehicleQuantity) && vehicleQuantity > 0 && overlappingCount >= vehicleQuantity) {
+      logger.warn('Booking rejected due to no availability at location/time', {
+        vehicleId,
+        location,
+        vehicleQuantity,
+        overlappingCount,
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Vehicle is not available at this location for the selected time. Please choose another location or time.',
+        },
+        { status: 409 }
+      );
+    }
+
     try {
       // Update the INSERT query to use snake_case
       const createdBooking = await query(`
@@ -421,7 +492,8 @@ export async function POST(request: NextRequest): Promise<Response> {
         parseFloat(totalAmount.toFixed(2)),
         'pending',
         'pending',
-        JSON.stringify(location),
+        // Store pickup_location as a plain string for easier availability checks
+        String(location),
         bookingId,
         null,
         null,

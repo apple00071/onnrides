@@ -28,18 +28,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Count overlapping bookings
+    // Count overlapping bookings.
+    // We match current location explicitly, but also treat old bookings with
+    // missing/empty pickup_location as blocking all locations to prevent overlaps.
     const overlappingBookings = await query(`
       SELECT COUNT(*) as count
       FROM bookings
       WHERE vehicle_id = $1
-      AND pickup_location = $2
+      AND (
+        trim(both '"' from pickup_location::text) = $2
+        OR pickup_location IS NULL
+        OR trim(both '"' from pickup_location::text) = ''
+        OR pickup_location::text = 'null'
+        OR pickup_location::text ILIKE '%"' || $2 || '"%'
+      )
       AND status NOT IN ('cancelled', 'failed')
       AND (payment_status IS NULL OR payment_status != 'failed')
       AND (
-        (start_date - interval '2 hours', end_date + interval '2 hours') OVERLAPS ($3::timestamp, $4::timestamp)
-        OR ($3::timestamp BETWEEN (start_date - interval '2 hours') AND (end_date + interval '2 hours'))
-        OR ($4::timestamp BETWEEN (start_date - interval '2 hours') AND (end_date + interval '2 hours'))
+        (start_date - interval '2 hours', end_date + interval '2 hours') OVERLAPS ($3::timestamptz, $4::timestamptz)
+        OR ($3::timestamptz BETWEEN (start_date - interval '2 hours') AND (end_date + interval '2 hours'))
+        OR ($4::timestamptz BETWEEN (start_date - interval '2 hours') AND (end_date + interval '2 hours'))
       )
     `, [vehicleId, location, startDate, endDate]);
 

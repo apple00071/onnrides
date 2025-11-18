@@ -822,6 +822,18 @@ export default function BookingSummaryPage() {
     isFallback: booking.vehicle.image === ''
   });
 
+  // For summary display, always show the exact pickup location selected
+  // in the flow (normal user or delivery partner), rather than the
+  // vehicle's first configured location.
+  const summaryVehicle = vehicleDetails && bookingDetails
+    ? {
+        ...vehicleDetails,
+        location: bookingDetails.location
+          ? [bookingDetails.location]
+          : vehicleDetails.location,
+      }
+    : null;
+
   return (
     <div className="container mx-auto px-4 py-8">
       {pendingPayment && (
@@ -837,9 +849,9 @@ export default function BookingSummaryPage() {
         </div>
       ) : vehicleError ? (
         <div className="text-center text-red-600">{vehicleError}</div>
-      ) : vehicleDetails && bookingDetails ? (
+      ) : vehicleDetails && bookingDetails && summaryVehicle ? (
         <BookingSummary
-          vehicle={vehicleDetails}
+          vehicle={summaryVehicle}
           startDate={`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`}
           endDate={`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`}
           totalAmount={totalAmount}

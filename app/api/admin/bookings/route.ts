@@ -28,6 +28,7 @@ interface BookingRow {
   payment_method?: string;
   booking_type?: string;
   registration_number?: string;
+  pickup_location?: string;
 }
 
 interface TransformedBooking {
@@ -45,6 +46,7 @@ interface TransformedBooking {
   booking_type: string;
   created_at: string;
   updated_at: string;
+  pickup_location?: string | null;
   vehicle: {
     id: string;
     name: string;
@@ -159,7 +161,8 @@ export async function GET(request: Request) {
         b.start_date::text as start_date,
         b.end_date::text as end_date,
         b.created_at::text as created_at,
-        b.updated_at::text as updated_at
+        b.updated_at::text as updated_at,
+        TRIM(BOTH '"' FROM b.pickup_location::text) as pickup_location
       FROM bookings b
       LEFT JOIN users u ON b.user_id = u.id
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
@@ -192,7 +195,8 @@ export async function GET(request: Request) {
         b.start_date::text as start_date,
         b.end_date::text as end_date,
         b.created_at::text as created_at,
-        b.updated_at::text as updated_at
+        b.updated_at::text as updated_at,
+        b.pickup_location
       FROM bookings b
       LEFT JOIN users u ON b.user_id = u.id
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
@@ -230,6 +234,7 @@ export async function GET(request: Request) {
         created_at: booking.created_at,
         updated_at: booking.updated_at,
         registration_number: booking.registration_number,
+        pickup_location: booking.pickup_location || null,
         vehicle: {
           id: booking.vehicle_id,
           name: booking.effective_vehicle_name,

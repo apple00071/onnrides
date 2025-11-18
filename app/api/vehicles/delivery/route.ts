@@ -12,7 +12,12 @@ interface DeliveryVehicle {
   price_7_days: number | null;
   price_15_days: number | null;
   price_30_days: number | null;
+  delivery_price_7_days: number | null;
+  delivery_price_15_days: number | null;
+  delivery_price_30_days: number | null;
   is_available: boolean;
+  is_delivery_enabled: boolean;
+  vehicle_category: 'normal' | 'delivery' | 'both';
   quantity: number;
   [key: string]: any;
 }
@@ -40,10 +45,11 @@ export async function GET(request: NextRequest) {
       duration
     });
 
-    // Get the appropriate price column based on duration
-    const priceColumn = `price_${duration}_days`;
+    // Get the appropriate base columns for the selected duration
+    const regularPriceColumn = `price_${duration}_days`;
+    const deliveryPriceColumn = `delivery_price_${duration}_days`;
 
-    // Query focusing on available vehicles
+    // Query focusing on delivery-enabled vehicles with valid pricing
     const result = await query(`
       SELECT 
         id,
@@ -55,14 +61,20 @@ export async function GET(request: NextRequest) {
         price_7_days,
         price_15_days,
         price_30_days,
+        delivery_price_7_days,
+        delivery_price_15_days,
+        delivery_price_30_days,
         is_available,
+        is_delivery_enabled,
+        vehicle_category,
         quantity
       FROM vehicles
       WHERE is_available = true
+        AND is_delivery_enabled = true
         AND quantity > 0
-        AND ${priceColumn} IS NOT NULL
-        ${location ? "AND location ? $1" : ""}
-      ORDER BY ${priceColumn} ASC
+        AND ( ${deliveryPriceColumn} IS NOT NULL OR ${regularPriceColumn} IS NOT NULL )
+        ${location ? "AND location::jsonb ? $1" : ""}
+      ORDER BY COALESCE(${deliveryPriceColumn}, ${regularPriceColumn}) ASC
     `, location ? [location] : []);
 
     logger.info('Query executed successfully, processing results');
@@ -92,29 +104,41 @@ export async function GET(request: NextRequest) {
           parsedImages = vehicle.images ? [vehicle.images] : [];
         }
 
-        // Calculate delivery price (90% of regular price)
-        const regularPrice = vehicle[`price_${duration}_days`];
-        if (!regularPrice) {
-          logger.warn('Vehicle missing price for duration:', {
+        // Compute delivery prices, falling back to a percentage of regular price when not explicitly set
+        const delivery_price_7_days = vehicle.delivery_price_7_days ?? (vehicle.price_7_days ? Math.round(vehicle.price_7_days * 0.9) : null);
+        const delivery_price_15_days = vehicle.delivery_price_15_days ?? (vehicle.price_15_days ? Math.round(vehicle.price_15_days * 0.9) : null);
+        const delivery_price_30_days = vehicle.delivery_price_30_days ?? (vehicle.price_30_days ? Math.round(vehicle.price_30_days * 0.9) : null);
+
+        // Select price for the requested duration
+        const deliveryPriceForDuration =
+          duration === '7' ? delivery_price_7_days :
+          duration === '15' ? delivery_price_15_days :
+          delivery_price_30_days;
+
+        if (!deliveryPriceForDuration) {
+          logger.warn('Vehicle missing delivery price for duration:', {
             vehicleId: vehicle.id,
             duration
           });
           return null;
         }
 
-        const deliveryPrice = Math.round(regularPrice * 0.9);
-
-        // Check which durations have prices available
-        const available_durations = ['7', '15', '30'].filter(d => 
-          vehicle[`price_${d}_days`] !== null
-        ).map(Number);
+        // Check which durations have delivery prices available
+        const available_durations = ['7', '15', '30'].filter(d => {
+          if (d === '7') return delivery_price_7_days !== null;
+          if (d === '15') return delivery_price_15_days !== null;
+          return delivery_price_30_days !== null;
+        }).map(Number);
 
         return {
           ...vehicle,
           location: parsedLocation,
           images: parsedImages,
-          price: deliveryPrice, // Delivery price is 90% of regular price
-          original_price: regularPrice,
+          delivery_price_7_days,
+          delivery_price_15_days,
+          delivery_price_30_days,
+          price: deliveryPriceForDuration, // For backward compatibility
+          original_price: deliveryPriceForDuration,
           duration: parseInt(duration),
           available_durations,
           is_delivery: true

@@ -125,7 +125,6 @@ export default function BookingDetailsModal({
                     <h4 className="text-sm font-medium text-gray-500">Location Information</h4>
                     <div className="mt-2 space-y-1">
                       <p className="text-sm text-gray-900">Pickup Location: {booking.pickup_location}</p>
-                      <p className="text-sm text-gray-900">Dropoff Location: {booking.dropoff_location}</p>
                     </div>
                   </div>
 

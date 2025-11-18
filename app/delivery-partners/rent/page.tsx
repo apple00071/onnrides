@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react';
 import Navbar from '@/app/(main)/components/Navbar';
 import { formatCurrency } from '@/lib/utils/currency';
 import Image from 'next/image';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 interface Vehicle {
   id: string;
@@ -29,8 +30,16 @@ export default function RentVehiclePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [selectedLocation, setSelectedLocation] = useState<string>('');
+  const [locationAvailability, setLocationAvailability] = useState<Record<string, boolean>>({});
+
   const vehicleId = searchParams.get('vehicleId');
   const duration = searchParams.get('duration') || '7';
+  const pickupDate = searchParams.get('pickupDate') || '';
+  const pickupTime = searchParams.get('pickupTime') || '';
+  const dropoffDate = searchParams.get('dropoffDate') || '';
+  const dropoffTime = searchParams.get('dropoffTime') || '';
+  const locationParam = searchParams.get('location') || '';
 
   useEffect(() => {
     const fetchVehicle = async () => {
@@ -56,6 +65,64 @@ export default function RentVehiclePage() {
 
     fetchVehicle();
   }, [vehicleId, duration]);
+
+  // Check per-location availability for this vehicle and selected time range
+  useEffect(() => {
+    if (!vehicle || !pickupDate || !pickupTime || !dropoffDate || !dropoffTime) {
+      setLocationAvailability({});
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkAvailability = async () => {
+      const availability: Record<string, boolean> = {};
+
+      for (const loc of vehicle.location) {
+        try {
+          const response = await fetch('/api/vehicles/check-availability', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              vehicleId: vehicle.id,
+              location: loc,
+              // Use ISO strings so this matches the timestamps used by /api/bookings
+              startDate: new Date(`${pickupDate}T${pickupTime}`).toISOString(),
+              endDate: new Date(`${dropoffDate}T${dropoffTime}`).toISOString(),
+            }),
+          });
+
+          if (!response.ok) {
+            availability[loc] = true;
+            continue;
+          }
+
+          const data = await response.json();
+          availability[loc] = !!data.available;
+        } catch {
+          // On error, treat as available to avoid blocking bookings unnecessarily
+          availability[loc] = true;
+        }
+      }
+
+      if (cancelled) return;
+
+      setLocationAvailability(availability);
+
+      // Auto-select the first available location if current selection is unavailable
+      setSelectedLocation((current) => {
+        if (current && availability[current]) return current;
+        const firstAvailable = vehicle.location.find((loc) => availability[loc]);
+        return firstAvailable || '';
+      });
+    };
+
+    checkAvailability();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [vehicle, pickupDate, pickupTime, dropoffDate, dropoffTime]);
 
   const getPriceForDuration = (vehicle: Vehicle) => {
     switch (duration) {
@@ -88,10 +155,7 @@ export default function RentVehiclePage() {
         <div className="flex flex-col items-center justify-center min-h-screen">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
           <p className="text-gray-600">{error || 'Vehicle not found'}</p>
-          <Button 
-            onClick={() => router.back()} 
-            className="mt-4"
-          >
+          <Button onClick={() => router.back()} className="mt-4">
             Go Back
           </Button>
         </div>
@@ -121,7 +185,34 @@ export default function RentVehiclePage() {
               <div className="space-y-6">
                 <div>
                   <h1 className="text-2xl font-bold mb-2">{vehicle.name}</h1>
-                  <p className="text-gray-600">Available at: {vehicle.location.join(', ')}</p>
+                  <div className="space-y-2">
+                    <p className="text-gray-600 text-sm">Available at</p>
+                    <Select
+                      value={selectedLocation}
+                      onValueChange={setSelectedLocation}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select location" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vehicle.location.map((loc) => {
+                          const isAvailable = locationAvailability[loc] ?? true;
+                          return (
+                            <SelectItem
+                              key={loc}
+                              value={loc}
+                              disabled={!isAvailable}
+                            >
+                              <span className={isAvailable ? '' : 'text-gray-400'}>
+                                {loc}
+                                {!isAvailable ? ' (Unavailable)' : ''}
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
@@ -138,15 +229,45 @@ export default function RentVehiclePage() {
                 </div>
 
                 <div className="space-y-4">
-                  <Button 
-                    className="w-full" 
+                  <Button
+                    className="w-full"
                     onClick={() => {
-                      // TODO: Implement booking logic
-                      router.push(`/delivery-partners/book?vehicleId=${vehicle.id}&duration=${duration}`);
+                      const params = new URLSearchParams();
+
+                      // Core booking details
+                      params.set('vehicleId', vehicle.id);
+                      params.set('vehicleName', vehicle.name);
+                      const effectiveLocation =
+                        selectedLocation ||
+                        locationParam ||
+                        (vehicle.location[0] || '');
+
+                      if (effectiveLocation) {
+                        params.set('location', effectiveLocation);
+                      }
+
+                      // Date and time (reuse existing pickup/dropoff from search params)
+                      if (pickupDate) params.set('pickupDate', pickupDate);
+                      if (pickupTime) params.set('pickupTime', pickupTime);
+                      if (dropoffDate) params.set('dropoffDate', dropoffDate);
+                      if (dropoffTime) params.set('dropoffTime', dropoffTime);
+
+                      // Pricing: use delivery partner package prices as special pricing
+                      params.set('pricePerHour', '0');
+                      params.set('price7Days', String(vehicle.delivery_price_7_days || 0));
+                      params.set('price15Days', String(vehicle.delivery_price_15_days || 0));
+                      params.set('price30Days', String(vehicle.delivery_price_30_days || 0));
+
+                      // Flag this as a delivery-partner booking (for future customization)
+                      params.set('isDelivery', 'true');
+                      params.set('durationDays', duration);
+
+                      router.push(`/booking-summary?${params.toString()}`);
                     }}
                   >
                     Proceed to Book
                   </Button>
+
                   <Button 
                     variant="outline"
                     className="w-full" 

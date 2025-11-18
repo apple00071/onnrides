@@ -50,6 +50,7 @@ interface BookingDetails {
     from: string;
     to: string;
   };
+  pickup_location?: string | null;
   vehicle_return?: {
     additional_charges: number;
     condition_notes: string;
@@ -61,12 +62,18 @@ interface BookingDetails {
 
 export default function BookingDetailsPage({ params }: { params: Promise<{ bookingId: string }> }) {
   const resolvedParams = use(params);
+
   const [booking, setBooking] = useState<BookingDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   const [selectedDocumentIndex, setSelectedDocumentIndex] = useState(0);
   const router = useRouter();
+
+  const getCleanLocation = (location?: string | null) => {
+    if (!location) return 'Not specified';
+    return location.replace(/^"|"$/g, '');
+  };
 
   useEffect(() => {
     fetchBookingDetails();
@@ -270,6 +277,13 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
               <h3 className="text-sm font-medium text-gray-500">Duration</h3>
               <p className="mt-1">From: {formatDateTime(booking.duration.from)}</p>
               <p className="mt-1">To: {formatDateTime(booking.duration.to)}</p>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Location</h3>
+              <p className="mt-1 text-gray-600">
+                {getCleanLocation(booking.pickup_location)}
+              </p>
             </div>
 
             <div>

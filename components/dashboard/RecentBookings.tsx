@@ -37,8 +37,8 @@ export function RecentBookings({ data }: RecentBookingsProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-8">
-          {data.map((booking) => (
-            <div key={booking.id} className="flex items-center">
+          {data.map((booking, index) => (
+            <div key={`${booking.booking_id || booking.id}-${index}`} className="flex items-center">
               <div className="ml-4 space-y-1 w-full">
                 <div className="flex justify-between items-center">
                   <p className="text-sm font-medium leading-none">

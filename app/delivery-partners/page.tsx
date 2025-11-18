@@ -8,6 +8,7 @@ import { Loader2, Star, MapPin, Calendar, IndianRupee } from 'lucide-react';
 import Navbar from '@/app/(main)/components/Navbar';
 import { formatDateTimeIST } from '@/lib/utils/timezone';
 import { formatCurrency } from '@/lib/utils/currency';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 interface DeliveryPartner {
   id: string;
@@ -35,6 +36,8 @@ interface Vehicle {
   is_available: boolean;
 }
 
+const AVAILABLE_LOCATIONS = ['Madhapur', 'Erragadda'] as const;
+
 export default function DeliveryPartnersPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -51,6 +54,26 @@ export default function DeliveryPartnersPage() {
   const startDate = pickupDate && pickupTime 
     ? new Date(`${pickupDate}T${decodeURIComponent(pickupTime)}`)
     : null;
+
+  const updateQueryParams = (updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '') {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    router.push(`/delivery-partners?${params.toString()}`);
+  };
+
+  const handleLocationChange = (value: string) => {
+    updateQueryParams({ location: value });
+  };
+
+  const handleDurationChange = (value: string) => {
+    updateQueryParams({ duration: value });
+  };
 
   useEffect(() => {
     const fetchVehicles = async () => {
@@ -146,6 +169,45 @@ export default function DeliveryPartnersPage() {
               Starting from: {formatDateTimeIST(startDate)}
             </div>
           )}
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Location</span>
+              <Select
+                value={location || ''}
+                onValueChange={handleLocationChange}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {AVAILABLE_LOCATIONS.map((loc) => (
+                    <SelectItem key={loc} value={loc}>
+                      {loc}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Duration</span>
+              <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
+                {['7', '15', '30'].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => handleDurationChange(d)}
+                    className={`px-3 py-1 text-sm ${
+                      duration === d
+                        ? 'bg-orange-500 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {d} days
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -184,7 +246,10 @@ export default function DeliveryPartnersPage() {
                 <Button 
                   className="w-full mt-4" 
                   onClick={() => {
-                    router.push(`/delivery-partners/rent?vehicleId=${vehicle.id}&duration=${duration}`);
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set('vehicleId', vehicle.id);
+                    params.set('duration', duration);
+                    router.push(`/delivery-partners/rent?${params.toString()}`);
                   }}
                 >
                   Rent Vehicle

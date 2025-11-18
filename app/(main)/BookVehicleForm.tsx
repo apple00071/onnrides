@@ -21,7 +21,8 @@ export function BookVehicleForm({ vehicleId, locations, price }: BookVehicleForm
   const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [totalPrice, setTotalPrice] = useState<number>(0);
   const [bookingHours, setBookingHours] = useState<number>(0);
-  
+  const [locationAvailability, setLocationAvailability] = useState<Record<string, boolean>>({});
+
   // Parse and clean location data to ensure proper display
   const formattedLocations = React.useMemo(() => {
     try {
@@ -94,6 +95,76 @@ export function BookVehicleForm({ vehicleId, locations, price }: BookVehicleForm
       setTotalPrice(hours * price);
     }
   }, [pickupDate, pickupTime, dropoffDate, dropoffTime, price]);
+
+  // Check per-location availability for the selected time range
+  useEffect(() => {
+    // Require valid dates/times and at least one location
+    if (!pickupDate || !pickupTime || !dropoffDate || !dropoffTime || formattedLocations.length === 0) {
+      setLocationAvailability({});
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkAvailability = async () => {
+      const availability: Record<string, boolean> = {};
+
+      for (const loc of formattedLocations) {
+        try {
+          const response = await fetch('/api/vehicles/check-availability', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              vehicleId,
+              location: loc,
+              // Use ISO strings so this matches the timestamps used by /api/bookings
+              startDate: new Date(`${pickupDate}T${pickupTime}`).toISOString(),
+              endDate: new Date(`${dropoffDate}T${dropoffTime}`).toISOString(),
+            }),
+          });
+
+          if (!response.ok) {
+            logger.error('Failed to check availability for location', {
+              vehicleId,
+              location: loc,
+              status: response.status,
+            });
+            // On error, treat as available to avoid blocking bookings unnecessarily
+            availability[loc] = true;
+            continue;
+          }
+
+          const data = await response.json();
+          availability[loc] = !!data.available;
+        } catch (error) {
+          logger.error('Error checking availability for location', {
+            vehicleId,
+            location: loc,
+            error,
+          });
+          // On network or other errors, default to available
+          availability[loc] = true;
+        }
+      }
+
+      if (cancelled) return;
+
+      setLocationAvailability(availability);
+
+      // Auto-select the first available location if current selection is unavailable
+      setSelectedLocation((current) => {
+        if (current && availability[current]) return current;
+        const firstAvailable = formattedLocations.find((loc) => availability[loc]);
+        return firstAvailable || '';
+      });
+    };
+
+    checkAvailability();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [vehicleId, formattedLocations, pickupDate, pickupTime, dropoffDate, dropoffTime]);
   
   const handleLocationChange = (value: string) => {
     setSelectedLocation(value);
@@ -102,6 +173,16 @@ export function BookVehicleForm({ vehicleId, locations, price }: BookVehicleForm
   const handleBooking = async () => {
     if (!selectedLocation) {
       toast.error('Please select a pickup location');
+      return;
+    }
+
+    // Prevent booking from a location that is fully booked
+    if (
+      Object.keys(locationAvailability).length > 0 &&
+      selectedLocation in locationAvailability &&
+      !locationAvailability[selectedLocation]
+    ) {
+      toast.error('Selected location is not available for these dates. Please choose another location.');
       return;
     }
     
@@ -123,11 +204,21 @@ export function BookVehicleForm({ vehicleId, locations, price }: BookVehicleForm
                 <SelectValue placeholder="Select location" />
               </SelectTrigger>
               <SelectContent>
-                {formattedLocations.map((location) => (
-                  <SelectItem key={location} value={location}>
-                    {location}
-                  </SelectItem>
-                ))}
+                {formattedLocations.map((location) => {
+                  const isAvailable = locationAvailability[location] ?? true;
+                  return (
+                    <SelectItem
+                      key={location}
+                      value={location}
+                      disabled={!isAvailable}
+                    >
+                      <span className={isAvailable ? '' : 'text-gray-400'}>
+                        {location}
+                        {!isAvailable ? ' (Unavailable)' : ''}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>

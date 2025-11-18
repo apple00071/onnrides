@@ -318,12 +318,12 @@ export default function VehiclesPage() {
 
   const handleAvailabilityChange = async (vehicleId: string, is_available: boolean) => {
     try {
-      const response = await fetch(`/api/admin/vehicles/${vehicleId}`, {
+      const response = await fetch('/api/admin/vehicles', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ is_available }),
+        body: JSON.stringify({ id: vehicleId, is_available }),
       });
 
       if (!response.ok) {
@@ -407,19 +407,7 @@ export default function VehiclesPage() {
               </div>
               <CardContent className="p-4">
                 {/* Status Indicators */}
-                <div className="flex items-center justify-between mb-3">
-                  <Badge 
-                    className={cn(
-                      "text-xs",
-                      vehicle.is_available
-                        ? "bg-green-100 text-green-800" 
-                        : "bg-gray-100 text-gray-800"
-                    )}
-                  >
-                    {vehicle.is_available ? 'Available' : 'Unavailable'}
-                  </Badge>
-                  
-                  {/* Vehicle Status Info */}
+                <div className="flex items-center justify-end mb-3">
                   <div className="flex items-center gap-2 text-xs text-gray-500">
                     <span>Qty: {vehicle.quantity}</span>
                     <span>•</span>
@@ -443,22 +431,6 @@ export default function VehiclesPage() {
                           ₹{vehicle.price_7_days}/week
                         </div>
                       )}
-                    </div>
-                  </div>
-
-                  {/* Operational Status */}
-                  <div className="bg-gray-50 rounded-lg p-2 space-y-1">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-600">Fuel Level:</span>
-                      <span className="font-medium text-green-600">Full Tank</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-600">Last Service:</span>
-                      <span className="font-medium text-blue-600">2 days ago</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-gray-600">Mileage:</span>
-                      <span className="font-medium text-purple-600">15,420 km</span>
                     </div>
                   </div>
 

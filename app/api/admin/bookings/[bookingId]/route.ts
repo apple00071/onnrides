@@ -28,6 +28,7 @@ export async function GET(
         u.phone as user_phone,
         v.name as vehicle_name,
         v.type as vehicle_type,
+        TRIM(BOTH '"' FROM b.pickup_location::text) as pickup_location_clean,
         vr.additional_charges,
         vr.condition_notes,
         vr.created_at as return_date
@@ -107,6 +108,7 @@ export async function GET(
       status: booking.status,
       payment_status: booking.payment_status,
       booking_type: booking.booking_type,
+      pickup_location: booking.pickup_location_clean,
       duration: {
         from: booking.start_date,
         to: booking.end_date

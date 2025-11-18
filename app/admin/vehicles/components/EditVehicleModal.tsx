@@ -204,7 +204,10 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
       
       if (vehicle?.id) {
         console.log('Updating vehicle with data:', payload);
-        const response = await axios.put(`/api/admin/vehicles/${vehicle.id}`, payload);
+        const response = await axios.put('/api/admin/vehicles', {
+          id: vehicle.id,
+          ...payload,
+        });
         console.log('Update response:', response.data);
         onSuccess?.();
         onClose();
