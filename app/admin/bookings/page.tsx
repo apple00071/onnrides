@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDateTime } from '@/lib/utils/time-formatter';
 import { Loader2 } from 'lucide-react';
+import { getBadgeColor } from '@/lib/constants/status-colors';
 
 interface Booking {
   id: string;
@@ -111,24 +112,24 @@ export default function BookingsPage() {
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white rounded-lg overflow-hidden">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-100">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VEHICLE</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LOCATION</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CUSTOMER</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">START</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">END</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AMOUNT</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TYPE</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STATUS</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PAYMENT</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">ID</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">VEHICLE</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">LOCATION</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">CUSTOMER</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">START</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">END</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">AMOUNT</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">TYPE</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">STATUS</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">PAYMENT</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {bookings.map((booking) => (
-                <tr 
-                  key={booking.id} 
+                <tr
+                  key={booking.id}
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => router.push(`/admin/bookings/${booking.booking_id}`)}
                 >
@@ -157,22 +158,14 @@ export default function BookingsPage() {
                     {booking.booking_type.charAt(0).toUpperCase() + booking.booking_type.slice(1)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      booking.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                      booking.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getBadgeColor(booking.status)}`}>
                       {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      booking.payment_status === 'completed' ? 'bg-green-100 text-green-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {booking.booking_type === 'online' && booking.payment_status === 'completed' ? 
-                        '5% Collected' : 
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getBadgeColor(booking.payment_status)}`}>
+                      {booking.booking_type === 'online' && booking.payment_status === 'completed' ?
+                        '5% Collected' :
                         booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)
                       }
                     </span>
