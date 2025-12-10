@@ -68,6 +68,10 @@ export function VehicleCard({
 
   // Preload and validate image
   useEffect(() => {
+    // Reset states when vehicle changes
+    setImageLoaded(false);
+    setImageError(false);
+
     const validateAndSetImage = () => {
       const source = getValidImageUrl(vehicle.images);
 
@@ -91,7 +95,7 @@ export function VehicleCard({
     };
 
     validateAndSetImage();
-  }, [vehicle.id, vehicle.images]);
+  }, [vehicle.id, JSON.stringify(vehicle.images)]);
 
   // Format dates for display
   const formattedPickupDate = pickupDateTime ? new Date(pickupDateTime) : null;
