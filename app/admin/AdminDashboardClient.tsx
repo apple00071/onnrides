@@ -88,7 +88,7 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
     <ErrorBoundary>
       <div className="flex min-h-screen">
         {/* Sidebar */}
-        <div 
+        <div
           onMouseEnter={() => !isMobile && setIsHovered(true)}
           onMouseLeave={() => !isMobile && setIsHovered(false)}
           className={cn(
@@ -118,7 +118,9 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
                     onClick={() => setIsMobileNavOpen(false)}
                     className={cn(
                       "flex items-center px-3 py-2 my-1 rounded-md transition-colors",
-                      pathname === item.href ? "bg-[#e05d13] text-white" : "text-white hover:bg-[#e05d13]",
+                      pathname === item.href
+                        ? "bg-white/20 text-white font-semibold shadow-sm"
+                        : "text-white/90 hover:bg-white/10 hover:text-white",
                       isCollapsed ? "justify-center w-10 mx-auto" : "justify-start w-full"
                     )}
                     title={isCollapsed ? item.label : undefined}
