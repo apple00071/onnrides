@@ -119,10 +119,10 @@ export default function HeroSection() {
         }
 
         // Construct the full URL based on mode
-        const searchUrl = isDeliveryPartner 
+        const searchUrl = isDeliveryPartner
           ? `/delivery-partners?${params.toString()}`
           : `/vehicles?${params.toString()}`;
-        
+
         // Debug log the URL
         logger.debug('Navigation URL:', {
           url: searchUrl,
@@ -290,7 +290,7 @@ function SearchFormContent({
     // Get current time in IST using proper timezone conversion
     const now = new Date();
     const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    
+
     // Debug log current time
     logger.debug('Time Options Debug:', {
       localTime: now.toLocaleString(),
@@ -303,16 +303,16 @@ function SearchFormContent({
       value: string;
       label: string;
     }
-    
+
     const options: TimeOption[] = [];
     const selectedDate = isPickup ? pickupDate : dropoffDate;
-    
+
     if (!selectedDate) return options;
 
     // Convert selected date to IST for comparison
     const selectedDateIST = new Date(selectedDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     const todayIST = new Date(istTime.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    
+
     // Reset hours to compare just the dates
     todayIST.setHours(0, 0, 0, 0);
     const compareDate = new Date(selectedDateIST);
@@ -326,10 +326,10 @@ function SearchFormContent({
     if (isToday) {
       const currentHour = istTime.getHours();
       const currentMinutes = istTime.getMinutes();
-      
+
       // If we're past half hour, start from next hour + 2
       startHour = currentMinutes >= 30 ? currentHour + 3 : currentHour + 2;
-      
+
       // If we're too late in the day, return no options
       if (startHour >= 24) {
         return options;
@@ -339,9 +339,9 @@ function SearchFormContent({
     // Generate time slots
     for (let i = startHour; i < 24; i++) {
       // For dropoff, skip times before or equal to pickup time on the same day
-      if (!isPickup && 
-          selectedDateIST.toDateString() === pickupDate?.toDateString() && 
-          pickupTime) {
+      if (!isPickup &&
+        selectedDateIST.toDateString() === pickupDate?.toDateString() &&
+        pickupTime) {
         const [pickupHour] = pickupTime.split(':').map(Number);
         if (i <= pickupHour) continue;
       }
@@ -350,7 +350,7 @@ function SearchFormContent({
       const period = i >= 12 ? 'PM' : 'AM';
       const timeValue = `${i.toString().padStart(2, '0')}:00`;
       const label = `${hour12}:00 ${period}`;
-      
+
       options.push({ value: timeValue, label });
     }
 
@@ -363,7 +363,7 @@ function SearchFormContent({
       const istOffset = 5.5 * 60 * 60 * 1000;
       const dateInIST = new Date(date.getTime());
       setPickupDate(dateInIST);
-      
+
       // Reset dropoff if it's before the new pickup date
       if (dropoffDate && dropoffDate < dateInIST) {
         setDropoffDate(null);
@@ -378,7 +378,7 @@ function SearchFormContent({
     if (date) {
       // Convert the selected date to IST
       const dateInIST = new Date(date.getTime());
-      
+
       // If there's a pickup date, ensure dropoff date is not before it
       if (pickupDate) {
         const pickupDateTime = new Date(pickupDate.getTime());
@@ -393,9 +393,9 @@ function SearchFormContent({
           return;
         }
       }
-      
+
       setDropoffDate(dateInIST);
-      
+
       // If it's the same day as pickup, reset the time
       if (pickupDate && dateInIST.toDateString() === pickupDate.toDateString()) {
         setDropoffTime('');
@@ -436,6 +436,7 @@ function SearchFormContent({
               showPopperArrow={false}
               popperClassName="date-picker-popper"
               calendarClassName="shadow-lg border border-gray-200 rounded-lg"
+              readOnly
               onChangeRaw={(event) => {
                 if (event) event.preventDefault();
               }}
@@ -488,6 +489,7 @@ function SearchFormContent({
                 showPopperArrow={false}
                 popperClassName="date-picker-popper"
                 calendarClassName="shadow-lg border border-gray-200 rounded-lg"
+                readOnly
                 onChangeRaw={(event) => {
                   if (event) event.preventDefault();
                 }}
