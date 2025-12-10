@@ -579,7 +579,7 @@ export default function VehiclesPage() {
                       <div>
                         <p className="text-2xl font-semibold">₹{packagePrice || 0}</p>
                         <p className="text-sm text-muted-foreground">
-                          {calculateDuration()} package
+                          {calculateDuration()}
                         </p>
                       </div>
                     </VehicleCard>
