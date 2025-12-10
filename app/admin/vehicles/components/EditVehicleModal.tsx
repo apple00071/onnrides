@@ -45,6 +45,7 @@ interface VehicleFormData {
   delivery_price_7_days: string;
   delivery_price_15_days: string;
   delivery_price_30_days: string;
+  zero_deposit: boolean;
 }
 
 export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVehicleModalProps) {
@@ -64,7 +65,8 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
     is_delivery_enabled: vehicle?.vehicle_category === 'delivery' || vehicle?.vehicle_category === 'both',
     delivery_price_7_days: vehicle?.delivery_price_7_days?.toString() ?? '0',
     delivery_price_15_days: vehicle?.delivery_price_15_days?.toString() ?? '0',
-    delivery_price_30_days: vehicle?.delivery_price_30_days?.toString() ?? '0'
+    delivery_price_30_days: vehicle?.delivery_price_30_days?.toString() ?? '0',
+    zero_deposit: vehicle?.zero_deposit ?? false
   });
   const [loading, setLoading] = useState(false);
   const [locationQuantities, setLocationQuantities] = useState<Record<string, number>>({});
@@ -104,7 +106,8 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
         is_delivery_enabled: vehicle.vehicle_category === 'delivery' || vehicle.vehicle_category === 'both',
         delivery_price_7_days: vehicle.delivery_price_7_days?.toString() ?? '0',
         delivery_price_15_days: vehicle.delivery_price_15_days?.toString() ?? '0',
-        delivery_price_30_days: vehicle.delivery_price_30_days?.toString() ?? '0'
+        delivery_price_30_days: vehicle.delivery_price_30_days?.toString() ?? '0',
+        zero_deposit: vehicle.zero_deposit ?? false
       });
     }
   }, [vehicle]);
@@ -237,7 +240,8 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
       price_30_days: formData.price_30_days ? parseFloat(formData.price_30_days) : null,
       delivery_price_7_days: formData.delivery_price_7_days ? parseFloat(formData.delivery_price_7_days) : null,
       delivery_price_15_days: formData.delivery_price_15_days ? parseFloat(formData.delivery_price_15_days) : null,
-      delivery_price_30_days: formData.delivery_price_30_days ? parseFloat(formData.delivery_price_30_days) : null
+      delivery_price_30_days: formData.delivery_price_30_days ? parseFloat(formData.delivery_price_30_days) : null,
+      zero_deposit: formData.zero_deposit
     };
 
     try {
@@ -464,6 +468,25 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
               className="text-sm font-medium cursor-pointer"
             >
               Enable for Delivery Partners
+            </Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="zero_deposit"
+              checked={formData.zero_deposit}
+              onCheckedChange={(checked) => {
+                setFormData(prev => ({
+                  ...prev,
+                  zero_deposit: checked as boolean
+                }));
+              }}
+            />
+            <Label
+              htmlFor="zero_deposit"
+              className="text-sm font-medium cursor-pointer"
+            >
+              Zero Deposit
             </Label>
           </div>
 
