@@ -149,13 +149,13 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   // Get the raw data and parse it
   const data = await request.json();
-  
+
   // Validate required fields
   const missingFields = [];
   if (!data.name) missingFields.push('name');
   if (!data.type) missingFields.push('type');
   if (!data.price_per_hour) missingFields.push('price_per_hour');
-  
+
   if (missingFields.length > 0) {
     throw new ValidationError(`Missing required fields: ${missingFields.join(', ')}`);
   }
@@ -175,20 +175,20 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 
   // Convert location array to JSON string
   const locationJson = JSON.stringify(location);
-  
+
   // Generate a UUID for the vehicle
   const vehicleId = randomUUID();
 
   // Create the vehicle with normalized data
   const result = await query(`
     INSERT INTO vehicles (
-      id, name, type, location, quantity, 
+      id, name, type, location, quantity, location_quantities,
       price_per_hour, price_7_days, price_15_days, price_30_days, 
       min_booking_hours, images, status, is_available,
       is_delivery_enabled, delivery_price_7_days, delivery_price_15_days, delivery_price_30_days,
       created_at, updated_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
     RETURNING *
   `, [
     vehicleId,
@@ -196,6 +196,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     data.type,
     locationJson,
     Number(data.quantity) || 1,
+    JSON.stringify(data.location_quantities || {}), // Per-location breakdown
     Number(data.price_per_hour),
     data.price_7_days ? Number(data.price_7_days) : null,
     data.price_15_days ? Number(data.price_15_days) : null,
@@ -339,6 +340,11 @@ export async function PUT(request: NextRequest) {
         ? rawUpdate.images
         : [];
       updateData.images = JSON.stringify(images);
+    }
+
+    // Location quantities
+    if (has('location_quantities')) {
+      updateData.location_quantities = JSON.stringify(rawUpdate.location_quantities || {});
     }
 
     if (Object.keys(updateData).length === 0) {

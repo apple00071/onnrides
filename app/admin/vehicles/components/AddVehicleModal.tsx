@@ -190,13 +190,31 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
       console.log('Price per hour value:', pricePerHour);
 
       // Create the vehicle data object with explicit property assignments
+      // Collect per-location quantities from inputs
+      const locationQuantities: Record<string, number> = {};
+      let totalQty = 0;
+
+      formData.location.forEach((loc) => {
+        const input = e.currentTarget.querySelector(`input[data-location="${loc}"]`) as HTMLInputElement;
+        const qty = Number(input?.value || 0);
+        locationQuantities[loc] = qty;
+        totalQty += qty;
+      });
+
+      logger.info('Submitting vehicle with location quantities', {
+        locations: formData.location,
+        locationQuantities,
+        totalQty
+      });
+
       const vehicleData = {
         name: formData.name,
-        type: "bike", // Always set this value directly
-        location: formData.location,
-        price_per_hour: pricePerHour, // Use snake_case
-        min_booking_hours: Number(formData.min_booking_hours || 1),
-        quantity: Number(formData.quantity || 1),
+        type: formData.type,
+        location: JSON.stringify(formData.location),
+        quantity: totalQty, // Sum of all location quantities
+        location_quantities: locationQuantities, // Per-location breakdown
+        price_per_hour: Number(formData.price_per_hour),
+        min_booking_hours: Number(formData.min_booking_hours),
         images: formData.images || [],
         // Add delivery-related fields with correct field names for the API
         is_delivery_enabled: formData.is_delivery_enabled,
@@ -410,17 +428,33 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input
-                id="quantity"
-                name="quantity"
-                type="number"
-                min="1"
-                value={formData.quantity}
-                onChange={handleInputChange}
-                required
-              />
+            <div className="space-y-2 col-span-2">
+              <Label>Quantities Per Location</Label>
+              <p className="text-xs text-gray-500 mb-2">
+                Set how many vehicles are available at each selected location
+              </p>
+              {formData.location.length === 0 ? (
+                <p className="text-sm text-amber-600 bg-amber-50 p-2 rounded">
+                  Please select at least one location above
+                </p>
+              ) : (
+                <div className="space-y-3 border rounded-lg p-4 bg-gray-50">
+                  {formData.location.map((loc) => (
+                    <div key={loc} className="flex items-center gap-3">
+                      <Label className="w-32 text-sm font-medium">{loc}:</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="Quantity"
+                        defaultValue="1"
+                        data-location={loc}
+                        className="w-24"
+                        required
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="price_per_hour">Price Per Hour (₹)</Label>
