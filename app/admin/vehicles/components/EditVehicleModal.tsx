@@ -67,15 +67,33 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
     delivery_price_30_days: vehicle?.delivery_price_30_days?.toString() ?? '0'
   });
   const [loading, setLoading] = useState(false);
+  const [locationQuantities, setLocationQuantities] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (vehicle) {
+      // Parse location quantities from vehicle data
+      const locQties: Record<string, number> = {};
+      const locations = Array.isArray(vehicle.location) ? vehicle.location.filter((loc): loc is AvailableLocation =>
+        AVAILABLE_LOCATIONS.includes(loc as AvailableLocation)
+      ) : [];
+
+      // Check if vehicle has location_quantities, otherwise distribute total quantity
+      if (vehicle.location_quantities && typeof vehicle.location_quantities === 'object') {
+        Object.assign(locQties, vehicle.location_quantities);
+      } else if (vehicle.quantity && locations.length > 0) {
+        // Fallback: distribute evenly
+        const qtyPerLocation = Math.ceil(vehicle.quantity / locations.length);
+        locations.forEach(loc => {
+          locQties[loc] = qtyPerLocation;
+        });
+      }
+
+      setLocationQuantities(locQties);
+
       setFormData({
         name: vehicle.name,
         type: vehicle.type,
-        location: Array.isArray(vehicle.location) ? vehicle.location.filter((loc): loc is AvailableLocation =>
-          AVAILABLE_LOCATIONS.includes(loc as AvailableLocation)
-        ) : [],
+        location: locations,
         quantity: vehicle.quantity?.toString() ?? '0',
         price_per_hour: vehicle.price_per_hour?.toString() ?? '0',
         min_booking_hours: vehicle.min_booking_hours?.toString() ?? '0',
@@ -177,11 +195,29 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
     // Ensure location is properly formatted
     const location = JSON.stringify(formData.location);
 
+    // Collect per-location quantities from inputs
+    const locationQuantitiesPayload: Record<string, number> = {};
+    let totalQty = 0;
+
+    formData.location.forEach((loc) => {
+      const input = e.currentTarget.querySelector(`input[data-location="${loc}"]`) as HTMLInputElement;
+      const qty = Number(input?.value || 0);
+      locationQuantitiesPayload[loc] = qty;
+      totalQty += qty;
+    });
+
+    logger.info('Updating vehicle with location quantities', {
+      locations: formData.location,
+      locationQuantities: locationQuantitiesPayload,
+      totalQty
+    });
+
     const payload = {
       name: formData.name,
       type: formData.type || 'bike',
       location: formData.location, // Send as array, the API will handle conversion
-      quantity: parseInt(formData.quantity, 10),
+      quantity: totalQty, // Sum of all location quantities
+      location_quantities: locationQuantitiesPayload, // Per-location breakdown
       price_per_hour: parseFloat(formData.price_per_hour),
       min_booking_hours: parseInt(formData.min_booking_hours, 10),
       images: images, // Send as array, the API will handle conversion
@@ -357,17 +393,33 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input
-                id="quantity"
-                name="quantity"
-                type="number"
-                min="1"
-                value={formData.quantity}
-                onChange={handleInputChange}
-                required
-              />
+            <div className="space-y-2 col-span-2">
+              <Label>Quantities Per Location</Label>
+              <p className="text-xs text-gray-500 mb-2">
+                Set how many vehicles are available at each selected location
+              </p>
+              {formData.location.length === 0 ? (
+                <p className="text-sm text-amber-600 bg-amber-50 p-2 rounded">
+                  Please select at least one location above
+                </p>
+              ) : (
+                <div className="space-y-3 border rounded-lg p-4 bg-gray-50">
+                  {formData.location.map((loc) => (
+                    <div key={loc} className="flex items-center gap-3">
+                      <Label className="w-32 text-sm font-medium">{loc}:</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="Quantity"
+                        defaultValue={locationQuantities[loc] || 1}
+                        data-location={loc}
+                        className="w-24"
+                        required
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="price_per_hour">Price Per Hour (₹)</Label>

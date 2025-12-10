@@ -38,6 +38,7 @@ export interface Vehicle {
   zero_deposit?: boolean;
   vehicle_category: 'normal' | 'delivery' | 'both';
   location: string[];
+  location_quantities?: Record<string, number>; // Per-location quantities
   images: string[];
   quantity: number;
   min_booking_hours: number;
