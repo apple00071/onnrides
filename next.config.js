@@ -12,6 +12,8 @@ const nextConfig = {
     'puppeteer',
     'qrcode-terminal'
   ],
+  // Empty turbopack config to allow Next.js 16 build with webpack config
+  turbopack: {},
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
