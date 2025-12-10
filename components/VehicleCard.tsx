@@ -100,21 +100,35 @@ export function VehicleCard({
   // Calculate price based on duration
   const priceDetails = useMemo(() => {
     if (!pickupDateTime || !dropoffDateTime) {
-      return { totalAmount: vehicle.price_per_hour, duration: '1 hour' };
+      return {
+        totalAmount: vehicle.price_per_hour,
+        duration: '1 hour',
+        isWeekend: false,
+        actualHours: 1,
+        minimumHours: 12
+      };
     }
 
     const start = new Date(pickupDateTime);
     const end = new Date(dropoffDateTime);
     const durationInHours = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+    const isWeekend = isWeekendIST(start);
+    const minimumHours = isWeekend ? 24 : 12;
 
     const result = calculateRentalPrice({
       price_per_hour: vehicle.price_per_hour,
       price_7_days: vehicle.price_7_days,
       price_15_days: vehicle.price_15_days,
       price_30_days: vehicle.price_30_days
-    }, durationInHours, isWeekendIST(start));
+    }, durationInHours, isWeekend);
 
-    return { totalAmount: result, duration: `${durationInHours} hours` };
+    return {
+      totalAmount: result,
+      duration: `${durationInHours} hours`,
+      isWeekend,
+      actualHours: durationInHours,
+      minimumHours
+    };
   }, [pickupDateTime, dropoffDateTime, vehicle]);
 
   const handleLocationSelect = (location: string) => {
@@ -234,9 +248,16 @@ export function VehicleCard({
                 {children}
               </div>
             ) : (
-              <div className="text-lg font-bold text-gray-900">
-                ₹{isNaN(priceDetails.totalAmount) ? 0 : priceDetails.totalAmount}
-              </div>
+              <>
+                <div className="text-lg font-bold text-gray-900">
+                  ₹{isNaN(priceDetails.totalAmount) ? 0 : priceDetails.totalAmount}
+                </div>
+                {pickupDateTime && dropoffDateTime && priceDetails.actualHours < priceDetails.minimumHours && (
+                  <p className="text-[10px] text-orange-600 mt-0.5">
+                    {priceDetails.isWeekend ? '24hrs minimum (weekend)' : '12hrs minimum (weekday)'}
+                  </p>
+                )}
+              </>
             )}
           </div>
 

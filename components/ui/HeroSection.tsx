@@ -436,7 +436,6 @@ function SearchFormContent({
               showPopperArrow={false}
               popperClassName="date-picker-popper"
               calendarClassName="shadow-lg border border-gray-200 rounded-lg"
-              readOnly
               onChangeRaw={(event) => {
                 if (event) event.preventDefault();
               }}
@@ -489,7 +488,6 @@ function SearchFormContent({
                 showPopperArrow={false}
                 popperClassName="date-picker-popper"
                 calendarClassName="shadow-lg border border-gray-200 rounded-lg"
-                readOnly
                 onChangeRaw={(event) => {
                   if (event) event.preventDefault();
                 }}

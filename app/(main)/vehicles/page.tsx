@@ -18,6 +18,7 @@ import { FaFilter, FaSort } from 'react-icons/fa';
 import { redirect } from 'next/navigation';
 import logger from '@/lib/logger';
 import { Vehicle } from './types';
+import { calculateRentalPrice } from '@/lib/utils/price';
 
 export default function VehiclesPage() {
   const router = useRouter();
@@ -182,23 +183,22 @@ export default function VehiclesPage() {
   const getDurationPrice = (vehicle: Vehicle) => {
     if (!vehicle) return 0;
 
-    const durationInDays = parseInt(calculateDuration().split(' ')[0]);
-    const hourlyPrice = vehicle.price_per_hour || 0;
-
     // Calculate total hours for the selected duration
     const pickup = new Date(`${urlParams.pickupDate}T${urlParams.pickupTime}`);
     const dropoff = new Date(`${urlParams.dropoffDate}T${urlParams.dropoffTime}`);
     const diffMs = dropoff.getTime() - pickup.getTime();
     const totalHours = Math.ceil(diffMs / (1000 * 60 * 60));
 
-    // Default to hourly rate * total hours if package prices aren't available
-    if (durationInDays <= 7) {
-      return vehicle.price_7_days || (hourlyPrice * totalHours);
-    }
-    if (durationInDays <= 15) {
-      return vehicle.price_15_days || (hourlyPrice * totalHours);
-    }
-    return vehicle.price_30_days || (hourlyPrice * totalHours);
+    // Check if weekend
+    const isWeekend = pickup.getDay() === 0 || pickup.getDay() === 6;
+
+    // Use the correct pricing calculation
+    return calculateRentalPrice({
+      price_per_hour: vehicle.price_per_hour,
+      price_7_days: vehicle.price_7_days,
+      price_15_days: vehicle.price_15_days,
+      price_30_days: vehicle.price_30_days
+    }, totalHours, isWeekend);
   };
 
   const handleLocationSelect = useCallback((location: string) => {

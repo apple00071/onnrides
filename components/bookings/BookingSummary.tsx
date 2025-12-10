@@ -81,6 +81,22 @@ export function BookingSummary({
   const [couponInput, setCouponInput] = useState(couponCode || '');
   const [imageUrl, setImageUrl] = useState<string>(DEFAULT_VEHICLE_IMAGE);
 
+  // Calculate booking duration and minimum hours
+  const bookingInfo = useMemo(() => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const durationHours = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+    const isWeekend = start.getDay() === 0 || start.getDay() === 6;
+    const minimumHours = isWeekend ? 24 : 12;
+
+    return {
+      durationHours,
+      isWeekend,
+      minimumHours,
+      isMinimumApplied: durationHours < minimumHours
+    };
+  }, [startDate, endDate]);
+
   // Memoize price calculations
   const priceCalculation = useMemo(() => {
     const basePrice = totalAmount;
@@ -250,6 +266,14 @@ export function BookingSummary({
               <span className="text-gray-600 text-sm">Drop-off:</span>
               <span className="text-sm text-gray-900">{formatDate(endDate)}</span>
             </div>
+            {bookingInfo.isMinimumApplied && (
+              <div className="mt-3 p-2 bg-orange-50 border border-orange-200 rounded-md">
+                <p className="text-xs text-orange-800">
+                  <strong>Note:</strong> {bookingInfo.isWeekend ? 'Weekend' : 'Weekday'} minimum is {bookingInfo.minimumHours} hours.
+                  You're booking {bookingInfo.durationHours} hours but will be charged for {bookingInfo.minimumHours} hours.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
