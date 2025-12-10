@@ -1,4 +1,4 @@
- 'use client';
+'use client';
 
 import logger from '@/lib/logger';
 import { useState, useEffect } from 'react';
@@ -51,7 +51,7 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
   const [formData, setFormData] = useState<VehicleFormData>({
     name: vehicle?.name ?? '',
     type: vehicle?.type ?? '',
-    location: Array.isArray(vehicle?.location) ? vehicle.location.filter((loc): loc is AvailableLocation => 
+    location: Array.isArray(vehicle?.location) ? vehicle.location.filter((loc): loc is AvailableLocation =>
       AVAILABLE_LOCATIONS.includes(loc as AvailableLocation)
     ) : [],
     quantity: vehicle?.quantity?.toString() ?? '0',
@@ -73,7 +73,7 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
       setFormData({
         name: vehicle.name,
         type: vehicle.type,
-        location: Array.isArray(vehicle.location) ? vehicle.location.filter((loc): loc is AvailableLocation => 
+        location: Array.isArray(vehicle.location) ? vehicle.location.filter((loc): loc is AvailableLocation =>
           AVAILABLE_LOCATIONS.includes(loc as AvailableLocation)
         ) : [],
         quantity: vehicle.quantity?.toString() ?? '0',
@@ -102,7 +102,7 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
   const handleLocationChange = (location: AvailableLocation, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      location: checked 
+      location: checked
         ? [...prev.location, location]
         : prev.location.filter(l => l !== location)
     }));
@@ -118,9 +118,9 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
   // Function to handle image URL validation
   const isValidImageUrl = (url: string): boolean => {
     return url.trim().length > 0 && (
-      url.startsWith('http://') || 
-      url.startsWith('https://') || 
-      url.startsWith('/') || 
+      url.startsWith('http://') ||
+      url.startsWith('https://') ||
+      url.startsWith('/') ||
       url.startsWith('data:image/')
     );
   };
@@ -138,14 +138,12 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
     }));
   };
 
-  // Function to handle image file uploads
+  // Function to handle image file uploads with automatic cropping (client-side)
   const handleImageUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    // Here you would typically upload the files to your storage service
-    // For now, we'll convert them to data URLs as a temporary solution
     const fileArray = Array.from(files);
-    
+
     for (const file of fileArray) {
       if (!file.type.startsWith('image/')) {
         toast.error(`File ${file.name} is not an image`);
@@ -153,17 +151,18 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
       }
 
       try {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const dataUrl = e.target?.result as string;
-          if (dataUrl) {
-            handleAddImageUrl(dataUrl);
-          }
-        };
-        reader.readAsDataURL(file);
+        toast.loading('Processing image...', { id: file.name });
+
+        // Dynamically import to avoid SSR issues
+        const { processImage } = await import('@/lib/utils/image-processing');
+
+        const result = await processImage(file);
+
+        handleAddImageUrl(result.dataUrl);
+        toast.success(`Processed ${file.name} - whitespace removed!`, { id: file.name });
       } catch (error) {
-        logger.error('Error reading file:', error);
-        toast.error(`Error processing file ${file.name}`);
+        logger.error('Error processing file:', error);
+        toast.error(`Error processing file ${file.name}`, { id: file.name });
       }
     }
   };
@@ -171,13 +170,13 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
+
     // Ensure images is always an array
     const images = Array.isArray(formData.images) ? formData.images : [];
-    
+
     // Ensure location is properly formatted
     const location = JSON.stringify(formData.location);
-    
+
     const payload = {
       name: formData.name,
       type: formData.type || 'bike',
@@ -201,7 +200,7 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
     try {
       // Log the payload before sending
       console.log('Sending payload to API:', JSON.stringify(payload, null, 2));
-      
+
       if (vehicle?.id) {
         console.log('Updating vehicle with data:', payload);
         const response = await axios.put('/api/admin/vehicles', {
@@ -276,7 +275,7 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
                   }}
                   className="text-black border-gray-300 focus:ring-0"
                 />
-                <Label 
+                <Label
                   htmlFor="location-madhapur"
                   className="text-sm font-medium text-gray-700 cursor-pointer select-none"
                 >
@@ -292,7 +291,7 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
                   }}
                   className="text-black border-gray-300 focus:ring-0"
                 />
-                <Label 
+                <Label
                   htmlFor="location-erragadda"
                   className="text-sm font-medium text-gray-700 cursor-pointer select-none"
                 >
@@ -395,7 +394,7 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
                 }));
               }}
             />
-            <Label 
+            <Label
               htmlFor="is_delivery_enabled"
               className="text-sm font-medium cursor-pointer"
             >

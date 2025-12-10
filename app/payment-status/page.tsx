@@ -16,37 +16,37 @@ export default function PaymentStatusPage() {
   const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession();
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('loading');
-  
+
   // Get parameters from URL using useSearchParams hook
   const status = searchParams.get('status');
   const bookingId = searchParams.get('booking_id');
   const errorType = searchParams.get('error');
   const paymentId = searchParams.get('payment_id');
-  
+
   useEffect(() => {
     if (sessionStatus === 'loading') return;
-    
+
     if (sessionStatus === 'unauthenticated') {
       toast.error('Please sign in to view payment status');
       router.push('/auth/signin');
       return;
     }
-    
+
     // Set payment status from URL parameter
     if (status === 'success') {
       setPaymentStatus('success');
-      
+
       // Redirect to booking details after a short delay
       setTimeout(() => {
         router.push(`/bookings?success=true&booking_id=${bookingId}`);
       }, 3000);
-    } 
+    }
     else if (status === 'cancelled') {
       setPaymentStatus('cancelled');
     }
     else if (status === 'failed') {
       setPaymentStatus('failed');
-      
+
       // Log the error details for debugging
       logger.error('Payment failed:', {
         bookingId,
@@ -98,10 +98,8 @@ export default function PaymentStatusPage() {
             <p className="text-gray-600 mb-6">
               You cancelled the payment process.
             </p>
-            <Button asChild variant="default" className="w-full">
-              <Link href="/">
-                Back to Home
-              </Link>
+            <Button onClick={() => router.push('/')} variant="default" className="w-full">
+              Back to Home
             </Button>
           </div>
         </div>
@@ -195,33 +193,23 @@ export default function PaymentStatusPage() {
           <div className="flex flex-col gap-3">
             {errorType === 'booking_not_found' ? (
               <>
-                <Button asChild variant="default" className="w-full mb-2">
-                  <Link href="/bookings">
-                    View Your Bookings
-                  </Link>
+                <Button onClick={() => router.push('/bookings')} variant="default" className="w-full mb-2">
+                  View Your Bookings
                 </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link href="/">
-                    Back to Home
-                  </Link>
+                <Button onClick={() => router.push('/')} variant="outline" className="w-full">
+                  Back to Home
                 </Button>
               </>
             ) : (
               <>
-                <Button asChild variant="default" className="w-full mb-2">
-                  <Link href={`/bookings/${bookingId}/retry-payment`}>
-                    Try Payment Again
-                  </Link>
+                <Button onClick={() => router.push(`/bookings/${bookingId}/retry-payment`)} variant="default" className="w-full mb-2">
+                  Try Payment Again
                 </Button>
-                <Button asChild variant="outline" className="w-full mb-2">
-                  <Link href="/bookings">
-                    View Your Bookings
-                  </Link>
+                <Button onClick={() => router.push('/bookings')} variant="outline" className="w-full mb-2">
+                  View Your Bookings
                 </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link href="/">
-                    Back to Home
-                  </Link>
+                <Button onClick={() => router.push('/')} variant="outline" className="w-full">
+                  Back to Home
                 </Button>
               </>
             )}

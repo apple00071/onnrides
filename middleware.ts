@@ -10,7 +10,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
   const now = Date.now();
-  
+
   // Return cached value if available and not expired
   if (lastCheck > 0 && (now - lastCheck) < CACHE_DURATION) {
     return maintenanceMode;
@@ -31,7 +31,7 @@ async function isMaintenanceMode(request: NextRequest): Promise<boolean> {
       // Add timeout to prevent hanging requests
       signal: AbortSignal.timeout(5000) // 5 second timeout
     });
-    
+
     if (!response.ok) {
       console.error('Maintenance check failed:', response.status);
       return false;
@@ -52,8 +52,31 @@ export async function middleware(request: NextRequest) {
     const pathname = new URL(request.url).pathname;
     const isAdminRoute = pathname.startsWith('/admin');
 
-    // Always allow API routes to proceed
+    // Define public paths that don't satisfy the default auth check
+    const isPublicApiRoute =
+      pathname.startsWith('/api/auth') ||
+      pathname.startsWith('/api/webhooks') ||
+      pathname.startsWith('/api/maintenance') ||
+      (pathname.startsWith('/api/vehicles') && request.method === 'GET');
+
+    // Allow public API routes to proceed without checks
+    if (isPublicApiRoute) {
+      return undefined;
+    }
+
+    // For all other API routes, we must have a session
     if (pathname.startsWith('/api/')) {
+      const token = await getToken({
+        req: request,
+        secret: process.env.NEXTAUTH_SECRET
+      });
+
+      if (!token) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      // If it's an API route and we have a token, let it pass. 
+      // Specific role checks (e.g. admin-only APIs) are handled in the route handlers.
       return undefined;
     }
 

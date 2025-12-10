@@ -55,6 +55,7 @@ interface FormData {
   delivery_price_7_days?: string;
   delivery_price_15_days?: string;
   delivery_price_30_days?: string;
+  zero_deposit?: boolean;
 }
 
 export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalProps) {
@@ -72,7 +73,8 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
     price_30_days: '',
     delivery_price_7_days: '',
     delivery_price_15_days: '',
-    delivery_price_30_days: ''
+    delivery_price_30_days: '',
+    zero_deposit: false
   });
 
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -91,9 +93,9 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
   // Function to handle image URL validation
   const isValidImageUrl = (url: string): boolean => {
     return url.trim().length > 0 && (
-      url.startsWith('http://') || 
-      url.startsWith('https://') || 
-      url.startsWith('/') || 
+      url.startsWith('http://') ||
+      url.startsWith('https://') ||
+      url.startsWith('/') ||
       url.startsWith('data:image/')
     );
   };
@@ -112,14 +114,12 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
     setImageUrls(prev => [...prev, url]);
   };
 
-  // Function to handle image file uploads
+  // Function to handle image file uploads with automatic cropping (client-side)
   const handleImageUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    // Here you would typically upload the files to your storage service
-    // For now, we'll convert them to data URLs as a temporary solution
     const fileArray = Array.from(files);
-    
+
     for (const file of fileArray) {
       if (!file.type.startsWith('image/')) {
         toast.error(`File ${file.name} is not an image`);
@@ -127,17 +127,18 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
       }
 
       try {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const dataUrl = e.target?.result as string;
-          if (dataUrl) {
-            handleAddImageUrl(dataUrl);
-          }
-        };
-        reader.readAsDataURL(file);
+        toast.loading('Processing image...', { id: file.name });
+
+        // Dynamically import to avoid SSR issues
+        const { processImage } = await import('@/lib/utils/image-processing');
+
+        const result = await processImage(file);
+
+        handleAddImageUrl(result.dataUrl);
+        toast.success(`Processed ${file.name} - whitespace removed!`, { id: file.name });
       } catch (error) {
-        logger.error('Error reading file:', error);
-        toast.error(`Error processing file ${file.name}`);
+        logger.error('Error processing file:', error);
+        toast.error(`Error processing file ${file.name}`, { id: file.name });
       }
     }
   };
@@ -150,7 +151,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
   const handleLocationChange = (location: AvailableLocation, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      location: checked 
+      location: checked
         ? [...prev.location, location]
         : prev.location.filter(l => l !== location)
     }));
@@ -163,7 +164,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
     try {
       // Client-side validation with detailed logging
       console.log('Form data before validation:', JSON.stringify(formData, null, 2));
-      
+
       if (!formData.name) {
         toast.error("Vehicle name is required");
         setLoading(false);
@@ -184,10 +185,10 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
 
       // Force directly set values to ensure they're correct
       const pricePerHour = Number(formData.price_per_hour);
-      
+
       // Debug log to verify price value
       console.log('Price per hour value:', pricePerHour);
-      
+
       // Create the vehicle data object with explicit property assignments
       const vehicleData = {
         name: formData.name,
@@ -202,15 +203,16 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
         price_7_days: formData.price_7_days ? Number(formData.price_7_days) : null,
         price_15_days: formData.price_15_days ? Number(formData.price_15_days) : null,
         price_30_days: formData.price_30_days ? Number(formData.price_30_days) : null,
-        delivery_price_7_days: formData.is_delivery_enabled && formData.delivery_price_7_days 
-          ? Number(formData.delivery_price_7_days) 
+        delivery_price_7_days: formData.is_delivery_enabled && formData.delivery_price_7_days
+          ? Number(formData.delivery_price_7_days)
           : null,
-        delivery_price_15_days: formData.is_delivery_enabled && formData.delivery_price_15_days 
-          ? Number(formData.delivery_price_15_days) 
+        delivery_price_15_days: formData.is_delivery_enabled && formData.delivery_price_15_days
+          ? Number(formData.delivery_price_15_days)
           : null,
-        delivery_price_30_days: formData.is_delivery_enabled && formData.delivery_price_30_days 
-          ? Number(formData.delivery_price_30_days) 
-          : null
+        delivery_price_30_days: formData.is_delivery_enabled && formData.delivery_price_30_days
+          ? Number(formData.delivery_price_30_days)
+          : null,
+        zero_deposit: formData.zero_deposit
       };
 
       // Log the exact data being sent including stringified version
@@ -229,14 +231,14 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
       if (!response.ok) {
         const errorBody = await response.text();
         console.error('Error response:', errorBody);
-        
+
         let parsedError;
         try {
           parsedError = JSON.parse(errorBody);
         } catch (e) {
           throw new Error(`Failed to create vehicle: ${errorBody}`);
         }
-        
+
         throw new Error(parsedError.error || 'Failed to create vehicle');
       }
 
@@ -267,7 +269,8 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
       price_30_days: '',
       delivery_price_7_days: '',
       delivery_price_15_days: '',
-      delivery_price_30_days: ''
+      delivery_price_30_days: '',
+      zero_deposit: false
     });
     setImageUrls([]);
     if (shouldClose) onClose();
@@ -298,9 +301,9 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
                 disabled
                 className="bg-gray-100"
               />
-              <input 
-                type="hidden" 
-                name="type" 
+              <input
+                type="hidden"
+                name="type"
                 value="bike"
                 onChange={handleInputChange}
               />
@@ -319,7 +322,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
                   }}
                   className="text-black border-gray-300 focus:ring-0"
                 />
-                <Label 
+                <Label
                   htmlFor="location-madhapur"
                   className="text-sm font-medium text-gray-700 cursor-pointer select-none"
                 >
@@ -335,7 +338,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
                   }}
                   className="text-black border-gray-300 focus:ring-0"
                 />
-                <Label 
+                <Label
                   htmlFor="location-erragadda"
                   className="text-sm font-medium text-gray-700 cursor-pointer select-none"
                 >
@@ -444,11 +447,30 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
                 }));
               }}
             />
-            <Label 
+            <Label
               htmlFor="is_delivery_enabled"
               className="text-sm font-medium cursor-pointer"
             >
               Enable for Delivery Partners
+            </Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="zero_deposit"
+              checked={(formData as any).zero_deposit ?? false}
+              onCheckedChange={(checked) => {
+                setFormData(prev => ({
+                  ...prev,
+                  zero_deposit: checked as boolean
+                }));
+              }}
+            />
+            <Label
+              htmlFor="zero_deposit"
+              className="text-sm font-medium cursor-pointer"
+            >
+              Zero Deposit
             </Label>
           </div>
 

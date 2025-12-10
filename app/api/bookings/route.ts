@@ -65,7 +65,7 @@ try {
   if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
     throw new Error('Missing Razorpay credentials');
   }
-  
+
   logger.info('Initializing Razorpay with:', {
     keyId: RAZORPAY_KEY_ID.substring(0, 6) + '...',
     keyLength: RAZORPAY_KEY_ID.length,
@@ -250,80 +250,46 @@ export async function GET(request: NextRequest) {
 // POST /api/bookings - Create booking
 export async function POST(request: NextRequest): Promise<Response> {
   let createdBookingId: string | undefined;
-  
+
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         success: false,
-        error: 'Unauthorized' 
+        error: 'Unauthorized'
       }, { status: 401 });
     }
 
     const data = await request.json();
     const {
-      customerId,
       vehicleId,
       pickupDate,
       dropoffDate,
       location,
-      totalAmount,
-      paymentId,
-      paymentStatus,
       customerName,
       customerEmail,
       customerPhone,
-      vehicleName,
-      pricePerHour,
-      specialPricing7Days,
-      specialPricing15Days,
-      specialPricing30Days,
-      basePrice,
-      gst,
-      serviceFee,
-      advancePayment
+      // We explicitly IGNORE client-provided pricing fields to prevent manipulation
+      // totalAmount, pricePerHour, advancePayment etc. are ignored
     } = data;
 
     // Validate required fields
     const requiredFields = [
-      'customerId', 'vehicleId', 'pickupDate', 'dropoffDate', 'location', 
-      'totalAmount', 'customerName', 'customerEmail', 'customerPhone',
-      'vehicleName', 'pricePerHour'
+      'vehicleId', 'pickupDate', 'dropoffDate', 'location',
+      'customerName', 'customerEmail', 'customerPhone'
     ];
-    
+
     const missingFields = requiredFields.filter(field => data[field] === undefined);
-    
+
     if (missingFields.length > 0) {
-      logger.warn('Missing required fields for booking creation', { 
+      logger.warn('Missing required fields for booking creation', {
         missingFields,
         providedFields: Object.keys(data)
       });
-      
-      return NextResponse.json({ 
-        success: false, 
-        error: `Missing required fields: ${missingFields.join(', ')}` 
-      }, { status: 400 });
-    }
 
-    // Validate numeric fields
-    const numericFields = ['totalAmount', 'pricePerHour'];
-    const invalidFields = numericFields.filter(field => {
-      const value = Number(data[field]);
-      return isNaN(value) || value < 0;
-    });
-    
-    if (invalidFields.length > 0) {
-      logger.warn('Invalid numeric fields for booking creation', { 
-        invalidFields,
-        values: invalidFields.reduce((acc, field) => {
-          acc[field] = data[field];
-          return acc;
-        }, {} as Record<string, any>)
-      });
-      
-      return NextResponse.json({ 
-        success: false, 
-        error: `Invalid numeric fields: ${invalidFields.join(', ')}` 
+      return NextResponse.json({
+        success: false,
+        error: `Missing required fields: ${missingFields.join(', ')}`
       }, { status: 400 });
     }
 
@@ -332,42 +298,19 @@ export async function POST(request: NextRequest): Promise<Response> {
       pickupDate,
       dropoffDate
     });
-    
-    // Replace getCurrentIST usage with new Date()
-    const currentTime = new Date();
 
     if (!validationResult.isValid) {
-      logger.warn('Invalid booking dates', { 
-        errors: validationResult.errors,
-        pickupDate,
-        dropoffDate,
-        currentTime: formatIST(new Date())
-      });
-      
-      return NextResponse.json({ 
-        success: false, 
+      return NextResponse.json({
+        success: false,
         error: validationResult.errors.map(e => e.message).join(', '),
         validationErrors: validationResult.errors
       }, { status: 400 });
     }
-    
-    // Parse dates directly from the ISO strings
+
+    // Parse dates
     const pickupDateTime = new Date(pickupDate);
     const dropoffDateTime = new Date(dropoffDate);
-    
-    // Log the dates for debugging
-    logger.info('Date validation and parsing:', {
-      received: {
-        pickupDate,
-        dropoffDate
-      },
-      parsed: {
-        pickupDateTime: formatIST(pickupDateTime),
-        dropoffDateTime: formatIST(dropoffDateTime)
-      },
-      currentTime: formatIST(currentTime)
-    });
-    
+
     // Calculate duration in hours
     const durationInHours = Math.ceil(
       (dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60)
@@ -376,25 +319,14 @@ export async function POST(request: NextRequest): Promise<Response> {
     // Create booking in database with our reusable booking ID generator
     const bookingId = generateBookingId();
 
-    // IMPORTANT FIX: Store the dates as is without any timezone adjustment
-    // These dates represent the exact times the user selected
-    logger.info('Storing dates in database:', {
-      dates: {
-        pickup: pickupDateTime.toISOString(),
-        dropoff: dropoffDateTime.toISOString(),
-        pickupHours: pickupDateTime.getUTCHours(),
-        pickupMinutes: pickupDateTime.getUTCMinutes(),
-        dropoffHours: dropoffDateTime.getUTCHours(),
-        dropoffMinutes: dropoffDateTime.getUTCMinutes(),
-      }
-    });
-
-    // Check for overlapping bookings for this vehicle at the selected location.
-    // We match the explicit pickup_location, but also count legacy bookings with
-    // NULL/empty/ambiguous pickup_location as blocking all locations.
+    // Check for overlapping bookings AND fetch pricing details in one go
     const availabilityResult = await query(
       `SELECT 
          v.quantity,
+         v.price_per_hour,
+         v.price_7_days,
+         v.price_15_days,
+         v.price_30_days,
          COALESCE((
            SELECT COUNT(*)
            FROM bookings b
@@ -420,45 +352,64 @@ export async function POST(request: NextRequest): Promise<Response> {
     );
 
     if (!availabilityResult.rows.length) {
-      logger.error('Vehicle not found while checking availability', { vehicleId });
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Vehicle not found for booking',
-        },
-        { status: 400 }
+        { success: false, error: 'Vehicle not found' },
+        { status: 404 }
       );
     }
 
-    const availabilityRow = availabilityResult.rows[0] as any;
-    const vehicleQuantity = Number(availabilityRow.quantity ?? 1);
-    const overlappingCount = Number(availabilityRow.overlapping_count ?? 0);
-
-    logger.info('Availability check result before booking:', {
-      vehicleId,
-      location,
-      vehicleQuantity,
-      overlappingCount,
-      pickupDate: pickupDateTime.toISOString(),
-      dropoffDate: dropoffDateTime.toISOString(),
-    });
+    const vehicleData = availabilityResult.rows[0];
+    const vehicleQuantity = Number(vehicleData.quantity ?? 1);
+    const overlappingCount = Number(vehicleData.overlapping_count ?? 0);
 
     if (Number.isFinite(vehicleQuantity) && vehicleQuantity > 0 && overlappingCount >= vehicleQuantity) {
-      logger.warn('Booking rejected due to no availability at location/time', {
-        vehicleId,
-        location,
-        vehicleQuantity,
-        overlappingCount,
-      });
-
       return NextResponse.json(
         {
           success: false,
-          error: 'Vehicle is not available at this location for the selected time. Please choose another location or time.',
+          error: 'Vehicle is not available at this location for the selected time.',
         },
         { status: 409 }
       );
     }
+
+    // --- SECURE SERVER-SIDE PRICING CALCULATION ---
+
+    // 1. Calculate Base Price
+    // Import dynamically to avoid top-level issues if any
+    const { calculateRentalPrice, isWeekendIST } = await import('@/lib/utils/price');
+    const { getNumericSetting, getBooleanSetting, SETTINGS } = await import('@/lib/settings');
+
+    const pricing = {
+      price_per_hour: Number(vehicleData.price_per_hour),
+      price_7_days: Number(vehicleData.price_7_days),
+      price_15_days: Number(vehicleData.price_15_days),
+      price_30_days: Number(vehicleData.price_30_days)
+    };
+
+    const isWeekend = isWeekendIST(pickupDateTime);
+    const basePrice = calculateRentalPrice(pricing, durationInHours, isWeekend);
+
+    // 2. Fetch Settings
+    const [gstEnabled, gstPercentage, serviceFeePercentage, advancePaymentPercentage] = await Promise.all([
+      getBooleanSetting(SETTINGS.GST_ENABLED, false),
+      getNumericSetting(SETTINGS.BOOKING_GST_PERCENTAGE, 18),
+      getNumericSetting(SETTINGS.BOOKING_SERVICE_FEE_PERCENTAGE, 5),
+      getNumericSetting(SETTINGS.BOOKING_ADVANCE_PAYMENT_PERCENTAGE, 5)
+    ]);
+
+    // 3. Calculate Final Amounts
+    const gst = gstEnabled ? Math.round(basePrice * (gstPercentage / 100)) : 0;
+    const serviceFee = Math.round(basePrice * (serviceFeePercentage / 100));
+    const totalAmount = basePrice + gst + serviceFee;
+    const advancePayment = Math.round(totalAmount * (advancePaymentPercentage / 100));
+
+    logger.info('Server-side pricing calculated:', {
+      bookingId,
+      basePrice,
+      totalAmount,
+      advancePayment,
+      durationInHours
+    });
 
     try {
       // Update the INSERT query to use snake_case
@@ -492,7 +443,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         parseFloat(totalAmount.toFixed(2)),
         'pending',
         'pending',
-        // Store pickup_location as a plain string for easier availability checks
+        // Store pickup_location as a plain string
         String(location),
         bookingId,
         null,
@@ -503,7 +454,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
       createdBookingId = createdBooking.rows[0].id;
 
-      // Create Razorpay order
+      // Create Razorpay order with SECURE Advance Payment amount
       const razorpayOrder = await createOrder({
         amount: advancePayment,
         currency: 'INR',
@@ -519,15 +470,6 @@ export async function POST(request: NextRequest): Promise<Response> {
         },
       });
 
-      // Log the actual order details
-      logger.info('Razorpay order created:', {
-        orderId: razorpayOrder.id,
-        originalAmount: advancePayment,
-        razorpayAmount: razorpayOrder.amount / 100, // Convert paise to INR for logging
-        razorpayAmountOriginal: razorpayOrder.amount, // Original paise amount
-        currency: razorpayOrder.currency
-      });
-
       // Update the payment details
       await query(`
         UPDATE bookings 
@@ -539,27 +481,28 @@ export async function POST(request: NextRequest): Promise<Response> {
           created_at: new Date().toISOString(),
           status: 'created',
           amount: advancePayment,
-          amount_paise: razorpayOrder.amount
+          amount_paise: razorpayOrder.amount,
+          calculation: {
+            basePrice,
+            gst,
+            gstPercentage: gstEnabled ? gstPercentage : 0,
+            serviceFee,
+            totalAmount
+          }
         }),
         createdBookingId
       ]);
-      
-      logger.info('Updated booking with payment details:', {
-        bookingId,
-        createdBookingId,
-        razorpayOrderId: razorpayOrder.id
-      });
 
-      // Return booking ID and payment information
       return NextResponse.json({
         success: true,
         data: {
           bookingId,
           orderId: razorpayOrder.id,
-          amount: advancePayment,  // Original amount calculated (5% of total) in INR
-          razorpayAmount: razorpayOrder.amount / 100,  // Actual amount in Razorpay in INR
-          razorpayAmountPaise: razorpayOrder.amount, // The actual amount in paise (for debugging)
+          amount: advancePayment,
+          razorpayAmount: razorpayOrder.amount / 100,
           currency: razorpayOrder.currency,
+          // Return the trusted total amount so client knows what happened
+          totalAmount: totalAmount
         },
       });
     } catch (error) {
@@ -570,32 +513,23 @@ export async function POST(request: NextRequest): Promise<Response> {
         `, [createdBookingId]);
       }
 
-      // Properly format Razorpay errors which might have a different structure
+      // Handle Razorpay errors
       let errorDetails = '';
-      
       if (error instanceof Error) {
         errorDetails = error.message;
       } else if (typeof error === 'object' && error !== null) {
-        // Handle Razorpay API errors which come as objects with specific properties
         const errorObj = error as any;
         errorDetails = JSON.stringify({
           message: errorObj.message || 'Unknown error',
-          description: errorObj.description,
-          code: errorObj.code,
-          status: errorObj.status
+          description: errorObj.description
         });
-      } else {
-        errorDetails = String(error);
       }
-      
-      logger.error('Error creating Razorpay order:', {
-        error: typeof error === 'object' ? JSON.stringify(error) : error,
-        errorDetails
-      });
-      
+
+      logger.error('Error creating Razorpay order:', { errorDetails });
+
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: 'Failed to create payment order',
           details: errorDetails
         },
@@ -605,17 +539,16 @@ export async function POST(request: NextRequest): Promise<Response> {
   } catch (error) {
     logger.error('Error creating booking:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      details: error instanceof Error ? (error as any).details || {} : {},
       stack: error instanceof Error ? error.stack : undefined
     });
-    
+
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Failed to create booking',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );
   }
-} 
+}

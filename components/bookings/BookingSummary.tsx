@@ -9,9 +9,9 @@ import { TermsAndConditionsModal } from './TermsAndConditionsModal';
 import { FaMapMarkerAlt, FaCalendarAlt, FaClock, FaRupeeSign } from 'react-icons/fa';
 import logger from '@/lib/logger';
 import { ExclamationCircleIcon, MapPinIcon } from '@heroicons/react/24/outline';
-import { 
-  isValidDataUrl, 
-  isValidUrl, 
+import {
+  isValidDataUrl,
+  isValidUrl,
   extractVehicleImage,
   DEFAULT_VEHICLE_IMAGE,
   preloadImage,
@@ -90,7 +90,7 @@ export function BookingSummary({
     const discountedTotal = subtotal - (couponDiscount || 0);
     const advancePayment = Math.round(discountedTotal * 0.05);
     const remainingPayment = discountedTotal - advancePayment;
-    
+
     return {
       basePrice,
       gst,
@@ -118,7 +118,7 @@ export function BookingSummary({
       try {
         // Preload all vehicle images in parallel
         await preloadImages(vehicle.images);
-        
+
         if (mounted) {
           const validImageUrl = getValidImageUrl(vehicle.images);
           setImageUrl(validImageUrl);
@@ -173,7 +173,7 @@ export function BookingSummary({
         returnUrl: window.location.href
       };
       localStorage.setItem('pendingBooking', JSON.stringify(bookingState));
-      
+
       toast.error('Please sign in to proceed with the booking');
       router.push('/auth/signin');
       return;
@@ -233,7 +233,7 @@ export function BookingSummary({
                 src={imageUrl}
                 alt={vehicle.name}
                 fill
-                className="object-contain"
+                className="object-contain mix-blend-multiply"
                 priority
                 sizes="(max-width: 768px) 100vw, 50vw"
                 quality={75}
@@ -303,8 +303,8 @@ export function BookingSummary({
                 onChange={(e) => handleCouponChange(e.target.value)}
                 className="rounded-full border-gray-200 focus:ring-orange-500 focus:border-orange-500"
               />
-              <Button 
-                onClick={handleApplyCoupon} 
+              <Button
+                onClick={handleApplyCoupon}
                 variant="outline"
                 className="border-gray-200 hover:bg-orange-50 hover:text-orange-600"
               >
@@ -315,15 +315,15 @@ export function BookingSummary({
 
           <div className="pt-4">
             {!termsAccepted ? (
-              <Button 
-                onClick={() => setShowTerms(true)} 
+              <Button
+                onClick={() => setShowTerms(true)}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900"
               >
                 Accept Terms & Conditions
               </Button>
             ) : (
-              <Button 
-                onClick={handlePaymentClick} 
+              <Button
+                onClick={handlePaymentClick}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white"
               >
                 Pay {formatCurrency(priceCalculation.advancePayment)}
@@ -348,8 +348,8 @@ export function BookingSummary({
         </div>
       </div>
 
-      <TermsAndConditionsModal 
-        isOpen={showTerms} 
+      <TermsAndConditionsModal
+        isOpen={showTerms}
         onClose={() => setShowTerms(false)}
         onAccept={handleTermsAccept}
       />

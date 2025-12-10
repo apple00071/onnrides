@@ -39,19 +39,19 @@ const formatLocations = (location: string | string[]): string[] => {
   try {
     // If it's already an array, clean each item
     if (Array.isArray(location)) {
-      return location.map(loc => 
-        typeof loc === 'string' 
-          ? loc.replace(/["\[\]]/g, '').trim() 
+      return location.map(loc =>
+        typeof loc === 'string'
+          ? loc.replace(/["\[\]]/g, '').trim()
           : String(loc).trim()
       ).filter(Boolean);
     }
-    
+
     // If it's a string that looks like JSON, parse it
     if (typeof location === 'string') {
       if (location.startsWith('[')) {
         try {
           const parsed = JSON.parse(location);
-          return Array.isArray(parsed) 
+          return Array.isArray(parsed)
             ? parsed.map(loc => String(loc).replace(/["\[\]]/g, '').trim()).filter(Boolean)
             : [parsed.toString().replace(/["\[\]]/g, '').trim()];
         } catch {
@@ -69,7 +69,7 @@ const formatLocations = (location: string | string[]): string[] => {
         .map(loc => loc.replace(/["\[\]]/g, '').trim())
         .filter(Boolean);
     }
-    
+
     return [];
   } catch (error) {
     logger.error('Error formatting locations:', error);
@@ -138,7 +138,7 @@ const getValidImageUrl = (images: string | string[] | undefined): string => {
       }
 
       if (Array.isArray(parsed)) {
-        const validImage = parsed.find(img => img && typeof img === 'string' && 
+        const validImage = parsed.find(img => img && typeof img === 'string' &&
           (img.startsWith('http') || img.startsWith('data:')));
         if (validImage) {
           logger.debug('Found valid image in parsed array:', validImage);
@@ -146,7 +146,7 @@ const getValidImageUrl = (images: string | string[] | undefined): string => {
         }
       }
 
-      if (typeof parsed === 'string' && 
+      if (typeof parsed === 'string' &&
         (parsed.startsWith('http') || parsed.startsWith('data:'))) {
         logger.debug('Found valid image in parsed string:', parsed);
         return parsed;
@@ -158,7 +158,7 @@ const getValidImageUrl = (images: string | string[] | undefined): string => {
 
   // If it's an array, find the first valid URL
   if (Array.isArray(images)) {
-    const validImage = images.find(img => img && typeof img === 'string' && 
+    const validImage = images.find(img => img && typeof img === 'string' &&
       (img.startsWith('http') || img.startsWith('data:')));
     if (validImage) {
       logger.debug('Found valid image in array:', validImage);
@@ -191,7 +191,7 @@ export default function VehiclesPage() {
 
   useEffect(() => {
     if (status === 'loading') return;
-    
+
     if (session?.user?.role !== 'admin') {
       router.push('/');
       return;
@@ -205,15 +205,15 @@ export default function VehiclesPage() {
     try {
       const res = await fetch('/api/admin/vehicles');
       const data = await res.json();
-      
+
       // Check if data.vehicles exists (API returns { vehicles: [...] })
       const vehiclesData = data.vehicles || data;
-      
+
       // Ensure we have an array to work with
       const vehiclesArray = Array.isArray(vehiclesData) ? vehiclesData : [];
-      
+
       console.log('Fetched vehicles data:', vehiclesArray);
-      
+
       // Normalize data to handle both camelCase and snake_case fields
       const updatedVehicles = vehiclesArray.map((vehicle: any) => ({
         ...vehicle,
@@ -223,7 +223,7 @@ export default function VehiclesPage() {
         created_at: vehicle.created_at || new Date().toISOString(),
         updated_at: vehicle.updated_at || new Date().toISOString(),
       }));
-      
+
       console.log('Normalized vehicles:', updatedVehicles);
       setVehicles(updatedVehicles);
     } catch (error) {
@@ -271,7 +271,7 @@ export default function VehiclesPage() {
       updated_at: new Date().toISOString()
     };
 
-    setVehicles((prev: Vehicle[]) => 
+    setVehicles((prev: Vehicle[]) =>
       prev.map((v: Vehicle) => v.id === updatedVehicle.id ? updatedVehicle : v)
     );
     setEditingVehicle(null);
@@ -331,9 +331,9 @@ export default function VehiclesPage() {
       }
 
       // Update local state
-      setVehicles(vehicles.map((vehicle: Vehicle) => 
-        vehicle.id === vehicleId 
-          ? { ...vehicle, is_available } 
+      setVehicles(vehicles.map((vehicle: Vehicle) =>
+        vehicle.id === vehicleId
+          ? { ...vehicle, is_available }
           : vehicle
       ));
 
@@ -385,7 +385,7 @@ export default function VehiclesPage() {
                   src={getValidImageUrl(vehicle.images)}
                   alt={vehicle.name}
                   fill
-                  className="object-contain p-2"
+                  className="object-contain p-2 mix-blend-multiply"
                   onError={(e) => {
                     logger.warn('Image failed to load:', { vehicleId: vehicle.id, images: vehicle.images });
                     const target = e.target as HTMLImageElement;
@@ -394,11 +394,11 @@ export default function VehiclesPage() {
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   priority={true}
                 />
-                <Badge 
+                <Badge
                   className={cn(
                     "absolute top-2 right-2",
                     vehicle.is_available
-                      ? "bg-green-100 text-green-800" 
+                      ? "bg-green-100 text-green-800"
                       : "bg-gray-100 text-gray-800"
                   )}
                 >
@@ -437,9 +437,9 @@ export default function VehiclesPage() {
                   {/* Locations */}
                   <div className="flex flex-wrap gap-1">
                     {formatLocations(vehicle.location).map((loc, index) => (
-                      <Badge 
-                        key={index} 
-                        variant="outline" 
+                      <Badge
+                        key={index}
+                        variant="outline"
                         className="text-xs"
                       >
                         {loc}

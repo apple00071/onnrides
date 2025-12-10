@@ -21,6 +21,7 @@ export interface VehicleFormData {
   delivery_price_7_days?: number | null;
   delivery_price_15_days?: number | null;
   delivery_price_30_days?: number | null;
+  zero_deposit?: boolean;
 }
 
 export interface Vehicle {
@@ -34,6 +35,7 @@ export interface Vehicle {
   delivery_price_7_days: number | null;
   delivery_price_15_days: number | null;
   delivery_price_30_days: number | null;
+  zero_deposit?: boolean;
   vehicle_category: 'normal' | 'delivery' | 'both';
   location: string[];
   images: string[];

@@ -26,6 +26,7 @@ export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
     }
 
     // Then check document verification for logged in users
+    // @ts-ignore - User type needs update in AuthProvider
     if (!user.isDocumentsVerified) {
       toast.error('Please verify your documents first');
       router.push('/profile');
@@ -33,9 +34,9 @@ export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
     }
 
     // Get the booking details from URL params
-    const pickup = searchParams.get('pickup');
-    const dropoff = searchParams.get('dropoff');
-    const location = searchParams.get('location');
+    const pickup = searchParams?.get('pickup');
+    const dropoff = searchParams?.get('dropoff');
+    const location = searchParams?.get('location');
 
     if (!pickup || !dropoff || !location) {
       toast.error('Please select pickup and drop-off dates and times');
@@ -86,6 +87,8 @@ export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
                 onChange={(e) => setBookingDetails(prev => ({ ...prev, pickupDate: e.target.value }))}
                 min={new Date().toISOString().split('T')[0]}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24]"
+                onFocus={(e) => e.target.blur()}
+                onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
               />
             </div>
             <div>
@@ -97,6 +100,8 @@ export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
                 value={bookingDetails.pickupTime}
                 onChange={(e) => setBookingDetails(prev => ({ ...prev, pickupTime: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24]"
+                onFocus={(e) => e.target.blur()}
+                onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
               />
             </div>
             <div>
@@ -109,6 +114,8 @@ export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
                 onChange={(e) => setBookingDetails(prev => ({ ...prev, dropoffDate: e.target.value }))}
                 min={bookingDetails.pickupDate || new Date().toISOString().split('T')[0]}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24]"
+                onFocus={(e) => e.target.blur()}
+                onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
               />
             </div>
             <div>
@@ -120,6 +127,8 @@ export default function VehicleDetails({ vehicle }: VehicleDetailsProps) {
                 value={bookingDetails.dropoffTime}
                 onChange={(e) => setBookingDetails(prev => ({ ...prev, dropoffTime: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24]"
+                onFocus={(e) => e.target.blur()}
+                onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
               />
             </div>
           </div>

@@ -70,10 +70,10 @@ export default function VehiclesPage() {
     }
   };
 
-  const pickupDate = searchParams.get('pickupDate');
-  const dropoffDate = searchParams.get('dropoffDate');
-  const pickupTime = searchParams.get('pickupTime');
-  const dropoffTime = searchParams.get('dropoffTime');
+  const pickupDate = searchParams?.get('pickupDate');
+  const dropoffDate = searchParams?.get('dropoffDate');
+  const pickupTime = searchParams?.get('pickupTime');
+  const dropoffTime = searchParams?.get('dropoffTime');
 
   // Validate dates
   if (!pickupDate || !dropoffDate || !pickupTime || !dropoffTime) {
@@ -160,7 +160,7 @@ export default function VehiclesPage() {
     }
 
     const diffInHours = Math.ceil((dropoff.getTime() - pickup.getTime()) / (1000 * 60 * 60));
-    
+
     if (diffInHours < 0) {
       return 'Invalid duration';
     }
@@ -181,16 +181,16 @@ export default function VehiclesPage() {
 
   const getDurationPrice = (vehicle: Vehicle) => {
     if (!vehicle) return 0;
-    
+
     const durationInDays = parseInt(calculateDuration().split(' ')[0]);
     const hourlyPrice = vehicle.price_per_hour || 0;
-    
+
     // Calculate total hours for the selected duration
     const pickup = new Date(`${urlParams.pickupDate}T${urlParams.pickupTime}`);
     const dropoff = new Date(`${urlParams.dropoffDate}T${urlParams.dropoffTime}`);
     const diffMs = dropoff.getTime() - pickup.getTime();
     const totalHours = Math.ceil(diffMs / (1000 * 60 * 60));
-    
+
     // Default to hourly rate * total hours if package prices aren't available
     if (durationInDays <= 7) {
       return vehicle.price_7_days || (hourlyPrice * totalHours);
@@ -267,11 +267,11 @@ export default function VehiclesPage() {
 
   // Update URL params once on mount and when URL changes
   useEffect(() => {
-    const locationFromUrl = searchParams.get('location');
-    const pickupDate = searchParams.get('pickupDate') || '';
-    const pickupTime = searchParams.get('pickupTime') || '';
-    const dropoffDate = searchParams.get('dropoffDate') || '';
-    const dropoffTime = searchParams.get('dropoffTime') || '';
+    const locationFromUrl = searchParams?.get('location');
+    const pickupDate = searchParams?.get('pickupDate') || '';
+    const pickupTime = searchParams?.get('pickupTime') || '';
+    const dropoffDate = searchParams?.get('dropoffDate') || '';
+    const dropoffTime = searchParams?.get('dropoffTime') || '';
 
     // Only update on initial mount
     if (isInitialMount.current) {
@@ -286,7 +286,7 @@ export default function VehiclesPage() {
         pickupTime,
         dropoffDate,
         dropoffTime,
-        location: locationFromUrl
+        location: locationFromUrl || null
       });
       return;
     }
@@ -302,7 +302,7 @@ export default function VehiclesPage() {
         pickupTime,
         dropoffDate,
         dropoffTime,
-        location: locationFromUrl
+        location: locationFromUrl || null
       };
 
       const paramsChanged = JSON.stringify(newParams) !== JSON.stringify(urlParams);
@@ -337,20 +337,20 @@ export default function VehiclesPage() {
       const query = new URLSearchParams(Object.entries(params).filter(([_, value]) => value != null) as [string, string][]);
       const response = await fetch(`/api/vehicles?${query.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch vehicles');
-      
+
       const data = await response.json();
-      
+
       // Make sure we have a valid array and filter out null/undefined items
       const vehiclesArray = Array.isArray(data.vehicles) ? data.vehicles : [];
       const validVehicles = vehiclesArray.filter((v: any) => v !== null && v !== undefined);
-      
+
       // Apply normalization to ensure is_available is always present
       const normalizedVehicles = validVehicles.map((vehicle: any) => ({
         ...vehicle,
         is_available: vehicle.is_available ?? vehicle.isAvailable ?? true,
         price_per_hour: vehicle.price_per_hour || vehicle.pricePerHour || 0
       }));
-      
+
       console.log('Fetched vehicles:', normalizedVehicles);
       setVehicles(normalizedVehicles);
     } catch (error) {
@@ -364,10 +364,10 @@ export default function VehiclesPage() {
 
   // Only fetch when URL params changes
   useEffect(() => {
-    const shouldFetch = 
-      urlParams.pickupDate && 
-      urlParams.pickupTime && 
-      urlParams.dropoffDate && 
+    const shouldFetch =
+      urlParams.pickupDate &&
+      urlParams.pickupTime &&
+      urlParams.dropoffDate &&
       urlParams.dropoffTime;
 
     if (shouldFetch) {
@@ -390,12 +390,12 @@ export default function VehiclesPage() {
   // Add sorting function
   const getSortedVehicles = useCallback(() => {
     if (!vehicles.length) return [];
-    
+
     // Filter out null or undefined vehicles
     const validVehicles = vehicles.filter(vehicle => vehicle !== null && vehicle !== undefined);
-    
+
     if (!validVehicles.length) return [];
-    
+
     switch (sortBy) {
       case 'price-low-high':
         return [...validVehicles].sort((a, b) => a.price_per_hour - b.price_per_hour);
@@ -421,10 +421,10 @@ export default function VehiclesPage() {
     try {
       const [year, month, day] = date.split('-').map(Number);
       const [hours, minutes] = time.split(':').map(Number);
-      
+
       // Create date in local timezone
       const dateObj = new Date(year, month - 1, day, hours, minutes);
-      
+
       // Format in IST
       return formatDateForDisplay(dateObj);
     } catch (error) {
@@ -441,7 +441,7 @@ export default function VehiclesPage() {
           <div className="hidden md:block w-1/5">
             <div className="bg-white rounded-lg shadow p-4 sticky top-4 max-h-[calc(100vh-6rem)] overflow-y-auto">
               <h2 className="text-lg font-bold mb-4">Filter</h2>
-              
+
               {/* Date & Time Section */}
               <div className="mb-4">
                 <h3 className="font-semibold mb-2 text-sm">Select Date & Time</h3>
@@ -518,31 +518,28 @@ export default function VehiclesPage() {
               <div className="flex space-x-4">
                 <button
                   onClick={() => setSortBy('relevance')}
-                  className={`px-4 py-2 rounded-md ${
-                    sortBy === 'relevance'
-                      ? 'text-orange-500 border-b-2 border-orange-500'
-                      : 'text-gray-600 hover:text-orange-500'
-                  }`}
+                  className={`px-4 py-2 rounded-md ${sortBy === 'relevance'
+                    ? 'text-orange-500 border-b-2 border-orange-500'
+                    : 'text-gray-600 hover:text-orange-500'
+                    }`}
                 >
                   Relevance
                 </button>
                 <button
                   onClick={() => setSortBy('price-low-high')}
-                  className={`px-4 py-2 rounded-md ${
-                    sortBy === 'price-low-high'
-                      ? 'text-orange-500 border-b-2 border-orange-500'
-                      : 'text-gray-600 hover:text-orange-500'
-                  }`}
+                  className={`px-4 py-2 rounded-md ${sortBy === 'price-low-high'
+                    ? 'text-orange-500 border-b-2 border-orange-500'
+                    : 'text-gray-600 hover:text-orange-500'
+                    }`}
                 >
                   Price - Low to High
                 </button>
                 <button
                   onClick={() => setSortBy('price-high-low')}
-                  className={`px-4 py-2 rounded-md ${
-                    sortBy === 'price-high-low'
-                      ? 'text-orange-500 border-b-2 border-orange-500'
-                      : 'text-gray-600 hover:text-orange-500'
-                  }`}
+                  className={`px-4 py-2 rounded-md ${sortBy === 'price-high-low'
+                    ? 'text-orange-500 border-b-2 border-orange-500'
+                    : 'text-gray-600 hover:text-orange-500'
+                    }`}
                 >
                   Price - High to Low
                 </button>
@@ -562,16 +559,16 @@ export default function VehiclesPage() {
                 {getSortedVehicles().map(vehicle => {
                   // Skip null/undefined vehicles
                   if (!vehicle) return null;
-                  
+
                   const durationInDays = parseInt(calculateDuration().split(' ')[0]);
                   const packagePrice = getDurationPrice(vehicle);
-                  
+
                   return (
                     <VehicleCard
                       key={vehicle.id}
                       vehicle={{
                         ...vehicle,
-                        available: vehicle.is_available ?? true
+                        is_available: vehicle.is_available ?? true
                       }}
                       selectedLocation={currentLocation}
                       onLocationSelect={handleLocationSelect}
@@ -582,13 +579,7 @@ export default function VehiclesPage() {
                       <div>
                         <p className="text-2xl font-semibold">₹{packagePrice || 0}</p>
                         <p className="text-sm text-muted-foreground">
-                          {durationInDays 
-                            ? (durationInDays <= 7 
-                               ? '7-day package' 
-                               : durationInDays <= 15 
-                                 ? '15-day package' 
-                                 : '30-day package')
-                            : 'Package price'}
+                          {calculateDuration()} package
                         </p>
                       </div>
                     </VehicleCard>
@@ -612,20 +603,20 @@ export default function VehiclesPage() {
           <button
             className="flex items-center justify-center space-x-2 text-gray-700 focus:outline-none"
             onClick={() => {
-              const nextSort = sortBy === 'price-low-high' 
-                ? 'price-high-low' 
-                : sortBy === 'price-high-low' 
-                  ? 'relevance' 
+              const nextSort = sortBy === 'price-low-high'
+                ? 'price-high-low'
+                : sortBy === 'price-high-low'
+                  ? 'relevance'
                   : 'price-low-high';
               setSortBy(nextSort);
             }}
           >
             <FaSort className="text-[#f26e24]" />
             <span>
-              {sortBy === 'price-low-high' 
-                ? 'Price: Low to High' 
-                : sortBy === 'price-high-low' 
-                  ? 'Price: High to Low' 
+              {sortBy === 'price-low-high'
+                ? 'Price: Low to High'
+                : sortBy === 'price-high-low'
+                  ? 'Price: High to Low'
                   : 'Sort by'}
             </span>
           </button>
@@ -637,14 +628,14 @@ export default function VehiclesPage() {
             <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-xl p-4 transform transition-transform duration-300 ease-in-out">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">Filter</h3>
-                <button 
+                <button
                   onClick={() => setShowFilters(false)}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   ✕
                 </button>
               </div>
-              
+
               {/* Date & Time Section */}
               <div className="mb-4">
                 <h3 className="font-semibold mb-2 text-sm">Select Date & Time</h3>
