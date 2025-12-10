@@ -14,9 +14,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get vehicle details
+    // Get vehicle details with location-specific quantities
     const vehicle = await query(`
-      SELECT quantity
+      SELECT quantity, location_quantities
       FROM vehicles
       WHERE id = $1
     `, [vehicleId]);
@@ -28,9 +28,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Count overlapping bookings.
-    // We match current location explicitly, but also treat old bookings with
-    // missing/empty pickup_location as blocking all locations to prevent overlaps.
+    // Get location-specific quantity (fallback to global quantity for backward compatibility)
+    const vehicleData = vehicle.rows[0];
+    const locationQuantities = vehicleData.location_quantities || {};
+    const locationQty = locationQuantities[location] || vehicleData.quantity || 0;
+
+    logger.info('Availability check', {
+      vehicleId,
+      location,
+      locationQuantities,
+      locationQty,
+      fallbackToGlobal: !locationQuantities[location]
+    });
+
+    // Count overlapping bookings at this specific location
     const overlappingBookings = await query(`
       SELECT COUNT(*) as count
       FROM bookings
@@ -52,9 +63,24 @@ export async function POST(request: NextRequest) {
     `, [vehicleId, location, startDate, endDate]);
 
     const count = Number((overlappingBookings.rows[0] as any).count);
-    const isAvailable = count < Number(vehicle.rows[0].quantity);
+    const isAvailable = count < locationQty;
 
-    return NextResponse.json({ available: isAvailable });
+    logger.info('Availability result', {
+      vehicleId,
+      location,
+      overlappingCount: count,
+      locationQuantity: locationQty,
+      isAvailable
+    });
+
+    return NextResponse.json({
+      available: isAvailable,
+      details: {
+        overlappingBookings: count,
+        locationQuantity: locationQty,
+        remainingSlots: Math.max(0, locationQty - count)
+      }
+    });
   } catch (error) {
     logger.error('Error checking vehicle availability:', error);
     return NextResponse.json(

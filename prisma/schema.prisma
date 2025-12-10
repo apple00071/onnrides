@@ -112,6 +112,7 @@ model Vehicle {
   images          Json?
   location        String?
   quantity        Int       @default(1)
+  location_quantities Json?  @db.JsonB  // Per-location quantities: {"Madhapur": 2, "Eragadda": 1}
   price_per_hour  Float
   price_7_days    Float?
   price_15_days   Float?
