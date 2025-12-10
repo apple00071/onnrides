@@ -1,9 +1,9 @@
 import logger from '@/lib/logger';
 import { toast } from 'sonner';
 
-// Default placeholder image paths
-export const DEFAULT_VEHICLE_IMAGE = '/images/placeholder-vehicle.png';
-export const DEFAULT_PROFILE_IMAGE = '/images/default-profile.png';
+// Default placeholder as data URL to avoid missing file errors
+export const DEFAULT_VEHICLE_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f0f0f0" width="400" height="300"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="20"%3EVehicle Image%3C/text%3E%3C/svg%3E';
+export const DEFAULT_PROFILE_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23e0e0e0" width="200" height="200"/%3E%3Ctext fill="%23666" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="16"%3EProfile%3C/text%3E%3C/svg%3E';
 
 // Image cache for faster subsequent loads
 const imageCache = new Map<string, string>();
@@ -54,13 +54,13 @@ export const preloadImage = async (url: string): Promise<string> => {
 
   return new Promise((resolve, reject) => {
     const img = new Image();
-    
+
     img.onload = () => {
       // Cache the successful URL
       imageCache.set(url, url);
       resolve(url);
     };
-    
+
     img.onerror = () => {
       // Cache the default image for failed URLs
       imageCache.set(url, DEFAULT_VEHICLE_IMAGE);
@@ -69,7 +69,7 @@ export const preloadImage = async (url: string): Promise<string> => {
 
     // Start loading with a timeout
     img.src = url;
-    
+
     // Set a timeout for loading
     setTimeout(() => {
       img.src = '';

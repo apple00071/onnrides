@@ -68,12 +68,27 @@ export function VehicleCard({
 
   // Preload and validate image
   useEffect(() => {
+    logger.info('VehicleCard image useEffect triggered', {
+      vehicleId: vehicle.id,
+      vehicleName: vehicle.name,
+      images: vehicle.images,
+      imageCount: vehicle.images?.length || 0
+    });
+
     // Reset states when vehicle changes
     setImageLoaded(false);
     setImageError(false);
+    setImageSource(DEFAULT_VEHICLE_IMAGE);
 
     const validateAndSetImage = () => {
       const source = getValidImageUrl(vehicle.images);
+
+      logger.info('Image URL extracted', {
+        vehicleId: vehicle.id,
+        source,
+        isDataUrl: isValidDataUrl(source),
+        isDefault: source === DEFAULT_VEHICLE_IMAGE
+      });
 
       if (isValidDataUrl(source)) {
         setImageSource(source);
@@ -81,13 +96,21 @@ export function VehicleCard({
         return;
       }
 
+      if (source === DEFAULT_VEHICLE_IMAGE) {
+        setImageSource(DEFAULT_VEHICLE_IMAGE);
+        setImageLoaded(true);
+        return;
+      }
+
       preloadImage(source)
         .then(() => {
+          logger.info('Image loaded successfully', { vehicleId: vehicle.id, source });
           setImageSource(source);
           setImageLoaded(true);
           setImageError(false);
         })
-        .catch(() => {
+        .catch((err) => {
+          logger.error('Image failed to load', { vehicleId: vehicle.id, source, error: err.message });
           setImageError(true);
           setImageSource(DEFAULT_VEHICLE_IMAGE);
           setImageLoaded(true);
