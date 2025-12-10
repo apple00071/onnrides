@@ -124,6 +124,14 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
         ? [...prev.location, location]
         : prev.location.filter(l => l !== location)
     }));
+
+    // Add default quantity for new location if not exists
+    if (checked && !locationQuantities[location]) {
+      setLocationQuantities(prev => ({
+        ...prev,
+        [location]: 1
+      }));
+    }
   };
 
   const handleImageDelete = (index: number) => {
@@ -195,13 +203,12 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
     // Ensure location is properly formatted
     const location = JSON.stringify(formData.location);
 
-    // Collect per-location quantities from inputs
+    // Use location quantities from state
     const locationQuantitiesPayload: Record<string, number> = {};
     let totalQty = 0;
 
     formData.location.forEach((loc) => {
-      const input = e.currentTarget.querySelector(`input[data-location="${loc}"]`) as HTMLInputElement;
-      const qty = Number(input?.value || 0);
+      const qty = locationQuantities[loc] || 0;
       locationQuantitiesPayload[loc] = qty;
       totalQty += qty;
     });
@@ -411,8 +418,14 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
                         type="number"
                         min="0"
                         placeholder="Quantity"
-                        defaultValue={locationQuantities[loc] || 1}
-                        data-location={loc}
+                        value={locationQuantities[loc] || 1}
+                        onChange={(e) => {
+                          const newQty = Number(e.target.value) || 0;
+                          setLocationQuantities(prev => ({
+                            ...prev,
+                            [loc]: newQty
+                          }));
+                        }}
                         className="w-24"
                         required
                       />

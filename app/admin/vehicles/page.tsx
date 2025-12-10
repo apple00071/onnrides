@@ -409,7 +409,18 @@ export default function VehiclesPage() {
                 {/* Status Indicators */}
                 <div className="flex items-center justify-end mb-3">
                   <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <span>Qty: {vehicle.quantity}</span>
+                    {vehicle.location_quantities && Object.keys(vehicle.location_quantities).length > 0 ? (
+                      <span>
+                        Qty {Object.entries(vehicle.location_quantities).map(([loc, qty], idx) => (
+                          <span key={loc}>
+                            {idx > 0 && ' '}
+                            {loc.charAt(0)}: {qty}
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span>Qty: {vehicle.quantity}</span>
+                    )}
                     <span>•</span>
                     <span>Min: {vehicle.min_booking_hours}h</span>
                   </div>
