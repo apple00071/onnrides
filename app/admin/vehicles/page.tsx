@@ -186,6 +186,10 @@ export default function VehiclesPage() {
   const [selectedVehicles, setSelectedVehicles] = useState<string[]>([]);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
 
+  // Filter states
+  const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'available' | 'unavailable'>('all');
+  const [locationFilter, setLocationFilter] = useState<string>('all');
+
   useEffect(() => {
     logger.debug('Add Modal State:', isAddModalOpen);
   }, [isAddModalOpen]);

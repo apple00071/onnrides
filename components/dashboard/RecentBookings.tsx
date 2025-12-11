@@ -9,6 +9,7 @@ interface Booking {
   user_email?: string;
   vehicle_name?: string;
   vehicle_type?: string;
+  pickup_location?: string;
   // Support both formats to ensure backward compatibility
   users?: {
     name: string | null;
@@ -49,20 +50,24 @@ export function RecentBookings({ data }: RecentBookingsProps) {
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {booking.vehicle_name || (booking.vehicles?.name) || 'Unknown Vehicle'} 
+                  {booking.vehicle_name || (booking.vehicles?.name) || 'Unknown Vehicle'}
                   ({booking.vehicle_type || (booking.vehicles?.type) || 'Unknown Type'})
+                  {booking.pickup_location && (
+                    <span className="ml-2 text-xs text-gray-500">
+                      📍 {booking.pickup_location}
+                    </span>
+                  )}
                 </p>
                 <div className="flex items-center pt-2">
                   <div className="ml-auto flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">
                       {formatDateTime(booking.start_date)} - {formatDateTime(booking.end_date)}
                     </span>
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      booking.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${booking.status === 'completed' ? 'bg-green-100 text-green-800' :
                       booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                      booking.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
+                        booking.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                          'bg-yellow-100 text-yellow-800'
+                      }`}>
                       {booking.status || 'pending'}
                     </span>
                   </div>

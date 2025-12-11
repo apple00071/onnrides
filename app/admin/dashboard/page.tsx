@@ -201,6 +201,7 @@ async function getRecentBookings() {
         v.name as vehicle_name,
         v.type as vehicle_type,
         b.registration_number as vehicle_number,
+        b.pickup_location,
         CASE 
           WHEN b.booking_type = 'offline' AND b.status = 'confirmed' THEN 'active'
           ELSE b.status
@@ -273,13 +274,13 @@ async function getVehicleReturns() {
       LIMIT 10
     `);
 
-    return result.rows.map((row: { 
+    return result.rows.map((row: {
       id: string;
       booking_id: string;
-      return_date: Date; 
+      return_date: Date;
       vehicle_name: string;
       vehicle_number: string;
-      user_name: string; 
+      user_name: string;
       status: string;
       booking_type: string;
       is_overdue: boolean;
@@ -320,13 +321,13 @@ export default async function DashboardPage() {
           text="Overview of your rental business"
         />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <BookingStats 
-            data={bookingStats.status === 'fulfilled' ? bookingStats.value : { 
-              totalBookings: 0, 
-              activeBookings: 0, 
-              completedBookings: 0, 
-              cancelledBookings: 0 
-            }} 
+          <BookingStats
+            data={bookingStats.status === 'fulfilled' ? bookingStats.value : {
+              totalBookings: 0,
+              activeBookings: 0,
+              completedBookings: 0,
+              cancelledBookings: 0
+            }}
           />
         </div>
 
@@ -372,12 +373,12 @@ export default async function DashboardPage() {
 
 
         <div className="grid gap-4 md:grid-cols-2">
-          <VehicleReturns 
-            data={vehicleReturns.status === 'fulfilled' ? vehicleReturns.value : []} 
-            />
-            <RecentBookings 
-              data={recentBookings.status === 'fulfilled' ? recentBookings.value : []} 
-            />
+          <VehicleReturns
+            data={vehicleReturns.status === 'fulfilled' ? vehicleReturns.value : []}
+          />
+          <RecentBookings
+            data={recentBookings.status === 'fulfilled' ? recentBookings.value : []}
+          />
         </div>
       </DashboardShell>
     );
