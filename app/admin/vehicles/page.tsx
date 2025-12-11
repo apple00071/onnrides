@@ -190,6 +190,47 @@ export default function VehiclesPage() {
   const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'available' | 'unavailable'>('all');
   const [locationFilter, setLocationFilter] = useState<string>('all');
 
+  // Bulk selection handlers
+  const toggleVehicleSelection = (vehicleId: string) => {
+    setSelectedVehicles(prev =>
+      prev.includes(vehicleId)
+        ? prev.filter(id => id !== vehicleId)
+        : [...prev, vehicleId]
+    );
+  };
+
+  const toggleSelectAll = (filteredVehicles: Vehicle[]) => {
+    if (selectedVehicles.length === filteredVehicles.length) {
+      setSelectedVehicles([]);
+    } else {
+      setSelectedVehicles(filteredVehicles.map(v => v.id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedVehicles.length === 0) return;
+
+    if (!confirm(`Delete ${selectedVehicles.length} vehicles? This cannot be undone.`)) return;
+
+    try {
+      const response = await fetch('/api/admin/vehicles/bulk-delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vehicleIds: selectedVehicles })
+      });
+
+      if (response.ok) {
+        toast.success(`${selectedVehicles.length} vehicles deleted`);
+        setSelectedVehicles([]);
+        fetchVehicles();
+      } else {
+        toast.error('Failed to delete vehicles');
+      }
+    } catch (error) {
+      toast.error('Error deleting vehicles');
+    }
+  };
+
   useEffect(() => {
     logger.debug('Add Modal State:', isAddModalOpen);
   }, [isAddModalOpen]);
@@ -395,8 +436,47 @@ export default function VehiclesPage() {
           </Button>
         </div>
 
+        {/* Bulk Actions Toolbar */}
+        {selectedVehicles.length > 0 && (
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={true}
+                onCheckedChange={() => setSelectedVehicles([])}
+              />
+              <span className="font-medium text-blue-900">
+                {selectedVehicles.length} vehicle{selectedVehicles.length > 1 ? 's' : ''} selected
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedVehicles([])}
+              >
+                Clear Selection
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkDelete}
+              >
+                Delete Selected
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex flex-wrap gap-3 items-center bg-gray-50 p-4 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={selectedVehicles.length === filteredVehicles.length && filteredVehicles.length > 0}
+              onCheckedChange={() => toggleSelectAll(filteredVehicles)}
+            />
+            <Label className="text-sm font-medium text-gray-700">Select All</Label>
+          </div>
+          <div className="h-6 w-px bg-gray-300"></div>
           <div className="flex items-center gap-2">
             <Label className="text-sm font-medium text-gray-700">Availability:</Label>
             <div className="flex gap-2">
@@ -464,7 +544,15 @@ export default function VehiclesPage() {
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredVehicles.map((vehicle: Vehicle) => (
-            <Card key={vehicle.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <Card key={vehicle.id} className="bg-white border border-gray-200 rounded-lg shadow-sm relative">
+              {/* Bulk Select Checkbox */}
+              <div className="absolute top-2 left-2 z-10">
+                <Checkbox
+                  checked={selectedVehicles.includes(vehicle.id)}
+                  onCheckedChange={() => toggleVehicleSelection(vehicle.id)}
+                  className="bg-white border-2"
+                />
+              </div>
               {/* Image */}
               <div className="relative h-48 bg-gray-50">
                 <Image
