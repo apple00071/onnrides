@@ -362,9 +362,24 @@ export default function VehiclesPage() {
       </div>
     );
   } else {
+    // Filter vehicles based on selected filters
+    const filteredVehicles = vehicles.filter(vehicle => {
+      // Availability filter
+      if (availabilityFilter === 'available' && !vehicle.is_available) return false;
+      if (availabilityFilter === 'unavailable' && vehicle.is_available) return false;
+
+      // Location filter
+      if (locationFilter !== 'all') {
+        const vehicleLocations = formatLocations(vehicle.location);
+        if (!vehicleLocations.includes(locationFilter)) return false;
+      }
+
+      return true;
+    });
+
     content = (
       <div className="space-y-6">
-        {/* Simple Header */}
+        {/* Header */}
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-semibold text-gray-900">Vehicles</h1>
           <Button
@@ -376,9 +391,75 @@ export default function VehiclesPage() {
           </Button>
         </div>
 
-        {/* Simple Grid */}
+        {/* Filters */}
+        <div className="flex flex-wrap gap-3 items-center bg-gray-50 p-4 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium text-gray-700">Availability:</Label>
+            <div className="flex gap-2">
+              <Button
+                variant={availabilityFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAvailabilityFilter('all')}
+              >
+                All ({vehicles.length})
+              </Button>
+              <Button
+                variant={availabilityFilter === 'available' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAvailabilityFilter('available')}
+                className={availabilityFilter === 'available' ? 'bg-green-600 hover:bg-green-700' : ''}
+              >
+                Available ({vehicles.filter(v => v.is_available).length})
+              </Button>
+              <Button
+                variant={availabilityFilter === 'unavailable' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAvailabilityFilter('unavailable')}
+                className={availabilityFilter === 'unavailable' ? 'bg-gray-600 hover:bg-gray-700' : ''}
+              >
+                Unavailable ({vehicles.filter(v => !v.is_available).length})
+              </Button>
+            </div>
+          </div>
+
+          <div className="h-6 w-px bg-gray-300"></div>
+
+          <div className="flex items-center gap-2">
+            <Label className="text-sm font-medium text-gray-700">Location:</Label>
+            <div className="flex gap-2">
+              <Button
+                variant={locationFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setLocationFilter('all')}
+              >
+                All
+              </Button>
+              <Button
+                variant={locationFilter === 'Madhapur' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setLocationFilter('Madhapur')}
+              >
+                Madhapur
+              </Button>
+              <Button
+                variant={locationFilter === 'Erragadda' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setLocationFilter('Erragadda')}
+              >
+                Erragadda
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Results count */}
+        <div className="text-sm text-gray-600">
+          Showing {filteredVehicles.length} of {vehicles.length} vehicles
+        </div>
+
+        {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {vehicles.map((vehicle: Vehicle) => (
+          {filteredVehicles.map((vehicle: Vehicle) => (
             <Card key={vehicle.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
               {/* Image */}
               <div className="relative h-48 bg-gray-50">
