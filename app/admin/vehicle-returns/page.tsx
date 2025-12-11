@@ -93,7 +93,7 @@ export default function VehicleReturnsPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await fetch(`/api/admin/vehicle-returns?page=${page}`);
       const data = await response.json();
 
@@ -198,7 +198,7 @@ export default function VehicleReturnsPage() {
                     </TableHeader>
                     <TableBody>
                       {bookings.map((booking) => (
-                        <TableRow key={booking.id}>
+                        <TableRow key={booking.booking_id}>
                           <TableCell>{booking.booking_id}</TableCell>
                           <TableCell>
                             {booking.vehicle?.name || 'Not assigned'}
