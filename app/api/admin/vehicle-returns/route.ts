@@ -113,10 +113,10 @@ export async function POST(request: Request) {
         b.status,
         b.vehicle_id,
         b.total_price,
+        b.registration_number as vehicle_number,
         u.name as customer_name,
         u.phone as customer_phone,
-        v.name as vehicle_name,
-        v.registration_number as vehicle_number
+        v.name as vehicle_name
       FROM bookings b
       JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
@@ -206,10 +206,10 @@ export async function POST(request: Request) {
           WHERE id = $2`,
           [remaining_payment_method || 'cash', booking_id]
         );
-        
-        logger.info('Remaining payment collected for booking', { 
-          bookingId: booking_id, 
-          method: remaining_payment_method 
+
+        logger.info('Remaining payment collected for booking', {
+          bookingId: booking_id,
+          method: remaining_payment_method
         });
       }
 
