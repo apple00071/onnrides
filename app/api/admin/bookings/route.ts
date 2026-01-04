@@ -142,8 +142,8 @@ export async function GET(request: Request) {
         v.type as vehicle_type,
         v.id as vehicle_id,
         p.status as payment_status,
-        p.reference as payment_reference,
-        p.method as payment_method,
+        p.payment_reference as payment_reference,
+        p.payment_method as payment_method,
         CASE 
           WHEN b.booking_type = 'offline' THEN b.customer_name
           ELSE u.name

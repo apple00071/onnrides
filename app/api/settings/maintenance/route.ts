@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
+import { randomUUID } from 'crypto';
+
 // GET /api/settings/maintenance - Get maintenance mode status
 export async function GET() {
   try {
@@ -50,7 +52,7 @@ export async function POST(request: NextRequest) {
       ON CONFLICT (key) DO UPDATE
       SET value = $3, updated_at = NOW()
       RETURNING value
-    `, ['maintenance_mode', 'maintenance_mode', String(enabled)]);
+    `, [randomUUID(), 'maintenance_mode', String(enabled)]);
 
     const maintenanceStatus = result.rows[0];
 
