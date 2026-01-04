@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
 export async function GET(
@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }
@@ -19,28 +19,24 @@ export async function GET(
 
     const { userId } = params;
 
-    const user = await prisma.users.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        created_at: true,
-        _count: {
-          select: {
-            documents: true,
-            bookings: true
-          }
-        },
-        bookings: {
-          select: {
-            status: true
-          }
-        }
-      }
-    });
+    // Fetch user details and aggregations using a single query
+    const userResult = await query(`
+      SELECT 
+        u.id, 
+        u.name, 
+        u.email, 
+        u.phone, 
+        u.role::text, 
+        u.created_at,
+        (SELECT COUNT(*) FROM documents WHERE user_id = u.id) as doc_count,
+        (SELECT COUNT(*) FROM bookings WHERE user_id = u.id) as total_bookings,
+        (SELECT COUNT(*) FROM bookings WHERE user_id = u.id AND status = 'completed') as completed_bookings,
+        (SELECT COUNT(*) FROM bookings WHERE user_id = u.id AND status = 'cancelled') as cancelled_bookings
+      FROM users u
+      WHERE u.id = $1
+    `, [userId]);
+
+    const user = userResult.rows[0];
 
     if (!user) {
       return NextResponse.json(
@@ -49,24 +45,23 @@ export async function GET(
       );
     }
 
-    // Calculate booking counts
-    const bookingCounts = {
-      total: user._count.bookings,
-      completed: user.bookings.filter(b => b.status === 'completed').length,
-      cancelled: user.bookings.filter(b => b.status === 'cancelled').length
-    };
-
-    // Remove the raw bookings data from response
-    const { bookings, _count, ...userData } = user;
-
     return NextResponse.json({
       success: true,
       data: {
-        ...userData,
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        created_at: user.created_at,
         documents: {
-          total: user._count.documents
+          total: parseInt(user.doc_count)
         },
-        bookings: bookingCounts
+        bookings: {
+          total: parseInt(user.total_bookings),
+          completed: parseInt(user.completed_bookings),
+          cancelled: parseInt(user.cancelled_bookings)
+        }
       }
     });
 
@@ -77,4 +72,4 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}

@@ -27,10 +27,8 @@ declare module '@/components/ui/toast' {
 }
 
 declare module './ViewBookingModal' {
-  import { type bookings } from '@prisma/client';
-  
   interface ViewBookingModalProps {
-    booking: bookings;
+    booking: any;
     isOpen: boolean;
     onClose: () => void;
   }
@@ -39,10 +37,8 @@ declare module './ViewBookingModal' {
 }
 
 declare module './ViewHistoryModal' {
-  import { type bookings } from '@prisma/client';
-  
   interface ViewHistoryModalProps {
-    booking: bookings;
+    booking: any;
     isOpen: boolean;
     onClose: () => void;
   }

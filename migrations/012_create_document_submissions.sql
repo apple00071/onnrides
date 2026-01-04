@@ -1,9 +1,0 @@
-CREATE TABLE IF NOT EXISTS document_submissions (
-  id SERIAL PRIMARY KEY,
-  user_id UUID REFERENCES users(id),
-  document_type VARCHAR(50) NOT NULL,
-  file_url TEXT NOT NULL,
-  status VARCHAR(20) DEFAULT 'pending',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-); 

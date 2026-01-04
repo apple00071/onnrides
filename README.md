@@ -17,9 +17,12 @@ OnnRides is a vehicle rental platform that allows users to rent bikes and other 
 Ensure the following environment variables are set in your Vercel project:
 
 ```
-# Database Connection
-DATABASE_URL=postgresql://user:password@host:port/dbname
-POSTGRES_URL=postgresql://user:password@host:port/dbname
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+SUPABASE_STORAGE_BUCKET=vehicles
 
 # NextAuth Configuration
 NEXTAUTH_SECRET=your-nextauth-secret
@@ -47,39 +50,29 @@ NEXT_PUBLIC_APP_URL=https://your-domain.com
 
 ### Database Setup
 
-The application includes migration scripts to set up your database. These migrations will run automatically during the build process.
+The application uses raw PostgreSQL queries via `pg` pool. To set up the database:
+
+1. Run the `supabase_schema.sql` found in the documentation/migrations folder in your Supabase SQL Editor.
+2. Ensure `DATABASE_URL` is correctly set in your environment variables.
 
 ### Vercel Deployment
 
 1. Connect your GitHub repository to Vercel
 2. Configure the environment variables
-3. Set the Node.js version to 18.x
-4. Deploy the application
-
-### Database Column Name Requirements
-
-The application supports both camelCase (e.g., "updatedAt") and snake_case (e.g., "updated_at") column naming conventions. For optimal compatibility, we use:
-
-1. snake_case conventions in the database
-2. Prisma mappings to translate between formats
-3. Compatibility views for queries that need to work with both formats
+3. Deploy the application
 
 ### Build Process
 
-The build process performs the following steps:
-
-1. Runs database compatibility scripts to ensure queries work with both naming conventions
-2. Generates Prisma client based on the schema
-3. Builds the Next.js application
+The build process builds the Next.js application. Database interactions are handled at runtime via standard connection pooling.
 
 ### Troubleshooting
 
-If you encounter database-related errors during build or deployment:
+If you encounter database-related errors:
 
-1. Ensure your database is accessible from the Vercel environment
-2. Check that the PostgreSQL user has proper permissions
-3. Verify that the database schema matches the expected column names
-4. Run the migration scripts manually if needed
+1. Ensure your Supabase project is active and `DATABASE_URL` is correct.
+2. Check that the PostgreSQL password in the connection string is correct.
+3. Verify that the database schema has been initialized using the provided SQL script.
+
 
 ## Local Development
 

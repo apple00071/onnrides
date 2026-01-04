@@ -1,7 +1,0 @@
--- Add pricing columns to vehicles table
-ALTER TABLE vehicles
-ADD COLUMN IF NOT EXISTS price_12hrs INTEGER,
-ADD COLUMN IF NOT EXISTS price_24hrs INTEGER,
-ADD COLUMN IF NOT EXISTS price_7days INTEGER,
-ADD COLUMN IF NOT EXISTS price_15days INTEGER,
-ADD COLUMN IF NOT EXISTS price_30days INTEGER; 

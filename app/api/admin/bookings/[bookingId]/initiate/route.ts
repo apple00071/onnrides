@@ -1,39 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { uploadFile } from '@/lib/upload';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
-
-// Type definitions for request body
-interface CustomerInfo {
-  name: string;
-  phone: string;
-  email?: string;
-  dlNumber?: string;
-  aadhaarNumber?: string;
-  dob?: string;
-  address?: string;
-  emergencyContact?: string;
-  emergencyName?: string;
-}
-
-interface TripInitiationRequest {
-  customer: CustomerInfo;
-  notes?: string;
-  checklistCompleted: boolean;
-  vehicleNumber?: string;
-  termsAccepted: boolean;
-  documents?: {
-    dlFront?: string;
-    dlBack?: string;
-    aadhaarFront?: string;
-    aadhaarBack?: string;
-    customerPhoto?: string;
-    signature?: string;
-  };
-}
 
 export async function POST(
   request: NextRequest,
@@ -42,7 +13,7 @@ export async function POST(
   try {
     // Verify admin authentication
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -59,7 +30,7 @@ export async function POST(
     }
 
     const formData = await request.formData();
-    
+
     // Parse JSON strings from FormData
     const customerInfo = JSON.parse(formData.get('customerInfo') as string);
     const checklist = JSON.parse(formData.get('checklist') as string);
@@ -70,7 +41,7 @@ export async function POST(
     // Handle file uploads
     const documentUrls: Record<string, string> = {};
     const fileTypes = ['dlFront', 'dlBack', 'aadhaarFront', 'aadhaarBack', 'customerPhoto'];
-    
+
     for (const type of fileTypes) {
       const file = formData.get(type) as File;
       if (file) {
@@ -86,64 +57,98 @@ export async function POST(
       documentUrls.signature = signatureUrl;
     }
 
-    // Check if trip initiation exists
-    const existingInitiation = await prisma.tripInitiation.findUnique({
-      where: { booking_id: bookingId }
-    });
+    const checklistCompleted = Object.values(checklist).every(v => v === true);
 
-    if (existingInitiation) {
+    // Use a transaction-like approach (manual for raw queries)
+    // Check if trip initiation exists
+    const existingInitiationResult = await query(
+      'SELECT id FROM trip_initiations WHERE booking_id = $1',
+      [bookingId]
+    );
+
+    if (existingInitiationResult.rows.length > 0) {
       // Update existing trip initiation
-      await prisma.tripInitiation.update({
-        where: { booking_id: bookingId },
-        data: {
-          checklist_completed: Object.values(checklist).every(v => v === true),
-          customer_name: customerInfo.name,
-          customer_phone: customerInfo.phone,
-          customer_email: customerInfo.email,
-          customer_dl_number: customerInfo.dlNumber,
-          customer_address: customerInfo.address,
-          emergency_contact: customerInfo.emergencyContact,
-          emergency_name: customerInfo.emergencyName,
-          customer_aadhaar_number: customerInfo.aadhaarNumber,
-          customer_dob: customerInfo.dob,
-          vehicle_number: vehicleNumber,
-          documents: documentUrls,
-          terms_accepted: termsAccepted,
-          notes: tripNotes,
-          updated_at: new Date()
-        }
-      });
+      await query(`
+        UPDATE trip_initiations SET
+          checklist_completed = $1,
+          customer_name = $2,
+          customer_phone = $3,
+          customer_email = $4,
+          customer_dl_number = $5,
+          customer_address = $6,
+          emergency_contact = $7,
+          emergency_name = $8,
+          customer_aadhaar_number = $9,
+          customer_dob = $10,
+          vehicle_number = $11,
+          documents = $12,
+          terms_accepted = $13,
+          notes = $14,
+          updated_at = NOW()
+        WHERE booking_id = $15
+      `, [
+        checklistCompleted,
+        customerInfo.name,
+        customerInfo.phone,
+        customerInfo.email,
+        customerInfo.dlNumber,
+        customerInfo.address,
+        customerInfo.emergencyContact,
+        customerInfo.emergencyName,
+        customerInfo.aadhaarNumber,
+        customerInfo.dob,
+        vehicleNumber,
+        JSON.stringify(documentUrls),
+        termsAccepted,
+        tripNotes,
+        bookingId
+      ]);
     } else {
       // Create new trip initiation
-      await prisma.tripInitiation.create({
-        data: {
-          booking_id: bookingId,
-          checklist_completed: Object.values(checklist).every(v => v === true),
-          customer_name: customerInfo.name,
-          customer_phone: customerInfo.phone,
-          customer_email: customerInfo.email,
-          customer_dl_number: customerInfo.dlNumber,
-          customer_address: customerInfo.address,
-          emergency_contact: customerInfo.emergencyContact,
-          emergency_name: customerInfo.emergencyName,
-          customer_aadhaar_number: customerInfo.aadhaarNumber,
-          customer_dob: customerInfo.dob,
-          vehicle_number: vehicleNumber,
-          documents: documentUrls,
-          terms_accepted: termsAccepted,
-          notes: tripNotes
-        }
-      });
+      await query(`
+        INSERT INTO trip_initiations (
+          booking_id,
+          checklist_completed,
+          customer_name,
+          customer_phone,
+          customer_email,
+          customer_dl_number,
+          customer_address,
+          emergency_contact,
+          emergency_name,
+          customer_aadhaar_number,
+          customer_dob,
+          vehicle_number,
+          documents,
+          terms_accepted,
+          notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      `, [
+        bookingId,
+        checklistCompleted,
+        customerInfo.name,
+        customerInfo.phone,
+        customerInfo.email,
+        customerInfo.dlNumber,
+        customerInfo.address,
+        customerInfo.emergencyContact,
+        customerInfo.emergencyName,
+        customerInfo.aadhaarNumber,
+        customerInfo.dob,
+        vehicleNumber,
+        JSON.stringify(documentUrls),
+        termsAccepted,
+        tripNotes
+      ]);
     }
 
     // Update booking status
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: 'initiated',
-        updated_at: new Date()
-      }
-    });
+    await query(`
+      UPDATE bookings SET
+        status = 'initiated',
+        updated_at = NOW()
+      WHERE id = $1
+    `, [bookingId]);
 
     // Send WhatsApp trip start confirmation
     try {
@@ -169,11 +174,11 @@ export async function POST(
   } catch (error) {
     logger.error('Error initiating trip:', error);
     return NextResponse.json(
-      { 
+      {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to initiate trip'
       },
       { status: 500 }
     );
   }
-} 
+}

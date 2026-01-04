@@ -4,7 +4,9 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["bom1"],
+  "regions": [
+    "bom1"
+  ],
   "crons": [
     {
       "path": "/api/cron/whatsapp-reminders",
@@ -25,8 +27,6 @@
   },
   "outputDirectory": ".next",
   "env": {
-    "DATABASE_URL": "postgresql://neondb_owner:npg_rmT3YZLKSD1w@ep-red-union-ad764p71-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
-    "POSTGRES_URL": "postgresql://neondb_owner:npg_rmT3YZLKSD1w@ep-red-union-ad764p71-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
     "NEXTAUTH_URL": "https://www.onnrides.com",
     "ADMIN_PHONE": "919182495481",
     "RAZORPAY_KEY_ID": "rzp_live_RbFBxqulyXbmUf",
@@ -46,4 +46,4 @@
     "silent": false,
     "autoAlias": true
   }
-} 
+}

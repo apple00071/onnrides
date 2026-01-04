@@ -1,13 +1,12 @@
 import { Metadata } from 'next';
+export const dynamic = 'force-dynamic';
+
 import Image from 'next/image';
 import Link from 'next/link';
-import { PrismaClient } from '@prisma/client';
+import { query } from '@/lib/db';
 import { VehicleCard, Vehicle } from '@/components/ui/VehicleCard';
 import { Button } from '@/components/ui/button';
 import { BikeRentalFAQ } from '@/components/ui/BikeRentalFAQ';
-
-// Initialize Prisma client
-const prisma = new PrismaClient();
 
 export const metadata: Metadata = {
   title: 'Bike Rental in Hyderabad | Activa on Rent | Honda Dio | OnnRides',
@@ -44,25 +43,31 @@ export const metadata: Metadata = {
 };
 
 export default async function BikesPage() {
-  // Get bikes from database using Prisma
-  const dbBikes = await prisma.vehicles.findMany({
-    where: {
-      type: 'bike',
-      is_available: true
-    },
-    orderBy: {
-      created_at: 'desc'
-    },
-    take: 6
-  });
+  // Get bikes from database using raw query
+  const result = await query(`
+    SELECT 
+      id,
+      name,
+      type,
+      images,
+      price_per_hour,
+      is_available
+    FROM vehicles
+    WHERE type = 'bike'
+    AND is_available = true
+    ORDER BY created_at DESC
+    LIMIT 6
+  `);
+
+  const dbBikes = result.rows;
 
   // Transform the bikes data to match the Vehicle interface
-  const bikes: Vehicle[] = dbBikes.map(bike => ({
+  const bikes: Vehicle[] = dbBikes.map((bike: any) => ({
     id: bike.id,
     name: bike.name,
     description: bike.type || '',
-    image: bike.images.split(',')[0] || '',
-    price: bike.price_per_hour * 24,
+    image: (bike.images && typeof bike.images === 'string') ? bike.images.split(',')[0] : (Array.isArray(bike.images) ? bike.images[0] : ''),
+    price: (bike.price_per_hour || 0) * 24,
     category: bike.type || '',
     available: bike.is_available ?? true
   }));
@@ -200,9 +205,9 @@ export default async function BikesPage() {
       <section className="prose max-w-none mb-12">
         <h2>Bike Rental in Hyderabad - Your Ultimate Guide</h2>
         <p>
-          Looking for reliable bike rental services in Hyderabad? OnnRides offers a wide selection of 
-          well-maintained bikes including Honda Activa, Honda Dio, and Suzuki Access at competitive rates. 
-          Whether you need a bike for a few hours or several months, we've got you covered with convenient 
+          Looking for reliable bike rental services in Hyderabad? OnnRides offers a wide selection of
+          well-maintained bikes including Honda Activa, Honda Dio, and Suzuki Access at competitive rates.
+          Whether you need a bike for a few hours or several months, we've got you covered with convenient
           pickup locations across Hyderabad including Madhapur, Gachibowli, Hitec City, and Erragadda.
         </p>
         <h3>Types of Bikes Available for Rent</h3>
@@ -221,10 +226,10 @@ export default async function BikesPage() {
           <li>Monthly rental (best value)</li>
         </ul>
         <p>
-          All our bikes come with insurance coverage and 24/7 roadside assistance. We also provide 
+          All our bikes come with insurance coverage and 24/7 roadside assistance. We also provide
           complimentary helmets and maintain high sanitization standards for your safety.
         </p>
       </section>
     </div>
   );
-} 
+}

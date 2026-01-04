@@ -1,6 +1,8 @@
-import { Kysely, PostgresDialect } from 'kysely';
 import { Pool, QueryResult } from 'pg';
 import logger from '@/lib/logger';
+import { createId } from '@paralleldrive/cuid2';
+import bcrypt from 'bcryptjs';
+
 
 // Constants for database operations
 const MAX_RETRIES = 3;
@@ -8,6 +10,7 @@ const RETRY_DELAY = 2000; // 2 seconds
 const CONNECTION_TIMEOUT = 10000; // 10 seconds
 
 // Create a pool instance
+// Using DATABASE_URL which should point to Supabase in the new setup
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || process.env.POSTGRES_URL,
   ssl: {
@@ -25,7 +28,7 @@ pool.on('error', (err) => {
 
 // Handle pool connect
 pool.on('connect', (client) => {
-  logger.info('New database connection established');
+  logger.debug('New database connection established');
   client.on('error', (err) => {
     logger.error('Database client error:', err);
   });
@@ -98,7 +101,7 @@ export async function query(text: string, params: any[] = []): Promise<QueryResu
       const duration = Date.now() - start;
 
       logger.debug('Executed query', {
-        text,
+        text: text.substring(0, 50) + '...',
         duration,
         rows: result.rowCount,
         retriesLeft: retries
@@ -127,26 +130,17 @@ export async function query(text: string, params: any[] = []): Promise<QueryResu
 // Initialize database connection
 export async function initializeDatabase(): Promise<boolean> {
   try {
-    logger.info('Initializing database connection', {
-      environment: process.env.NODE_ENV,
-      host: process.env.PGHOST || new URL(process.env.DATABASE_URL || '').hostname,
-      ssl: true
-    });
-
     // Test the connection
     const result = await query('SELECT NOW()');
     if (result.rows.length > 0) {
-      logger.info('Database connection successful', {
-        timestamp: result.rows[0].now
-      });
+      logger.info('Database connection successful');
       return true;
     }
     return false;
   } catch (error) {
     logger.error('Failed to initialize database:', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      code: (error as any).code,
-      detail: (error as any).detail
+      code: (error as any).code
     });
     return false;
   }
@@ -162,94 +156,35 @@ export async function closePool(): Promise<void> {
   }
 }
 
-// Export pool for direct access if needed
 export { pool };
 
-// Type Definitions
-interface Database {
-  users: {
-    id: string;
-    name: string | null;
-    email: string | null;
-    password_hash: string | null;
-    phone: string | null;
-    reset_token: string | null;
-    reset_token_expiry: Date | null;
-    is_blocked: boolean | null;
-    role: string | null;
-    created_at: Date | null;
-    updated_at: Date | null;
-  };
-  settings: {
-    id: string;
-    key: string;
-    value: string;
-    created_at: Date;
-    updated_at: Date;
-  };
-  bookings: {
-    id: string;
-    user_id: string;
-    vehicle_id: string;
-    start_date: Date;
-    end_date: Date;
-    total_hours: number;
-    total_price: number;
-    status: string | null;
-    payment_status: string | null;
-    payment_details: string | null;
-    created_at: Date | null;
-    updated_at: Date | null;
-    pickup_location: string | null;
-    dropoff_location: string | null;
-    booking_id: string | null;
-    payment_intent_id: string | null;
-  };
-  vehicles: {
-  id: string;
-  name: string;
-    type: string;
-  location: string;
-    quantity: number;
-    price_per_hour: number;
-    min_booking_hours: number;
-    is_available: boolean | null;
-    images: string;
-    status: string | null;
-    created_at: Date | null;
-    updated_at: Date | null;
-  };
-}
-
-interface UserRow {
+export type DbUser = {
   id: string;
   name: string | null;
-  email: string | null;
+  email: string;
+  password_hash: string;
+  role: 'user' | 'admin' | 'delivery_partner';
   phone: string | null;
-  role: string | null;
+  reset_token: string | null;
+  reset_token_expiry: Date | null;
+  is_blocked: boolean;
   created_at: Date;
   updated_at: Date;
-  is_blocked: boolean;
+};
+
+export type NewDbUser = Omit<DbUser, 'id' | 'created_at' | 'updated_at' | 'is_blocked'>;
+
+export async function findUserByEmail(email: string): Promise<DbUser | null> {
+  const result = await query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email]);
+  return result.rows[0] || null;
 }
 
-// Create Kysely instance
-export const db = new Kysely<Database>({
-  dialect: new PostgresDialect({
-    pool
-  })
-});
+export async function createUser(data: Partial<NewDbUser>): Promise<DbUser> {
+  const result = await query(
+    'INSERT INTO users (id, name, email, password_hash, role, phone) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+    [createId(), data.name || null, data.email, data.password_hash, data.role || 'user', data.phone || null]
+  );
+  return result.rows[0];
+}
 
-// Initialize database on module load
-initializeDatabase().catch(error => {
-  logger.error('Database initialization failed:', error);
-  process.exit(1);
-});
-
-// Handle cleanup on process exit
-process.on('exit', () => {
-  closePool().catch(error => {
-    logger.error('Error during cleanup:', error);
-  });
-});
-
-export default db;
+export default { query, pool, initializeDatabase, closePool, findUserByEmail, createUser };

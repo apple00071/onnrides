@@ -1,9 +1,8 @@
 import { randomUUID } from 'crypto';
 import logger from './logger';
-import { prisma } from '@/lib/prisma';
+import { query } from '@/lib/db';
 
 // In-memory cache for settings
-// This will reduce database calls for frequently accessed settings
 type SettingsCache = {
   [key: string]: {
     value: string;
@@ -16,59 +15,44 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Get a setting value by key
- * @param key Setting key
- * @param defaultValue Default value if setting is not found
- * @param skipCache Whether to skip the cache and force database fetch
- * @returns The setting value or default value if not found
  */
 export async function getSetting(
-  key: string, 
-  defaultValue: string = '', 
+  key: string,
+  defaultValue: string = '',
   skipCache: boolean = false
 ): Promise<string> {
   try {
-    // Check cache first if not skipping it
+    // Check cache first
     if (!skipCache && cache[key] && cache[key].expiresAt > Date.now()) {
       return cache[key].value;
     }
 
-    try {
-      const setting = await prisma.settings.findUnique({
-        where: { key },
-        select: { value: true }
-      });
+    const result = await query('SELECT value FROM settings WHERE key = $1', [key]);
+    const setting = result.rows[0];
 
-      if (setting) {
-        // Update cache
-        cache[key] = {
-          value: setting.value,
-          expiresAt: Date.now() + CACHE_TTL
-        };
-        return setting.value;
-      }
-
-      // If setting doesn't exist, create it with default value
-      if (defaultValue) {
-        await prisma.settings.create({
-          data: {
-            id: randomUUID(),
-            key,
-            value: defaultValue
-          }
-        });
-
-        // Update cache
-        cache[key] = {
-          value: defaultValue,
-          expiresAt: Date.now() + CACHE_TTL
-        };
-      }
-
-      return defaultValue;
-    } catch (error) {
-      logger.error('Error accessing settings:', error);
-      return defaultValue;
+    if (setting) {
+      cache[key] = {
+        value: setting.value,
+        expiresAt: Date.now() + CACHE_TTL
+      };
+      return setting.value;
     }
+
+    // If setting doesn't exist, create it with default value
+    if (defaultValue) {
+      await query(`
+        INSERT INTO settings (id, key, value, created_at, updated_at)
+        VALUES ($1, $2, $3, NOW(), NOW())
+        ON CONFLICT (key) DO NOTHING
+      `, [randomUUID(), key, defaultValue]);
+
+      cache[key] = {
+        value: defaultValue,
+        expiresAt: Date.now() + CACHE_TTL
+      };
+    }
+
+    return defaultValue;
   } catch (error) {
     logger.error('Error fetching setting:', { key, error });
     return defaultValue;
@@ -77,23 +61,16 @@ export async function getSetting(
 
 /**
  * Set a setting value
- * @param key Setting key
- * @param value Setting value
- * @returns True if setting was updated successfully, false otherwise
  */
 export async function setSetting(key: string, value: string): Promise<boolean> {
   try {
-    await prisma.settings.upsert({
-      where: { key },
-      create: {
-        id: randomUUID(),
-        key,
-        value
-      },
-      update: {
-        value
-      }
-    });
+    await query(`
+      INSERT INTO settings (id, key, value, created_at, updated_at)
+      VALUES ($1, $2, $3, NOW(), NOW())
+      ON CONFLICT (key) DO UPDATE SET
+        value = EXCLUDED.value,
+        updated_at = NOW()
+    `, [randomUUID(), key, value]);
 
     // Update cache
     cache[key] = {
@@ -110,21 +87,14 @@ export async function setSetting(key: string, value: string): Promise<boolean> {
 
 /**
  * Get a boolean setting value
- * @param key Setting key
- * @param defaultValue Default value if setting is not found
- * @returns The setting value as boolean
  */
 export async function getBooleanSetting(
-  key: string, 
+  key: string,
   defaultValue: boolean = false
 ): Promise<boolean> {
   try {
-    const setting = await prisma.settings.findUnique({
-      where: { key },
-      select: { value: true }
-    });
-    
-    return setting?.value?.toLowerCase() === 'true';
+    const value = await getSetting(key, String(defaultValue));
+    return value?.toLowerCase() === 'true';
   } catch (error) {
     logger.error(`Error getting boolean setting ${key}:`, error);
     return defaultValue;
@@ -133,12 +103,9 @@ export async function getBooleanSetting(
 
 /**
  * Get a numeric setting value
- * @param key Setting key
- * @param defaultValue Default value if setting is not found
- * @returns The setting value as number
  */
 export async function getNumericSetting(
-  key: string, 
+  key: string,
   defaultValue: number = 0
 ): Promise<number> {
   const value = await getSetting(key, String(defaultValue));

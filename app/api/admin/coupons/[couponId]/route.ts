@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
 export async function GET(
@@ -10,13 +10,14 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
+    if (!session || session.user.role?.toLowerCase() !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const coupon = await prisma.coupons.findUnique({
-      where: { id: params.couponId }
-    });
+    const { couponId } = params;
+
+    const result = await query('SELECT * FROM coupons WHERE id = $1', [couponId]);
+    const coupon = result.rows[0];
 
     if (!coupon) {
       return NextResponse.json({ error: 'Coupon not found' }, { status: 404 });
@@ -38,11 +39,12 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
+    if (!session || session.user.role?.toLowerCase() !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     const data = await request.json();
+    const { couponId } = params;
 
     // Validate required fields
     if (!data.code || !data.discount_type || !data.discount_value) {
@@ -69,9 +71,8 @@ export async function PUT(
     }
 
     // Check if coupon exists
-    const existingCoupon = await prisma.coupons.findUnique({
-      where: { id: params.couponId },
-    });
+    const existingResult = await query('SELECT * FROM coupons WHERE id = $1', [couponId]);
+    const existingCoupon = existingResult.rows[0];
 
     if (!existingCoupon) {
       return NextResponse.json(
@@ -81,12 +82,9 @@ export async function PUT(
     }
 
     // Check if code is being changed and if new code already exists
-    if (data.code !== existingCoupon.code) {
-      const codeExists = await prisma.coupons.findUnique({
-        where: { code: data.code.toUpperCase() },
-      });
-
-      if (codeExists) {
+    if (data.code.toUpperCase() !== existingCoupon.code) {
+      const codeExistsResult = await query('SELECT id FROM coupons WHERE code = $1', [data.code.toUpperCase()]);
+      if (codeExistsResult.rows.length > 0) {
         return NextResponse.json(
           { error: 'Coupon code already exists' },
           { status: 400 }
@@ -95,23 +93,36 @@ export async function PUT(
     }
 
     // Update coupon
-    const coupon = await prisma.coupons.update({
-      where: { id: params.couponId },
-      data: {
-        code: data.code.toUpperCase(),
-        description: data.description,
-        discount_type: data.discount_type,
-        discount_value: data.discount_value,
-        min_booking_amount: data.min_booking_amount,
-        max_discount_amount: data.max_discount_amount,
-        start_date: data.start_date,
-        end_date: data.end_date,
-        usage_limit: data.usage_limit,
-        is_active: data.is_active,
-      },
-    });
+    const updatedResult = await query(`
+      UPDATE coupons SET
+        code = $1,
+        description = $2,
+        discount_type = $3,
+        discount_value = $4,
+        min_booking_amount = $5,
+        max_discount_amount = $6,
+        start_date = $7,
+        end_date = $8,
+        usage_limit = $9,
+        is_active = $10,
+        updated_at = NOW()
+      WHERE id = $11
+      RETURNING *
+    `, [
+      data.code.toUpperCase(),
+      data.description,
+      data.discount_type,
+      data.discount_value,
+      data.min_booking_amount,
+      data.max_discount_amount,
+      data.start_date,
+      data.end_date,
+      data.usage_limit,
+      data.is_active,
+      couponId
+    ]);
 
-    return NextResponse.json({ coupon });
+    return NextResponse.json({ coupon: updatedResult.rows[0] });
   } catch (error) {
     logger.error('Error updating coupon:', error);
     return NextResponse.json(
@@ -127,16 +138,15 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'admin') {
+    if (!session || session.user.role?.toLowerCase() !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Check if coupon exists
-    const existingCoupon = await prisma.coupons.findUnique({
-      where: { id: params.couponId },
-    });
+    const { couponId } = params;
 
-    if (!existingCoupon) {
+    // Check if coupon exists
+    const existingResult = await query('SELECT id FROM coupons WHERE id = $1', [couponId]);
+    if (existingResult.rows.length === 0) {
       return NextResponse.json(
         { error: 'Coupon not found' },
         { status: 404 }
@@ -144,9 +154,7 @@ export async function DELETE(
     }
 
     // Delete coupon
-    await prisma.coupons.delete({
-      where: { id: params.couponId },
-    });
+    await query('DELETE FROM coupons WHERE id = $1', [couponId]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -156,4 +164,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-} 
+}

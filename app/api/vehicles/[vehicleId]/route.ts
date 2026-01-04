@@ -51,7 +51,7 @@ export async function GET(
       logger.warn('Vehicle not found:', { vehicleId: resolvedParams.vehicleId });
       return new NextResponse(
         JSON.stringify({ error: 'Vehicle not found' }),
-        { 
+        {
           status: 404,
           headers: {
             'Content-Type': 'application/json',
@@ -65,22 +65,22 @@ export async function GET(
       id: result.rows[0].id,
       name: result.rows[0].name,
       imagesType: typeof result.rows[0].images,
-      imagesPreview: result.rows[0].images ? 
-        (typeof result.rows[0].images === 'string' ? 
-          result.rows[0].images.substring(0, 50) + '...' : 
-          JSON.stringify(result.rows[0].images).substring(0, 50) + '...') : 
+      imagesPreview: result.rows[0].images ?
+        (typeof result.rows[0].images === 'string' ?
+          result.rows[0].images.substring(0, 50) + '...' :
+          JSON.stringify(result.rows[0].images).substring(0, 50) + '...') :
         'null',
-      locationPreview: result.rows[0].location ? 
-        (typeof result.rows[0].location === 'string' ? 
-          result.rows[0].location.substring(0, 50) + '...' : 
-          JSON.stringify(result.rows[0].location).substring(0, 50) + '...') : 
+      locationPreview: result.rows[0].location ?
+        (typeof result.rows[0].location === 'string' ?
+          result.rows[0].location.substring(0, 50) + '...' :
+          JSON.stringify(result.rows[0].location).substring(0, 50) + '...') :
         'null'
     });
 
     // Safely parse JSON fields with error handling
     let parsedLocation = [];
     let parsedImages = [];
-    
+
     try {
       // Parse location - could be a JSON string or a plain string
       if (result.rows[0].location) {
@@ -88,7 +88,7 @@ export async function GET(
           try {
             // Try to parse as JSON
             const locationData = JSON.parse(result.rows[0].location);
-            
+
             // Clean the data based on what we parsed
             if (Array.isArray(locationData)) {
               // Clean each location in the array
@@ -106,19 +106,19 @@ export async function GET(
           } catch (e) {
             // If parsing fails, check if it looks like an array with brackets/quotes
             const locationStr = result.rows[0].location;
-            
+
             if (locationStr.match(/^\[.*\]$/)) {
               // Looks like ["text"] or [text] - remove brackets and split
               const cleanedStr = locationStr.replace(/^\[|\]$/g, '').trim();
-              parsedLocation = cleanedStr.split(',').map((s: string) => 
+              parsedLocation = cleanedStr.split(',').map((s: string) =>
                 s.replace(/^["']+|["']+$/g, '').trim()
               ).filter(Boolean);
             } else {
               // Plain string - just clean it
               parsedLocation = [locationStr.replace(/^["']+|["']+$/g, '').trim()];
             }
-            
-            logger.warn('Location is not valid JSON, cleaned manually:', { 
+
+            logger.warn('Location is not valid JSON, cleaned manually:', {
               original: result.rows[0].location,
               cleaned: parsedLocation
             });
@@ -136,7 +136,7 @@ export async function GET(
           parsedLocation = [String(result.rows[0].location).trim()];
         }
       }
-      
+
       // Parse images - could be a JSON string array or a plain URL string
       if (result.rows[0].images) {
         if (typeof result.rows[0].images === 'string') {
@@ -182,16 +182,16 @@ export async function GET(
       hasImages: Array.isArray(vehicle.images) && vehicle.images.length > 0,
       imageCount: Array.isArray(vehicle.images) ? vehicle.images.length : 0,
       locationsFormatted: JSON.stringify(vehicle.location),
-      firstImagePreview: Array.isArray(vehicle.images) && vehicle.images.length > 0 
-        ? (typeof vehicle.images[0] === 'string' 
-           ? vehicle.images[0].substring(0, 50) + '...' 
-           : JSON.stringify(vehicle.images[0]).substring(0, 50) + '...') 
+      firstImagePreview: Array.isArray(vehicle.images) && vehicle.images.length > 0
+        ? (typeof vehicle.images[0] === 'string'
+          ? vehicle.images[0].substring(0, 50) + '...'
+          : JSON.stringify(vehicle.images[0]).substring(0, 50) + '...')
         : 'No images'
     });
 
     return new NextResponse(
       JSON.stringify(vehicle),
-      { 
+      {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
@@ -203,13 +203,13 @@ export async function GET(
       message: error.message,
       stack: error.stack
     } : error);
-    
+
     return new NextResponse(
-      JSON.stringify({ 
+      JSON.stringify({
         error: 'Failed to fetch vehicle',
         details: error instanceof Error ? error.message : 'Unknown error'
       }),
-      { 
+      {
         status: 500,
         headers: {
           'Content-Type': 'application/json',
@@ -252,7 +252,7 @@ export async function PUT(
       delivery_price_30_days,
     } = body;
 
-    // Update vehicle using Prisma
+    // Update vehicle using raw SQL query
     const updatedVehicle = await query(`
       UPDATE vehicles
       SET 

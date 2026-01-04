@@ -12,5 +12,8 @@
   },
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "always"
-  }
-} 
+  },
+  "explorer.excludeGitIgnore": true,
+  "git.ignoreLegacyWarning": false,
+  "search.useGlobalIgnoreFiles": true
+}

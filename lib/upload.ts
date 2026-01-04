@@ -1,67 +1,62 @@
+import { supabaseAdmin } from './supabase';
 import logger from '@/lib/logger';
-import { BlobServiceClient } from '@azure/storage-blob';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
-const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
-const CONTAINER_NAME = process.env.AZURE_STORAGE_CONTAINER_NAME || 'vehicles';
-
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'ap-south-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
-});
+const BUCKET_NAME = process.env.SUPABASE_STORAGE_BUCKET || 'vehicles';
 
 export async function uploadToBlob(file: File, filename: string): Promise<string> {
   try {
-    // Create the BlobServiceClient object with connection string
-    const blobServiceClient = BlobServiceClient.fromConnectionString(
-      AZURE_STORAGE_CONNECTION_STRING
-    );
+    const fileExt = filename.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+    const filePath = `uploads/${fileName}`;
 
-    // Get a reference to a container
-    const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+    const { data, error } = await supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type
+      });
 
-    // Create a unique name for the blob
-    const blobName = `${Date.now()}-${filename}`;
+    if (error) {
+      throw error;
+    }
 
-    // Get a block blob client
-    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    const { data: { publicUrl } } = supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(filePath);
 
-    // Convert File to ArrayBuffer
-    const arrayBuffer = await file.arrayBuffer();
-
-    // Upload data to the blob
-    await blockBlobClient.uploadData(arrayBuffer, {
-      blobHTTPHeaders: { blobContentType: file.type }
-    });
-
-    // Return the blob URL
-    return blockBlobClient.url;
+    return publicUrl;
   } catch (error) {
-    logger.error('Error uploading to blob storage:', error);
+    logger.error('Error uploading to Supabase storage:', error);
     return '/cars/default.jpg';
   }
 }
 
 export async function uploadFile(file: File, path: string): Promise<string> {
   try {
-    const buffer = await file.arrayBuffer();
-    const key = `${path}/${file.name}`;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+    const filePath = `${path}/${fileName}`;
 
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET || '',
-        Key: key,
-        Body: Buffer.from(buffer),
-        ContentType: file.type,
-      })
-    );
+    const { data, error } = await supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type
+      });
 
-    return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION || 'ap-south-1'}.amazonaws.com/${key}`;
+    if (error) {
+      throw error;
+    }
+
+    const { data: { publicUrl } } = supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(filePath);
+
+    return publicUrl;
   } catch (error) {
     console.error('Error uploading file:', error);
     throw new Error('Failed to upload file');
   }
-} 
+}

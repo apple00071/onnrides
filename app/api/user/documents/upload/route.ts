@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { put } from '@vercel/blob';
+import { uploadFile } from '@/lib/upload';
 import { randomUUID } from 'crypto';
 
 // Use the new route segment config format
@@ -49,31 +49,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload file to blob storage
-    const filename = `${session.user.id}/${type}/${randomUUID()}-${file.name}`;
-    const blob = await put(filename, file, {
-      access: 'public',
-      addRandomSuffix: false
-    });
+    // Upload file to Supabase storage
+    const folderPath = `documents/${session.user.id}/${type}`;
+    const publicUrl = await uploadFile(file, folderPath);
 
     // Save document record in database
-    const result = await db
-      .insertInto('documents')
-      .values({
-        id: randomUUID(),
-        user_id: session.user.id,
-        type: type as 'license' | 'id_proof' | 'address_proof',
-        file_url: blob.url,
-        status: 'pending',
-        created_at: new Date(),
-        updated_at: new Date()
-      })
-      .returning(['id', 'type', 'status', 'file_url'])
-      .executeTakeFirst();
+    const docId = randomUUID();
+    const result = await query(`
+      INSERT INTO documents (
+        id, 
+        user_id, 
+        type, 
+        file_url, 
+        status, 
+        created_at, 
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+      RETURNING id, type, status, file_url
+    `, [docId, session.user.id, type, publicUrl, 'pending']);
 
     return NextResponse.json({
       success: true,
-      data: result
+      data: result.rows[0]
     });
   } catch (error) {
     logger.error('Error uploading document:', error);
@@ -82,4 +79,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

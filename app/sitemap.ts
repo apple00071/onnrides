@@ -53,18 +53,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   // Get all available bikes from database
-  const vehiclesResult = await query(`
-    SELECT 
-      id, 
-      updated_at
-    FROM vehicles
-    WHERE type = 'bike' AND is_available = true
-  `, []);
+  let bikes: Vehicle[] = [];
+  try {
+    const vehiclesResult = await query(`
+      SELECT 
+        id, 
+        updated_at
+      FROM vehicles
+      WHERE type = 'bike' AND is_available = true
+    `, []);
 
-  const bikes = vehiclesResult.rows.map((row: VehicleRow) => ({
-    id: row.id,
-    updated_at: row.updated_at
-  })) as Vehicle[];
+    bikes = vehiclesResult.rows.map((row: VehicleRow) => ({
+      id: row.id,
+      updated_at: row.updated_at
+    })) as Vehicle[];
+  } catch (error) {
+    console.error('Failed to fetch vehicles for sitemap:', error);
+    // Continue with empty bikes list for build time safety
+  }
+
 
   // Generate URLs for individual bike pages
   const bikeUrls = bikes.map(bike => ({

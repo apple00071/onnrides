@@ -1,5 +1,5 @@
 import { WaSenderService } from './wasender-service';
-import { prisma } from '../prisma';
+import { query } from '../db';
 import { formatIST } from '../utils/time-formatter';
 
 // Simple logger for the service
@@ -166,14 +166,14 @@ Email: contact@onnrides.com
 Thank you for choosing OnnRides! 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(bookingData.phone_number, message);
-      
+
       if (result) {
         await this.logWhatsAppMessage(bookingData.phone_number, message, 'booking_confirmation', 'delivered');
         logger.info('Booking confirmation WhatsApp sent', { bookingId: bookingData.booking_id });
       } else {
         await this.logWhatsAppMessage(bookingData.phone_number, message, 'booking_confirmation', 'failed');
       }
-      
+
       return result;
     } catch (error) {
       logger.error('Error sending booking confirmation WhatsApp:', error);
@@ -212,14 +212,14 @@ Email: contact@onnrides.com
 Thank you for choosing OnnRides! 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(paymentData.phone_number, message);
-      
+
       if (result) {
         await this.logWhatsAppMessage(paymentData.phone_number, message, 'payment_confirmation', 'delivered');
         logger.info('Payment confirmation WhatsApp sent', { bookingId: paymentData.booking_id });
       } else {
         await this.logWhatsAppMessage(paymentData.phone_number, message, 'payment_confirmation', 'failed');
       }
-      
+
       return result;
     } catch (error) {
       logger.error('Error sending payment confirmation WhatsApp:', error);
@@ -265,14 +265,14 @@ Email: contact@onnrides.com
 See you tomorrow! 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(bookingData.phone_number, message);
-      
+
       if (result) {
         await this.logWhatsAppMessage(bookingData.phone_number, message, 'pickup_reminder', 'delivered');
         logger.info('Pickup reminder WhatsApp sent', { bookingId: bookingData.booking_id });
       } else {
         await this.logWhatsAppMessage(bookingData.phone_number, message, 'pickup_reminder', 'failed');
       }
-      
+
       return result;
     } catch (error) {
       logger.error('Error sending pickup reminder WhatsApp:', error);
@@ -318,14 +318,14 @@ Email: contact@onnrides.com
 Have a safe journey! 🛣️`;
 
       const result = await this.wasenderService.sendTextMessage(tripData.customer_phone, message);
-      
+
       if (result) {
         await this.logWhatsAppMessage(tripData.customer_phone, message, 'trip_start', 'delivered');
         logger.info('Trip start confirmation WhatsApp sent', { bookingId: tripData.booking_id });
       } else {
         await this.logWhatsAppMessage(tripData.customer_phone, message, 'trip_start', 'failed');
       }
-      
+
       return result;
     } catch (error) {
       logger.error('Error sending trip start confirmation WhatsApp:', error);
@@ -372,14 +372,14 @@ Email: contact@onnrides.com
 Thank you for choosing OnnRides! 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(bookingData.phone_number, message);
-      
+
       if (result) {
         await this.logWhatsAppMessage(bookingData.phone_number, message, 'return_reminder', 'delivered');
         logger.info('Return reminder WhatsApp sent', { bookingId: bookingData.booking_id });
       } else {
         await this.logWhatsAppMessage(bookingData.phone_number, message, 'return_reminder', 'failed');
       }
-      
+
       return result;
     } catch (error) {
       logger.error('Error sending return reminder WhatsApp:', error);
@@ -423,14 +423,14 @@ Email: contact@onnrides.com
 Thank you for choosing OnnRides! 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(bookingData.phone_number, message);
-      
+
       if (result) {
         await this.logWhatsAppMessage(bookingData.phone_number, message, 'offline_booking', 'delivered');
         logger.info('Offline booking confirmation WhatsApp sent', { bookingId: bookingData.booking_id });
       } else {
         await this.logWhatsAppMessage(bookingData.phone_number, message, 'offline_booking', 'failed');
       }
-      
+
       return result;
     } catch (error) {
       logger.error('Error sending offline booking confirmation WhatsApp:', error);
@@ -663,7 +663,7 @@ See you again soon! 🚗`;
       }
 
       const urgencyLevel = reminderData.reminder_type === 'final' ? '🚨 URGENT' :
-                          reminderData.reminder_type === 'second' ? '⚠️ REMINDER' : '💳 PAYMENT DUE';
+        reminderData.reminder_type === 'second' ? '⚠️ REMINDER' : '💳 PAYMENT DUE';
 
       const dueDateInfo = reminderData.due_date
         ? `\n⏰ *Due Date:* ${formatIST(reminderData.due_date)}`
@@ -686,8 +686,8 @@ This is a ${reminderData.reminder_type} reminder for your pending payment.
 
 ⚠️ *Important:*
 ${reminderData.reminder_type === 'final'
-  ? 'This is your final reminder. Please complete payment immediately to avoid booking cancellation.'
-  : 'Please complete your payment to confirm your booking and avoid any delays.'}
+          ? 'This is your final reminder. Please complete payment immediately to avoid booking cancellation.'
+          : 'Please complete your payment to confirm your booking and avoid any delays.'}
 
 📞 *Contact Us:*
 For payment assistance: +91 8309031203
@@ -722,8 +722,8 @@ Thank you for choosing OnnRides! 🚗`;
       }
 
       const modificationIcon = modificationData.modification_type === 'dates' ? '📅' :
-                              modificationData.modification_type === 'vehicle' ? '🚗' :
-                              modificationData.modification_type === 'location' ? '📍' : '📝';
+        modificationData.modification_type === 'vehicle' ? '🚗' :
+          modificationData.modification_type === 'location' ? '📍' : '📝';
 
       const message = `${modificationIcon} *Booking Modified*
 
@@ -776,14 +776,21 @@ Thank you for your understanding! 🚗`;
     error?: string
   ): Promise<void> {
     try {
-      await prisma.whatsAppLog.create({
-        data: {
+      await query(`
+        INSERT INTO whatsapp_logs (
           recipient,
-          message: `[${type.toUpperCase()}] ${message}`,
+          message,
           status,
-          error: error || null
-        }
-      });
+          error,
+          created_at,
+          updated_at
+        ) VALUES ($1, $2, $3, $4, NOW(), NOW())
+      `, [
+        recipient,
+        `[${type.toUpperCase()}] ${message}`,
+        status,
+        error || null
+      ]);
     } catch (logError) {
       logger.error('Error logging WhatsApp message:', logError);
     }

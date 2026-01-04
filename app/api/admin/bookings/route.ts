@@ -86,11 +86,11 @@ interface PaymentDetails {
 // Helper function to identify missing information
 function identifyMissingInformation(booking: any): string[] {
   const missingInfo: string[] = [];
-  
+
   // Check for essential customer information
   if (!booking.user_name) missingInfo.push('Customer Name');
   if (!booking.user_phone) missingInfo.push('Customer Phone');
-  
+
   // For offline bookings, check for required documents
   if (booking.booking_type === 'offline') {
     const documents = booking.documents || {};
@@ -101,7 +101,7 @@ function identifyMissingInformation(booking: any): string[] {
     if (!documents.customerPhoto) missingInfo.push('Customer Photo');
     if (!documents.signature) missingInfo.push('Signature');
   }
-  
+
   return missingInfo;
 }
 
@@ -128,7 +128,7 @@ export async function GET(request: Request) {
         WHERE table_name = 'payments'
       );
     `);
-    
+
     const paymentsTableExists = checkTableResult.rows[0].exists;
 
     // Construct query based on whether payments table exists
@@ -149,7 +149,7 @@ export async function GET(request: Request) {
           ELSE u.name
         END as effective_user_name,
         CASE 
-          WHEN b.booking_type = 'offline' THEN b.phone_number
+          WHEN b.booking_type = 'offline' THEN b.customer_phone
           ELSE u.phone
         END as effective_user_phone,
         CASE 
@@ -166,7 +166,7 @@ export async function GET(request: Request) {
       FROM bookings b
       LEFT JOIN users u ON b.user_id = u.id
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
-      LEFT JOIN payments p ON b.id = p.booking_id
+      LEFT JOIN payments p ON b.payment_id = p.id
       ORDER BY b.created_at DESC
       LIMIT $1 OFFSET $2
     ` : `
@@ -183,7 +183,7 @@ export async function GET(request: Request) {
           ELSE u.name
         END as effective_user_name,
         CASE 
-          WHEN b.booking_type = 'offline' THEN b.phone_number
+          WHEN b.booking_type = 'offline' THEN b.customer_phone
           ELSE u.phone
         END as effective_user_phone,
         CASE 
@@ -349,7 +349,7 @@ export async function PATCH(request: Request) {
       `, [bookingDetails.vehicle_id]);
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       data: booking
     });
@@ -396,7 +396,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       data: deletedBookingResult.rows[0]
     });

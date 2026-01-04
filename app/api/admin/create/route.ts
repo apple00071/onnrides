@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { findUserByEmail, createUser } from '@/lib/db/index';
-import bcrypt from 'bcrypt';
+import { findUserByEmail, createUser } from '@/lib/db';
+import bcrypt from 'bcryptjs';
+
 
 export async function POST(request: Request) {
   try {
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
       role: 'admin'
     });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Admin user created successfully',
       userId: user.id
     });
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
   } catch (error) {
     logger.error('Unexpected error:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
       },

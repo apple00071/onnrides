@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { put } from '@vercel/blob';
+import { uploadFile } from '@/lib/upload';
 import { randomUUID } from 'crypto';
 
 const VALID_DOCUMENT_TYPES = ['license', 'id_proof', 'address_proof'] as const;
@@ -11,16 +11,6 @@ type DocumentType = typeof VALID_DOCUMENT_TYPES[number];
 
 const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"] as const;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-
-interface DocumentRow {
-  id: string;
-  user_id: string;
-  type: DocumentType;
-  file_url: string;
-  status: string;
-  created_at: Date;
-  updated_at: Date;
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -93,26 +83,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload to blob storage with user-specific path
-    const filename = `${session.user.id}/${type}/${randomUUID()}-${file.name}`;
-    const blob = await put(filename, file, {
-      access: "public",
-      addRandomSuffix: false
-    });
+    // Upload to Supabase Storage with user-specific path
+    const folderPath = `documents/${session.user.id}/${type}`;
+    const publicUrl = await uploadFile(file, folderPath);
 
     // Create new document record
     const documentId = randomUUID();
     const result = await query(
       `INSERT INTO documents (
-        id, user_id, type, file_url, status, created_at, updated_at
+        id, 
+        user_id, 
+        type, 
+        file_url, 
+        status, 
+        created_at, 
+        updated_at
       ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
       RETURNING *`,
-      [documentId, session.user.id, type, blob.url, 'pending']
+      [documentId, session.user.id, type, publicUrl, 'pending']
     );
 
     const document = result.rows[0];
     logger.info('Document uploaded successfully:', document.id);
-    
+
     return NextResponse.json({
       success: true,
       message: 'Document uploaded successfully and pending verification',
@@ -125,4 +118,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

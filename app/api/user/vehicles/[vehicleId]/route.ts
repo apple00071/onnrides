@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { query } from '@/lib/db';
 import { verifyAuth } from '@/app/lib/auth';
+import logger from '@/lib/logger';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { vehicleId: string } }
+  { params }: { params: Promise<{ vehicleId: string }> }
 ) {
   try {
     // Check if user is authenticated
@@ -13,7 +14,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const vehicleId = params.vehicleId;
+    const resolvedParams = await params;
+    const vehicleId = resolvedParams.vehicleId;
     if (!vehicleId) {
       return NextResponse.json(
         { error: 'Vehicle ID is required' },
@@ -32,14 +34,12 @@ export async function PATCH(
     }
 
     // First check if the vehicle exists
-    const vehicle = await db
-      .selectFrom('vehicles')
-      .selectAll()
-      .where('id', '=', vehicleId)
-      .limit(1)
-      .execute();
+    const vehicleResult = await query(
+      `SELECT * FROM vehicles WHERE id = $1 LIMIT 1`,
+      [vehicleId]
+    );
 
-    if (!vehicle || vehicle.length === 0) {
+    if (vehicleResult.rows.length === 0) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }
@@ -48,14 +48,13 @@ export async function PATCH(
 
     // Check if there are any active bookings for this vehicle
     if (!is_available) {
-      const activeBookings = await db
-        .selectFrom('bookings')
-        .select(db.fn.count<number>('id').as('count'))
-        .where('vehicle_id', '=', vehicleId)
-        .where('status', 'not in', ['completed', 'cancelled'])
-        .execute();
+      const activeBookingsResult = await query(
+        `SELECT COUNT(*) as count FROM bookings 
+         WHERE vehicle_id = $1 AND status NOT IN ('completed', 'cancelled')`,
+        [vehicleId]
+      );
 
-      if (activeBookings[0].count > 0) {
+      if (parseInt(activeBookingsResult.rows[0].count) > 0) {
         return NextResponse.json(
           { error: 'Cannot mark vehicle as unavailable while it has active bookings' },
           { status: 400 }
@@ -64,16 +63,14 @@ export async function PATCH(
     }
 
     // Update the vehicle availability
-    const [updatedVehicle] = await db
-      .updateTable('vehicles')
-      .set({ is_available })
-      .where('id', '=', vehicleId)
-      .returningAll()
-      .execute();
+    const updateResult = await query(
+      `UPDATE vehicles SET is_available = $1 WHERE id = $2 RETURNING *`,
+      [is_available, vehicleId]
+    );
 
-    return NextResponse.json(updatedVehicle);
+    return NextResponse.json(updateResult.rows[0]);
   } catch (error) {
-    console.error('Error updating vehicle:', error);
+    logger.error('Error updating vehicle:', error);
     return NextResponse.json(
       { error: 'Failed to update vehicle' },
       { status: 500 }

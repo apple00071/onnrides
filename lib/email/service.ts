@@ -1,21 +1,7 @@
 import nodemailer, { Transporter } from 'nodemailer';
 import logger from '../logger';
-import { prisma } from '@/lib/prisma';
-import { v4 as uuidv4 } from 'uuid';
+import { query } from '@/lib/db';
 import { randomUUID } from 'crypto';
-
-interface EmailLog {
-  id: string;
-  recipient: string;
-  subject: string;
-  messageContent: string;
-  bookingId?: string | null;
-  status: 'pending' | 'success' | 'failed';
-  messageId?: string | null;
-  error?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 interface BookingConfirmationData {
   userName: string;
@@ -35,12 +21,6 @@ interface PaymentFailureData {
   paymentId: string;
   supportEmail: string;
   supportPhone: string;
-}
-
-interface EmailContent {
-  subject: string;
-  template: string;
-  data: Record<string, any>;
 }
 
 interface PasswordResetData {
@@ -71,9 +51,9 @@ export class EmailService {
   private async initialize() {
     try {
       // Validate required environment variables
-      const requiredVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'];
+      const requiredVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'EMAIL_FROM'];
       const missingVars = requiredVars.filter(varName => !process.env[varName]);
-      
+
       if (missingVars.length > 0) {
         const errorMsg = `Missing required environment variables: ${missingVars.join(', ')}`;
         logger.error(errorMsg);
@@ -81,23 +61,14 @@ export class EmailService {
         throw this.initializationError;
       }
 
-      // Log all environment variables with partially masked values for debugging
-      logger.info('Email service environment variables:', {
-        SMTP_HOST: process.env.SMTP_HOST,
-        SMTP_PORT: process.env.SMTP_PORT,
-        SMTP_USER: process.env.SMTP_USER?.substring(0, 3) + '...',
-        SMTP_PASS: process.env.SMTP_PASS ? '******' : 'not set',
-        SMTP_FROM: process.env.SMTP_FROM
-      });
-
       // Create transporter with secure configuration
       this.transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: process.env.SMTP_SECURE === 'true',
+        secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
         auth: {
           user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+          pass: process.env.SMTP_PASSWORD,
         },
       });
 
@@ -110,19 +81,12 @@ export class EmailService {
         this.initializationError = verifyError instanceof Error ? verifyError : new Error('SMTP verification failed');
         throw this.initializationError;
       }
-      
-      logger.info('Email service initialized successfully', {
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        user: process.env.SMTP_USER?.substring(0, 3) + '...'
-      });
 
       this.initialized = true;
     } catch (error) {
       this.initialized = false;
       this.initializationError = error instanceof Error ? error : new Error('Unknown error initializing email service');
       logger.error('Failed to initialize email service:', error);
-      throw error;
     }
   }
 
@@ -133,20 +97,12 @@ export class EmailService {
     return EmailService.instance;
   }
 
-  public getInitializationStatus(): { initialized: boolean; error: Error | null } {
-    return { 
-      initialized: this.initialized,
-      error: this.initializationError
-    };
-  }
-
   private async waitForInitialization(): Promise<void> {
     if (!this.initialized) {
       try {
         await this.initializationPromise;
       } catch (error) {
         logger.error('Email service initialization failed during wait:', error);
-        throw error;
       }
     }
   }
@@ -155,13 +111,12 @@ export class EmailService {
     try {
       await this.waitForInitialization();
 
-      // Validate email address
       if (!to || !to.includes('@')) {
         throw new Error('Invalid recipient email address');
       }
 
       const mailOptions = {
-        from: process.env.SMTP_FROM,
+        from: process.env.EMAIL_FROM,
         to,
         subject,
         html
@@ -172,7 +127,7 @@ export class EmailService {
 
       try {
         const info = await this.transporter.sendMail(mailOptions);
-        
+
         // Update log with success
         await this.updateEmailLog(logId, {
           status: 'success',
@@ -215,21 +170,23 @@ export class EmailService {
     bookingId?: string | null
   ): Promise<string> {
     try {
-      // Create entry in email_logs table
-      const result = await prisma.emailLog.create({
-        data: {
+      const id = randomUUID();
+      await query(`
+        INSERT INTO email_logs (
+          id,
           recipient,
           subject,
-          messageContent: message,
-          bookingId,
-          status
-        }
-      });
-      
-      return result.id;
+          message_content,
+          booking_id,
+          status,
+          created_at,
+          updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+      `, [id, recipient, subject, message, bookingId, status]);
+
+      return id;
     } catch (error) {
       logger.error('Error logging email:', error);
-      // Return a placeholder ID in case of error
       return randomUUID();
     }
   }
@@ -239,15 +196,14 @@ export class EmailService {
     updates: { status: string; messageId?: string; error?: string }
   ): Promise<void> {
     try {
-      await prisma.emailLog.update({
-        where: { id },
-        data: {
-          status: updates.status,
-          messageId: updates.messageId,
-          error: updates.error,
-          updatedAt: new Date()
-        }
-      });
+      await query(`
+        UPDATE email_logs SET
+          status = $1,
+          message_id = $2,
+          error = $3,
+          updated_at = NOW()
+        WHERE id = $4
+      `, [updates.status, updates.messageId, updates.error, id]);
     } catch (error) {
       logger.error('Error updating email log:', error);
     }
@@ -257,13 +213,8 @@ export class EmailService {
     toEmail: string,
     data: BookingConfirmationData
   ): Promise<void> {
-    try {
-      const html = this.createBookingConfirmationHtml(data);
-      await this.sendEmail(toEmail, 'Booking Confirmation', html, data.bookingId);
-    } catch (error) {
-      logger.error('Failed to send booking confirmation email:', error);
-      throw error;
-    }
+    const html = this.createBookingConfirmationHtml(data);
+    await this.sendEmail(toEmail, 'Booking Confirmation', html, data.bookingId);
   }
 
   private createBookingConfirmationHtml(data: BookingConfirmationData): string {
@@ -290,87 +241,56 @@ export class EmailService {
     to: string,
     data: PaymentFailureData
   ): Promise<void> {
-    try {
-      const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Payment Failed</h2>
-          <p>Dear ${data.userName},</p>
-          <p>We regret to inform you that your payment for booking ${data.bookingId} has failed.</p>
-          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px;">
-            <p><strong>Amount:</strong> ${data.amount}</p>
-            <p><strong>Order ID:</strong> ${data.orderId}</p>
-            <p><strong>Payment ID:</strong> ${data.paymentId}</p>
-          </div>
-          <p>Please try again or contact our support team for assistance:</p>
-          <p>Email: ${data.supportEmail}<br>Phone: ${data.supportPhone}</p>
-          <p>Best regards,<br>OnnRides Team</p>
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Payment Failed</h2>
+        <p>Dear ${data.userName},</p>
+        <p>We regret to inform you that your payment for booking ${data.bookingId} has failed.</p>
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px;">
+          <p><strong>Amount:</strong> ${data.amount}</p>
+          <p><strong>Order ID:</strong> ${data.orderId}</p>
+          <p><strong>Payment ID:</strong> ${data.paymentId}</p>
         </div>
-      `;
-      await this.sendEmail(to, 'Payment Failed', html, data.bookingId);
-    } catch (error) {
-      logger.error('Failed to send payment failure email:', error);
-      throw error;
-    }
+        <p>Please try again or contact our support team for assistance:</p>
+        <p>Email: ${data.supportEmail}<br>Phone: ${data.supportPhone}</p>
+        <p>Best regards,<br>OnnRides Team</p>
+      </div>
+    `;
+    await this.sendEmail(to, 'Payment Failed', html, data.bookingId);
   }
 
   public async sendDocumentUploadReminder(
     to: string,
     data: DocumentUploadReminderData
   ): Promise<void> {
-    try {
-      const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Document Upload Reminder</h2>
-          <p>Dear ${data.name},</p>
-          <p>This is a reminder to upload your required documents for booking ${data.bookingId}.</p>
-          <p>Please upload your documents within ${data.deadline || '24 hours'} to avoid booking cancellation.</p>
-          <p><a href="${data.uploadUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Upload Documents</a></p>
-          <p>If you need assistance, please contact our support team at ${data.supportEmail}.</p>
-          <p>Best regards,<br>OnnRides Team</p>
-        </div>
-      `;
-      await this.sendEmail(to, 'Document Upload Reminder', html, data.bookingId);
-    } catch (error) {
-      logger.error('Failed to send document upload reminder:', error);
-      throw error;
-    }
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Document Upload Reminder</h2>
+        <p>Dear ${data.name},</p>
+        <p>This is a reminder to upload your required documents for booking ${data.bookingId}.</p>
+        <p>Please upload your documents within ${data.deadline || '24 hours'} to avoid booking cancellation.</p>
+        <p><a href="${data.uploadUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Upload Documents</a></p>
+        <p>If you need assistance, please contact our support team at ${data.supportEmail}.</p>
+        <p>Best regards,<br>OnnRides Team</p>
+      </div>
+    `;
+    await this.sendEmail(to, 'Document Upload Reminder', html, data.bookingId);
   }
 
   public async sendPasswordResetEmail(
     to: string,
     data: PasswordResetData
   ): Promise<void> {
-    try {
-      const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Password Reset</h2>
-          <p>Dear ${data.name},</p>
-          <p>You have requested to reset your password. Click the link below to proceed:</p>
-          <p><a href="${data.resetLink}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
-          <p>If you did not request this, please ignore this email or contact support at ${data.supportEmail}.</p>
-          <p>Best regards,<br>OnnRides Team</p>
-        </div>
-      `;
-      await this.sendEmail(to, 'Password Reset', html);
-    } catch (error) {
-      logger.error('Failed to send password reset email:', error);
-      throw error;
-    }
-  }
-
-  private getEmailTemplate(template: string, data: Record<string, any>): string {
-    // Add more templates as needed
-    const templates: Record<string, (data: any) => string> = {
-      'booking-confirmation': this.createBookingConfirmationHtml.bind(this)
-    };
-
-    if (!templates[template]) {
-      throw new Error(`Template ${template} not found`);
-    }
-
-    return templates[template](data);
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Password Reset</h2>
+        <p>Dear ${data.name},</p>
+        <p>You have requested to reset your password. Click the link below to proceed:</p>
+        <p><a href="${data.resetLink}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
+        <p>If you did not request this, please ignore this email or contact support at ${data.supportEmail}.</p>
+        <p>Best regards,<br>OnnRides Team</p>
+      </div>
+    `;
+    await this.sendEmail(to, 'Password Reset', html);
   }
 }
-
-// Initialize the service
-EmailService.getInstance(); 

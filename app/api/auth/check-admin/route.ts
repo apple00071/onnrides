@@ -1,6 +1,6 @@
 import logger from '@/lib/logger';
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { query } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
@@ -17,55 +17,45 @@ export async function POST(request: Request) {
       });
     }
 
-    try {
-      // Test database connection
-      await prisma.$connect();
-      logger.debug('Database connection successful');
+    // Find the user and check their role using PostgreSQL query
+    const result = await query(`
+      SELECT 
+        id,
+        email,
+        role::text as role
+      FROM users 
+      WHERE LOWER(email) = LOWER($1)
+    `, [email]);
 
-      // Find the user and check their role
-      const user = await prisma.users.findUnique({
-        where: { email },
-        select: { 
-          role: true,
-          id: true,
-          email: true 
-        },
-      });
+    const user = result.rows[0];
 
-      logger.debug('Found user:', user);
+    logger.debug('Found user:', user);
 
-      if (!user) {
-        logger.debug('User not found for email:', email);
-        return new NextResponse(JSON.stringify({ error: 'User not found' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-
-      const isAdmin = user.role === 'admin';
-      logger.debug('User role:', user.role, 'Is admin:', isAdmin);
-
-      return new NextResponse(JSON.stringify({
-        isAdmin,
-        role: user.role,
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role
-        }
-      }), {
-        status: 200,
+    if (!user) {
+      logger.debug('User not found for email:', email);
+      return new NextResponse(JSON.stringify({ error: 'User not found' }), {
+        status: 404,
         headers: { 'Content-Type': 'application/json' },
       });
-    } catch (dbError) {
-      logger.error('Database error:', dbError);
-      throw new Error(`Database error: ${dbError instanceof Error ? dbError.message : 'Unknown database error'}`);
-    } finally {
-      await prisma.$disconnect();
     }
+
+    const isAdmin = user.role?.toLowerCase() === 'admin';
+    logger.debug('User role check', { role: user.role, isAdmin });
+
+    return new NextResponse(JSON.stringify({
+      isAdmin,
+      role: user.role,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role
+      }
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     logger.error('Check admin error:', error);
-    // Log the full error details
     if (error instanceof Error) {
       logger.error('Error details:', {
         message: error.message,
@@ -73,7 +63,7 @@ export async function POST(request: Request) {
         name: error.name
       });
     }
-    return new NextResponse(JSON.stringify({ 
+    return new NextResponse(JSON.stringify({
       error: 'Internal Server Error',
       details: error instanceof Error ? error.message : 'Unknown error'
     }), {
@@ -81,4 +71,4 @@ export async function POST(request: Request) {
       headers: { 'Content-Type': 'application/json' },
     });
   }
-} 
+}

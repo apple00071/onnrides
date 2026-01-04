@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { put } from '@vercel/blob';
-import { nanoid } from 'nanoid';
 import logger from '@/lib/logger';
+import { uploadFile } from '@/lib/upload';
 
 // Adding route segment config
 export const dynamic = 'force-dynamic';
@@ -11,7 +10,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    
+
     if (!file) {
       return NextResponse.json(
         { message: 'No file provided' },
@@ -27,17 +26,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate unique filename
-    const filename = `${nanoid()}-${file.name}`;
-    
-    // Upload to Vercel Blob
-    const blob = await put(filename, file, {
-      access: 'public',
-    });
+    // Upload to Supabase Storage
+    const publicUrl = await uploadFile(file, 'general');
 
-    logger.debug('File uploaded successfully:', blob.url);
+    logger.debug('File uploaded successfully:', publicUrl);
 
-    return NextResponse.json({ url: blob.url });
+    return NextResponse.json({ url: publicUrl });
   } catch (error) {
     logger.error('Error uploading file:', error);
     return NextResponse.json(
@@ -45,4 +39,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import type { Database } from '@/lib/schema';
+import { query } from '@/lib/db';
 import { verifyAuth } from '@/app/lib/auth';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { bookingId: string } }
+  { params }: { params: Promise<{ bookingId: string }> }
 ) {
   try {
     // Check if user is authenticated
@@ -16,7 +15,8 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const bookingId = params.bookingId;
+    const resolvedParams = await params;
+    const bookingId = resolvedParams.bookingId;
     if (!bookingId) {
       return NextResponse.json(
         { error: 'Booking ID is required' },
@@ -25,21 +25,21 @@ export async function POST(
     }
 
     // First check if the booking belongs to the user and is in a cancellable state
-    const booking = await db
-      .selectFrom('bookings')
-      .selectAll()
-      .where('id', '=', bookingId)
-      .limit(1)
-      .execute();
+    const bookingResult = await query(
+      `SELECT * FROM bookings WHERE id = $1 LIMIT 1`,
+      [bookingId]
+    );
 
-    if (!booking || booking.length === 0) {
+    const booking = bookingResult.rows[0];
+
+    if (!booking) {
       return NextResponse.json(
         { error: 'Booking not found or unauthorized' },
         { status: 404 }
       );
     }
 
-    if (booking[0].status !== 'pending') {
+    if (booking.status !== 'pending') {
       return NextResponse.json(
         { error: 'Only pending bookings can be cancelled' },
         { status: 400 }
@@ -47,37 +47,38 @@ export async function POST(
     }
 
     // Get additional booking details for WhatsApp notification
-    const bookingWithDetails = await db
-      .selectFrom('bookings')
-      .leftJoin('vehicles', 'bookings.vehicle_id', 'vehicles.id')
-      .leftJoin('users', 'bookings.user_id', 'users.id')
-      .select([
-        'bookings.id',
-        'bookings.booking_id',
-        'bookings.start_date',
-        'bookings.end_date',
-        'bookings.total_price',
-        'vehicles.name as vehicle_name',
-        'users.name as customer_name',
-        'users.phone as customer_phone'
-      ])
-      .where('bookings.id', '=', bookingId)
-      .executeTakeFirst();
+    const detailsResult = await query(
+      `SELECT 
+        b.id,
+        b.booking_id,
+        b.start_date,
+        b.end_date,
+        b.total_price,
+        v.name as vehicle_name,
+        u.name as customer_name,
+        u.phone as customer_phone
+      FROM bookings b
+      LEFT JOIN vehicles v ON b.vehicle_id = v.id
+      LEFT JOIN users u ON b.user_id = u.id
+      WHERE b.id = $1`,
+      [bookingId]
+    );
+
+    const bookingWithDetails = detailsResult.rows[0];
 
     // Update the booking status to cancelled
-    const [updatedBooking] = await db
-      .updateTable('bookings')
-      .set({ status: 'cancelled' })
-      .where('id', '=', bookingId)
-      .returningAll()
-      .execute();
+    const updateResult = await query(
+      `UPDATE bookings SET status = 'cancelled' WHERE id = $1 RETURNING *`,
+      [bookingId]
+    );
+
+    const updatedBooking = updateResult.rows[0];
 
     // Update the vehicle availability
-    await db
-      .updateTable('vehicles')
-      .set({ is_available: true })
-      .where('id', '=', booking[0].vehicle_id)
-      .execute();
+    await query(
+      `UPDATE vehicles SET is_available = true WHERE id = $1`,
+      [booking.vehicle_id]
+    );
 
     // Send WhatsApp cancellation notification
     if (bookingWithDetails) {
@@ -109,4 +110,4 @@ export async function POST(
       { status: 500 }
     );
   }
-} 
+}

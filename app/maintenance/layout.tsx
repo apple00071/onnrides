@@ -14,7 +14,7 @@ export default function MaintenanceLayout({
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
       navigator.userAgent
     );
-    
+
     if (isMobile) {
       // Try to clear any browser caches that might prevent seeing maintenance mode
       if ('caches' in window) {
@@ -25,10 +25,10 @@ export default function MaintenanceLayout({
           }
         });
       }
-      
+
       // Set timestamp in sessionStorage to force re-render
       sessionStorage.setItem('maintenance_timestamp', Date.now().toString());
-      
+
       // Add random param to current URL to bust cache without redirect
       if (!window.location.search.includes('_t=')) {
         const url = new URL(window.location.href);
@@ -39,42 +39,33 @@ export default function MaintenanceLayout({
   }, []);
 
   return (
-    <html lang="en">
-      <head>
-        {/* Meta tags to prevent caching */}
-        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-        <meta httpEquiv="Pragma" content="no-cache" />
-        <meta httpEquiv="Expires" content="0" />
-        
-        {/* Script to detect and handle mobile cache issues */}
-        <Script id="maintenance-cache-buster" strategy="beforeInteractive">
-          {`
-            (function() {
-              // Mark this page as dynamically generated each time
-              document.cookie = "maintenance_ts=" + Date.now() + ";path=/;max-age=60";
-              
-              // Force reload if page might be cached on mobile
-              var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-              var lastVisit = sessionStorage.getItem('maintenance_last_visit');
-              var now = Date.now();
-              
-              // Store the current visit time
-              sessionStorage.setItem('maintenance_last_visit', now);
-              
-              // If mobile and cached version suspected, force reload
-              if (isMobile && lastVisit && (now - parseInt(lastVisit)) > 120000) {
-                window.location.reload(true);
-              }
-            })();
-          `}
-        </Script>
-      </head>
-      <body className="overflow-hidden">
-        {/* Clean body with no notification bars or extra UI elements */}
-        <div className="min-h-screen">
-          {children}
-        </div>
-      </body>
-    </html>
+    <>
+      {/* Script to detect and handle mobile cache issues */}
+      <Script id="maintenance-cache-buster" strategy="beforeInteractive">
+        {`
+          (function() {
+            // Mark this page as dynamically generated each time
+            document.cookie = "maintenance_ts=" + Date.now() + ";path=/;max-age=60";
+            
+            // Force reload if page might be cached on mobile
+            var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            var lastVisit = sessionStorage.getItem('maintenance_last_visit');
+            var now = Date.now();
+            
+            // Store the current visit time
+            sessionStorage.setItem('maintenance_last_visit', now);
+            
+            // If mobile and cached version suspected, force reload
+            if (isMobile && lastVisit && (now - parseInt(lastVisit)) > 120000) {
+              window.location.reload(true);
+            }
+          })();
+        `}
+      </Script>
+      {/* Clean layout wrapper */}
+      <div className="min-h-screen overflow-hidden">
+        {children}
+      </div>
+    </>
   );
-} 
+}

@@ -1,4 +1,4 @@
-import { prisma } from '../prisma';
+import { query } from '../db';
 import { WhatsAppNotificationService } from './notification-service';
 
 // Simple logger for the service
@@ -36,48 +36,35 @@ export class WhatsAppReminderService {
     try {
       logger.info('Starting pickup reminder check...');
 
-      // Get bookings that start in approximately 24 hours (23-25 hours from now)
-      const tomorrow = new Date();
-      tomorrow.setHours(tomorrow.getHours() + 23);
-      const dayAfterTomorrow = new Date();
-      dayAfterTomorrow.setHours(dayAfterTomorrow.getHours() + 25);
+      // Get bookings that start in approximately 24 hours
+      const result = await query(`
+        SELECT 
+          b.*,
+          v.name as vehicle_name
+        FROM bookings b
+        LEFT JOIN vehicles v ON b.vehicle_id = v.id
+        WHERE b.start_date >= NOW() + INTERVAL '23 hours'
+        AND b.start_date <= NOW() + INTERVAL '25 hours'
+        AND b.status IN ('confirmed', 'active', 'pending')
+        AND b.phone_number IS NOT NULL
+      `);
 
-      const bookings = await prisma.booking.findMany({
-        where: {
-          start_date: {
-            gte: tomorrow,
-            lte: dayAfterTomorrow
-          },
-          status: {
-            in: ['confirmed', 'active', 'pending']
-          },
-          phone_number: {
-            not: null
-          }
-        },
-        include: {
-          vehicle: true
-        }
-      });
+      const bookings = result.rows;
 
       logger.info(`Found ${bookings.length} bookings for pickup reminders`);
 
       for (const booking of bookings) {
         try {
           // Check if reminder was already sent
-          const existingReminder = await prisma.whatsAppLog.findFirst({
-            where: {
-              recipient: booking.phone_number!,
-              message: {
-                contains: `[PICKUP_REMINDER]`
-              },
-              created_at: {
-                gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
-              }
-            }
-          });
+          const logResult = await query(`
+            SELECT id FROM whatsapp_logs
+            WHERE recipient = $1
+            AND message LIKE '%[PICKUP_REMINDER]%'
+            AND created_at >= NOW() - INTERVAL '24 hours'
+            LIMIT 1
+          `, [booking.phone_number]);
 
-          if (existingReminder) {
+          if (logResult.rows.length > 0) {
             logger.info(`Pickup reminder already sent for booking ${booking.booking_id}`);
             continue;
           }
@@ -88,22 +75,22 @@ export class WhatsAppReminderService {
             customer_name: booking.customer_name,
             phone_number: booking.phone_number,
             email: booking.email,
-            vehicle_model: booking.vehicle?.name || booking.vehicle_model,
+            vehicle_model: booking.vehicle_name || booking.vehicle_model,
             registration_number: booking.registration_number,
             start_date: booking.start_date,
             end_date: booking.end_date,
             total_amount: Number(booking.total_price),
-            pickup_location: typeof booking.pickup_location === 'string' 
-              ? booking.pickup_location 
+            pickup_location: typeof booking.pickup_location === 'string'
+              ? booking.pickup_location
               : JSON.stringify(booking.pickup_location),
             status: booking.status
           };
 
           await this.notificationService.sendPickupReminder(bookingData);
-          
-          // Add a small delay between messages to avoid rate limiting
+
+          // Add a small delay between messages
           await new Promise(resolve => setTimeout(resolve, 1000));
-          
+
         } catch (error) {
           logger.error(`Error sending pickup reminder for booking ${booking.booking_id}:`, error);
         }
@@ -122,48 +109,35 @@ export class WhatsAppReminderService {
     try {
       logger.info('Starting return reminder check...');
 
-      // Get bookings that end in approximately 24 hours (23-25 hours from now)
-      const tomorrow = new Date();
-      tomorrow.setHours(tomorrow.getHours() + 23);
-      const dayAfterTomorrow = new Date();
-      dayAfterTomorrow.setHours(dayAfterTomorrow.getHours() + 25);
+      // Get bookings that end in approximately 24 hours
+      const result = await query(`
+        SELECT 
+          b.*,
+          v.name as vehicle_name
+        FROM bookings b
+        LEFT JOIN vehicles v ON b.vehicle_id = v.id
+        WHERE b.end_date >= NOW() + INTERVAL '23 hours'
+        AND b.end_date <= NOW() + INTERVAL '25 hours'
+        AND b.status IN ('initiated', 'active', 'ongoing')
+        AND b.phone_number IS NOT NULL
+      `);
 
-      const bookings = await prisma.booking.findMany({
-        where: {
-          end_date: {
-            gte: tomorrow,
-            lte: dayAfterTomorrow
-          },
-          status: {
-            in: ['initiated', 'active', 'ongoing']
-          },
-          phone_number: {
-            not: null
-          }
-        },
-        include: {
-          vehicle: true
-        }
-      });
+      const bookings = result.rows;
 
       logger.info(`Found ${bookings.length} bookings for return reminders`);
 
       for (const booking of bookings) {
         try {
           // Check if reminder was already sent
-          const existingReminder = await prisma.whatsAppLog.findFirst({
-            where: {
-              recipient: booking.phone_number!,
-              message: {
-                contains: `[RETURN_REMINDER]`
-              },
-              created_at: {
-                gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
-              }
-            }
-          });
+          const logResult = await query(`
+            SELECT id FROM whatsapp_logs
+            WHERE recipient = $1
+            AND message LIKE '%[RETURN_REMINDER]%'
+            AND created_at >= NOW() - INTERVAL '24 hours'
+            LIMIT 1
+          `, [booking.phone_number]);
 
-          if (existingReminder) {
+          if (logResult.rows.length > 0) {
             logger.info(`Return reminder already sent for booking ${booking.booking_id}`);
             continue;
           }
@@ -174,22 +148,21 @@ export class WhatsAppReminderService {
             customer_name: booking.customer_name,
             phone_number: booking.phone_number,
             email: booking.email,
-            vehicle_model: booking.vehicle?.name || booking.vehicle_model,
+            vehicle_model: booking.vehicle_name || booking.vehicle_model,
             registration_number: booking.registration_number,
             start_date: booking.start_date,
             end_date: booking.end_date,
             total_amount: Number(booking.total_price),
-            pickup_location: typeof booking.pickup_location === 'string' 
-              ? booking.pickup_location 
+            pickup_location: typeof booking.pickup_location === 'string'
+              ? booking.pickup_location
               : JSON.stringify(booking.pickup_location),
             status: booking.status
           };
 
           await this.notificationService.sendReturnReminder(bookingData);
-          
-          // Add a small delay between messages to avoid rate limiting
+
           await new Promise(resolve => setTimeout(resolve, 1000));
-          
+
         } catch (error) {
           logger.error(`Error sending return reminder for booking ${booking.booking_id}:`, error);
         }
@@ -206,7 +179,7 @@ export class WhatsAppReminderService {
    */
   async runAllReminders(): Promise<void> {
     logger.info('Starting all reminder checks...');
-    
+
     try {
       await this.sendPickupReminders();
       await this.sendReturnReminders();

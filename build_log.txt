@@ -1,0 +1,122 @@
+﻿
+> onnrides@0.1.0 build
+> next build
+
+node.exe :  ΓÜá You are using a non-standard "NODE_ENV" value in your environment. This creates 
+inconsistencies in the project and is strongly advised against. Read more: 
+https://nextjs.org/docs/messages/non-standard-node-env
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ( ΓÜá You are us...andard-node-env:String) [], RemoteExc 
+   eption
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  Γû▓ Next.js 14.2.3
+  - Environments: .env
+
+   Creating an optimized production build ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate 
+Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ Γ£ô Compiled successfully
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/117) ...
+Error: <Html> should not be imported outside of pages/_document.
+Read more: https://nextjs.org/docs/messages/no-document-import-in-page
+    at Z (D:\onnrides\node_modules\next\dist\compiled\next-server\pages.runtime.prod.js:16:5430)
+    at I (D:\onnrides\.next\server\chunks\1682.js:6:1263)
+    at renderWithHooks 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5658:16)
+    at renderIndeterminateComponent 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5732:15)
+    at renderElement 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5957:7)
+    at renderNodeDestructiveImpl 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:6115:11)
+    at renderNodeDestructive 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:6087:14)
+    at finishClassComponent 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5688:3)
+    at renderClassComponent 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5696:3)
+    at renderElement 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5954:7)
+
+Error occurred prerendering page "/404". Read more: https://nextjs.org/docs/messages/prerender-error
+
+Error: <Html> should not be imported outside of pages/_document.
+Read more: https://nextjs.org/docs/messages/no-document-import-in-page
+    at Z (D:\onnrides\node_modules\next\dist\compiled\next-server\pages.runtime.prod.js:16:5430)
+    at I (D:\onnrides\.next\server\chunks\1682.js:6:1263)
+    at renderWithHooks 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5658:16)
+    at renderIndeterminateComponent 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5732:15)
+    at renderElement 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5957:7)
+    at renderNodeDestructiveImpl 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:6115:11)
+    at renderNodeDestructive 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:6087:14)
+    at finishClassComponent 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5688:3)
+    at renderClassComponent 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5696:3)
+    at renderElement 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5954:7)
+Error: <Html> should not be imported outside of pages/_document.
+Read more: https://nextjs.org/docs/messages/no-document-import-in-page
+    at Z (D:\onnrides\node_modules\next\dist\compiled\next-server\pages.runtime.prod.js:16:5430)
+    at I (D:\onnrides\.next\server\chunks\1682.js:6:1263)
+    at renderWithHooks 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5658:16)
+    at renderIndeterminateComponent 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5732:15)
+    at renderElement 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5957:7)
+    at renderNodeDestructiveImpl 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:6115:11)
+    at renderNodeDestructive 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:6087:14)
+    at finishClassComponent 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5688:3)
+    at renderClassComponent 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5696:3)
+    at renderElement 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5954:7)
+
+Error occurred prerendering page "/500". Read more: https://nextjs.org/docs/messages/prerender-error
+
+Error: <Html> should not be imported outside of pages/_document.
+Read more: https://nextjs.org/docs/messages/no-document-import-in-page
+    at Z (D:\onnrides\node_modules\next\dist\compiled\next-server\pages.runtime.prod.js:16:5430)
+    at I (D:\onnrides\.next\server\chunks\1682.js:6:1263)
+    at renderWithHooks 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5658:16)
+    at renderIndeterminateComponent 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5732:15)
+    at renderElement 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5957:7)
+    at renderNodeDestructiveImpl 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:6115:11)
+    at renderNodeDestructive 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:6087:14)
+    at finishClassComponent 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5688:3)
+    at renderClassComponent 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5696:3)
+    at renderElement 
+(D:\onnrides\node_modules\react-dom\cjs\react-dom-server.browser.development.js:5954:7)
+   Generating static pages (29/117) 
+[WARN] WaSender API credentials not configured. At least one of WASENDER_API_KEY or 
+WASENDER_PERSONAL_ACCESS_TOKEN is required. 
+[ERROR] WaSender service not initialized 
+   Generating static pages (58/117) 
+   Generating static pages (87/117) 
+ Γ£ô Generating static pages (117/117)
+
+> Export encountered errors on following paths:
+	/_error: /404
+	/_error: /500

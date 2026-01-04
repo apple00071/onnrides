@@ -1,23 +1,20 @@
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
-import { users, roleEnum } from '@/lib/db/schema';
+import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
+import { createId } from '@paralleldrive/cuid2';
 
 export async function seedAdmin() {
   try {
-    const adminData = {
-      id: uuidv4(),
-      name: 'Admin',
-      email: 'admin@onnrides.com',
-      password_hash: await bcrypt.hash('admin123', 10),
-      role: roleEnum.enumValues[1],
-      is_blocked: false,
-      created_at: new Date(),
-      updated_at: new Date()
-    };
+    const adminId = createId();
+    const passwordHash = await bcrypt.hash('admin123', 10);
 
-    await db.insert(users).values(adminData);
+    await query(
+      `INSERT INTO users (id, name, email, password_hash, role, is_blocked, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (email) DO NOTHING`,
+      [adminId, 'Admin', 'admin@onnrides.com', passwordHash, 'admin', false, new Date(), new Date()]
+    );
+
     logger.debug('Admin user created successfully');
   } catch (error) {
     logger.error('Error creating admin user:', error);
@@ -25,4 +22,4 @@ export async function seedAdmin() {
 }
 
 // Run this function to seed the admin user
-// seedAdmin(); 
+// seedAdmin();

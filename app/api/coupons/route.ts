@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import logger from '@/lib/logger';
-import prisma from '@/lib/prisma';
+import { query } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -17,26 +17,22 @@ export async function GET() {
       );
     }
 
-    const coupons = await prisma.coupons.findMany({
-      where: {
-        is_active: true,
-        end_date: {
-          gte: new Date()
-        }
-      },
-      select: {
-        id: true,
-        code: true,
-        discount_type: true,
-        discount_value: true,
-        description: true,
-        end_date: true,
-        min_booking_amount: true,
-        max_discount_amount: true
-      }
-    });
+    const result = await query(`
+      SELECT 
+        id,
+        code,
+        discount_type,
+        discount_value,
+        description,
+        end_date,
+        min_booking_amount,
+        max_discount_amount
+      FROM coupons
+      WHERE is_active = true
+      AND end_date >= NOW()
+    `);
 
-    return NextResponse.json(coupons);
+    return NextResponse.json(result.rows);
   } catch (error) {
     logger.error('Error fetching coupons:', error);
     return NextResponse.json(
@@ -44,4 +40,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-} 
+}

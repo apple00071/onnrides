@@ -28,8 +28,8 @@ const shutdownManager = (() => {
     serverLogger.warn('Could not load shutdown manager, using fallback');
     // Simple fallback if shutdown manager can't be loaded
     return {
-      registerHandler: () => {},
-      shutdown: async () => {}
+      registerHandler: () => { },
+      shutdown: async () => { }
     };
   }
 })();
@@ -60,11 +60,11 @@ function initializeSettings() {
           }
         });
       });
-      
+
       req.on('error', (error) => {
         serverLogger.warn('Failed to initialize settings:', error.message);
       });
-      
+
       req.end();
     } catch (err) {
       serverLogger.warn('Could not initialize settings:', err.message);
@@ -86,10 +86,10 @@ app.prepare().then(() => {
 
   server.listen(port, () => {
     serverLogger.info(`> Server ready on http://${hostname}:${port}`);
-    
+
     // Initialize settings and database after server starts
     initializeSettings();
-    
+
     // Initialize database
     try {
       const { initializeDatabase } = require(path.join(process.cwd(), 'lib', 'db'));
@@ -116,7 +116,7 @@ app.prepare().then(() => {
             resolve();
           }
         });
-        
+
         // Force close after timeout
         setTimeout(() => {
           serverLogger.warn('Forcing HTTP server close after timeout');
@@ -136,12 +136,12 @@ app.prepare().then(() => {
       } catch (err) {
         serverLogger.warn('Could not load database module:', err.message);
         return {
-          initializeDatabase: async () => {},
-          pool: { end: async () => {} }
+          initializeDatabase: async () => { },
+          pool: { end: async () => { } }
         };
       }
     })();
-    
+
     // Register database shutdown
     shutdownManager.registerHandler(
       'postgres-pool',
@@ -161,34 +161,7 @@ app.prepare().then(() => {
       'databases', // phase
       5           // priority
     );
-
-    // Register Prisma shutdown
-    shutdownManager.registerHandler(
-      'prisma-client',
-      async () => {
-        const prisma = (() => {
-          try {
-            const imported = require('./app/lib/prisma');
-            return imported.default || imported;
-          } catch (err) {
-            serverLogger.warn('Could not load Prisma module:', err.message);
-            return { $disconnect: async () => {} };
-          }
-        })();
-        
-        serverLogger.info('Disconnecting Prisma client...');
-        try {
-          await prisma.$disconnect();
-          serverLogger.info('Prisma client disconnected successfully');
-        } catch (error) {
-          serverLogger.error('Error disconnecting Prisma client:', error);
-          throw error;
-        }
-      },
-      'databases', // phase
-      10          // priority
-    );
   } catch (err) {
     serverLogger.error('Error setting up database:', err);
   }
-}); 
+});

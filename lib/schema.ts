@@ -1,5 +1,3 @@
-import { Generated, Insertable, Selectable, ColumnType } from 'kysely';
-
 export const VEHICLE_TYPES = ['bike', 'scooter'] as const;
 export type VehicleType = typeof VEHICLE_TYPES[number];
 
@@ -12,20 +10,17 @@ export const DOCUMENT_TYPES = {
   ADDRESS_PROOF: 'address_proof'
 } as const;
 
-// Define booking status and payment status as string literals for type safety
 export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 export type DocumentType = 'license' | 'id_proof' | 'address_proof';
 export type DocumentStatus = 'pending' | 'approved' | 'rejected';
 export type UserRole = 'user' | 'admin' | 'delivery_partner';
 
-// Define role enum
 export const roleEnum = {
   enumValues: ['user', 'admin', 'delivery_partner'] as const,
 } as const;
 
-// WhatsApp logs table interface
-interface WhatsAppLogsTable {
+export interface WhatsAppLog {
   id: string;
   recipient: string;
   message: string;
@@ -34,31 +29,19 @@ interface WhatsAppLogsTable {
   error: string | null;
   message_type: string;
   chat_id: string | null;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  created_at: Date;
+  updated_at: Date;
 }
 
-// Settings table interface
-interface SettingsTable {
+export interface Settings {
   id: string;
   key: string;
   value: string;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  created_at: Date;
+  updated_at: Date;
 }
 
-// Database interface
-interface Database {
-  users: UsersTable;
-  vehicles: VehiclesTable;
-  bookings: BookingsTable;
-  documents: DocumentsTable;
-  whatsapp_logs: WhatsAppLogsTable;
-  settings: SettingsTable;
-}
-
-// Users table interface
-interface UsersTable {
+export interface User {
   id: string;
   name: string | null;
   email: string;
@@ -66,14 +49,13 @@ interface UsersTable {
   phone: string | null;
   reset_token: string | null;
   reset_token_expiry: Date | null;
-  is_blocked: Generated<boolean>;
+  is_blocked: boolean;
   role: UserRole;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  created_at: Date;
+  updated_at: Date;
 }
 
-// Vehicles table interface
-interface VehiclesTable {
+export interface Vehicle {
   id: string;
   name: string;
   type: VehicleType;
@@ -84,17 +66,16 @@ interface VehiclesTable {
   price_15_days: number | null;
   price_30_days: number | null;
   min_booking_hours: number;
-  is_available: Generated<boolean>;
+  is_available: boolean;
   images: string;
-  status: Generated<VehicleStatus>;
+  status: VehicleStatus;
   description: string | null;
   features: string | null;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  created_at: Date;
+  updated_at: Date;
 }
 
-// Bookings table interface
-interface BookingsTable {
+export interface Booking {
   id: string;
   user_id: string;
   vehicle_id: string;
@@ -102,47 +83,40 @@ interface BookingsTable {
   end_date: Date;
   total_hours: number;
   total_price: number;
-  status: Generated<BookingStatus>;
-  payment_status: Generated<PaymentStatus>;
+  status: BookingStatus;
+  payment_status: PaymentStatus;
   payment_details: string | null;
   pickup_location: string | null;
   dropoff_location: string | null;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  created_at: Date;
+  updated_at: Date;
 }
 
-// Documents table interface
-interface DocumentsTable {
+export interface Document {
   id: string;
   user_id: string;
   type: DocumentType;
-  status: Generated<DocumentStatus>;
+  status: DocumentStatus;
   file_url: string;
   rejection_reason: string | null;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  created_at: Date;
+  updated_at: Date;
 }
 
-// Export types for insert and select operations
-export type User = Selectable<UsersTable>;
-export type NewUser = Insertable<UsersTable>;
-
-export type Vehicle = Selectable<VehiclesTable>;
-export type NewVehicle = Insertable<VehiclesTable>;
-
-export type Booking = Selectable<BookingsTable>;
-export type NewBooking = Insertable<BookingsTable>;
-
-export type Document = Selectable<DocumentsTable>;
-export type NewDocument = Insertable<DocumentsTable>;
-
-export type WhatsAppLog = Selectable<WhatsAppLogsTable>;
-export type NewWhatsAppLog = Insertable<WhatsAppLogsTable>;
+export type NewUser = Omit<User, 'id' | 'created_at' | 'updated_at' | 'is_blocked'> & { id?: string; is_blocked?: boolean };
+export type NewVehicle = Omit<Vehicle, 'id' | 'created_at' | 'updated_at' | 'is_available' | 'status'> & { id?: string; is_available?: boolean; status?: VehicleStatus };
+export type NewBooking = Omit<Booking, 'id' | 'created_at' | 'updated_at' | 'status' | 'payment_status'> & { id?: string; status?: BookingStatus; payment_status?: PaymentStatus };
+export type NewDocument = Omit<Document, 'id' | 'created_at' | 'updated_at' | 'status'> & { id?: string; status?: DocumentStatus };
+export type NewWhatsAppLog = Omit<WhatsAppLog, 'id' | 'created_at' | 'updated_at'> & { id?: string };
+export type NewSettings = Omit<Settings, 'id' | 'created_at' | 'updated_at'> & { id?: string };
 
 export type DiscountType = 'percentage' | 'fixed';
 
-export type Settings = Selectable<SettingsTable>;
-export type NewSettings = Insertable<SettingsTable>;
-
-// Export the Database interface
-export type { Database }; 
+export interface Database {
+  users: User;
+  vehicles: Vehicle;
+  bookings: Booking;
+  documents: Document;
+  whatsapp_logs: WhatsAppLog;
+  settings: Settings;
+}

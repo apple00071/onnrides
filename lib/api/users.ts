@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
 // Define the User type
@@ -12,25 +12,23 @@ export type User = {
 };
 
 /**
- * Get all users using Prisma
+ * Get all users using raw query
  */
 export async function getUsers(): Promise<User[]> {
   try {
-    const users = await prisma.users.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        created_at: true,
-      },
-      orderBy: {
-        created_at: 'desc'
-      }
-    });
+    const result = await query(`
+      SELECT 
+        id,
+        name,
+        email,
+        phone,
+        role::text as role,
+        created_at
+      FROM users
+      ORDER BY created_at DESC
+    `);
 
-    return users.map(user => ({
+    return result.rows.map((user: { id: string; name: string | null; email: string; phone: string | null; role: string; created_at: Date | null }) => ({
       id: user.id,
       name: user.name,
       email: user.email || '',
@@ -39,27 +37,29 @@ export async function getUsers(): Promise<User[]> {
       created_at: user.created_at
     }));
   } catch (error) {
-    logger.error('Error fetching users with Prisma:', error);
+    logger.error('Error fetching users:', error);
     return [];
   }
 }
 
 /**
- * Get a user by ID using Prisma
+ * Get a user by ID using raw query
  */
 export async function getUserById(id: string): Promise<User | null> {
   try {
-    const user = await prisma.users.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        created_at: true,
-      }
-    });
+    const result = await query(`
+      SELECT 
+        id,
+        name,
+        email,
+        phone,
+        role::text as role,
+        created_at
+      FROM users
+      WHERE id = $1
+    `, [id]);
+
+    const user = result.rows[0];
 
     if (!user) {
       return null;
@@ -77,4 +77,4 @@ export async function getUserById(id: string): Promise<User | null> {
     logger.error(`Error finding user by ID ${id}:`, error);
     return null;
   }
-} 
+}
