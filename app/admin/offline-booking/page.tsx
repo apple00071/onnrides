@@ -65,10 +65,10 @@ export default function OfflineBookingPage() {
     const rentalAmount = parseFloat(rental) || 0;
     const depositAmount = parseFloat(deposit) || 0;
     const paidAmount = parseFloat(paid) || 0;
-    
+
     const total = rentalAmount + depositAmount;
     const pending = total - paidAmount;
-    
+
     setFormData(prev => ({
       ...prev,
       totalAmount: total.toString(),
@@ -137,7 +137,7 @@ export default function OfflineBookingPage() {
         const startDateTime = new Date(date);
         startDateTime.setHours(hours, minutes);
         const endDateTime = addHours(startDateTime, 24);
-        
+
         setEndDate(format(endDateTime, 'yyyy-MM-dd'));
         setEndTime(format(endDateTime, 'HH:mm'));
       } catch (error) {
@@ -150,7 +150,7 @@ export default function OfflineBookingPage() {
   useEffect(() => {
     const fetchAvailableVehicles = async () => {
       if (!startDate || !startTime || !endDate || !endTime) return;
-      
+
       try {
         const startDateTime = `${startDate}T${startTime}:00`;
         const endDateTime = `${endDate}T${endTime}:00`;
@@ -165,7 +165,7 @@ export default function OfflineBookingPage() {
             endDateTime
           }),
         });
-        
+
         if (response.ok) {
           const data = await response.json();
           setVehicles(data.vehicles);
@@ -268,7 +268,7 @@ export default function OfflineBookingPage() {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -329,7 +329,7 @@ export default function OfflineBookingPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold">Create Offline Booking</h1>
-        <Link 
+        <Link
           href="/admin/bookings"
           className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
         >
@@ -499,11 +499,11 @@ export default function OfflineBookingPage() {
                     value={startTime}
                     onChange={(e) => handleStartTimeChange(startDate, e.target.value)}
                     step="3600"
-                    className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                    className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50 opacity-0"
                     required
                   />
                   {startTime && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-700 pointer-events-none">
                       {to12Hour(startTime)}
                     </div>
                   )}
@@ -529,11 +529,11 @@ export default function OfflineBookingPage() {
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
                     step="3600"
-                    className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                    className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50 opacity-0"
                     required
                   />
                   {endTime && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-700 pointer-events-none">
                       {to12Hour(endTime)}
                     </div>
                   )}
@@ -565,7 +565,7 @@ export default function OfflineBookingPage() {
                 ))}
               </select>
               <p className="mt-1 text-sm text-gray-500">
-                {vehicles.length > 0 
+                {vehicles.length > 0
                   ? `Available vehicles: ${vehicles.length}`
                   : 'Please select date and time to see available vehicles'}
               </p>
@@ -716,20 +716,20 @@ export default function OfflineBookingPage() {
                     </button>
                   </div>
                 ) : (
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                    <p className="text-sm text-gray-500">Click to upload DL scan</p>
-                  </div>
-                  <input
-                    type="file"
-                    name="dlScan"
-                    className="hidden"
-                    onChange={(e) => handleFileUpload(e, 'dlScan')}
-                    accept="image/*,.pdf"
-                    required
-                  />
-                </label>
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Upload className="w-8 h-8 mb-2 text-gray-500" />
+                      <p className="text-sm text-gray-500">Click to upload DL scan</p>
+                    </div>
+                    <input
+                      type="file"
+                      name="dlScan"
+                      className="hidden"
+                      onChange={(e) => handleFileUpload(e, 'dlScan')}
+                      accept="image/*,.pdf"
+                      required
+                    />
+                  </label>
                 )}
               </div>
             </div>
@@ -757,20 +757,20 @@ export default function OfflineBookingPage() {
                     </button>
                   </div>
                 ) : (
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                    <p className="text-sm text-gray-500">Click to upload Aadhar scan</p>
-                  </div>
-                  <input
-                    type="file"
-                    name="aadharScan"
-                    className="hidden"
-                    onChange={(e) => handleFileUpload(e, 'aadharScan')}
-                    accept="image/*,.pdf"
-                    required
-                  />
-                </label>
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Upload className="w-8 h-8 mb-2 text-gray-500" />
+                      <p className="text-sm text-gray-500">Click to upload Aadhar scan</p>
+                    </div>
+                    <input
+                      type="file"
+                      name="aadharScan"
+                      className="hidden"
+                      onChange={(e) => handleFileUpload(e, 'aadharScan')}
+                      accept="image/*,.pdf"
+                      required
+                    />
+                  </label>
                 )}
               </div>
             </div>
@@ -798,20 +798,20 @@ export default function OfflineBookingPage() {
                     </button>
                   </div>
                 ) : (
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                    <p className="text-sm text-gray-500">Click to upload selfie</p>
-                  </div>
-                  <input
-                    type="file"
-                    name="selfie"
-                    className="hidden"
-                    onChange={(e) => handleFileUpload(e, 'selfie')}
-                    accept="image/*"
-                    required
-                  />
-                </label>
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Upload className="w-8 h-8 mb-2 text-gray-500" />
+                      <p className="text-sm text-gray-500">Click to upload selfie</p>
+                    </div>
+                    <input
+                      type="file"
+                      name="selfie"
+                      className="hidden"
+                      onChange={(e) => handleFileUpload(e, 'selfie')}
+                      accept="image/*"
+                      required
+                    />
+                  </label>
                 )}
               </div>
             </div>
