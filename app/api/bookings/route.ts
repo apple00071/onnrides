@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth-options';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { nanoid } from 'nanoid';
@@ -117,6 +117,8 @@ interface BookingRow {
   vehicle_images: string;
   vehiclePricePerHour?: number;
   vehicle_price_per_hour?: number;
+  pickup_location?: string;
+  dropoff_location?: string;
 }
 
 // GET /api/bookings - List user's bookings
@@ -152,21 +154,19 @@ export async function GET(request: NextRequest) {
         b.id, 
         b.booking_id,
         b.status, 
-        b.start_date,
-        b.end_date,
+        b.start_date as pickup_datetime,
+        b.end_date as dropoff_datetime,
         
-        -- Apply IST conversion correctly using AT TIME ZONE
-        (b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as pickup_datetime,
-        (b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as dropoff_datetime,
-        
-        -- Create formatted dates for display
-        TO_CHAR(b.start_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
-        TO_CHAR(b.end_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
+        -- Create formatted dates for display (optional, but keep for compatibility if needed)
+        TO_CHAR(b.start_date, 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
+        TO_CHAR(b.end_date, 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
         
         b.total_price as total_amount,
         b.payment_status,
         b.created_at,
         b.updated_at,
+        b.pickup_location,
+        b.dropoff_location,
         v.id as vehicle_id,
         v.name as vehicle_name,
         v.type as vehicle_type,
@@ -195,6 +195,8 @@ export async function GET(request: NextRequest) {
       payment_status: booking.payment_status || 'pending',
       created_at: booking.created_at,
       updated_at: booking.updated_at,
+      pickup_location: booking.pickup_location,
+      dropoff_location: booking.dropoff_location,
       vehicle: {
         id: booking.vehicle_id,
         name: booking.vehicle_name,
@@ -447,7 +449,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       }
 
       const razorpayOrder = await razorpayInstance.orders.create({
-        amount: advancePayment,
+        amount: Math.round(advancePayment * 100),
         currency: 'INR',
         receipt: createdBookingId,
         notes: {

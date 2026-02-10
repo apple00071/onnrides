@@ -57,25 +57,19 @@ const formatLocations = (location: string | string[]): string[] => {
       ).filter(Boolean);
     }
 
-    // If it's a string that looks like JSON, parse it
+    // If it's a string, try to parse it if it looks like JSON
     if (typeof location === 'string') {
-      if (location.startsWith('[')) {
+      const trimmed = location.trim();
+      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
         try {
-          const parsed = JSON.parse(location);
-          return Array.isArray(parsed)
-            ? parsed.map(loc => String(loc).replace(/["\[\]]/g, '').trim()).filter(Boolean)
-            : [parsed.toString().replace(/["\[\]]/g, '').trim()];
+          const parsed = JSON.parse(trimmed);
+          const array = Array.isArray(parsed) ? parsed : [parsed];
+          return array.map(loc => String(loc).replace(/["\[\]]/g, '').trim()).filter(Boolean);
         } catch {
-          // If JSON parsing fails, treat as comma-separated string
-          return location
-            .replace(/["\[\]]/g, '')
-            .split(',')
-            .map(loc => loc.trim())
-            .filter(Boolean);
+          // Fallback to comma separation
         }
       }
-      // Handle comma-separated string
-      return location
+      return trimmed
         .split(',')
         .map(loc => loc.replace(/["\[\]]/g, '').trim())
         .filter(Boolean);
@@ -111,7 +105,8 @@ function convertToVehicle(data: VehicleFormData): Vehicle {
     price_30_days: data.price_30_days,
     delivery_price_7_days: data.delivery_price_7_days,
     delivery_price_15_days: data.delivery_price_15_days,
-    delivery_price_30_days: data.delivery_price_30_days
+    delivery_price_30_days: data.delivery_price_30_days,
+    zero_deposit: data.zero_deposit
   } as Vehicle;
 }
 
@@ -319,20 +314,8 @@ export default function VehiclesPage() {
     setEditingVehicle(vehicle);
   };
 
-  const handleEditSuccess = (formData: Vehicle) => {
-    const updatedVehicle = {
-      ...formData,
-      // Ensure these are always arrays
-      location: Array.isArray(formData.location) ? formData.location : [formData.location],
-      images: Array.isArray(formData.images) ? formData.images : [formData.images],
-      features: Array.isArray(formData.features) ? formData.features : [],
-      created_at: formData.created_at,
-      updated_at: new Date().toISOString()
-    };
-
-    setVehicles((prev: Vehicle[]) =>
-      prev.map((v: Vehicle) => v.id === updatedVehicle.id ? updatedVehicle : v)
-    );
+  const handleEditSuccess = () => {
+    fetchVehicles();
     setEditingVehicle(null);
     toast.success('Vehicle updated successfully');
   };

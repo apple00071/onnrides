@@ -210,7 +210,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
       const vehicleData = {
         name: formData.name,
         type: formData.type,
-        location: JSON.stringify(formData.location),
+        location: formData.location, // Send as array, matching EditVehicleModal
         quantity: totalQty, // Sum of all location quantities
         location_quantities: locationQuantities, // Per-location breakdown
         price_per_hour: Number(formData.price_per_hour),
@@ -262,7 +262,6 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
 
       const newVehicle = await response.json();
       onSuccess(newVehicle);
-      resetForm(true);
       toast.success('Vehicle created successfully');
     } catch (error) {
       logger.error('Error creating vehicle:', error);

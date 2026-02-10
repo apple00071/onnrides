@@ -29,11 +29,13 @@ interface Booking {
     price_per_hour: number;
   };
   booking_id: string;
-  formatted_pickup?: { 
+  pickup_location?: string;
+  dropoff_location?: string;
+  formatted_pickup?: {
     date: string;
     time: string;
   } | string;
-  formatted_dropoff?: { 
+  formatted_dropoff?: {
     date: string;
     time: string;
   } | string;
@@ -56,7 +58,7 @@ export default function BookingsPage() {
   const searchParams = useSearchParams();
   const success = searchParams.get('success');
   const bookingNumber = searchParams.get('booking_number');
-  
+
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [pagination, setPagination] = useState<PaginationData>({
     total: 0,
@@ -133,7 +135,7 @@ export default function BookingsPage() {
         <div className="text-center max-w-md mx-auto px-4">
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Bookings</h2>
           <p className="text-gray-600 mb-4">{error}</p>
-          <button 
+          <button
             onClick={() => fetchBookings(pagination.page)}
             className="text-sm text-orange-600 hover:text-orange-800"
           >
@@ -144,18 +146,18 @@ export default function BookingsPage() {
     );
   }
 
-  const currentBookings = bookings.filter(booking => 
-    booking.status === 'confirmed' && 
-    booking.payment_status === 'completed' && 
+  const currentBookings = bookings.filter(booking =>
+    booking.status === 'confirmed' &&
+    booking.payment_status === 'completed' &&
     new Date(booking.end_date) > new Date()
   );
 
-  const pendingBookings = bookings.filter(booking => 
-    booking.status === 'pending' || 
+  const pendingBookings = bookings.filter(booking =>
+    booking.status === 'pending' ||
     (booking.status === 'confirmed' && booking.payment_status === 'pending')
   );
 
-  const pastBookings = bookings.filter(booking => 
+  const pastBookings = bookings.filter(booking =>
     (booking.status === 'completed' || new Date(booking.end_date) <= new Date()) ||
     booking.status === 'cancelled'
   );
@@ -176,7 +178,7 @@ export default function BookingsPage() {
       };
     }
   };
-  
+
   // Helper function to safely parse location
   const parseLocation = (location: string | string[]): string => {
     try {
@@ -201,7 +203,7 @@ export default function BookingsPage() {
         {!bookings || bookings.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <p className="text-gray-500">No bookings found</p>
-            <button 
+            <button
               onClick={() => fetchBookings(1)}
               className="mt-4 text-sm text-orange-600 hover:text-orange-800"
             >
@@ -216,8 +218,8 @@ export default function BookingsPage() {
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Current Bookings</h2>
                 <div className="grid gap-6">
                   {currentBookings.map(booking => (
-                    <BookingCard 
-                      key={booking.id} 
+                    <BookingCard
+                      key={booking.id}
                       booking={booking}
                       formatDate={formatDate}
                       parseLocation={parseLocation}
@@ -233,8 +235,8 @@ export default function BookingsPage() {
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Pending Bookings</h2>
                 <div className="grid gap-6">
                   {pendingBookings.map(booking => (
-                    <BookingCard 
-                      key={booking.id} 
+                    <BookingCard
+                      key={booking.id}
                       booking={booking}
                       formatDate={formatDate}
                       parseLocation={parseLocation}
@@ -250,8 +252,8 @@ export default function BookingsPage() {
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Past Bookings</h2>
                 <div className="grid gap-6">
                   {pastBookings.map(booking => (
-                    <BookingCard 
-                      key={booking.id} 
+                    <BookingCard
+                      key={booking.id}
                       booking={booking}
                       formatDate={formatDate}
                       parseLocation={parseLocation}
@@ -291,7 +293,7 @@ export default function BookingsPage() {
 }
 
 // BookingCard component
-function BookingCard({ booking, formatDate, parseLocation }: { 
+function BookingCard({ booking, formatDate, parseLocation }: {
   booking: Booking;
   formatDate: (date: string) => { date: string; time: string };
   parseLocation: (location: string | string[]) => string;
@@ -308,20 +310,20 @@ function BookingCard({ booking, formatDate, parseLocation }: {
         };
       }
     }
-    
+
     // Fallback to our formatDate function
     return formatDate(fallbackDate);
   };
-  
+
   // Get pickup date/time
   const pickupDateTime = getDateAndTimeParts(
-    booking.formatted_pickup as string, 
+    booking.formatted_pickup as string,
     booking.pickup_datetime || booking.start_date
   );
-  
+
   // Get dropoff date/time
   const dropoffDateTime = getDateAndTimeParts(
-    booking.formatted_dropoff as string, 
+    booking.formatted_dropoff as string,
     booking.dropoff_datetime || booking.end_date
   );
 
@@ -347,13 +349,13 @@ function BookingCard({ booking, formatDate, parseLocation }: {
           <p className="text-gray-600 mb-1">Pickup</p>
           <p className="font-medium">{pickupDateTime.date}</p>
           <p className="text-sm text-gray-700">{pickupDateTime.time}</p>
-          <p className="text-gray-500 text-sm mt-1">{parseLocation(booking.vehicle.location)}</p>
+          <p className="text-gray-500 text-sm mt-1">{parseLocation(booking.pickup_location || booking.vehicle.location)}</p>
         </div>
         <div>
           <p className="text-gray-600 mb-1">Drop-off</p>
           <p className="font-medium">{dropoffDateTime.date}</p>
           <p className="text-sm text-gray-700">{dropoffDateTime.time}</p>
-          <p className="text-gray-500 text-sm mt-1">{parseLocation(booking.vehicle.location)}</p>
+          <p className="text-gray-500 text-sm mt-1">{parseLocation(booking.dropoff_location || booking.pickup_location || booking.vehicle.location)}</p>
         </div>
       </div>
 

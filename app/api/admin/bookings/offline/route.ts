@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     const userId = userResult.rows[0].id;
 
     const formData = await request.formData();
-    
+
     // Convert FormData to object and handle files
     const data: Record<string, any> = {};
     const entries = Array.from(formData.entries()) as [string, string | Blob][];

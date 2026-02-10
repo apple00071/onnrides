@@ -61,8 +61,12 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
     price_7_days: vehicle?.price_7_days?.toString() ?? '0',
     price_15_days: vehicle?.price_15_days?.toString() ?? '0',
     price_30_days: vehicle?.price_30_days?.toString() ?? '0',
-    images: Array.isArray(vehicle?.images) ? vehicle.images : [],
-    is_delivery_enabled: vehicle?.vehicle_category === 'delivery' || vehicle?.vehicle_category === 'both',
+    images: Array.isArray(vehicle?.images)
+      ? vehicle.images
+      : typeof vehicle?.images === 'string'
+        ? JSON.parse(vehicle.images || '[]')
+        : [],
+    is_delivery_enabled: vehicle?.vehicle_category === 'delivery' || vehicle?.vehicle_category === 'both' || vehicle?.is_delivery_enabled === true,
     delivery_price_7_days: vehicle?.delivery_price_7_days?.toString() ?? '0',
     delivery_price_15_days: vehicle?.delivery_price_15_days?.toString() ?? '0',
     delivery_price_30_days: vehicle?.delivery_price_30_days?.toString() ?? '0',
@@ -92,6 +96,12 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
 
       setLocationQuantities(locQties);
 
+      const images = Array.isArray(vehicle.images)
+        ? vehicle.images
+        : typeof vehicle.images === 'string'
+          ? JSON.parse(vehicle.images || '[]')
+          : [];
+
       setFormData({
         name: vehicle.name,
         type: vehicle.type,
@@ -102,8 +112,8 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
         price_7_days: vehicle.price_7_days?.toString() ?? '0',
         price_15_days: vehicle.price_15_days?.toString() ?? '0',
         price_30_days: vehicle.price_30_days?.toString() ?? '0',
-        images: Array.isArray(vehicle.images) ? vehicle.images : [],
-        is_delivery_enabled: vehicle.vehicle_category === 'delivery' || vehicle.vehicle_category === 'both',
+        images: images,
+        is_delivery_enabled: vehicle.vehicle_category === 'delivery' || vehicle.vehicle_category === 'both' || vehicle.is_delivery_enabled === true,
         delivery_price_7_days: vehicle.delivery_price_7_days?.toString() ?? '0',
         delivery_price_15_days: vehicle.delivery_price_15_days?.toString() ?? '0',
         delivery_price_30_days: vehicle.delivery_price_30_days?.toString() ?? '0',
@@ -231,8 +241,8 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
       price_per_hour: parseFloat(formData.price_per_hour),
       min_booking_hours: parseInt(formData.min_booking_hours, 10),
       images: images, // Send as array, the API will handle conversion
-      is_available: true,
-      status: 'active',
+      is_available: vehicle?.is_available ?? true,
+      status: vehicle?.status ?? 'active',
       is_delivery_enabled: formData.is_delivery_enabled,
       vehicle_category: formData.is_delivery_enabled ? 'both' : 'normal',
       price_7_days: formData.price_7_days ? parseFloat(formData.price_7_days) : null,
@@ -256,7 +266,6 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
         });
         console.log('Update response:', response.data);
         onSuccess?.();
-        onClose();
         toast.success('Vehicle saved successfully');
       } else {
         console.log('Creating vehicle with data:', payload);

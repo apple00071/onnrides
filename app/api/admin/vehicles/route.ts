@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import { query } from '@/lib/db';
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth/auth-options";
 import { randomUUID } from 'crypto';
 import type { NewVehicle, Vehicle } from '@/lib/schema';
 import { withErrorHandler, AuthorizationError, ValidationError } from '@/lib/api-handler';
@@ -92,7 +92,7 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 
   const result = await query(`
     SELECT * FROM vehicles 
-    WHERE status = 'active' AND is_available = true
+    WHERE status = 'active'
     ORDER BY created_at
   `);
 
@@ -160,21 +160,39 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     throw new ValidationError(`Missing required fields: ${missingFields.join(', ')}`);
   }
 
-  // Normalize images before saving
-  const normalizedImages = Array.isArray(data.images) ? data.images : [];
-
   // Ensure location is properly formatted
   let location = data.location;
   if (typeof location === 'string') {
-    location = [location];
+    try {
+      // Check if it's stringified JSON
+      const parsed = JSON.parse(location);
+      location = Array.isArray(parsed) ? parsed : [location];
+    } catch (e) {
+      location = [location];
+    }
   } else if (Array.isArray(location)) {
-    location = location.map(loc => loc.trim()).filter(Boolean);
-  } else if (typeof location === 'object' && location.name) {
+    location = location.map(loc => typeof loc === 'string' ? loc.trim() : loc).filter(Boolean);
+  } else if (typeof location === 'object' && location?.name) {
     location = Array.isArray(location.name) ? location.name : [location.name];
   }
 
   // Convert location array to JSON string
-  const locationJson = JSON.stringify(location);
+  const locationJson = JSON.stringify(location || []);
+
+  // Normalize images before saving
+  let normalizedImages = data.images;
+  if (typeof normalizedImages === 'string') {
+    try {
+      const parsed = JSON.parse(normalizedImages);
+      normalizedImages = Array.isArray(parsed) ? parsed : [normalizedImages];
+    } catch (e) {
+      normalizedImages = [normalizedImages];
+    }
+  }
+  normalizedImages = Array.isArray(normalizedImages) ? normalizedImages : [];
+
+  // Determine vehicle category
+  const vehicleCategory = data.vehicle_category || (data.is_delivery_enabled ? 'both' : 'normal');
 
   // Generate a UUID for the vehicle
   const vehicleId = randomUUID();
@@ -186,9 +204,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       price_per_hour, price_7_days, price_15_days, price_30_days, 
       min_booking_hours, images, status, is_available,
       is_delivery_enabled, delivery_price_7_days, delivery_price_15_days, delivery_price_30_days,
+      vehicle_category, zero_deposit,
       created_at, updated_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
     RETURNING *
   `, [
     vehicleId,
@@ -209,6 +228,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     data.delivery_price_7_days ? Number(data.delivery_price_7_days) : null,
     data.delivery_price_15_days ? Number(data.delivery_price_15_days) : null,
     data.delivery_price_30_days ? Number(data.delivery_price_30_days) : null,
+    vehicleCategory,
+    data.zero_deposit || false,
     new Date(),
     new Date()
   ]);
@@ -230,7 +251,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   });
 });
 
-export async function PUT(request: NextRequest) {
+// PUT /api/admin/vehicles - Update vehicle
+export const PUT = withErrorHandler(async (request: NextRequest) => {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'admin') {
@@ -257,9 +279,15 @@ export async function PUT(request: NextRequest) {
         'type',
         'status',
         'vehicle_category',
+        'zero_deposit'
       ].includes(key)) {
         updateData[key] = rawUpdate[key];
       }
+    }
+
+    // Explicitly handle vehicle_category if is_delivery_enabled changed but category didn't
+    if (has('is_delivery_enabled') && !has('vehicle_category')) {
+      updateData.vehicle_category = rawUpdate.is_delivery_enabled ? 'both' : 'normal';
     }
 
     // Numeric fields
@@ -325,21 +353,33 @@ export async function PUT(request: NextRequest) {
     if (has('location')) {
       let location = rawUpdate.location;
       if (typeof location === 'string') {
-        location = [location];
+        try {
+          const parsed = JSON.parse(location);
+          location = Array.isArray(parsed) ? parsed : [location];
+        } catch (e) {
+          location = [location];
+        }
       } else if (Array.isArray(location)) {
-        location = location.map((loc: string) => loc.trim()).filter(Boolean);
+        location = location.map((loc: any) => typeof loc === 'string' ? loc.trim() : loc).filter(Boolean);
       } else if (typeof location === 'object' && location?.name) {
         location = Array.isArray(location.name) ? location.name : [location.name];
       }
-      updateData.location = JSON.stringify(location);
+      updateData.location = JSON.stringify(location || []);
     }
 
     // Images
     if (has('images')) {
-      const images = Array.isArray(rawUpdate.images)
-        ? rawUpdate.images
-        : [];
-      updateData.images = JSON.stringify(images);
+      let images = rawUpdate.images;
+      if (typeof images === 'string') {
+        try {
+          const parsed = JSON.parse(images);
+          images = Array.isArray(parsed) ? parsed : [images];
+        } catch (e) {
+          images = [images];
+        }
+      }
+      const validImages = Array.isArray(images) ? images : [];
+      updateData.images = JSON.stringify(validImages);
     }
 
     // Location quantities
@@ -412,4 +452,4 @@ export async function PUT(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}); 

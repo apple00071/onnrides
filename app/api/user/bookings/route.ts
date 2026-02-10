@@ -29,13 +29,13 @@ const getBookingsHandler = async (request: NextRequest) => {
     }
 
     const userId = session.user.id;
-    
+
     // Get pagination parameters
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const offset = (page - 1) * limit;
-    
+
     // Get total count first
     const countSql = `
       SELECT COUNT(*) 
@@ -45,37 +45,39 @@ const getBookingsHandler = async (request: NextRequest) => {
     const countResult = await query(countSql, [userId]);
     const totalItems = parseInt(countResult.rows[0].count);
     const totalPages = Math.ceil(totalItems / limit);
-    
+
     // Build the main query with timezone handling
     const sqlQuery = `
       SELECT 
         b.id,
         b.vehicle_id,
-        ${toISTSql('b.start_date')} as pickup_datetime,
-        ${toISTSql('b.end_date')} as dropoff_datetime,
+        b.start_date as pickup_datetime,
+        b.end_date as dropoff_datetime,
         b.total_hours,
         b.total_price,
         b.status,
         b.payment_status,
-        ${toISTSql('b.created_at')} as created_at,
-        ${toISTSql('b.updated_at')} as updated_at,
+        b.created_at,
+        b.updated_at,
         b.booking_id,
+        b.pickup_location,
+        b.dropoff_location,
         v.name as vehicle_name,
         v.location as vehicle_location,
         
         -- Formatted dates as strings
-        TO_CHAR(${toISTSql('b.start_date')}, 'DD Mon YYYY, HH12:MI AM') as formatted_pickup,
-        TO_CHAR(${toISTSql('b.end_date')}, 'DD Mon YYYY, HH12:MI AM') as formatted_dropoff
+        TO_CHAR(b.start_date, 'DD Mon YYYY, HH12:MI AM') as formatted_pickup,
+        TO_CHAR(b.end_date, 'DD Mon YYYY, HH12:MI AM') as formatted_dropoff
       FROM bookings b
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
       WHERE b.user_id = $1::uuid
       ORDER BY b.created_at DESC
       LIMIT $2 OFFSET $3
     `;
-    
+
     // Execute the query
     const result = await query(sqlQuery, [userId, limit, offset]);
-    
+
     // Return the formatted data
     return NextResponse.json({
       success: true,
@@ -116,7 +118,7 @@ export async function POST(request: NextRequest) {
       body = await request.json();
     } catch (e) {
       logger.error('Failed to parse request body:', e);
-      return new NextResponse(JSON.stringify({ 
+      return new NextResponse(JSON.stringify({
         error: 'Invalid request body',
         details: e instanceof Error ? e.message : 'Failed to parse JSON'
       }), {
@@ -129,7 +131,7 @@ export async function POST(request: NextRequest) {
       ...body,
       session_user_id: session.user.id
     });
-    
+
     const { vehicle_id, start_date, end_date, duration, total_price } = body as BookingBody;
 
     // Validate required fields
@@ -141,9 +143,9 @@ export async function POST(request: NextRequest) {
         duration: !duration,
         total_price: !total_price
       };
-      
+
       logger.error('Missing required fields:', missingFields);
-      return new NextResponse(JSON.stringify({ 
+      return new NextResponse(JSON.stringify({
         error: 'Missing required fields',
         details: missingFields
       }), {
@@ -158,7 +160,7 @@ export async function POST(request: NextRequest) {
       new Date(end_date);
     } catch (e) {
       logger.error('Invalid date format:', { start_date, end_date });
-      return new NextResponse(JSON.stringify({ 
+      return new NextResponse(JSON.stringify({
         error: 'Invalid date format',
         details: { start_date, end_date }
       }), {
@@ -242,7 +244,7 @@ export async function POST(request: NextRequest) {
         totalPrice: total_price.toString()
       });
 
-      logger.info('Created booking:', { 
+      logger.info('Created booking:', {
         bookingId: booking.id,
         userId: session.user.id,
         vehicleId: vehicle_id,
@@ -268,7 +270,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     logger.error('Error in POST /api/user/bookings:', error);
-    return new NextResponse(JSON.stringify({ 
+    return new NextResponse(JSON.stringify({
       error: 'Failed to create booking',
       details: error instanceof Error ? error.message : 'Unknown error'
     }), {

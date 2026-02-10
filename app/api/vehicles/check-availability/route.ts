@@ -16,14 +16,14 @@ export async function POST(request: NextRequest) {
 
     // Get vehicle details with location-specific quantities
     const vehicle = await query(`
-      SELECT quantity, location_quantities
+      SELECT quantity, location_quantities, is_available
       FROM vehicles
       WHERE id = $1
     `, [vehicleId]);
 
-    if (vehicle.rows.length === 0) {
+    if (vehicle.rows.length === 0 || !vehicle.rows[0].is_available) {
       return NextResponse.json(
-        { error: 'Vehicle not found' },
+        { error: 'Vehicle is not available for booking' },
         { status: 404 }
       );
     }

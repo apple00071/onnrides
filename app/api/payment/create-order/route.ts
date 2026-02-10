@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth-options';
 import { createOrder } from '@/lib/razorpay';
 
 // New route segment config
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     try {
       const order = await createOrder({
-        amount: amountInPaise,
+        amount: parseFloat(amount),
         currency: 'INR',
         receipt: `booking_${bookingId}`,
         notes: {
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     } catch (razorpayError) {
       logger.error('Razorpay error:', razorpayError);
-      
+
       // If Razorpay order creation fails, delete the booking
       if (bookingId) {
         try {
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   } catch (error) {
     logger.error('Error in create-order:', error);
-    
+
     return new NextResponse(
       JSON.stringify({
         success: false,

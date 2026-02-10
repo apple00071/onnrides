@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth-options';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { createOrder } from '@/lib/razorpay';
@@ -77,15 +77,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Razorpay order
-    const amountInPaise = Math.round(Number(booking.total_price) * 100);
-    logger.info('Creating order with amount:', { 
-      amountInPaise, 
+    // Note: createOrder in @/lib/razorpay handles conversion to paise
+    logger.info('Creating order with amount:', {
+      amount: booking.total_price,
       bookingId,
-      originalAmount: booking.total_price 
+      originalAmount: booking.total_price
     });
 
     const razorpayOrder = await createOrder({
-      amount: amountInPaise,
+      amount: Number(booking.total_price),
       currency: 'INR',
       receipt: bookingId,
       notes: {
@@ -115,10 +115,10 @@ export async function POST(request: NextRequest) {
       [JSON.stringify(paymentDetails), bookingId]
     );
 
-    logger.info('Order created successfully:', { 
-      orderId: razorpayOrder.id, 
+    logger.info('Order created successfully:', {
+      orderId: razorpayOrder.id,
       bookingId,
-      paymentDetails 
+      paymentDetails
     });
 
     return NextResponse.json({

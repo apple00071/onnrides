@@ -42,7 +42,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
             <div className={cn(
                 "flex flex-1 flex-col transition-all duration-300",
-                isMobile ? "pt-16" : (isOpen ? "md:ml-56" : "md:ml-20")
+                isMobile ? "pt-16" : (isOpen ? "md:ml-48" : "md:ml-16")
             )}>
                 {/* Desktop Header */}
                 <header className="hidden md:flex h-16 items-center justify-between border-b bg-background px-8 sticky top-0 z-30">

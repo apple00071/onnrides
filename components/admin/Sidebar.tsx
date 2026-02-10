@@ -114,7 +114,7 @@ export function Sidebar() {
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && setIsHovered(false)}
         animate={{
-          width: (isOpen || isHovered) ? 224 : 80,
+          width: (isOpen || isHovered) ? 192 : 64,
           transition: { duration: 0.2, ease: "easeInOut" }
         }}
         className={cn(
@@ -123,15 +123,18 @@ export function Sidebar() {
           (isHovered && !isOpen) && "shadow-2xl ring-1 ring-black/5"
         )}
       >
-        <div className="flex h-16 items-center justify-between px-4">
-          <div className="relative h-8 w-28">
+        <div className="flex h-16 items-center justify-center px-4">
+          <div className={cn(
+            "relative h-8 transition-all duration-200",
+            (isOpen || isHovered) ? "w-28" : "w-8"
+          )}>
             <Image
               src="/logo.png"
               alt="OnnRides Admin"
               fill
               className="object-contain"
               priority
-              sizes="112px"
+              sizes="(max-width: 768px) 100vw, 112px"
             />
           </div>
         </div>
@@ -204,7 +207,7 @@ export function Sidebar() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 z-50 w-[240px] bg-background shadow-lg md:hidden"
+              className="fixed inset-y-0 left-0 z-50 w-[220px] bg-background shadow-lg md:hidden"
             >
               <div className="flex h-16 items-center justify-between px-4 border-b">
                 <div className="relative h-8 w-28">

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth-options';
 import { getServerSession } from 'next-auth';
 import logger from '@/lib/logger';
 import { getRazorpayInstance } from '@/lib/razorpay';
@@ -11,9 +11,9 @@ const razorpay = getRazorpayInstance();
 // Helper to safely serialize error objects
 function serializeError(error: any): Record<string, any> {
   if (!error) return { message: 'Unknown error' };
-  
+
   const serializedError: Record<string, any> = {};
-  
+
   // Extract basic error properties
   if (error instanceof Error) {
     serializedError.name = error.name;
@@ -39,7 +39,7 @@ function serializeError(error: any): Record<string, any> {
     serializedError.message = 'Unknown error type';
     serializedError.originalError = String(error);
   }
-  
+
   return serializedError;
 }
 
@@ -47,14 +47,14 @@ function serializeError(error: any): Record<string, any> {
 async function updateBookingAfterPayment(
   bookingId: string,
   paymentId: string,
-  amount: string | number, 
+  amount: string | number,
   currency: string,
   paymentData: any
 ): Promise<any> {
   try {
     // Convert amount to number if it's a string
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    
+
     logger.info('Updating booking after payment recovery', {
       bookingId,
       paymentId,
@@ -62,7 +62,7 @@ async function updateBookingAfterPayment(
       amountInCurrency: numericAmount / 100,
       currency
     });
-    
+
     const result = await query(
       `UPDATE bookings 
        SET status = 'confirmed',
@@ -110,7 +110,7 @@ async function updateBookingAfterPayment(
 export async function POST(request: NextRequest) {
   try {
     logger.info('Payment recovery endpoint called');
-    
+
     // Get session
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -132,14 +132,14 @@ export async function POST(request: NextRequest) {
 
     // Check required parameters
     if (!payment_id || !booking_id) {
-      logger.error('Missing required parameters for payment recovery', { 
+      logger.error('Missing required parameters for payment recovery', {
         hasPaymentId: !!payment_id,
         hasBookingId: !!booking_id
       });
-      
+
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: 'Payment ID and Booking ID are required for recovery',
         },
         { status: 400 }
@@ -152,31 +152,31 @@ export async function POST(request: NextRequest) {
         `SELECT * FROM bookings WHERE booking_id = $1 AND user_id = $2`,
         [booking_id, session.user.id]
       );
-      
+
       if (bookingResult.rows.length === 0) {
         logger.error('Booking not found or does not belong to user', {
           bookingId: booking_id,
           userId: session.user.id
         });
-        
+
         return NextResponse.json(
-          { 
-            success: false, 
+          {
+            success: false,
             error: 'Booking not found or does not belong to user',
           },
           { status: 404 }
         );
       }
-      
+
       const booking = bookingResult.rows[0];
-      
+
       // Check if payment already completed
       if (booking.payment_status === 'completed') {
         logger.info('Payment already completed for booking', {
           bookingId: booking_id,
           paymentId: payment_id
         });
-        
+
         return NextResponse.json({
           success: true,
           message: 'Payment was already completed',
@@ -188,16 +188,16 @@ export async function POST(request: NextRequest) {
           }
         });
       }
-      
+
       // 2. Fetch payment from Razorpay
       let payment;
       try {
         logger.info('Fetching payment details from Razorpay', {
           paymentId: payment_id
         });
-        
+
         payment = await razorpay.payments.fetch(payment_id);
-        
+
         logger.info('Successfully fetched payment details', {
           paymentId: payment_id,
           status: payment.status,
@@ -209,10 +209,10 @@ export async function POST(request: NextRequest) {
           paymentId: payment_id,
           error: serializeError(error)
         });
-        
+
         return NextResponse.json(
-          { 
-            success: false, 
+          {
+            success: false,
             error: 'Failed to verify payment with Razorpay',
             details: {
               message: error instanceof Error ? error.message : 'Unknown payment error'
@@ -221,17 +221,17 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      
+
       // 3. Check payment status
       if (payment.status !== 'captured' && payment.status !== 'authorized') {
         logger.error('Payment in invalid state for recovery', {
           paymentId: payment_id,
           status: payment.status
         });
-        
+
         return NextResponse.json(
-          { 
-            success: false, 
+          {
+            success: false,
             error: `Payment in invalid state for recovery: ${payment.status}`,
             details: {
               paymentId: payment_id,
@@ -241,24 +241,24 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      
+
       // 4. Capture payment if authorized
       let captureResponse = payment;
-      
+
       if (payment.status === 'authorized') {
         try {
           logger.info('Attempting to capture payment during recovery', {
             paymentId: payment_id,
             amount: payment.amount
           });
-          
+
           // Capture the payment
           captureResponse = await razorpay.payments.capture(
             payment_id,
             payment.amount,
             payment.currency
           );
-          
+
           logger.info('Payment captured successfully during recovery', {
             paymentId: payment_id,
             amount: Number(payment.amount) / 100,
@@ -269,10 +269,10 @@ export async function POST(request: NextRequest) {
             error: serializeError(captureError),
             paymentId: payment_id
           });
-          
+
           return NextResponse.json(
-            { 
-              success: false, 
+            {
+              success: false,
               error: 'Failed to capture payment during recovery',
               details: {
                 message: captureError instanceof Error ? captureError.message : 'Unknown capture error',
@@ -283,7 +283,7 @@ export async function POST(request: NextRequest) {
           );
         }
       }
-      
+
       // 5. Update booking status
       const updatedBooking = await updateBookingAfterPayment(
         booking_id,
@@ -292,22 +292,22 @@ export async function POST(request: NextRequest) {
         captureResponse.currency,
         captureResponse
       );
-      
+
       if (!updatedBooking) {
         logger.error('Failed to update booking during recovery', {
           bookingId: booking_id,
           paymentId: payment_id
         });
-        
+
         return NextResponse.json(
-          { 
-            success: false, 
+          {
+            success: false,
             error: 'Failed to update booking status during recovery',
           },
           { status: 500 }
         );
       }
-      
+
       // 6. Success!
       logger.info('Payment recovery successful', {
         bookingId: booking_id,
@@ -315,7 +315,7 @@ export async function POST(request: NextRequest) {
         status: updatedBooking.status,
         paymentStatus: updatedBooking.payment_status
       });
-      
+
       return NextResponse.json({
         success: true,
         message: 'Payment recovered and booking updated successfully',
@@ -328,17 +328,17 @@ export async function POST(request: NextRequest) {
           payment_status: updatedBooking.payment_status
         }
       });
-      
+
     } catch (error) {
       logger.error('Unhandled payment recovery error', {
         error: serializeError(error),
         bookingId: booking_id,
         paymentId: payment_id
       });
-      
+
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: 'Payment recovery failed with an unhandled error',
           details: {
             message: error instanceof Error ? error.message : 'Unknown error'
@@ -352,10 +352,10 @@ export async function POST(request: NextRequest) {
     logger.error('Critical payment recovery endpoint error', {
       error: serializeError(error)
     });
-    
+
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Critical server error during payment recovery',
         details: {
           message: error instanceof Error ? error.message : 'Unknown server error'

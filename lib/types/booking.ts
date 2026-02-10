@@ -5,7 +5,7 @@ export interface Vehicle {
   id: string;
   name: string;
   type: string;
-  location?: string;
+  location?: string | string[];
   images?: string[];
   price_per_hour?: number;
 }
@@ -26,4 +26,6 @@ export interface Booking {
   updated_at: string;
   vehicle?: Vehicle;
   booking_id?: string;
-} 
+  pickup_location?: string;
+  dropoff_location?: string;
+}

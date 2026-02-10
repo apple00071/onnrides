@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth-options';
 import { sendBookingConfirmationEmail } from '@/lib/email';
 import { verifyEmailConfig } from '@/lib/email/config';
 import { formatDate } from '@/lib/utils/time-formatter';
@@ -18,7 +18,7 @@ const ADMIN_EMAILS = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split('
 export async function POST(request: NextRequest) {
   try {
     logger.info('Payment verification endpoint called');
-    
+
     // Get session
     const session = await getServerSession(authOptions);
     logger.info('Session check result:', {
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       hasUserId: !!session?.user?.id,
       userEmail: session?.user?.email
     });
-    
+
     if (!session?.user?.id) {
       logger.error('No user session found during payment verification');
       return NextResponse.json(
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const userId = session.user.id;
     const requestBody = await request.text(); // Get raw request body
     logger.info('Raw request body:', { body: requestBody });
-    
+
     let body;
     try {
       body = JSON.parse(requestBody);
@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (!payment_reference || !bookingId) {
-      logger.error('Missing payment verification data', { 
-        payment_reference, 
+      logger.error('Missing payment verification data', {
+        payment_reference,
         bookingId,
         body: JSON.stringify(body)
       });
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
          OR id = $2::uuid`,
         [bookingId, body.booking_id]
       );
-      
+
       logger.info('Initial booking check result:', {
         exists: bookingCheckResult.rows[0].count > 0,
         bookingId,
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
 
       if (!bookingLockResult?.rowCount) {
         // Log the actual value we're searching for
-        logger.error('Booking not found during lock', { 
+        logger.error('Booking not found during lock', {
           searchValue: bookingId,
           booking_uuid: body.booking_id,
           userId,
@@ -250,8 +250,8 @@ export async function POST(request: NextRequest) {
       logger.info('Booking found:', {
         bookingId: booking.id,
         booking_id: booking.booking_id,
-        payment_details: booking.payment_details ? 
-          JSON.stringify(typeof booking.payment_details === 'string' ? 
+        payment_details: booking.payment_details ?
+          JSON.stringify(typeof booking.payment_details === 'string' ?
             JSON.parse(booking.payment_details) : booking.payment_details) : null,
         total_price: booking.total_price
       });
@@ -274,9 +274,9 @@ export async function POST(request: NextRequest) {
              booking_id = COALESCE(booking_id, $3::text)
          WHERE id = $4::uuid`,
         [
-          payment_reference, 
-          JSON.stringify(body), 
-          `OR${booking.id.slice(0, 3)}`, 
+          payment_reference,
+          JSON.stringify(body),
+          `OR${booking.id.slice(0, 3)}`,
           booking.id
         ]
       );
@@ -294,7 +294,7 @@ export async function POST(request: NextRequest) {
 
       // Verify email configuration
       const isEmailConfigValid = await verifyEmailConfig();
-      
+
       if (!isEmailConfigValid) {
         logger.error('Email configuration is invalid', {
           smtp_user: process.env.SMTP_USER,
@@ -331,7 +331,7 @@ export async function POST(request: NextRequest) {
 
           const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
           const emailEndpoint = `${appUrl}/api/email/send`;
-          
+
           logger.debug('Using email endpoint', { endpoint: emailEndpoint });
 
           const emailPayload = {
@@ -364,11 +364,11 @@ export async function POST(request: NextRequest) {
             throw new Error(`Failed to send email confirmation: ${response.status} ${response.statusText} - ${JSON.stringify(responseData)}`);
           }
 
-          logger.info('Email confirmation request successful', { 
+          logger.info('Email confirmation request successful', {
             status: response.status,
-            response: responseData 
+            response: responseData
           });
-          
+
           return true;
         } catch (error) {
           logger.error('Failed to send payment verification email confirmation:', {
@@ -377,7 +377,7 @@ export async function POST(request: NextRequest) {
             bookingId: booking.booking_id || booking.id,
             email: userEmail
           });
-          
+
           // Continue the process even if email fails
           return false;
         }
@@ -386,7 +386,7 @@ export async function POST(request: NextRequest) {
       // Replace the direct email call with the new function
       const emailSent = await sendEmailConfirmation(booking, booking.user_email || session.user.email);
 
-      logger.info('Payment verification completed successfully', { 
+      logger.info('Payment verification completed successfully', {
         bookingId,
         payment_reference,
         email_sent: emailSent
@@ -404,7 +404,7 @@ export async function POST(request: NextRequest) {
           status: 'success',
           transaction_time: new Date()
         });
-        
+
         logger.info('Admin payment notification sent successfully');
       } catch (adminNotifyError) {
         logger.error('Failed to send admin payment notification:', adminNotifyError);
@@ -429,9 +429,9 @@ export async function POST(request: NextRequest) {
       error: error instanceof Error ? error.message : 'Unknown error'
     });
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to verify payment' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to verify payment'
       },
       { status: 500 }
     );

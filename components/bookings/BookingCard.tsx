@@ -57,7 +57,7 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
       {/* Booking Details */}
       <div className="p-4">
         <h3 className="text-lg font-semibold mb-2">{booking.vehicle?.name}</h3>
-        
+
         <div className="space-y-2 text-sm">
           {/* Dates */}
           <div>
@@ -70,10 +70,10 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
           </div>
 
           {/* Location */}
-          {booking.vehicle?.location && (
+          {(booking.pickup_location || booking.vehicle?.location) && (
             <div>
               <p className="text-gray-600">Location</p>
-              <p className="font-medium">{booking.vehicle.location}</p>
+              <p className="font-medium">{booking.pickup_location || booking.vehicle?.location}</p>
             </div>
           )}
 

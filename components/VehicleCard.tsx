@@ -215,6 +215,13 @@ export function VehicleCard({
         <span>🔥</span> Zero deposit
       </div>
 
+      {/* Unavailable Badge */}
+      {vehicle.is_available === false && (
+        <div className="absolute top-12 left-0 z-10 bg-red-50 rounded-r-full px-3 py-1 text-xs font-medium text-red-600 flex items-center gap-1 shadow-sm border border-red-100">
+          Unavailable
+        </div>
+      )}
+
       {/* Vehicle Name */}
       <div className="pt-4 px-4 text-center mt-6">
         <h3 className="text-lg font-semibold text-gray-800 tracking-tight">{vehicle.name}</h3>
@@ -296,10 +303,15 @@ export function VehicleCard({
           {showBookingButton && (
             <Button
               onClick={handleBookNow}
-              className="bg-[#f26e24] hover:bg-[#e05d13] text-white font-medium px-8 h-10 shadow-sm hover:shadow-md rounded-md transition-all duration-200"
-              disabled={!selectedLocation}
+              className={cn(
+                "font-medium px-8 h-10 shadow-sm hover:shadow-md rounded-md transition-all duration-200",
+                vehicle.is_available === false
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed hover:bg-gray-100"
+                  : "bg-[#f26e24] hover:bg-[#e05d13] text-white"
+              )}
+              disabled={!selectedLocation || vehicle.is_available === false}
             >
-              Book
+              {vehicle.is_available === false ? 'Unavailable' : 'Book'}
             </Button>
           )}
         </div>

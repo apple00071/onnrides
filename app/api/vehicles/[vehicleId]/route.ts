@@ -44,7 +44,7 @@ export async function GET(
         created_at,
         updated_at
       FROM vehicles
-      WHERE id = $1
+      WHERE id = $1 AND is_available = true
     `, [resolvedParams.vehicleId]);
 
     if (result.rowCount === 0) {
