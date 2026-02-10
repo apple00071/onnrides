@@ -10,6 +10,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { getBadgeColor } from "@/lib/constants/status-colors";
 
 export type User = {
   id: string;
@@ -44,13 +46,9 @@ export const columns: ColumnDef<User>[] = [
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
       return (
-        <div className={`font-medium ${
-          status === "active" ? "text-green-600" : 
-          status === "blocked" ? "text-red-600" : 
-          "text-gray-600"
-        }`}>
+        <Badge className={getBadgeColor(status)}>
           {status.charAt(0).toUpperCase() + status.slice(1)}
-        </div>
+        </Badge>
       );
     },
   },

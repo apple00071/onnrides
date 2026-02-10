@@ -24,13 +24,23 @@ import { cn } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 import { PageHeader, PageHeaderActions } from '@/components/ui/page-header';
 import Image from 'next/image';
-import { ImageIcon } from 'lucide-react';
+import { Search, ImageIcon } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { v4 as uuidv4 } from 'uuid';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { getBadgeColor } from '@/lib/constants/status-colors';
+import { DeleteConfirmationDialog } from '@/components/admin/DeleteConfirmationDialog';
+import { CardGridSkeleton } from '@/components/admin/LoadingSkeletons';
 
 // Base64 encoded simple placeholder image
 const PLACEHOLDER_IMAGE = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNGNUY1RjUiLz48cGF0aCBkPSJNMTAwIDcwQzg0LjUgNzAgNzIgODIuNSA3MiA5OEM3MiAxMTMuNSA4NC41IDEyNiAxMDAgMTI2QzExNS41IDEyNiAxMjggMTEzLjUgMTI4IDk4QzEyOCA4Mi41IDExNS41IDcwIDEwMCA3MFpNMTAwIDExNkM5MC41IDExNiA4Mi41IDEwOCA4Mi41IDk4QzgyLjUgODggOTAuNSA4MCAxMDAgODBDMTA5LjUgODAgMTE3LjUgODggMTE3LjUgOThDMTE3LjUgMTA4IDEwOS41IDExNiAxMDAgMTE2WiIgZmlsbD0iI0Q5RDlEOSIvPjwvc3ZnPg==';
@@ -185,16 +195,21 @@ export default function VehiclesPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedVehicles, setSelectedVehicles] = useState<string[]>([]);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [vehicleToDelete, setVehicleToDelete] = useState<string | null>(null);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
 
   // Filter states
   const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'available' | 'unavailable'>('all');
   const [locationFilter, setLocationFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [brandFilter, setBrandFilter] = useState<string>('all');
 
   // Bulk selection handlers
   const toggleVehicleSelection = (vehicleId: string) => {
-    setSelectedVehicles(prev =>
+    setSelectedVehicles((prev: string[]) =>
       prev.includes(vehicleId)
-        ? prev.filter(id => id !== vehicleId)
+        ? prev.filter((id: string) => id !== vehicleId)
         : [...prev, vehicleId]
     );
   };
@@ -209,8 +224,6 @@ export default function VehiclesPage() {
 
   const handleBulkDelete = async () => {
     if (selectedVehicles.length === 0) return;
-
-    if (!confirm(`Delete ${selectedVehicles.length} vehicles? This cannot be undone.`)) return;
 
     try {
       const response = await fetch('/api/admin/vehicles/bulk-delete', {
@@ -392,14 +405,7 @@ export default function VehiclesPage() {
 
   let content;
   if (loading) {
-    content = (
-      <div className="flex justify-center items-center h-96">
-        <div className="relative">
-          <div className="w-12 h-12 rounded-full absolute border-4 border-solid border-gray-200"></div>
-          <div className="w-12 h-12 rounded-full animate-spin absolute border-4 border-solid border-primary border-t-transparent"></div>
-        </div>
-      </div>
-    );
+    content = <CardGridSkeleton count={6} />;
   } else if (error) {
     content = (
       <div className="flex justify-center items-center h-96">
@@ -408,7 +414,17 @@ export default function VehiclesPage() {
     );
   } else {
     // Filter vehicles based on selected filters
-    const filteredVehicles = vehicles.filter(vehicle => {
+    const filteredVehicles = vehicles.filter((vehicle: Vehicle) => {
+      // Search query
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          vehicle.name.toLowerCase().includes(query) ||
+          (vehicle.brand?.toLowerCase().includes(query)) ||
+          (vehicle.model?.toLowerCase().includes(query));
+        if (!matchesSearch) return false;
+      }
+
       // Availability filter
       if (availabilityFilter === 'available' && !vehicle.is_available) return false;
       if (availabilityFilter === 'unavailable' && vehicle.is_available) return false;
@@ -419,8 +435,19 @@ export default function VehiclesPage() {
         if (!vehicleLocations.includes(locationFilter)) return false;
       }
 
+      // Type filter
+      if (typeFilter !== 'all' && vehicle.type !== typeFilter) return false;
+
+      // Brand filter
+      if (brandFilter !== 'all' && vehicle.brand !== brandFilter) return false;
+
       return true;
     });
+
+    // Get unique types and brands for filters
+    const vehicleTypes = Array.from(new Set(vehicles.map((v: Vehicle) => v.type).filter(Boolean))).sort();
+    const vehicleBrands = Array.from(new Set(vehicles.map((v: Vehicle) => v.brand).filter(Boolean))).sort();
+    const allLocations = Array.from(new Set(vehicles.flatMap((v: Vehicle) => formatLocations(v.location)))).sort();
 
     content = (
       <div className="space-y-6">
@@ -459,7 +486,7 @@ export default function VehiclesPage() {
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={handleBulkDelete}
+                onClick={() => setIsBulkDeleteOpen(true)}
               >
                 Delete Selected
               </Button>
@@ -467,71 +494,94 @@ export default function VehiclesPage() {
           </div>
         )}
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3 items-center bg-gray-50 p-4 rounded-lg">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              checked={selectedVehicles.length === filteredVehicles.length && filteredVehicles.length > 0}
-              onCheckedChange={() => toggleSelectAll(filteredVehicles)}
+        {/* Filters & Search */}
+        <div className="flex flex-col md:flex-row gap-4 bg-white p-6 rounded-xl border shadow-sm">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search vehicles by name, brand or model..."
+              value={searchQuery}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+              className="pl-10"
             />
-            <Label className="text-sm font-medium text-gray-700">Select All</Label>
           </div>
-          <div className="h-6 w-px bg-gray-300"></div>
-          <div className="flex items-center gap-2">
-            <Label className="text-sm font-medium text-gray-700">Availability:</Label>
-            <div className="flex gap-2">
-              <Button
-                variant={availabilityFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAvailabilityFilter('all')}
-              >
-                All ({vehicles.length})
-              </Button>
-              <Button
-                variant={availabilityFilter === 'available' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAvailabilityFilter('available')}
-                className={availabilityFilter === 'available' ? 'bg-green-600 hover:bg-green-700' : ''}
-              >
-                Available ({vehicles.filter(v => v.is_available).length})
-              </Button>
-              <Button
-                variant={availabilityFilter === 'unavailable' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAvailabilityFilter('unavailable')}
-                className={availabilityFilter === 'unavailable' ? 'bg-gray-600 hover:bg-gray-700' : ''}
-              >
-                Unavailable ({vehicles.filter(v => !v.is_available).length})
-              </Button>
+
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="flex items-center gap-2 pr-4 border-r">
+              <Checkbox
+                id="select-all"
+                checked={selectedVehicles.length === filteredVehicles.length && filteredVehicles.length > 0}
+                onCheckedChange={() => toggleSelectAll(filteredVehicles)}
+              />
+              <Label htmlFor="select-all" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
+                Select All
+              </Label>
             </div>
-          </div>
 
-          <div className="h-6 w-px bg-gray-300"></div>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {vehicleTypes.map(type => (
+                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <div className="flex items-center gap-2">
-            <Label className="text-sm font-medium text-gray-700">Location:</Label>
-            <div className="flex gap-2">
-              <Button
-                variant={locationFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setLocationFilter('all')}
+            <Select value={brandFilter} onValueChange={setBrandFilter}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="Brand" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Brands</SelectItem>
+                {vehicleBrands.map(brand => (
+                  <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={locationFilter} onValueChange={setLocationFilter}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="Location" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Locations</SelectItem>
+                {allLocations.map(loc => (
+                  <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+              <button
+                onClick={() => setAvailabilityFilter('all')}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  availabilityFilter === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                )}
               >
                 All
-              </Button>
-              <Button
-                variant={locationFilter === 'Madhapur' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setLocationFilter('Madhapur')}
+              </button>
+              <button
+                onClick={() => setAvailabilityFilter('available')}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  availabilityFilter === 'available' ? "bg-white text-green-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                )}
               >
-                Madhapur
-              </Button>
-              <Button
-                variant={locationFilter === 'Erragadda' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setLocationFilter('Erragadda')}
+                Available
+              </button>
+              <button
+                onClick={() => setAvailabilityFilter('unavailable')}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  availabilityFilter === 'unavailable' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                )}
               >
-                Erragadda
-              </Button>
+                Unavailable
+              </button>
             </div>
           </div>
         </div>
@@ -560,7 +610,7 @@ export default function VehiclesPage() {
                   alt={vehicle.name}
                   fill
                   className="object-contain p-2 mix-blend-multiply"
-                  onError={(e) => {
+                  onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
                     logger.warn('Image failed to load:', { vehicleId: vehicle.id, images: vehicle.images });
                     const target = e.target as HTMLImageElement;
                     target.src = PLACEHOLDER_IMAGE;
@@ -633,7 +683,7 @@ export default function VehiclesPage() {
                       <Switch
                         id={`is_available-${vehicle.id}`}
                         checked={vehicle.is_available}
-                        onCheckedChange={(checked) => handleAvailabilityChange(vehicle.id, checked)}
+                        onCheckedChange={(checked: boolean) => handleAvailabilityChange(vehicle.id, checked)}
                       />
                       <Label htmlFor={`is_available-${vehicle.id}`} className="text-xs">
                         Available
@@ -650,11 +700,7 @@ export default function VehiclesPage() {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => {
-                          if (window.confirm(`Are you sure you want to delete ${vehicle.name}? This action cannot be undone.`)) {
-                            handleDelete(vehicle.id);
-                          }
-                        }}
+                        onClick={() => setVehicleToDelete(vehicle.id)}
                         className="bg-red-500 hover:bg-red-600 text-white"
                       >
                         Delete
@@ -692,6 +738,20 @@ export default function VehiclesPage() {
           onSuccess={handleVehicleAdded}
         />
       )}
+      <DeleteConfirmationDialog
+        isOpen={!!vehicleToDelete}
+        onClose={() => setVehicleToDelete(null)}
+        onConfirm={() => vehicleToDelete && handleDelete(vehicleToDelete)}
+        title="Delete Vehicle?"
+        description="Are you sure you want to delete this vehicle? This action cannot be undone."
+      />
+      <DeleteConfirmationDialog
+        isOpen={isBulkDeleteOpen}
+        onClose={() => setIsBulkDeleteOpen(false)}
+        onConfirm={handleBulkDelete}
+        title={`Delete ${selectedVehicles.length} Vehicles?`}
+        description={`Are you sure you want to delete ${selectedVehicles.length} vehicles? This action cannot be undone.`}
+      />
     </div>
   );
 } 

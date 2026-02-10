@@ -77,96 +77,9 @@ export async function GET(
         'null'
     });
 
-    // Safely parse JSON fields with error handling
-    let parsedLocation = [];
-    let parsedImages = [];
-
-    try {
-      // Parse location - could be a JSON string or a plain string
-      if (result.rows[0].location) {
-        if (typeof result.rows[0].location === 'string') {
-          try {
-            // Try to parse as JSON
-            const locationData = JSON.parse(result.rows[0].location);
-
-            // Clean the data based on what we parsed
-            if (Array.isArray(locationData)) {
-              // Clean each location in the array
-              parsedLocation = locationData.map((loc: string) => {
-                if (typeof loc === 'string') {
-                  // Remove any quotes and trim
-                  return loc.replace(/^["']+|["']+$/g, '').trim();
-                }
-                return String(loc).trim();
-              }).filter(Boolean);
-            } else if (locationData) {
-              // Single value from JSON that's not an array
-              parsedLocation = [String(locationData).replace(/^["']+|["']+$/g, '').trim()];
-            }
-          } catch (e) {
-            // If parsing fails, check if it looks like an array with brackets/quotes
-            const locationStr = result.rows[0].location;
-
-            if (locationStr.match(/^\[.*\]$/)) {
-              // Looks like ["text"] or [text] - remove brackets and split
-              const cleanedStr = locationStr.replace(/^\[|\]$/g, '').trim();
-              parsedLocation = cleanedStr.split(',').map((s: string) =>
-                s.replace(/^["']+|["']+$/g, '').trim()
-              ).filter(Boolean);
-            } else {
-              // Plain string - just clean it
-              parsedLocation = [locationStr.replace(/^["']+|["']+$/g, '').trim()];
-            }
-
-            logger.warn('Location is not valid JSON, cleaned manually:', {
-              original: result.rows[0].location,
-              cleaned: parsedLocation
-            });
-          }
-        } else if (Array.isArray(result.rows[0].location)) {
-          // Already an array - clean each item
-          parsedLocation = result.rows[0].location.map((loc: any) => {
-            if (typeof loc === 'string') {
-              return loc.replace(/^["']+|["']+$/g, '').trim();
-            }
-            return String(loc).trim();
-          }).filter(Boolean);
-        } else {
-          // Some other type - convert to string and use as single location
-          parsedLocation = [String(result.rows[0].location).trim()];
-        }
-      }
-
-      // Parse images - could be a JSON string array or a plain URL string
-      if (result.rows[0].images) {
-        if (typeof result.rows[0].images === 'string') {
-          // Check if it's already a direct image URL
-          if (result.rows[0].images.startsWith('http') || result.rows[0].images.startsWith('data:image')) {
-            parsedImages = [result.rows[0].images];
-            logger.info('Images field is a direct URL, converting to array');
-          } else {
-            try {
-              parsedImages = JSON.parse(result.rows[0].images);
-              logger.info('Successfully parsed images JSON', {
-                count: Array.isArray(parsedImages) ? parsedImages.length : 'not an array'
-              });
-            } catch (e) {
-              // If parsing fails, use it as a single image URL
-              parsedImages = [result.rows[0].images];
-              logger.warn('Images field is not valid JSON, using as a single image URL');
-            }
-          }
-        } else if (Array.isArray(result.rows[0].images)) {
-          // If it's already an array, use it directly
-          parsedImages = result.rows[0].images;
-        }
-      }
-    } catch (error) {
-      logger.error('Error parsing JSON fields:', error);
-      // In case of any error, provide empty arrays as fallback
-      if (!parsedLocation.length) parsedLocation = [];
-      if (!parsedImages.length) parsedImages = [];
-    }
+    const { parseLocations, parseImages } = require('@/lib/utils/data-normalization');
+    const parsedLocation = parseLocations(result.rows[0].location);
+    const parsedImages = parseImages(result.rows[0].images);
 
     // Create the final vehicle object with parsed fields
     const vehicle = {

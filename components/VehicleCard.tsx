@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { toIST, formatDateTimeIST, formatDateIST, formatTimeIST } from "@/lib/utils/timezone";
 import { Vehicle } from "@/app/(main)/vehicles/types";
 import logger from '@/lib/logger';
+import { parseLocations } from '@/lib/utils/data-normalization';
 import {
   DEFAULT_VEHICLE_IMAGE,
   getValidImageUrl,
@@ -29,16 +30,6 @@ interface VehicleCardProps {
   children?: React.ReactNode;
 }
 
-interface PriceDetails {
-  totalAmount: number;
-  duration: string;
-}
-
-interface FormattedDateTime {
-  time: string;
-  date: string;
-}
-
 export function VehicleCard({
   vehicle,
   selectedLocation: initialSelectedLocation,
@@ -56,39 +47,63 @@ export function VehicleCard({
   const pathname = usePathname();
 
   // Parse and format locations
-  const locations = Array.isArray(vehicle.location) ? vehicle.location :
-    typeof vehicle.location === 'string' ? JSON.parse(vehicle.location) : [];
+  const locations = useMemo(() => {
+    return parseLocations(vehicle.location);
+  }, [vehicle.location]);
 
-  const [selectedLocation, setSelectedLocation] = useState<string | null>(
-    initialSelectedLocation || (locations.length === 1 ? locations[0] : null)
-  );
+  const [selectedLocation, setSelectedLocation] = useState<string | null>(() => {
+    const parsedLocations = parseLocations(vehicle.location);
+    if (!parsedLocations || parsedLocations.length === 0) return null;
+
+    // If we have an initial selected location that is valid, use it
+    if (initialSelectedLocation && parsedLocations.includes(initialSelectedLocation)) {
+      return initialSelectedLocation;
+    }
+
+    // CRITICAL: Force "Select pickup location" if multiple exist and no initial selection
+    if (parsedLocations.length > 1) {
+      return null;
+    }
+
+    return parsedLocations[0] || null;
+  });
+
+  // Keep selectedLocation in sync with prop changes
+  useEffect(() => {
+    const parsedLocations = parseLocations(vehicle.location);
+    if (!parsedLocations || parsedLocations.length === 0) {
+      setSelectedLocation(null);
+      return;
+    }
+
+    // If we have an initial selected location that is valid, use it
+    if (initialSelectedLocation && parsedLocations.includes(initialSelectedLocation)) {
+      setSelectedLocation(initialSelectedLocation);
+      return;
+    }
+
+    // If multiple locations exist and no valid selection, force user to pick
+    if (parsedLocations.length > 1) {
+      setSelectedLocation(null);
+      return;
+    }
+
+    // Fallback to the first (and only) location
+    setSelectedLocation(parsedLocations[0] || null);
+  }, [vehicle.id, vehicle.location, initialSelectedLocation]);
+
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageSource, setImageSource] = useState<string>(DEFAULT_VEHICLE_IMAGE);
 
   // Preload and validate image
   useEffect(() => {
-    logger.info('VehicleCard image useEffect triggered', {
-      vehicleId: vehicle.id,
-      vehicleName: vehicle.name,
-      images: vehicle.images,
-      imageCount: vehicle.images?.length || 0
-    });
-
-    // Reset states when vehicle changes
     setImageLoaded(false);
     setImageError(false);
     setImageSource(DEFAULT_VEHICLE_IMAGE);
 
     const validateAndSetImage = () => {
       const source = getValidImageUrl(vehicle.images);
-
-      logger.info('Image URL extracted', {
-        vehicleId: vehicle.id,
-        source,
-        isDataUrl: isValidDataUrl(source),
-        isDefault: source === DEFAULT_VEHICLE_IMAGE
-      });
 
       if (isValidDataUrl(source)) {
         setImageSource(source);
@@ -104,13 +119,11 @@ export function VehicleCard({
 
       preloadImage(source)
         .then(() => {
-          logger.info('Image loaded successfully', { vehicleId: vehicle.id, source });
           setImageSource(source);
           setImageLoaded(true);
           setImageError(false);
         })
-        .catch((err) => {
-          logger.error('Image failed to load', { vehicleId: vehicle.id, source, error: err.message });
+        .catch(() => {
           setImageError(true);
           setImageSource(DEFAULT_VEHICLE_IMAGE);
           setImageLoaded(true);
@@ -119,10 +132,6 @@ export function VehicleCard({
 
     validateAndSetImage();
   }, [vehicle.id, JSON.stringify(vehicle.images)]);
-
-  // Format dates for display
-  const formattedPickupDate = pickupDateTime ? new Date(pickupDateTime) : null;
-  const formattedDropoffDate = dropoffDateTime ? new Date(dropoffDateTime) : null;
 
   // Calculate price based on duration
   const priceDetails = useMemo(() => {
@@ -143,10 +152,10 @@ export function VehicleCard({
     const minimumHours = isWeekend ? 24 : 12;
 
     const result = calculateRentalPrice({
-      price_per_hour: vehicle.price_per_hour,
-      price_7_days: vehicle.price_7_days,
-      price_15_days: vehicle.price_15_days,
-      price_30_days: vehicle.price_30_days
+      price_per_hour: parseFloat(String(vehicle.price_per_hour)) || 0,
+      price_7_days: vehicle.price_7_days ? parseFloat(String(vehicle.price_7_days)) : null,
+      price_15_days: vehicle.price_15_days ? parseFloat(String(vehicle.price_15_days)) : null,
+      price_30_days: vehicle.price_30_days ? parseFloat(String(vehicle.price_30_days)) : null
     }, durationInHours, isWeekend);
 
     return {
@@ -164,9 +173,8 @@ export function VehicleCard({
   };
 
   const handleBookNow = () => {
-    if (!selectedLocation) {
-      return;
-    }
+    if (!selectedLocation) return;
+
     const currentParams = new URLSearchParams(searchParams?.toString() || '');
     currentParams.set('location', selectedLocation);
 
@@ -193,6 +201,9 @@ export function VehicleCard({
     router.push(`/booking-summary?${currentParams.toString()}`);
   };
 
+  const formattedPickupDate = pickupDateTime ? new Date(pickupDateTime) : null;
+  const formattedDropoffDate = dropoffDateTime ? new Date(dropoffDateTime) : null;
+
   return (
     <div className={cn(
       "group relative bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col h-full",
@@ -210,10 +221,7 @@ export function VehicleCard({
       </div>
 
       {/* Vehicle Image */}
-      {/* Vehicle Image */}
-      {/* Vehicle Image */}
       <div className="relative h-48 w-full my-4 bg-white flex items-center justify-center overflow-hidden">
-        {/* Show loading spinner while image is loading */}
         {!imageLoaded && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
@@ -225,7 +233,7 @@ export function VehicleCard({
           alt={vehicle.name}
           fill
           className={cn(
-            "object-contain mix-blend-multiply",
+            "object-contain mix-blend-multiply transition-opacity duration-300",
             !imageLoaded && "opacity-0",
             imageLoaded && "opacity-100"
           )}
@@ -238,7 +246,6 @@ export function VehicleCard({
       </div>
 
       <div className="px-4 pb-4 flex-grow flex flex-col gap-3">
-        {/* Display formatted dates */}
         {(formattedPickupDate && formattedDropoffDate) ? (
           <div className="flex justify-between items-center text-xs text-gray-600 border-t border-b border-gray-50 py-2">
             <div className="text-left">
@@ -253,21 +260,19 @@ export function VehicleCard({
           </div>
         ) : null}
 
-        {/* Location selector */}
-        <div className="space-y-1">
-          <p className="text-xs text-gray-500 text-center">Available at</p>
-          <div className="w-full">
+        <div className="space-y-1.5 mt-2">
+          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider text-center">Available at</p>
+          <div className="w-full relative px-1">
             <LocationDropdown
               locations={locations}
               selectedLocation={selectedLocation}
               onLocationChange={handleLocationSelect}
               vehicleId={vehicle.id}
-              className="w-full text-sm h-9"
+              className="w-full text-sm"
             />
           </div>
         </div>
 
-        {/* Price and Book Section */}
         <div className="mt-auto pt-3 flex items-center justify-between gap-3 border-t border-dashed border-gray-200">
           <div className="flex-1">
             {children ? (
@@ -301,4 +306,4 @@ export function VehicleCard({
       </div>
     </div>
   );
-} 
+}

@@ -1,31 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { formatDateTime } from '@/lib/utils/time-formatter';
-import { Loader2 } from 'lucide-react';
-import { getBadgeColor } from '@/lib/constants/status-colors';
-
-interface Booking {
-  id: string;
-  booking_id: string;
-  vehicle: {
-    name: string;
-    type: string;
-  };
-  user: {
-    name: string;
-    phone: string;
-  };
-  start_date: string;
-  end_date: string;
-  total_price: number;
-  status: string;
-  payment_status: string;
-  booking_type: string;
-  registration_number: string;
-  pickup_location?: string | null;
-}
+import { Button } from '@/components/ui/button';
+import { DataTable } from '@/components/ui/data-table';
+import { columns, type Booking } from './columns';
+import { TableSkeleton } from '@/components/admin/LoadingSkeletons';
+import { PlusCircle, Search, FilterX } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function BookingsPage() {
   const router = useRouter();
@@ -33,15 +22,16 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchBookings();
-  }, []);
+  // Filtering states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [paymentFilter, setPaymentFilter] = useState<string>('all');
 
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/admin/bookings', {
+      const response = await fetch('/api/admin/bookings?t=' + Date.now(), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -64,118 +54,149 @@ export default function BookingsPage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
+
+  // Derived filtered bookings
+  const filteredBookings = bookings.filter((booking: Booking) => {
+    const matchesSearch =
+      booking.booking_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      booking.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      booking.registration_number.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStatus = statusFilter === 'all' || booking.status === statusFilter;
+    const matchesPayment = paymentFilter === 'all' || booking.payment_status === paymentFilter;
+
+    return matchesSearch && matchesStatus && matchesPayment;
+  });
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setPaymentFilter('all');
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex flex-col items-center justify-center gap-4 py-12">
-          <p className="text-red-600">{error}</p>
-          <button
-            onClick={() => fetchBookings()}
-            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const statusOptions = Array.from(new Set(bookings.map((b: Booking) => b.status)));
+  const paymentOptions = Array.from(new Set(bookings.map((b: Booking) => b.payment_status)));
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-xl border shadow-sm gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Booking Management</h1>
-          <p className="text-gray-600">{bookings.length} bookings found</p>
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Booking Management</h1>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Manage your rental orders, payments, and schedules
+          </p>
         </div>
-        <button
+        <Button
+          className="bg-[#f26e24] hover:bg-[#d95e1d] text-white shadow-sm flex items-center gap-2 h-10 px-5"
           onClick={() => router.push('/admin/offline-booking')}
-          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90"
         >
-          Create Offline Booking
-        </button>
+          <PlusCircle className="h-4 w-4" /> Create Offline Booking
+        </Button>
       </div>
 
-      {bookings.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg">
-          <p className="text-gray-600">No bookings found</p>
+      <div className="bg-white p-4 rounded-xl border shadow-sm">
+        <div className="flex flex-col lg:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search by ID, Customer, or Reg No..."
+              value={searchQuery}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+              className="pl-9 h-10 border-gray-200 focus:border-primary/50 focus:ring-primary/20 transition-all"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px] h-10 border-gray-200">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                {statusOptions.map((status) => (
+                  <SelectItem key={status} value={status} className="capitalize">
+                    {status}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+              <SelectTrigger className="w-[150px] h-10 border-gray-200">
+                <SelectValue placeholder="Payment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Payments</SelectItem>
+                {paymentOptions.map((payment) => (
+                  <SelectItem key={payment} value={payment} className="capitalize">
+                    {payment}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {(searchQuery || statusFilter !== 'all' || paymentFilter !== 'all') && (
+              <Button
+                variant="ghost"
+                onClick={resetFilters}
+                className="h-10 px-3 flex items-center gap-2 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <FilterX className="h-4 w-4" /> Reset
+              </Button>
+            )}
+          </div>
         </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white rounded-lg overflow-hidden">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">ID</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">VEHICLE</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">LOCATION</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">CUSTOMER</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">START</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">END</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">AMOUNT</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">TYPE</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">STATUS</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">PAYMENT</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {bookings.map((booking) => (
-                <tr
-                  key={booking.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => router.push(`/admin/bookings/${booking.booking_id}`)}
+      </div>
+
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div>
+          {loading ? (
+            <TableSkeleton rows={10} />
+          ) : error ? (
+            <div className="py-12 text-center text-red-500">
+              <h3 className="text-lg font-medium">Error loading bookings</h3>
+              <p className="mt-2 text-sm">{error}</p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={fetchBookings}
+              >
+                Try Again
+              </Button>
+            </div>
+          ) : filteredBookings.length === 0 ? (
+            <div className="py-12 text-center">
+              <h3 className="text-lg font-medium text-gray-700">No bookings found</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                {searchQuery || statusFilter !== 'all' || paymentFilter !== 'all'
+                  ? "Try adjusting your filters to find what you're looking for."
+                  : "New bookings will appear here once they are created."}
+              </p>
+              {(searchQuery || statusFilter !== 'all' || paymentFilter !== 'all') && (
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={resetFilters}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{booking.booking_id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{booking.vehicle.name}</div>
-                    <div className="text-sm text-gray-500">{booking.registration_number}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {booking.pickup_location || 'Not specified'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{booking.user.name}</div>
-                    <div className="text-sm text-gray-500">{booking.user.phone}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDateTime(booking.start_date)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDateTime(booking.end_date)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ₹{booking.total_price.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {booking.booking_type.charAt(0).toUpperCase() + booking.booking_type.slice(1)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getBadgeColor(booking.status)}`}>
-                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getBadgeColor(booking.payment_status)}`}>
-                      {booking.booking_type === 'online' && booking.payment_status === 'completed' ?
-                        '5% Collected' :
-                        booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)
-                      }
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  Clear All Filters
+                </Button>
+              )}
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={filteredBookings}
+              searchKey="booking_id"
+              showSearch={false} // Custom search bar used above
+              onRowClick={(row: any) => router.push(`/admin/bookings/${row.booking_id}`)}
+            />
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
-} 
+}

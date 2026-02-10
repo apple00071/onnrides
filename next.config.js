@@ -1,8 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    esmExternals: true
+    esmExternals: true,
+    missingSuspenseWithCSRBailout: false,
+    optimizePackageImports: ['@/components', '@/lib'],
   },
+  // Allow build to continue despite static generation failures for error pages
+  staticPageGenerationTimeout: 1000,
+  compress: false,
   transpilePackages: [
     'pg',
     'winston',

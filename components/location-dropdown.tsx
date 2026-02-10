@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import logger from '@/lib/logger';
+import { parseLocations } from '@/lib/utils/data-normalization';
 
 interface LocationDropdownProps {
   locations: string[] | string;
@@ -17,42 +18,6 @@ interface LocationDropdownProps {
   endDate?: Date;
   className?: string;
 }
-
-const parseLocations = (locations: string[] | string): string[] => {
-  if (Array.isArray(locations)) {
-    return locations.map(loc => {
-      // Handle cases where the location might be a JSON string
-      if (typeof loc === 'string' && (loc.startsWith('[') || loc.startsWith('"'))) {
-        try {
-          // Remove any extra quotes and brackets
-          const cleaned = loc.replace(/[\[\]"]/g, '');
-          return cleaned;
-        } catch (e) {
-          return loc;
-        }
-      }
-      return loc;
-    });
-  }
-  
-  if (typeof locations === 'string') {
-    try {
-      // Handle string that might be a JSON array
-      if (locations.startsWith('[')) {
-        const parsed = JSON.parse(locations);
-        return Array.isArray(parsed) ? parsed.map(loc => 
-          typeof loc === 'string' ? loc.replace(/[\[\]"]/g, '') : loc
-        ) : [];
-      }
-      // Handle single location string
-      return [locations.replace(/[\[\]"]/g, '')];
-    } catch (e) {
-      return [locations];
-    }
-  }
-  
-  return [];
-};
 
 export function LocationDropdown({
   locations,
@@ -102,10 +67,10 @@ export function LocationDropdown({
       if (!response.ok) {
         throw new Error('Failed to fetch available locations');
       }
-      
+
       const data = await response.json();
       const vehicle = data.vehicles.find((v: any) => v.id === vehicleId);
-      
+
       if (vehicle?.available_locations) {
         setAvailableLocations(parseLocations(vehicle.available_locations));
       } else {
@@ -197,12 +162,14 @@ export function LocationDropdown({
   return (
     <div className={className}>
       <Select
-        value={selectedLocation || ''}
+        value={availableLocations.find(loc => loc === selectedLocation) ||
+          availableLocations.find(loc => loc === parseLocations(selectedLocation || '')[0]) ||
+          undefined}
         onValueChange={handleLocationChange}
         disabled={processingRef.current}
       >
         <SelectTrigger>
-          <SelectValue placeholder="Select location" />
+          <SelectValue placeholder="Select pickup location" />
         </SelectTrigger>
         <SelectContent>
           {availableLocations.map((location) => (
@@ -214,4 +181,4 @@ export function LocationDropdown({
       </Select>
     </div>
   );
-} 
+}

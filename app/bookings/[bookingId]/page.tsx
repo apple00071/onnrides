@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
@@ -75,8 +75,7 @@ const parseLocation = (location: string | string[]): string => {
   }
 };
 
-export default function BookingDetailsPage({ params }: { params: Promise<{ bookingId: string }> }) {
-  const resolvedParams = use(params);
+export default function BookingDetailsPage({ params }: { params: { bookingId: string } }) {
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const [booking, setBooking] = useState<BookingDetails | null>(null);
@@ -95,7 +94,7 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
           return;
         }
 
-        const response = await fetch(`/api/bookings/${resolvedParams.bookingId}`);
+        const response = await fetch(`/api/bookings/${params.bookingId}`);
         const data = await response.json();
 
         if (!response.ok) {
@@ -123,7 +122,7 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
 
     // Clean up interval on unmount
     return () => clearInterval(refreshInterval);
-  }, [resolvedParams.bookingId, sessionStatus, router, booking?.paymentStatus]);
+  }, [params.bookingId, sessionStatus, router, booking?.paymentStatus]);
 
   if (loading) {
     return (
@@ -191,20 +190,20 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
               </p>
               <p>
                 <span className="font-semibold">Payment Status:</span>{' '}
-                <Badge 
+                <Badge
                   variant={
-                    booking.paymentStatus === 'completed' 
-                      ? 'success' 
+                    booking.paymentStatus === 'completed'
+                      ? 'success'
                       : booking.paymentStatus === 'refunded'
-                      ? 'secondary'
-                      : 'warning'
+                        ? 'secondary'
+                        : 'warning'
                   }
                 >
-                  {booking.paymentStatus === 'pending' 
-                    ? 'Payment Pending' 
+                  {booking.paymentStatus === 'pending'
+                    ? 'Payment Pending'
                     : booking.paymentStatus === 'completed'
-                    ? 'Paid'
-                    : booking.paymentStatus}
+                      ? 'Paid'
+                      : booking.paymentStatus}
                 </Badge>
               </p>
               <p><span className="font-semibold">Booking ID:</span> {booking.displayId || booking.bookingId}</p>

@@ -22,7 +22,10 @@ import {
   Ticket,
   Mail,
   MessageSquare,
-  Trash2
+  Trash2,
+  ReceiptIndianRupee,
+  BarChart3,
+  RotateCcw
 } from 'lucide-react';
 
 interface SidebarLink {
@@ -58,6 +61,21 @@ const sidebarLinks: SidebarLink[] = [
     icon: QrCode
   },
   {
+    href: '/admin/vehicle-returns',
+    label: 'Vehicle Returns',
+    icon: RotateCcw
+  },
+  {
+    href: '/admin/finance',
+    label: 'Finance',
+    icon: ReceiptIndianRupee
+  },
+  {
+    href: '/admin/reports',
+    label: 'Reports',
+    icon: BarChart3
+  },
+  {
     href: '/admin/coupons',
     label: 'Coupons',
     icon: Ticket
@@ -86,20 +104,23 @@ const sidebarLinks: SidebarLink[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { isOpen, toggle, isMobile } = useSidebar();
+  const { isOpen, toggle, isMobile, isHovered, setIsHovered } = useSidebar();
 
   return (
     <>
       {/* Desktop Sidebar */}
       <motion.div
         initial={false}
+        onMouseEnter={() => !isMobile && setIsHovered(true)}
+        onMouseLeave={() => !isMobile && setIsHovered(false)}
         animate={{
-          width: isOpen ? 256 : 80,
-          transition: { duration: 0.2 }
+          width: (isOpen || isHovered) ? 256 : 80,
+          transition: { duration: 0.2, ease: "easeInOut" }
         }}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-background",
-          "hidden md:flex" // Hide on mobile, show on desktop
+          "fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-background shadow-xl transition-shadow",
+          "hidden md:flex",
+          (isHovered && !isOpen) && "shadow-2xl ring-1 ring-black/5"
         )}
       >
         <div className="flex h-16 items-center justify-between px-4">
@@ -122,15 +143,15 @@ export function Sidebar() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   "hover:bg-accent hover:text-accent-foreground",
                   pathname === link.href ? "bg-accent" : "transparent"
                 )}
               >
-                <link.icon className="h-5 w-5" />
+                <link.icon className="h-5 w-5 shrink-0" />
                 <span className={cn(
-                  "opacity-100 transition-opacity",
-                  !isOpen && "opacity-0 md:hidden"
+                  "whitespace-nowrap transition-all duration-200",
+                  (isOpen || isHovered) ? "opacity-100 w-auto" : "opacity-0 w-0 md:hidden"
                 )}>
                   {link.label}
                 </span>

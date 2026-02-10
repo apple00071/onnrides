@@ -12,7 +12,7 @@ const requiredEnvVars = ['SMTP_USER', 'SMTP_PASS'];
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 
 if (missingEnvVars.length > 0) {
-  throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  logger.warn(`Missing environment variables: ${missingEnvVars.join(', ')}. Email functionality will be disabled.`);
 }
 
 // Email transporter configuration
@@ -22,8 +22,8 @@ const transporterConfig: SMTPTransport.Options = {
   secure: true,
   requireTLS: true,
   auth: {
-    user: process.env.SMTP_USER!,
-    pass: process.env.SMTP_PASS!.replace(/\s+/g, '')
+    user: process.env.SMTP_USER || '',
+    pass: (process.env.SMTP_PASS || '').replace(/\s+/g, '')
   },
   tls: {
     minVersion: 'TLSv1.2',

@@ -53,64 +53,57 @@ export async function GET(request: NextRequest) {
     };
 
     // Get total bookings and revenue
-    const [bookingsStats] = await query
-      .select({
-        total_bookings: count(),
-        total_revenue: sql<number>`COALESCE(SUM(CAST(${bookings.total_price} AS DECIMAL)), 0)`
-      })
-      .from(bookings);
-    
-    reports.total_bookings = Number(bookingsStats.total_bookings);
-    reports.total_revenue = bookingsStats.total_revenue;
+    const bookingsStats = await query(`
+      SELECT 
+        COUNT(*) as total_bookings,
+        COALESCE(SUM(total_price), 0) as total_revenue
+      FROM bookings
+    `);
+
+    reports.total_bookings = parseInt(bookingsStats.rows[0].total_bookings);
+    reports.total_revenue = parseFloat(bookingsStats.rows[0].total_revenue);
 
     // Get total users
-    const [usersStats] = await query
-      .select({ total: count() })
-      .from(users);
-    reports.total_users = Number(usersStats.total);
+    const usersStats = await query('SELECT COUNT(*) as total FROM users');
+    reports.total_users = parseInt(usersStats.rows[0].total);
 
     // Get total vehicles
-    const [vehiclesStats] = await query
-      .select({ total: count() })
-      .from(vehicles);
-    reports.total_vehicles = Number(vehiclesStats.total);
+    const vehiclesStats = await query('SELECT COUNT(*) as total FROM vehicles');
+    reports.total_vehicles = parseInt(vehiclesStats.rows[0].total);
 
     // Get pending documents
-    const [documentsStats] = await query
-      .select({ total: count() })
-      .from(documents)
-      .where(eq(documents.status, 'pending'));
-    reports.pending_documents = Number(documentsStats.total);
+    const documentsStats = await query("SELECT COUNT(*) as total FROM documents WHERE status = 'pending'");
+    reports.pending_documents = parseInt(documentsStats.rows[0].total);
 
     // Get monthly revenue
-    const monthlyRevenue = await query
-      .select({
-        month: sql<string>`TO_CHAR(${bookings.created_at}, 'YYYY-MM')`,
-        revenue: sql<number>`COALESCE(SUM(CAST(${bookings.total_price} AS DECIMAL)), 0)`
-      })
-      .from(bookings)
-      .where(sql`${bookings.created_at} >= NOW() - INTERVAL '12 months'`)
-      .groupBy(sql`TO_CHAR(${bookings.created_at}, 'YYYY-MM')`)
-      .orderBy(sql`month DESC`);
+    const monthlyRevenueResult = await query(`
+      SELECT 
+        TO_CHAR(created_at, 'YYYY-MM') as month,
+        COALESCE(SUM(total_price), 0) as revenue
+      FROM bookings
+      WHERE created_at >= NOW() - INTERVAL '12 months'
+      GROUP BY TO_CHAR(created_at, 'YYYY-MM')
+      ORDER BY month DESC
+    `);
 
-    reports.monthly_revenue = monthlyRevenue.map(row => ({
+    reports.monthly_revenue = monthlyRevenueResult.rows.map((row: any) => ({
       month: row.month,
-      revenue: row.revenue
+      revenue: parseFloat(row.revenue)
     }));
 
     // Get vehicle type distribution
-    const distribution = await query
-      .select({
-        type: vehicles.type,
-        count: count()
-      })
-      .from(vehicles)
-      .groupBy(vehicles.type)
-      .orderBy(sql`count DESC`);
+    const distributionResult = await query(`
+      SELECT 
+        type,
+        COUNT(*) as count
+      FROM vehicles
+      GROUP BY type
+      ORDER BY count DESC
+    `);
 
-    reports.vehicle_distribution = distribution.map(row => ({
+    reports.vehicle_distribution = distributionResult.rows.map((row: any) => ({
       type: row.type,
-      count: Number(row.count)
+      count: parseInt(row.count)
     }));
 
     return NextResponse.json(reports);

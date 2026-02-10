@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
 import { Providers } from '@/app/providers';
 import logger from '@/lib/logger';
-import AdminDashboardClient from './AdminDashboardClient';
+import UnifiedAdminLayout from '@/components/admin/UnifiedAdminLayout';
 import { Toaster } from '@/components/ui/toaster';
 
 export function generateMetadata(): Metadata {
@@ -46,9 +46,9 @@ export default async function AdminLayout({
 
     return (
       <Providers session={session}>
-        <AdminDashboardClient>
+        <UnifiedAdminLayout>
           {children}
-        </AdminDashboardClient>
+        </UnifiedAdminLayout>
         <Toaster />
       </Providers>
     );

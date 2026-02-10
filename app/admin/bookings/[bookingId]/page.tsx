@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDateTime } from '@/lib/utils/time-formatter';
 import { ArrowLeft, Eye } from 'lucide-react';
 import { BookingActions } from '@/components/bookings/BookingActions';
 import { DocumentViewerModal } from '@/components/ui/DocumentViewerModal';
+import { Badge } from '@/components/ui/badge';
+import { getBadgeColor } from '@/lib/constants/status-colors';
 
 interface BookingDetails {
   id: string;
@@ -60,9 +62,7 @@ interface BookingDetails {
   terms_accepted?: boolean;
 }
 
-export default function BookingDetailsPage({ params }: { params: Promise<{ bookingId: string }> }) {
-  const resolvedParams = use(params);
-
+export default function BookingDetailsPage({ params }: { params: { bookingId: string } }) {
   const [booking, setBooking] = useState<BookingDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,13 +77,13 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
 
   useEffect(() => {
     fetchBookingDetails();
-  }, [resolvedParams.bookingId]);
+  }, [params.bookingId]);
 
   const fetchBookingDetails = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`/api/admin/bookings/${resolvedParams.bookingId}`);
+      const response = await fetch(`/api/admin/bookings/${params.bookingId}`);
       const result = await response.json();
 
       if (result.success) {
@@ -187,23 +187,15 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
             <p className="text-gray-600">Booking ID: {booking.booking_id}</p>
           </div>
           <div className="flex gap-2">
-            <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
-              booking.status === 'completed' ? 'bg-green-100 text-green-800' :
-              booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-              booking.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-              'bg-yellow-100 text-yellow-800'
-            }`}>
+            <Badge className={getBadgeColor(booking.status)}>
               {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-            </span>
-            <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
-              booking.payment_status === 'completed' ? 'bg-green-100 text-green-800' :
-              'bg-yellow-100 text-yellow-800'
-            }`}>
-              {booking.booking_type === 'online' && booking.payment_status === 'completed' && booking.status !== 'cancelled' && booking.status !== 'completed' ? 
-                'Payment: 5% Collected' : 
+            </Badge>
+            <Badge variant="secondary" className={getBadgeColor(booking.payment_status)}>
+              {booking.booking_type === 'online' && booking.payment_status === 'completed' && booking.status !== 'cancelled' && booking.status !== 'completed' ?
+                'Payment: 5% Collected' :
                 `Payment: ${booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)}`
               }
-            </span>
+            </Badge>
           </div>
         </div>
 
@@ -312,7 +304,7 @@ export default function BookingDetailsPage({ params }: { params: Promise<{ booki
                     {booking.payment_reference && (
                       <p>Reference: {booking.payment_reference}</p>
                     )}
-                    
+
                     {/* Add payment collection for offline bookings with pending amounts - only for active bookings */}
                     {booking.pending_amount && booking.pending_amount > 0 && booking.status !== 'cancelled' && booking.status !== 'completed' && (
                       <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">

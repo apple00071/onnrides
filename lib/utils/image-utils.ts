@@ -1,5 +1,5 @@
 import logger from '@/lib/logger';
-import { toast } from 'sonner';
+import { parseImages } from './data-normalization';
 
 // Default placeholder as data URL to avoid missing file errors
 export const DEFAULT_VEHICLE_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f0f0f0" width="400" height="300"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="20"%3EVehicle Image%3C/text%3E%3C/svg%3E';
@@ -24,6 +24,7 @@ export const isValidDataUrl = (url: string): boolean => {
  */
 export const isValidUrl = (url: string): boolean => {
   try {
+    if (url.startsWith('/')) return true;
     new URL(url);
     return true;
   } catch {
@@ -33,17 +34,18 @@ export const isValidUrl = (url: string): boolean => {
 
 /**
  * Extract the first valid image URL from a vehicle object
- * @param vehicle Vehicle object which may contain image data in various formats
+ * @param images Image or images to process (string, array, or JSON string)
  * @returns The first valid image URL or an empty string if none found
  */
-export const extractVehicleImage = (images: string[] | undefined): string => {
-  if (!images || images.length === 0) return DEFAULT_VEHICLE_IMAGE;
-  return images[0];
+export const extractVehicleImage = (images: any): string => {
+  const parsed = parseImages(images);
+  if (!parsed || parsed.length === 0) return DEFAULT_VEHICLE_IMAGE;
+  return parsed[0];
 };
 
 /**
  * Preload an image using the browser's Image constructor
- * @param src Image URL to preload
+ * @param url Image URL to preload
  * @returns Promise that resolves with success or rejects with error
  */
 export const preloadImage = async (url: string): Promise<string> => {
@@ -82,20 +84,26 @@ export const preloadImage = async (url: string): Promise<string> => {
 /**
  * Get a valid image URL with fallback
  * @param images Image or images to process (string, array, or JSON string)
- * @param fallback Fallback image to use if no valid image is found
  * @returns Valid image URL or fallback
  */
-export const getValidImageUrl = (images: string[] | undefined): string => {
-  if (!images || images.length === 0) return DEFAULT_VEHICLE_IMAGE;
+export const getValidImageUrl = (images: any): string => {
+  const parsedImages = parseImages(images);
 
-  // Check cache first
-  const firstImage = images[0];
+  if (parsedImages.length === 0) return DEFAULT_VEHICLE_IMAGE;
+
+  const firstImage = parsedImages[0];
+
   if (imageCache.has(firstImage)) {
     return imageCache.get(firstImage)!;
   }
 
   if (isValidDataUrl(firstImage)) return firstImage;
+
+  // If it's a relative path starting with /
+  if (firstImage.startsWith('/')) return firstImage;
+
   if (isValidUrl(firstImage)) return firstImage;
+
   return DEFAULT_VEHICLE_IMAGE;
 };
 
@@ -115,4 +123,4 @@ export const preloadImages = async (urls: string[]): Promise<void> => {
   } catch (error) {
     console.error('Error preloading images:', error);
   }
-}; 
+};

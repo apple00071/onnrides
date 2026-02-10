@@ -15,7 +15,6 @@ import GoogleAnalytics from './components/GoogleAnalytics';
 import { Toaster } from '@/components/ui/toaster';
 import { SidebarProvider } from '@/hooks/use-sidebar';
 import { inter } from './fonts'
-import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SessionProvider } from '@/components/providers/session-provider';
@@ -23,7 +22,7 @@ import { MaintenanceCheck } from '@/components/MaintenanceCheck';
 import { getBooleanSetting, SETTINGS } from '@/lib/settings';
 import { DynamicErrorBoundary, DynamicToaster } from './components/DynamicClientComponents';
 
-// Force dynamic rendering
+// Force dynamic rendering for all pages
 export const dynamic = 'force-dynamic';
 
 // Remove the Inter font import and configuration
@@ -41,7 +40,7 @@ const defaultRobotRules = {
 };
 
 // Add security headers
-export const headers = {
+export const securityHeaders = {
   'Content-Security-Policy': `
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://checkout.razorpay.com https://api.razorpay.com https://va.vercel-scripts.com https://sdk.cashfree.com https://www.googletagmanager.com https://www.google-analytics.com https://googleads.g.doubleclick.net;
@@ -188,9 +187,9 @@ export default async function RootLayout({
     // Optimized maintenance mode check: skip for admin users to improve performance
     const isAdmin = session?.user?.role === 'admin';
     const maintenanceMode = isAdmin ? false : await getBooleanSetting(SETTINGS.MAINTENANCE_MODE, false);
-    
+
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
-    
+
     // Enhanced structured data
     const structuredDataItems = [
       // Organization schema
@@ -219,7 +218,7 @@ export default async function RootLayout({
           'https://twitter.com/onnrides'
         ]
       },
-      
+
       // Local Business schema
       {
         '@context': 'https://schema.org',
@@ -252,7 +251,7 @@ export default async function RootLayout({
           closes: '21:00'
         }
       },
-      
+
       // Service schema
       {
         '@context': 'https://schema.org',
@@ -277,7 +276,7 @@ export default async function RootLayout({
           offerCount: '50+'
         }
       },
-      
+
       // FAQ schema
       {
         '@context': 'https://schema.org',
@@ -332,7 +331,7 @@ export default async function RootLayout({
             name="format-detection"
             content="telephone=no, date=no, email=no, address=no"
           />
-          <meta httpEquiv="Content-Security-Policy" content={headers['Content-Security-Policy']} />
+          <meta httpEquiv="Content-Security-Policy" content={securityHeaders['Content-Security-Policy']} />
           {/* High priority favicon links */}
           <link rel="shortcut icon" href="/favicon/favicon.ico" type="image/x-icon" />
           <link rel="icon" href="/favicon/favicon.ico" type="image/x-icon" />
@@ -347,27 +346,16 @@ export default async function RootLayout({
         <body className="min-h-screen bg-background font-sans antialiased">
           <DynamicErrorBoundary>
             <Providers session={session}>
-              <AuthProvider>
-                <ClientOnly>
-                  <NotificationBar />
-                  <SidebarProvider>
-                    <ThemeProvider
-                      attribute="class"
-                      defaultTheme="system"
-                      enableSystem
-                      disableTransitionOnChange
-                    >
-                      <SessionProvider>
-                        <MaintenanceCheck isMaintenanceMode={maintenanceMode}>
-                          {children}
-                        </MaintenanceCheck>
-                        <DynamicToaster />
-                        <ScriptLoader />
-                      </SessionProvider>
-                    </ThemeProvider>
-                  </SidebarProvider>
-                </ClientOnly>
-              </AuthProvider>
+              <ClientOnly>
+                <NotificationBar />
+                <SidebarProvider>
+                  <MaintenanceCheck isMaintenanceMode={maintenanceMode}>
+                    {children}
+                  </MaintenanceCheck>
+                  <DynamicToaster />
+                  <ScriptLoader />
+                </SidebarProvider>
+              </ClientOnly>
             </Providers>
           </DynamicErrorBoundary>
           <JsonLd data={structuredDataItems} />
@@ -378,7 +366,7 @@ export default async function RootLayout({
   } catch (error) {
     // Error fallback to ensure we always render something
     logger.error('Error in root layout:', error);
-    
+
     return (
       <html lang="en" className="font-sans antialiased">
         <body className="min-h-screen bg-background font-sans antialiased">

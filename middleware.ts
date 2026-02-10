@@ -99,17 +99,15 @@ export async function middleware(request: NextRequest) {
     }
 
     // For non-admin routes, check maintenance mode using cached value
-    // We use a simpler approach that doesn't make HTTP requests to avoid circular deps
     const now = Date.now();
     if (lastCheck > 0 && (now - lastCheck) < CACHE_DURATION && maintenanceMode) {
       return NextResponse.redirect(new URL('/maintenance', request.url));
     }
 
-    // Let the request proceed - maintenance mode is handled at the page level
+    // Let the request proceed
     return undefined;
   } catch (error) {
     logger.error('Middleware error:', error);
-    // Don't redirect on error, just let the request proceed
     return undefined;
   }
 }

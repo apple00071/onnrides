@@ -50,53 +50,39 @@ interface CreateBookingBody {
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 
-// Validate environment variables
-logger.info('Checking Razorpay configuration:', {
-  keyIdExists: !!RAZORPAY_KEY_ID,
-  keyIdLength: RAZORPAY_KEY_ID?.length,
-  keySecretExists: !!RAZORPAY_KEY_SECRET,
-  keySecretLength: RAZORPAY_KEY_SECRET?.length,
-  keyIdPrefix: RAZORPAY_KEY_ID?.substring(0, 6),
-  environment: process.env.NODE_ENV
-});
+let razorpayInstance: Razorpay | null = null;
+let connectionTested = false;
 
-let razorpay: Razorpay | null = null;
-try {
-  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-    throw new Error('Missing Razorpay credentials');
-  }
+function getRazorpay() {
+  if (razorpayInstance) return razorpayInstance;
 
-  logger.info('Initializing Razorpay with:', {
-    keyId: RAZORPAY_KEY_ID.substring(0, 6) + '...',
-    keyLength: RAZORPAY_KEY_ID.length,
-    secretLength: RAZORPAY_KEY_SECRET.length
-  });
+  try {
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+      logger.warn('Razorpay credentials missing, skipping initialization');
+      return null;
+    }
 
-  razorpay = new Razorpay({
-    key_id: RAZORPAY_KEY_ID,
-    key_secret: RAZORPAY_KEY_SECRET,
-  });
-
-  // Test the Razorpay connection
-  razorpay.orders.all()
-    .then(() => {
-      logger.info('Razorpay connection test successful');
-    })
-    .catch((error) => {
-      logger.error('Razorpay connection test failed:', {
-        error,
-        message: error.message,
-        description: error.description,
-        code: error.code
-      });
+    razorpayInstance = new Razorpay({
+      key_id: RAZORPAY_KEY_ID,
+      key_secret: RAZORPAY_KEY_SECRET,
     });
-} catch (error) {
-  logger.error('Failed to initialize Razorpay:', {
-    error,
-    message: error instanceof Error ? error.message : 'Unknown error',
-    keyIdExists: !!RAZORPAY_KEY_ID,
-    keySecretExists: !!RAZORPAY_KEY_SECRET
-  });
+
+    // Only test connection once and not during build
+    if (!connectionTested && process.env.NODE_ENV !== 'production') {
+      connectionTested = true;
+      razorpayInstance.orders.all({ count: 1 })
+        .then(() => logger.info('Razorpay connection test successful'))
+        .catch((error) => logger.error('Razorpay connection test failed:', {
+          message: error.message,
+          code: error.code
+        }));
+    }
+
+    return razorpayInstance;
+  } catch (error) {
+    logger.error('Failed to initialize Razorpay:', error);
+    return null;
+  }
 }
 
 // Update the interface to support both naming conventions
@@ -455,7 +441,12 @@ export async function POST(request: NextRequest): Promise<Response> {
       createdBookingId = createdBooking.rows[0].id;
 
       // Create Razorpay order with SECURE Advance Payment amount
-      const razorpayOrder = await createOrder({
+      const razorpayInstance = getRazorpay();
+      if (!razorpayInstance) {
+        throw new Error('Razorpay initialization failed - check credentials');
+      }
+
+      const razorpayOrder = await razorpayInstance.orders.create({
         amount: advancePayment,
         currency: 'INR',
         receipt: createdBookingId,
@@ -468,7 +459,7 @@ export async function POST(request: NextRequest): Promise<Response> {
           customerEmail,
           customerPhone
         },
-      });
+      }) as RazorpayOrder;
 
       // Update the payment details
       await query(`

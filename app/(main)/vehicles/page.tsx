@@ -19,6 +19,7 @@ import { redirect } from 'next/navigation';
 import logger from '@/lib/logger';
 import { Vehicle } from './types';
 import { calculateRentalPrice } from '@/lib/utils/price';
+import { parseImages, parseLocations } from '@/lib/utils/data-normalization';
 
 export default function VehiclesPage() {
   const router = useRouter();
@@ -192,12 +193,12 @@ export default function VehiclesPage() {
     // Check if weekend
     const isWeekend = pickup.getDay() === 0 || pickup.getDay() === 6;
 
-    // Use the correct pricing calculation
+    // Use the correct pricing calculation with normalized numbers
     return calculateRentalPrice({
-      price_per_hour: vehicle.price_per_hour,
-      price_7_days: vehicle.price_7_days,
-      price_15_days: vehicle.price_15_days,
-      price_30_days: vehicle.price_30_days
+      price_per_hour: parseFloat(String(vehicle.price_per_hour)) || 0,
+      price_7_days: vehicle.price_7_days ? parseFloat(String(vehicle.price_7_days)) : null,
+      price_15_days: vehicle.price_15_days ? parseFloat(String(vehicle.price_15_days)) : null,
+      price_30_days: vehicle.price_30_days ? parseFloat(String(vehicle.price_30_days)) : null
     }, totalHours, isWeekend);
   };
 
@@ -344,12 +345,22 @@ export default function VehiclesPage() {
       const vehiclesArray = Array.isArray(data.vehicles) ? data.vehicles : [];
       const validVehicles = vehiclesArray.filter((v: any) => v !== null && v !== undefined);
 
-      // Apply normalization to ensure is_available is always present
-      const normalizedVehicles = validVehicles.map((vehicle: any) => ({
-        ...vehicle,
-        is_available: vehicle.is_available ?? vehicle.isAvailable ?? true,
-        price_per_hour: vehicle.price_per_hour || vehicle.pricePerHour || 0
-      }));
+      const normalizedVehicles = validVehicles.map((vehicle: any) => {
+        // Handle images and location mapping with robust parsing
+        const images = parseImages(vehicle.images || vehicle.image_url || vehicle.image);
+        const location = parseLocations(vehicle.location);
+
+        return {
+          ...vehicle,
+          images,
+          location,
+          is_available: vehicle.is_available ?? vehicle.isAvailable ?? true,
+          price_per_hour: parseFloat(String(vehicle.price_per_hour || vehicle.pricePerHour || 0)),
+          price_7_days: vehicle.price_7_days ? parseFloat(String(vehicle.price_7_days)) : (vehicle.price7Days ? parseFloat(String(vehicle.price7Days)) : null),
+          price_15_days: vehicle.price_15_days ? parseFloat(String(vehicle.price_15_days)) : (vehicle.price15Days ? parseFloat(String(vehicle.price15Days)) : null),
+          price_30_days: vehicle.price_30_days ? parseFloat(String(vehicle.price_30_days)) : (vehicle.price30Days ? parseFloat(String(vehicle.price30Days)) : null),
+        };
+      });
 
       console.log('Fetched vehicles:', normalizedVehicles);
       setVehicles(normalizedVehicles);

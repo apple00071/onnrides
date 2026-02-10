@@ -43,7 +43,7 @@ const parseImages = (images: string | string[] | undefined): string[] => {
 };
 
 interface BookingSummaryProps {
-  vehicle?: Vehicle;
+  vehicle?: any;
   startDate: string;
   endDate: string;
   totalAmount: number;
@@ -53,6 +53,7 @@ interface BookingSummaryProps {
   onPaymentClick?: () => void;
   onTermsAccept?: () => void;
   gstEnabled?: boolean;
+  isLoading?: boolean;
 }
 
 export function BookingSummary({
@@ -66,6 +67,7 @@ export function BookingSummary({
   onPaymentClick,
   onTermsAccept,
   gstEnabled = false,
+  isLoading = false,
 }: BookingSummaryProps) {
   const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
@@ -217,17 +219,17 @@ export function BookingSummary({
 
   if (!vehicle) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-fit">
-        <Skeleton className="h-[500px] w-full rounded-xl" />
-        <Skeleton className="h-[500px] w-full rounded-xl" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+        <Skeleton className="h-[500px] w-full rounded-2xl" />
+        <Skeleton className="h-[500px] w-full rounded-2xl" />
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-fit">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-stretch">
       {/* Vehicle Details Card */}
-      <div className="bg-white rounded-xl shadow-lg p-6 h-fit border border-gray-100">
+      <div className="bg-white rounded-2xl shadow-sm p-8 flex flex-col border border-gray-100 transition-all hover:shadow-md h-full">
         <div className="flex flex-col">
           <h3 className="text-xl font-medium text-gray-900">{vehicle.name}</h3>
           {vehicle.location && (
@@ -257,30 +259,31 @@ export function BookingSummary({
             )}
           </div>
 
-          <div className="mt-6 space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600 text-sm">Pickup:</span>
-              <span className="text-sm text-gray-900">{formatDate(startDate)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600 text-sm">Drop-off:</span>
-              <span className="text-sm text-gray-900">{formatDate(endDate)}</span>
-            </div>
-            {bookingInfo.isMinimumApplied && (
-              <div className="mt-3 p-2 bg-orange-50 border border-orange-200 rounded-md">
-                <p className="text-xs text-orange-800">
-                  <strong>Note:</strong> {bookingInfo.isWeekend ? 'Weekend' : 'Weekday'} minimum is {bookingInfo.minimumHours} hours.
-                  You're booking {bookingInfo.durationHours} hours but will be charged for {bookingInfo.minimumHours} hours.
-                </p>
+          <div className="mt-auto pt-6 space-y-3 border-t border-gray-50">
+            <div className="flex items-center gap-3 text-gray-600">
+              <FaCalendarAlt className="h-4 w-4 text-orange-400" />
+              <div className="flex flex-col">
+                <span className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Pickup</span>
+                <span className="text-sm font-medium text-gray-900">{formatDate(startDate)}</span>
               </div>
-            )}
+            </div>
+            <div className="flex items-center gap-3 text-gray-600">
+              <FaClock className="h-4 w-4 text-orange-400" />
+              <div className="flex flex-col">
+                <span className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Drop-off</span>
+                <span className="text-sm font-medium text-gray-900">{formatDate(endDate)}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Payment Details Card */}
-      <div className="bg-white rounded-xl shadow-lg p-6 h-fit border border-gray-100">
-        <h4 className="font-medium text-gray-900 mb-4">Payment Details</h4>
+      <div className="bg-white rounded-2xl shadow-sm p-8 flex flex-col border border-gray-100 transition-all hover:shadow-md h-full">
+        <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+          <FaRupeeSign className="text-orange-500" />
+          Payment Details
+        </h4>
         <div className="space-y-3">
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Base Amount</span>
@@ -307,14 +310,14 @@ export function BookingSummary({
             <span>{formatCurrency(priceCalculation.discountedTotal)}</span>
           </div>
 
-          <div className="pt-2 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-orange-500">Online Payment (5%)</span>
-              <span className="text-orange-500">{formatCurrency(priceCalculation.advancePayment)}</span>
+          <div className="pt-4 mt-2 space-y-3 border-t border-gray-50">
+            <div className="flex justify-between items-center">
+              <span className="text-orange-600 font-medium">Online Payment (5%)</span>
+              <span className="text-orange-600 font-bold text-lg">{formatCurrency(priceCalculation.advancePayment)}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Remaining Payment (At Pickup)</span>
-              <span className="text-gray-900">{formatCurrency(priceCalculation.remainingPayment)}</span>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-500">Remaining Payment (At Pickup)</span>
+              <span className="text-gray-900 font-medium">{formatCurrency(priceCalculation.remainingPayment)}</span>
             </div>
           </div>
 
@@ -348,9 +351,17 @@ export function BookingSummary({
             ) : (
               <Button
                 onClick={handlePaymentClick}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                disabled={isLoading}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold h-12"
               >
-                Pay {formatCurrency(priceCalculation.advancePayment)}
+                {isLoading ? (
+                  <>
+                    <LoadingSpinner size="sm" className="mr-2" />
+                    Processing...
+                  </>
+                ) : (
+                  `Pay ${formatCurrency(priceCalculation.advancePayment)} to Book`
+                )}
               </Button>
             )}
             <p className="text-xs text-gray-500 text-center mt-2">
