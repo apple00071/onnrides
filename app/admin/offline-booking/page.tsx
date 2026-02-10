@@ -493,54 +493,46 @@ export default function OfflineBookingPage() {
                   className="flex-1 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
                   required
                 />
-                <div className="relative w-40">
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => handleStartTimeChange(startDate, e.target.value)}
-                    step="3600"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    required
-                  />
-                  <div className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 text-sm text-gray-700 cursor-pointer hover:border-gray-300 transition-colors">
-                    {startTime ? to12Hour(startTime) : 'Select time'}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                End Date & Time <span className="text-red-500">*</span>
-              </label>
-              <div className="flex gap-2">
                 <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate || format(new Date(), 'yyyy-MM-dd')}
-                  className="flex-1 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => handleStartTimeChange(startDate, e.target.value)}
+                  step="3600"
+                  className="w-40 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                   required
                 />
-                <div className="relative w-40">
-                  <input
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    step="3600"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    required
-                  />
-                  <div className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 text-sm text-gray-700 cursor-pointer hover:border-gray-300 transition-colors">
-                    {endTime ? to12Hour(endTime) : 'Select time'}
-                  </div>
-                </div>
               </div>
             </div>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              End Date & Time <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={startDate || format(new Date(), 'yyyy-MM-dd')}
+                className="flex-1 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                required
+              />
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                step="3600"
+                className="w-40 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
+                required
+              />
+            </div>
+          </div>
         </div>
+    </div>
+        </div >
 
-        {/* Vehicle Details */}
-        <div className="bg-white rounded-lg shadow p-6 mt-6">
+    {/* Vehicle Details */ }
+    < div className = "bg-white rounded-lg shadow p-6 mt-6" >
           <h2 className="text-xl font-medium mb-4">Vehicle Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
@@ -579,10 +571,10 @@ export default function OfflineBookingPage() {
               />
             </div>
           </div>
-        </div>
+        </div >
 
-        {/* Payment Details */}
-        <div className="bg-white rounded-lg shadow p-6">
+    {/* Payment Details */ }
+    < div className = "bg-white rounded-lg shadow p-6" >
           <h2 className="text-xl font-medium mb-4">Payment Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -683,10 +675,10 @@ export default function OfflineBookingPage() {
               />
             </div>
           </div>
-        </div>
+        </div >
 
-        {/* Documents */}
-        <div className="bg-white rounded-lg shadow p-6">
+    {/* Documents */ }
+    < div className = "bg-white rounded-lg shadow p-6" >
           <h2 className="text-xl font-medium mb-4">Documents</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
@@ -812,10 +804,10 @@ export default function OfflineBookingPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div >
 
-        {/* Terms and Conditions */}
-        <div className="bg-white rounded-lg shadow p-6">
+    {/* Terms and Conditions */ }
+    < div className = "bg-white rounded-lg shadow p-6" >
           <h2 className="text-xl font-medium mb-4">Terms and Conditions</h2>
           <div className="space-y-4">
             <div className="text-sm text-gray-600 space-y-2">
@@ -844,10 +836,10 @@ export default function OfflineBookingPage() {
               </label>
             </div>
           </div>
-        </div>
+        </div >
 
-        {/* Action Buttons */}
-        <div className="flex justify-end gap-4">
+    {/* Action Buttons */ }
+    < div className = "flex justify-end gap-4" >
           <button
             type="button"
             onClick={() => router.back()}
@@ -862,8 +854,8 @@ export default function OfflineBookingPage() {
           >
             {loading ? 'Creating...' : 'Create Booking'}
           </button>
-        </div>
-      </form>
-    </div>
+        </div >
+      </form >
+    </div >
   );
 } 
