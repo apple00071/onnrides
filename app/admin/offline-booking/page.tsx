@@ -499,14 +499,12 @@ export default function OfflineBookingPage() {
                     value={startTime}
                     onChange={(e) => handleStartTimeChange(startDate, e.target.value)}
                     step="3600"
-                    className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50 opacity-0"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     required
                   />
-                  {startTime && (
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-700 pointer-events-none">
-                      {to12Hour(startTime)}
-                    </div>
-                  )}
+                  <div className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 text-sm text-gray-700 cursor-pointer hover:border-gray-300 transition-colors">
+                    {startTime ? to12Hour(startTime) : 'Select time'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -529,14 +527,12 @@ export default function OfflineBookingPage() {
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
                     step="3600"
-                    className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50 opacity-0"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     required
                   />
-                  {endTime && (
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-700 pointer-events-none">
-                      {to12Hour(endTime)}
-                    </div>
-                  )}
+                  <div className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 text-sm text-gray-700 cursor-pointer hover:border-gray-300 transition-colors">
+                    {endTime ? to12Hour(endTime) : 'Select time'}
+                  </div>
                 </div>
               </div>
             </div>
