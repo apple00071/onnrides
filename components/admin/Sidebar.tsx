@@ -114,7 +114,7 @@ export function Sidebar() {
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && setIsHovered(false)}
         animate={{
-          width: (isOpen || isHovered) ? 256 : 80,
+          width: (isOpen || isHovered) ? 224 : 80,
           transition: { duration: 0.2, ease: "easeInOut" }
         }}
         className={cn(
@@ -204,7 +204,7 @@ export function Sidebar() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 z-50 w-[280px] bg-background shadow-lg md:hidden"
+              className="fixed inset-y-0 left-0 z-50 w-[240px] bg-background shadow-lg md:hidden"
             >
               <div className="flex h-16 items-center justify-between px-4 border-b">
                 <div className="relative h-8 w-28">
