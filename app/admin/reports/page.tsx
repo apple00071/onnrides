@@ -57,41 +57,68 @@ export default function ReportsPage() {
           Admin / Reports
         </div>
       </div>
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Type
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Data
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Created At
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {reports.map((report) => (
-              <tr key={report.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">
-                    {report.type}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <pre className="text-sm text-gray-900 whitespace-pre-wrap">
-                    {JSON.stringify(report.data, null, 2)}
-                  </pre>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {format(new Date(report.created_at), 'MMM d, yyyy HH:mm:ss')}
-                </td>
+      <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+        {/* Desktop View */}
+        <div className="hidden md:block">
+          <table className="w-full table-auto">
+            <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-bold tracking-wider">
+              <tr>
+                <th className="px-6 py-4 text-left">Type</th>
+                <th className="px-6 py-4 text-left">Data</th>
+                <th className="px-6 py-4 text-right">Created At</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {reports.map((report) => (
+                <tr key={report.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-bold text-gray-900 uppercase">
+                      {report.type}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <pre className="text-[10px] text-gray-600 font-mono bg-gray-50 p-2 rounded-lg max-w-sm truncate">
+                      {JSON.stringify(report.data, null, 2)}
+                    </pre>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="text-xs font-medium text-gray-600">
+                      {format(new Date(report.created_at), 'MMM d, yyyy')}
+                    </div>
+                    <div className="text-[10px] font-bold text-gray-400">
+                      {format(new Date(report.created_at), 'HH:mm:ss')}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile View */}
+        <div className="md:hidden divide-y divide-gray-100">
+          {reports.map((report) => (
+            <div key={report.id} className="p-4 bg-white">
+              <div className="flex justify-between items-start mb-3">
+                <div className="inline-flex px-2 py-0.5 bg-gray-100 text-gray-700 text-[10px] font-bold uppercase rounded">
+                  {report.type}
+                </div>
+                <div className="text-right">
+                  <span className="text-[9px] font-bold text-gray-400 uppercase">{format(new Date(report.created_at), 'MMM d, HH:mm')}</span>
+                </div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg overflow-hidden border border-gray-100 mt-2">
+                <span className="text-[9px] font-bold text-gray-400 uppercase mb-1 block">Payload Data</span>
+                <pre className="text-[10px] text-gray-600 font-mono break-all whitespace-pre-wrap">
+                  {JSON.stringify(report.data, null, 2)}
+                </pre>
+              </div>
+            </div>
+          ))}
+          {reports.length === 0 && (
+            <div className="p-12 text-center text-gray-500 font-bold text-sm bg-gray-50/50">No reports found</div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
 import { Trash2 } from 'lucide-react';
 import { DeleteConfirmationDialog } from '@/components/admin/DeleteConfirmationDialog';
+import { Badge } from '@/components/ui/badge';
 import { TableSkeleton } from '@/components/admin/LoadingSkeletons';
 
 interface PaginationData {
@@ -174,31 +175,96 @@ export default function UsersPage() {
             </div>
           ) : (
             <>
-              <DataTable
-                columns={columns}
-                data={users}
-                searchKey="name"
-                searchPlaceholder="Search users..."
-                onSearch={handleSearchChange}
-              />
+              {/* Desktop Table View */}
+              <div className="hidden md:block">
+                <DataTable
+                  columns={columns}
+                  data={users}
+                  searchKey="name"
+                  searchPlaceholder="Search users..."
+                  onSearch={handleSearchChange}
+                />
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
+                <div className="mb-4">
+                  <DataTable
+                    columns={[]}
+                    data={[]}
+                    searchKey="name"
+                    searchPlaceholder="Search users..."
+                    onSearch={handleSearchChange}
+                  />
+                </div>
+                <div className="space-y-3">
+                  {users.map((user) => (
+                    <div key={user.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-bold text-gray-900 leading-tight">{user.name}</h3>
+                          <p className="text-xs text-gray-500 font-medium mt-0.5">{user.email}</p>
+                        </div>
+                        <Badge className={`${user.status === 'blocked' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'} font-bold uppercase text-[9px] px-1.5 py-0`}>
+                          {user.status}
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Phone</span>
+                          <p className="text-sm text-gray-800 font-medium leading-tight">{user.phone || 'N/A'}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Role</span>
+                          <p className="text-sm text-gray-800 font-bold leading-tight capitalize">{user.role}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-3 border-t border-gray-50">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-9 text-xs font-bold border-gray-200 rounded-lg"
+                          onClick={() => window.location.href = `/admin/users/${user.id}`}
+                        >
+                          View Details
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-9 text-xs font-bold border-gray-200 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg"
+                        >
+                          {user.status === 'blocked' ? 'Unblock' : 'Block'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               {pagination.totalPages > 1 && (
-                <div className="flex justify-between items-center p-4 border-t">
-                  <div className="text-sm text-gray-500">
+                <div className="flex justify-between items-center p-4 border-t mt-4">
+                  <div className="text-[11px] text-gray-500 font-medium hidden sm:block">
                     Showing {(pagination.currentPage - 1) * pagination.limit + 1} - {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of {pagination.totalCount} users
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex justify-between sm:justify-end w-full sm:w-auto space-x-2">
                     <Button
                       variant="outline"
                       size="sm"
+                      className="h-9 px-4 text-xs font-bold rounded-lg border-gray-200"
                       disabled={pagination.currentPage <= 1}
                       onClick={() => handlePageChange(pagination.currentPage - 1)}
                     >
                       Previous
                     </Button>
+                    <div className="sm:hidden flex items-center text-[11px] font-bold text-gray-400 uppercase">
+                      Page {pagination.currentPage} / {pagination.totalPages}
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
+                      className="h-9 px-4 text-xs font-bold rounded-lg border-gray-200"
                       disabled={pagination.currentPage >= pagination.totalPages}
                       onClick={() => handlePageChange(pagination.currentPage + 1)}
                     >

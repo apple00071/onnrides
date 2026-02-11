@@ -41,7 +41,7 @@ export async function GET(request: Request) {
         const collectionsResult = await query(
             `SELECT method, SUM(amount) as total 
        FROM payments 
-       WHERE DATE(created_at) = $1 AND status = 'completed'
+       WHERE TO_CHAR(created_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') = $1 AND status = 'completed'
        GROUP BY method`,
             [date]
         );
@@ -50,54 +50,73 @@ export async function GET(request: Request) {
         let cardCollections = 0;
         let upiCollections = 0;
         let bankCollections = 0;
+        let onlineCollections = 0;
+        let totalCollections = 0;
 
         collectionsResult.rows.forEach((row: any) => {
             const method = row.method?.toLowerCase();
             const total = parseFloat(String(row.total || '0'));
+            totalCollections += total;
+
             if (method === 'cash') cashCollections = total;
             else if (method === 'card') cardCollections = total;
             else if (method === 'upi') upiCollections = total;
             else if (method === 'bank_transfer') bankCollections = total;
+            else onlineCollections += total; // Group all other (razorpay, online, etc.)
         });
 
-        // 3. Get Expenses
+        // 3. Get Today's Expenses
         const expensesResult = await query(
-            'SELECT SUM(amount) as total FROM expenses WHERE date = $1',
+            `SELECT id, amount, description, created_at 
+             FROM expenses 
+             WHERE TO_CHAR(created_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') = $1`,
             [date]
         );
-        const expenses = parseFloat(expensesResult.rows[0]?.total || '0');
+        const totalExpenses = expensesResult.rows.reduce((sum, row: any) => sum + parseFloat(String(row.amount || '0')), 0);
 
-        // 4. Get Refunds (All methods)
-        // Note: Refunds are stored as negative amounts in the payments table
+        // 4. Get Refunds
         const refundsResult = await query(
-            "SELECT SUM(amount) as total FROM payments WHERE DATE(created_at) = $1 AND status = 'refunded'",
+            `SELECT id, amount, booking_id, created_at 
+             FROM payments 
+             WHERE TO_CHAR(created_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') = $1 
+             AND status = 'refunded'`,
             [date]
         );
-        const totalRefunds = parseFloat(refundsResult.rows[0]?.total || '0'); // This will be negative
+        const totalRefunds = refundsResult.rows.reduce((sum, row: any) => sum + parseFloat(String(row.amount || '0')), 0);
 
-        // 5. Aggregation with Rounding
-        const totalCollections = Math.round((cashCollections + cardCollections + upiCollections + bankCollections) * 100) / 100;
+        // Calculate closing balance
+        const closingBalance = Math.round((openingBalance + totalCollections - totalRefunds - totalExpenses) * 100) / 100;
 
-        // Calculate closing balance: Opening + Collections + Refunds (negative) - Expenses
-        const closingBalance = Math.round((openingBalance + totalCollections + totalRefunds - expenses) * 100) / 100;
-
-        // 6. Get Transactions List
-        const transactionsResult = await query(
+        // 6. Get Collections List for Transactions
+        const collectionsResultList = await query(
             `SELECT 
-        p.id,
-        p.booking_id,
-        COALESCE(b.customer_name, u.name, 'Customer') as customer_name,
-        p.amount,
-        p.method as payment_method,
-        CASE WHEN p.status = 'refunded' THEN 'refund' ELSE 'collection' END as type,
-        p.created_at as timestamp
-       FROM payments p
-       LEFT JOIN bookings b ON p.booking_id = b.id
-       LEFT JOIN users u ON b.user_id = u.id
-       WHERE DATE(p.created_at) = $1
-       ORDER BY p.created_at DESC`,
+                p.id,
+                p.booking_id,
+                COALESCE(b.customer_name, u.name, 'Customer') as customer_name,
+                p.amount,
+                p.method as payment_method,
+                CASE WHEN LOWER(p.status) = 'refunded' THEN 'refund' ELSE 'collection' END as type,
+                p.created_at as timestamp
+            FROM payments p
+            LEFT JOIN bookings b ON p.booking_id = b.id
+            LEFT JOIN users u ON b.user_id = u.id
+            WHERE TO_CHAR(p.created_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') = $1
+            ORDER BY p.created_at DESC`,
             [date]
         );
+
+        // Map everything together for transactions
+        const transactions = [
+            ...collectionsResultList.rows.map((r: any) => ({ ...r, amount: parseFloat(String(r.amount)) })),
+            ...expensesResult.rows.map((r: any) => ({
+                id: r.id,
+                customer_name: 'Expense',
+                amount: parseFloat(String(r.amount)),
+                payment_method: 'Cash',
+                type: 'expense',
+                timestamp: r.created_at
+            }))
+        ].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
         return NextResponse.json({
             success: true,
@@ -108,13 +127,15 @@ export async function GET(request: Request) {
                     cardCollections,
                     upiCollections,
                     bankCollections,
+                    onlineCollections,
+                    cashRefunds: totalRefunds,
                     totalRefunds,
-                    expenses,
+                    expenses: totalExpenses,
                     totalCollections,
                     closingBalance,
                     lastReconciled: openingBalanceResult.rows[0] ? date : null
                 },
-                transactions: transactionsResult.rows
+                transactions
             }
         });
 

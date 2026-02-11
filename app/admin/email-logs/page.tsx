@@ -142,51 +142,87 @@ export default function EmailLogsPage() {
                     <CardTitle>Email Logs</CardTitle>
                     <CardDescription>History of all emails sent through the platform</CardDescription>
                 </CardHeader>
-                <div className="w-full overflow-x-auto">
-                    <table className="w-full table-auto">
-                        <thead className="bg-gray-50 text-xs uppercase text-gray-700">
-                            <tr>
-                                <th className="px-6 py-3 text-left">ID</th>
-                                <th className="px-6 py-3 text-left">To</th>
-                                <th className="px-6 py-3 text-left">Subject</th>
-                                <th className="px-6 py-3 text-left">Status</th>
-                                <th className="px-6 py-3 text-left">Date</th>
-                                <th className="px-6 py-3 text-left">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {logs.map((log) => (
-                                <tr key={log.id} className="border-b">
-                                    <td className="py-2 px-4">{log.id}</td>
-                                    <td className="py-2 px-4">{log.recipient}</td>
-                                    <td className="py-2 px-4 max-w-md truncate">
-                                        {log.subject}
-                                    </td>
-                                    <td className="py-2 px-4">
-                                        {getStatusBadge(log.status)}
-                                    </td>
-                                    <td className="py-2 px-4">
-                                        {formatDateTime(log.created_at)}
-                                    </td>
-                                    <td className="py-2 px-4">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleResendEmail(log.id)}
-                                            disabled={resending === log.id}
-                                        >
-                                            {resending === log.id ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <Send className="h-4 w-4" />
-                                            )}
-                                            <span className="ml-2">Resend</span>
-                                        </Button>
-                                    </td>
+                <div>
+                    <div className="hidden md:block">
+                        <table className="w-full table-auto">
+                            <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-bold tracking-wider">
+                                <tr>
+                                    <th className="px-6 py-4 text-left">To</th>
+                                    <th className="px-6 py-4 text-left">Subject</th>
+                                    <th className="px-6 py-4 text-center">Status</th>
+                                    <th className="px-6 py-4 text-center">Date</th>
+                                    <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-100">
+                                {logs.map((log) => (
+                                    <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
+                                        <td className="py-3 px-6 font-bold text-gray-900 text-sm">{log.recipient}</td>
+                                        <td className="py-3 px-6 text-xs text-gray-500 max-w-xs truncate font-medium">
+                                            {log.subject}
+                                        </td>
+                                        <td className="py-3 px-6 text-center">
+                                            {getStatusBadge(log.status)}
+                                        </td>
+                                        <td className="py-3 px-6 text-center text-xs font-medium text-gray-600">
+                                            {formatDateTime(log.created_at)}
+                                        </td>
+                                        <td className="py-3 px-6 text-right">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleResendEmail(log.id)}
+                                                disabled={resending === log.id}
+                                                className="h-8 border-gray-200 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg text-xs font-bold"
+                                            >
+                                                {resending === log.id ? (
+                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                ) : (
+                                                    <>
+                                                        <Send className="h-3.5 w-3.5 mr-1.5" />
+                                                        Resend
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Mobile View */}
+                    <div className="md:hidden divide-y divide-gray-100">
+                        {logs.map((log) => (
+                            <div key={log.id} className="p-4 bg-white">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="flex-1">
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Recipient</span>
+                                        <p className="text-sm font-bold text-gray-900 leading-none mt-0.5">{log.recipient}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        {getStatusBadge(log.status)}
+                                    </div>
+                                </div>
+                                <div className="mb-4">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Subject</span>
+                                    <p className="text-xs text-gray-800 font-bold leading-snug mt-1">{log.subject}</p>
+                                </div>
+                                <div className="flex justify-between items-center gap-4">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase">{formatDateTime(log.created_at)}</span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleResendEmail(log.id)}
+                                        disabled={resending === log.id}
+                                        className="h-8 flex-1 sm:flex-none border-gray-200 text-orange-600 font-bold text-[10px] rounded-lg"
+                                    >
+                                        {resending === log.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Send className="h-3 w-3 mr-1.5" /> Resend</>}
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Pagination */}

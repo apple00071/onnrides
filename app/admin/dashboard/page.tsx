@@ -46,8 +46,10 @@ async function getBookingStats(): Promise<BookingStatsData> {
       WITH booking_status AS (
         SELECT
           CASE 
-            WHEN booking_type = 'offline' AND status = 'confirmed' THEN 'active'
-            ELSE status
+            WHEN LOWER(booking_type) = 'offline' AND status ILIKE 'confirmed' THEN 'active'
+            WHEN status ILIKE 'initiated' THEN 'active'
+            WHEN status ILIKE 'active' THEN 'active'
+            ELSE LOWER(status)
           END as calculated_status
         FROM bookings
       )
@@ -84,24 +86,27 @@ async function getOperationalMetrics(): Promise<OperationalMetrics> {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Active rentals today
+    // Active rentals today (including offline mapping)
     const activeRentalsResult = await query(`
       SELECT COUNT(*) as active_rentals
       FROM bookings
-      WHERE status = 'active'
+      WHERE (
+        status ILIKE 'active' 
+        OR status ILIKE 'initiated'
+        OR (LOWER(booking_type) = 'offline' AND status ILIKE 'confirmed')
+      )
       AND start_date <= $2
       AND end_date >= $1
     `, [today, tomorrow]);
 
     const activeRentals = parseInt(activeRentalsResult.rows[0].active_rentals);
 
-    // Today's revenue
+    // Today's revenue - Total of all completed payments today
     const todayRevenueResult = await query(`
-      SELECT COALESCE(SUM(paid_amount), 0) as today_revenue
-      FROM bookings
+      SELECT COALESCE(SUM(amount), 0) as today_revenue
+      FROM payments
       WHERE status = 'completed'
-      AND DATE(created_at) = DATE($1)
-      AND payment_status = 'completed'
+      AND DATE(created_at AT TIME ZONE 'Asia/Kolkata') = DATE($1 AT TIME ZONE 'Asia/Kolkata')
     `, [today]);
 
     const todayRevenue = parseFloat(todayRevenueResult.rows[0].today_revenue || 0);
@@ -110,7 +115,11 @@ async function getOperationalMetrics(): Promise<OperationalMetrics> {
     const overdueReturnsResult = await query(`
       SELECT COUNT(*) as overdue_returns
       FROM bookings
-      WHERE status = 'active'
+      WHERE (
+        status ILIKE 'active' 
+        OR status ILIKE 'initiated'
+        OR (LOWER(booking_type) = 'offline' AND status ILIKE 'confirmed')
+      )
       AND end_date < $1
     `, [today]);
 
@@ -130,8 +139,8 @@ async function getOperationalMetrics(): Promise<OperationalMetrics> {
     const todayPickupsResult = await query(`
       SELECT COUNT(*) as today_pickups
       FROM bookings
-      WHERE DATE(start_date) = DATE($1)
-      AND status IN ('confirmed', 'active', 'initiated')
+      WHERE DATE(start_date AT TIME ZONE 'Asia/Kolkata') = DATE($1 AT TIME ZONE 'Asia/Kolkata')
+      AND (status ILIKE 'confirmed' OR status ILIKE 'active' OR status ILIKE 'initiated')
     `, [today]);
 
     const todayPickups = parseInt(todayPickupsResult.rows[0].today_pickups);
@@ -140,8 +149,12 @@ async function getOperationalMetrics(): Promise<OperationalMetrics> {
     const todayReturnsResult = await query(`
       SELECT COUNT(*) as today_returns
       FROM bookings
-      WHERE DATE(end_date) = DATE($1)
-      AND status = 'active'
+      WHERE DATE(end_date AT TIME ZONE 'Asia/Kolkata') = DATE($1 AT TIME ZONE 'Asia/Kolkata')
+      AND (
+        status ILIKE 'active' 
+        OR status ILIKE 'initiated'
+        OR (LOWER(booking_type) = 'offline' AND status ILIKE 'confirmed')
+      )
     `, [today]);
 
     const todayReturns = parseInt(todayReturnsResult.rows[0].today_returns);
@@ -260,14 +273,14 @@ async function getVehicleReturns() {
         FROM bookings b
         JOIN vehicles v ON b.vehicle_id = v.id
         LEFT JOIN users u ON b.user_id = u.id
-        WHERE b.status NOT IN ('completed', 'cancelled')
+        WHERE LOWER(b.status) NOT IN ('completed', 'cancelled', 'failed')
       )
       SELECT 
         ab.*,
         CASE WHEN ab.return_date < ct.now THEN true ELSE false END as is_overdue
       FROM active_bookings ab
       CROSS JOIN curr_time ct
-      WHERE ab.status IN ('active', 'confirmed')
+      WHERE LOWER(ab.status) IN ('active', 'confirmed', 'initiated')
       ORDER BY 
         CASE WHEN ab.return_date < ct.now THEN 0 ELSE 1 END,
         ab.return_date ASC

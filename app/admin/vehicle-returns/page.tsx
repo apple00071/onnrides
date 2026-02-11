@@ -147,6 +147,10 @@ export default function VehicleReturnsPage() {
     router.push(`/admin/vehicle-returns/new?bookingId=${bookingId}`);
   };
 
+  const activeBookings = bookings.filter(b =>
+    !['completed', 'cancelled', 'failed'].includes(b.status?.toLowerCase() || '')
+  );
+
   return (
     <div className="space-y-6">
       <div className="hidden md:block bg-white p-5 rounded-xl border shadow-sm">
@@ -184,46 +188,49 @@ export default function VehicleReturnsPage() {
           ) : (
             <>
               {activeTab === 'bookings' && (
-                <div className="rounded-md border overflow-x-auto">
-                  <div className="min-w-[800px]">
+                <div className="rounded-xl overflow-hidden">
+                  <div className="hidden md:block border rounded-lg">
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead>Booking ID</TableHead>
-                          <TableHead>Vehicle</TableHead>
-                          <TableHead>Customer</TableHead>
-                          <TableHead>Start Date</TableHead>
-                          <TableHead>End Date</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Actions</TableHead>
+                        <TableRow className="bg-gray-50/50">
+                          <TableHead className="font-bold text-gray-900">Booking ID</TableHead>
+                          <TableHead className="font-bold text-gray-900">Vehicle</TableHead>
+                          <TableHead className="font-bold text-gray-900">Customer</TableHead>
+                          <TableHead className="font-bold text-gray-900 text-center">Dates</TableHead>
+                          <TableHead className="font-bold text-gray-900">Status</TableHead>
+                          <TableHead className="font-bold text-gray-900 text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {bookings.map((booking) => (
-                          <TableRow key={booking.booking_id}>
-                            <TableCell>{booking.booking_id}</TableCell>
-                            <TableCell>
+                        {activeBookings.map((booking) => (
+                          <TableRow key={booking.booking_id} className="hover:bg-gray-50/50 transition-colors">
+                            <TableCell className="font-medium">{booking.booking_id}</TableCell>
+                            <TableCell className="text-gray-600">
                               {booking.vehicle?.name || 'Not assigned'}
                             </TableCell>
                             <TableCell>
                               <div>
-                                <div className="font-medium">{booking.user?.name || 'Not assigned'}</div>
-                                <div className="text-sm text-muted-foreground">{booking.user?.phone || 'No phone'}</div>
+                                <div className="font-medium text-gray-900">{booking.user?.name || 'Not assigned'}</div>
+                                <div className="text-xs text-gray-500 font-medium">{booking.user?.phone || 'No phone'}</div>
                               </div>
                             </TableCell>
-                            <TableCell>{formatDateTime(booking.start_date)}</TableCell>
-                            <TableCell>{formatDateTime(booking.end_date)}</TableCell>
+                            <TableCell className="text-center">
+                              <div className="text-xs font-medium text-gray-600">{formatDateTime(booking.start_date)}</div>
+                              <div className="text-[10px] text-gray-400 font-bold uppercase mt-0.5">to</div>
+                              <div className="text-xs font-medium text-gray-600">{formatDateTime(booking.end_date)}</div>
+                            </TableCell>
                             <TableCell>
-                              <Badge variant={getStatusBadgeVariant(booking.status)}>
+                              <Badge variant={getStatusBadgeVariant(booking.status)} className="font-bold uppercase text-[10px] px-2 py-0.5">
                                 {booking.status}
                               </Badge>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-right">
                               {booking.status !== 'completed' && (
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleProcessReturn(booking.booking_id)}
+                                  className="h-8 text-xs font-bold border-gray-200 hover:border-orange-200 hover:text-orange-600 transition-all rounded-lg"
                                 >
                                   Complete Booking
                                 </Button>
@@ -231,82 +238,171 @@ export default function VehicleReturnsPage() {
                             </TableCell>
                           </TableRow>
                         ))}
-                        {bookings.length === 0 && (
+                        {activeBookings.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center py-4">
-                              No bookings found
+                            <TableCell colSpan={6} className="text-center py-12 text-gray-500 font-medium">
+                              No active bookings found
                             </TableCell>
                           </TableRow>
                         )}
                       </TableBody>
                     </Table>
                   </div>
+                  {/* Mobile View */}
+                  <div className="md:hidden space-y-3">
+                    {activeBookings.map((booking) => (
+                      <div key={booking.booking_id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Booking ID</span>
+                            <p className="text-sm font-bold text-gray-900 leading-none mt-0.5">{booking.booking_id}</p>
+                          </div>
+                          <Badge variant={getStatusBadgeVariant(booking.status)} className="font-bold uppercase text-[9px] px-1.5 py-0">
+                            {booking.status}
+                          </Badge>
+                        </div>
+
+                        <div className="space-y-2 mb-4">
+                          <div>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Vehicle</span>
+                            <p className="text-sm text-gray-800 font-medium leading-tight">{booking.vehicle?.name || 'Not assigned'}</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Customer</span>
+                              <p className="text-sm text-gray-800 font-medium leading-tight">{booking.user?.name || 'Not assigned'}</p>
+                              {booking.user?.phone && (
+                                <p className="text-[11px] text-gray-500 font-semibold mt-0.5">{booking.user.phone}</p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">End Date</span>
+                              <p className="text-xs text-gray-800 font-bold leading-tight">{formatDateTime(booking.end_date)}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {booking.status !== 'completed' && (
+                          <Button
+                            onClick={() => handleProcessReturn(booking.booking_id)}
+                            className="w-full h-10 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-lg transition-all"
+                          >
+                            Complete Booking
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    {activeBookings.length === 0 && (
+                      <div className="text-center py-12 text-gray-500 font-bold text-sm bg-gray-50/50 rounded-xl border border-dashed">
+                        No active bookings found
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
               {activeTab === 'returns' && (
-                <div className="rounded-md border overflow-x-auto">
-                  <div className="min-w-[800px]">
+                <div className="rounded-xl overflow-hidden">
+                  <div className="hidden md:block border rounded-lg">
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead>Booking ID</TableHead>
-                          <TableHead>Vehicle</TableHead>
-                          <TableHead>Customer</TableHead>
-                          <TableHead>Return Date</TableHead>
-                          <TableHead>Additional Charges</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Processed By</TableHead>
+                        <TableRow className="bg-gray-50/50">
+                          <TableHead className="font-bold text-gray-900">Booking ID</TableHead>
+                          <TableHead className="font-bold text-gray-900">Vehicle</TableHead>
+                          <TableHead className="font-bold text-gray-900">Customer</TableHead>
+                          <TableHead className="font-bold text-gray-900">Return Date</TableHead>
+                          <TableHead className="font-bold text-gray-900">Charges</TableHead>
+                          <TableHead className="font-bold text-gray-900">Status</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {returns.map((returnItem) => (
-                          <TableRow key={returnItem.id}>
-                            <TableCell>{returnItem.booking_id}</TableCell>
+                          <TableRow key={returnItem.id} className="hover:bg-gray-50/50 transition-colors">
+                            <TableCell className="font-medium">{returnItem.booking_id}</TableCell>
                             <TableCell>
-                              <div>
-                                <div>{returnItem.vehicle_name}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  {returnItem.vehicle_type}
-                                </div>
-                              </div>
+                              <div className="font-medium text-gray-900">{returnItem.vehicle_name}</div>
+                              <div className="text-xs text-gray-500 font-medium capitalize">{returnItem.vehicle_type}</div>
                             </TableCell>
                             <TableCell>
-                              <div>
-                                <div>{returnItem.user_name}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  {returnItem.user_email}
-                                </div>
-                              </div>
+                              <div className="font-medium text-gray-900">{returnItem.user_name}</div>
+                              <div className="text-xs text-gray-500 font-medium">{returnItem.user_email}</div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-xs font-semibold text-gray-600">
                               {formatDateTime(returnItem.created_at)}
                             </TableCell>
                             <TableCell>
                               {returnItem.additional_charges > 0 ? (
-                                <div className="text-orange-600 font-medium">
+                                <Badge variant="warning" className="bg-orange-50 text-orange-600 border-orange-100 font-bold">
                                   ₹{returnItem.additional_charges}
-                                </div>
+                                </Badge>
                               ) : (
-                                <div className="text-muted-foreground">No charges</div>
+                                <span className="text-xs text-gray-400 font-medium">None</span>
                               )}
                             </TableCell>
                             <TableCell>
-                              <Badge variant={getStatusBadgeVariant(returnItem.status)}>
+                              <Badge variant={getStatusBadgeVariant(returnItem.status)} className="font-bold uppercase text-[10px]">
                                 {returnItem.status}
                               </Badge>
                             </TableCell>
-                            <TableCell>{returnItem.processed_by_name}</TableCell>
                           </TableRow>
                         ))}
                         {returns.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center py-4">
+                            <TableCell colSpan={6} className="text-center py-12 text-gray-500 font-medium">
                               No completed bookings found
                             </TableCell>
                           </TableRow>
                         )}
                       </TableBody>
                     </Table>
+                  </div>
+                  {/* Mobile View */}
+                  <div className="md:hidden space-y-3">
+                    {returns.map((returnItem) => (
+                      <div key={returnItem.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Booking ID</span>
+                            <p className="text-sm font-bold text-gray-900 leading-none mt-0.5">{returnItem.booking_id}</p>
+                          </div>
+                          <Badge variant={getStatusBadgeVariant(returnItem.status)} className="font-bold uppercase text-[9px] px-1.5 py-0">
+                            {returnItem.status}
+                          </Badge>
+                        </div>
+
+                        <div className="space-y-3 mb-1">
+                          <div className="flex justify-between gap-4">
+                            <div className="flex-1">
+                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Vehicle</span>
+                              <p className="text-sm text-gray-800 font-bold leading-tight">{returnItem.vehicle_name}</p>
+                              <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5 tracking-tight">{returnItem.vehicle_type}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Charges</span>
+                              {returnItem.additional_charges > 0 ? (
+                                <p className="text-sm text-orange-600 font-bold leading-tight">₹{returnItem.additional_charges}</p>
+                              ) : (
+                                <p className="text-sm text-gray-400 font-medium leading-tight">None</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-50">
+                            <div>
+                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Customer</span>
+                              <p className="text-sm text-gray-800 font-bold leading-tight">{returnItem.user_name}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Return Date</span>
+                              <p className="text-[11px] text-gray-800 font-bold leading-tight">{formatDateTime(returnItem.created_at)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {returns.length === 0 && (
+                      <div className="text-center py-12 text-gray-500 font-bold text-sm bg-gray-50/50 rounded-xl border border-dashed">
+                        No completed bookings found
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

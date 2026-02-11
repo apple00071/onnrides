@@ -281,6 +281,38 @@ export async function POST(request: NextRequest) {
         ]
       );
 
+      // Create a record in the payments table for financial reporting
+      try {
+        await query(
+          `INSERT INTO payments (
+            id,
+            booking_id,
+            amount,
+            status,
+            method,
+            reference,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [
+            crypto.randomUUID(),
+            booking.id,
+            amount,
+            'completed',
+            body.payment_method || 'online',
+            payment_reference
+          ]
+        );
+        logger.info('Payment record created successfully during verification', {
+          bookingId: booking.id,
+          amount,
+          reference: payment_reference
+        });
+      } catch (payError) {
+        logger.error('Failed to create payment record during verification:', payError);
+        // We don't fail the verification if the audit log fails
+      }
+
       logger.info('Payment status updated successfully', {
         bookingId: booking.id,
         payment_reference,

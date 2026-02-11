@@ -170,12 +170,9 @@ export async function GET(request: Request) {
         const terminalStatuses = ['completed', 'cancelled', 'failed'];
         const status = (booking.booking_type === 'offline' && !terminalStatuses.includes(booking.status)) ? 'active' : booking.status;
 
-        // Format booking ID as ORXXX
-        const displayId = `OR${booking.booking_id.substring(0, 3).toUpperCase()}`;
-
         return {
           id: booking.id, // Return actual UUID
-          booking_id: displayId, // Return formatted ID for display
+          booking_id: booking.booking_id, // Return actual ID from DB
           user_id: booking.user_id,
           vehicle_id: booking.vehicle_id,
           start_date: booking.start_date,

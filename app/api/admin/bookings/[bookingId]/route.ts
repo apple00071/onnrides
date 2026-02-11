@@ -50,7 +50,7 @@ export async function GET(
       LEFT JOIN users u ON b.user_id = u.id
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
       LEFT JOIN vehicle_returns vr ON b.id = vr.booking_id
-      WHERE b.booking_id = $1
+      WHERE TRIM(b.booking_id) ILIKE TRIM($1)
     `, [resolvedParams.bookingId]);
 
     if (result.rows.length === 0) {
@@ -185,7 +185,7 @@ export async function PATCH(
       FROM bookings b
       JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.booking_id = $1
+      WHERE TRIM(b.booking_id) ILIKE TRIM($1)
     `, [resolvedParams.bookingId]);
 
     if (currentBookingResult.rows.length === 0) {
@@ -266,7 +266,7 @@ export async function PATCH(
       const result = await query(`
         UPDATE bookings
         SET ${updateFields.join(', ')}
-        WHERE booking_id = $${paramIndex}
+        WHERE TRIM(booking_id) ILIKE TRIM($${paramIndex})
         RETURNING *
       `, updateValues);
 
@@ -280,6 +280,59 @@ export async function PATCH(
           SET is_available = true, updated_at = NOW()
           WHERE id = $1
         `, [vehicleId]);
+
+        // If status is completed, ensure we log the payment in the 'payments' table 
+        // if there was a pending balance that is now implicitly cleared or paid
+        if (status === 'completed' && currentBooking.status !== 'completed') {
+          const pendingAmount = parseFloat(currentBooking.pending_amount || '0');
+          if (pendingAmount > 0) {
+            await query(
+              `INSERT INTO payments (
+                id,
+                booking_id,
+                amount,
+                status,
+                method,
+                reference,
+                created_at,
+                updated_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+              [
+                crypto.randomUUID(),
+                currentBooking.id,
+                pendingAmount,
+                'completed',
+                currentBooking.payment_method || 'cash',
+                'Manual completion'
+              ]
+            );
+
+            // Also update the booking's paid_amount and pending_amount to maintain integrity
+            await query(
+              `UPDATE bookings SET 
+                paid_amount = total_price,
+                pending_amount = 0,
+                payment_status = 'completed',
+                updated_at = NOW()
+               WHERE id = $1`,
+              [currentBooking.id]
+            );
+
+            logger.info('Auto-resolved balance during manual completion', {
+              bookingId: currentBooking.id,
+              clearedAmount: pendingAmount
+            });
+          } else {
+            // Even if pendingAmount is 0, ensure payment_status is 'completed'
+            await query(
+              `UPDATE bookings SET 
+                payment_status = 'completed',
+                updated_at = NOW()
+               WHERE id = $1`,
+              [currentBooking.id]
+            );
+          }
+        }
       } else if (status === 'confirmed' || status === 'initiated') {
         const vehicleId = vehicle_id || currentBooking.vehicle_id;
         await query(`
@@ -307,7 +360,7 @@ export async function PATCH(
       FROM bookings b
       JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.booking_id = $1
+      WHERE TRIM(b.booking_id) ILIKE TRIM($1)
     `, [resolvedParams.bookingId]);
 
     const bookingDetails = bookingDetailsResult.rows[0];
@@ -407,8 +460,8 @@ export async function DELETE(
 
     // Get booking
     const bookingResult = await query(`
-      SELECT * FROM bookings 
-      WHERE id = $1 
+      SELECT * FROM bookings
+      WHERE TRIM(booking_id) ILIKE TRIM($1)
       LIMIT 1
     `, [resolvedParams.bookingId]);
     const booking = bookingResult.rows[0];
@@ -439,7 +492,7 @@ export async function DELETE(
 
     const deletedBookingResult = await query(`
       DELETE FROM bookings
-      WHERE booking_id = $1
+      WHERE TRIM(booking_id) ILIKE TRIM($1)
       RETURNING *
     `, [resolvedParams.bookingId]);
 

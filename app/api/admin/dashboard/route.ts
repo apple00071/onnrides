@@ -114,13 +114,13 @@ export async function GET() {
     const activeRentals = parseInt(activeRentalsResult.rows[0].active_rentals);
 
     // Today's revenue (sum of all completed payments today)
-    // Use CURRENT_DATE to avoid timezone issues
+    // Use TO_CHAR and IST to ensure robust comparison
     const todayRevenueResult = await query(`
-      SELECT COALESCE(SUM(amount), 0) as today_revenue
-      FROM payments
-      WHERE DATE(created_at) = CURRENT_DATE
-      AND status IN ('completed', 'refunded')
-    `);
+          SELECT COALESCE(SUM(amount), 0) as today_revenue
+          FROM payments
+          WHERE TO_CHAR(created_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') = TO_CHAR(NOW() AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD')
+          AND status IN ('completed', 'refunded')
+        `);
 
     const todayRevenue = parseFloat(todayRevenueResult.rows[0].today_revenue || 0);
 

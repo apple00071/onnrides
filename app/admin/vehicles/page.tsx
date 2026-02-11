@@ -576,11 +576,11 @@ export default function VehiclesPage() {
             </div>
 
             <div className="sm:col-span-2 lg:col-span-4 flex justify-start pt-2">
-              <div className="flex bg-gray-100 p-1 rounded-xl w-full sm:w-auto gap-0.5 sm:gap-1">
+              <div className="grid grid-cols-3 bg-gray-100 p-1 rounded-xl w-full sm:w-auto gap-0.5">
                 <button
                   onClick={() => setAvailabilityFilter('all')}
                   className={cn(
-                    "flex-1 sm:flex-none px-3 sm:px-6 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all",
+                    "px-2 sm:px-6 py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all",
                     availabilityFilter === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
                   )}
                 >
@@ -589,7 +589,7 @@ export default function VehiclesPage() {
                 <button
                   onClick={() => setAvailabilityFilter('available')}
                   className={cn(
-                    "flex-1 sm:flex-none px-3 sm:px-6 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all",
+                    "px-2 sm:px-6 py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all",
                     availabilityFilter === 'available' ? "bg-white text-green-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
                   )}
                 >
@@ -598,7 +598,7 @@ export default function VehiclesPage() {
                 <button
                   onClick={() => setAvailabilityFilter('unavailable')}
                   className={cn(
-                    "flex-1 sm:flex-none px-3 sm:px-6 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all",
+                    "px-2 sm:px-6 py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all",
                     availabilityFilter === 'unavailable' ? "bg-white text-red-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
                   )}
                 >
@@ -619,20 +619,20 @@ export default function VehiclesPage() {
           {filteredVehicles.map((vehicle: Vehicle) => (
             <Card key={vehicle.id} className="bg-white border border-gray-200 rounded-lg shadow-sm relative">
               {/* Bulk Select Checkbox */}
-              <div className="absolute top-3 left-3 z-10">
+              <div className="absolute top-2 left-2 z-10">
                 <Checkbox
                   checked={selectedVehicles.includes(vehicle.id)}
                   onCheckedChange={() => toggleVehicleSelection(vehicle.id)}
-                  className="bg-white/90 border-gray-300 h-4 w-4"
+                  className="h-4 w-4 rounded-md border-gray-300 bg-white/50 backdrop-blur-sm data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all shadow-sm"
                 />
               </div>
               {/* Image */}
-              <div className="relative h-48 bg-gray-50">
+              <div className="relative h-44 bg-gray-50/50">
                 <Image
                   src={getValidImageUrl(vehicle.images)}
                   alt={vehicle.name}
                   fill
-                  className="object-contain p-2 mix-blend-multiply"
+                  className="object-contain p-4 mix-blend-multiply"
                   onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
                     logger.warn('Image failed to load:', { vehicleId: vehicle.id, images: vehicle.images });
                     const target = e.target as HTMLImageElement;
@@ -642,26 +642,26 @@ export default function VehiclesPage() {
                   priority={true}
                 />
                 <Badge
-                  className={`absolute top-2 right-2 border ${vehicle.is_available ? getBadgeColor('available') : getBadgeColor('unavailable')}`}
+                  className={`absolute top-2 right-2 border-0 shadow-sm font-bold text-[10px] uppercase tracking-wider ${vehicle.is_available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
                 >
                   {vehicle.is_available ? 'Available' : 'Unavailable'}
                 </Badge>
               </div>
-              <CardContent className="p-4">
+              <CardContent className="p-3 md:p-4">
                 {/* Status Indicators */}
-                <div className="flex items-center justify-end mb-3">
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                <div className="flex items-center justify-end mb-2">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-tight">
                     {vehicle.location_quantities && Object.keys(vehicle.location_quantities).length > 0 ? (
                       <span>
-                        Qty {Object.entries(vehicle.location_quantities).map(([loc, qty], idx) => (
+                        QTY: {Object.entries(vehicle.location_quantities).map(([loc, qty], idx) => (
                           <span key={loc}>
-                            {idx > 0 && ' '}
+                            {idx > 0 && ' | '}
                             {loc.charAt(0)}: {qty}
                           </span>
                         ))}
                       </span>
                     ) : (
-                      <span>Qty: {vehicle.quantity}</span>
+                      <span>QTY: {vehicle.quantity}</span>
                     )}
                     <span>•</span>
                     <span>Min: {vehicle.min_booking_hours}h</span>
@@ -670,17 +670,17 @@ export default function VehiclesPage() {
 
                 {/* Basic Info */}
                 <div className="space-y-3">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-medium text-gray-900">{vehicle.name}</h3>
-                      <p className="text-sm text-gray-500 capitalize">{vehicle.type}</p>
+                      <h3 className="font-bold text-gray-900 leading-tight">{vehicle.name}</h3>
+                      <p className="text-xs font-semibold text-gray-400 capitalize mt-0.5">{vehicle.type}</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-black text-gray-900 tracking-tight">
                         ₹{vehicle.price_per_hour}/hr
                       </div>
                       {vehicle.price_7_days && (
-                        <div className="text-xs text-gray-500">
+                        <div className="text-[10px] font-bold text-gray-400">
                           ₹{vehicle.price_7_days}/week
                         </div>
                       )}
@@ -690,27 +690,34 @@ export default function VehiclesPage() {
                   {/* Locations */}
                   <div className="flex flex-wrap gap-1">
                     {formatLocations(vehicle.location).map((loc, index) => (
-                      <Badge
+                      <span
                         key={index}
-                        variant="outline"
-                        className="text-xs"
+                        className="text-[9px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200/50"
                       >
                         {loc}
-                      </Badge>
+                      </span>
                     ))}
                   </div>
 
                   {/* Quick Actions */}
-                  <div className="flex items-center justify-between pt-3 border-t">
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id={`is_available-${vehicle.id}`}
-                        checked={vehicle.is_available}
-                        onCheckedChange={(checked: boolean) => handleAvailabilityChange(vehicle.id, checked)}
-                        className="scale-90"
-                      />
-                      <Label htmlFor={`is_available-${vehicle.id}`} className="text-[10px] font-medium text-gray-500 uppercase">
-                        {vehicle.is_available ? 'Available' : 'Unavailable'}
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                    <div className="flex items-center gap-2">
+                      <div className="relative group">
+                        <Switch
+                          id={`is_available-${vehicle.id}`}
+                          checked={vehicle.is_available}
+                          onCheckedChange={(checked: boolean) => handleAvailabilityChange(vehicle.id, checked)}
+                          className="h-5 w-9 data-[state=checked]:bg-green-500"
+                        />
+                      </div>
+                      <Label
+                        htmlFor={`is_available-${vehicle.id}`}
+                        className={cn(
+                          "text-[9px] font-black uppercase tracking-widest",
+                          vehicle.is_available ? "text-green-600" : "text-gray-400"
+                        )}
+                      >
+                        {vehicle.is_available ? 'Online' : 'Offline'}
                       </Label>
                     </div>
                     <div className="flex gap-2">

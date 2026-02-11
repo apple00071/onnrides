@@ -105,28 +105,28 @@ export default function BookingsPage() {
         </div>
       </div>
 
-      <div className="bg-white p-4 md:p-6 rounded-xl border shadow-sm space-y-4">
+      <div className="bg-white p-3 md:p-6 rounded-xl border shadow-sm space-y-3 md:space-y-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Search by ID, Customer, or Reg No..."
+            placeholder="Search bookings..."
             value={searchQuery}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-            className="pl-10 h-11 border-gray-200 focus:border-primary/50 focus:ring-primary/20 transition-all font-medium"
+            className="pl-10 h-10 md:h-11 border-gray-200 focus:border-primary/50 focus:ring-primary/20 transition-all font-medium text-sm rounded-lg"
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
-          <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Status</Label>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 items-end">
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Status</label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-10 border-gray-200 bg-gray-50/30">
+              <SelectTrigger className="h-9 md:h-10 border-gray-200 bg-gray-50/30 text-xs font-medium rounded-lg">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="all">All</SelectItem>
                 {statusOptions.map((status) => (
-                  <SelectItem key={status} value={status} className="capitalize">
+                  <SelectItem key={status} value={status} className="capitalize text-xs">
                     {status}
                   </SelectItem>
                 ))}
@@ -134,16 +134,16 @@ export default function BookingsPage() {
             </Select>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Payment</Label>
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Payment</label>
             <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-              <SelectTrigger className="h-10 border-gray-200 bg-gray-50/30">
+              <SelectTrigger className="h-9 md:h-10 border-gray-200 bg-gray-50/30 text-xs font-medium rounded-lg">
                 <SelectValue placeholder="Payment" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Payments</SelectItem>
+                <SelectItem value="all">All</SelectItem>
                 {paymentOptions.map((payment) => (
-                  <SelectItem key={payment} value={payment} className="capitalize">
+                  <SelectItem key={payment} value={payment} className="capitalize text-xs">
                     {payment}
                   </SelectItem>
                 ))}
@@ -151,14 +151,14 @@ export default function BookingsPage() {
             </Select>
           </div>
 
-          <div className="flex gap-2 h-10">
+          <div className="col-span-2 md:col-span-1 flex gap-2 pt-1 md:pt-0">
             {(searchQuery || statusFilter !== 'all' || paymentFilter !== 'all') && (
               <Button
                 variant="outline"
                 onClick={resetFilters}
-                className="flex-1 border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors h-10"
+                className="flex-1 border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors h-9 md:h-10 text-[10px] font-bold uppercase tracking-wider rounded-lg"
               >
-                <FilterX className="h-4 w-4 mr-2" /> Reset
+                <FilterX className="h-3.5 w-3.5 mr-1.5" /> Reset
               </Button>
             )}
           </div>
@@ -166,49 +166,95 @@ export default function BookingsPage() {
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-        <div>
-          {loading ? (
-            <TableSkeleton rows={10} />
-          ) : error ? (
-            <div className="py-12 text-center text-red-500">
-              <h3 className="text-lg font-medium">Error loading bookings</h3>
-              <p className="mt-2 text-sm">{error}</p>
+        {loading ? (
+          <TableSkeleton rows={10} />
+        ) : error ? (
+          <div className="py-12 text-center text-red-500 bg-red-50/30">
+            <h3 className="text-sm font-bold uppercase tracking-tight">Error loading bookings</h3>
+            <p className="mt-1 text-xs font-medium text-red-400">{error}</p>
+            <Button
+              variant="outline"
+              className="mt-4 h-9 border-red-200 text-red-600 hover:bg-red-100 rounded-lg text-xs font-bold"
+              onClick={fetchBookings}
+            >
+              Try Again
+            </Button>
+          </div>
+        ) : filteredBookings.length === 0 ? (
+          <div className="py-16 text-center bg-gray-50/50">
+            <h3 className="text-sm font-bold text-gray-700 uppercase">No bookings found</h3>
+            <p className="mt-1 text-xs text-gray-400 font-medium px-4">
+              Try adjusting your filters or search terms.
+            </p>
+            {(searchQuery || statusFilter !== 'all' || paymentFilter !== 'all') && (
               <Button
                 variant="outline"
-                className="mt-4"
-                onClick={fetchBookings}
+                className="mt-4 h-9 border-gray-200 rounded-lg text-xs font-bold"
+                onClick={resetFilters}
               >
-                Try Again
+                Clear All Filters
               </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block">
+              <DataTable
+                columns={columns}
+                data={filteredBookings}
+                searchKey="booking_id"
+                showSearch={false}
+                onRowClick={(row: any) => router.push(`/admin/bookings/${row.booking_id}`)}
+              />
             </div>
-          ) : filteredBookings.length === 0 ? (
-            <div className="py-12 text-center">
-              <h3 className="text-lg font-medium text-gray-700">No bookings found</h3>
-              <p className="mt-2 text-sm text-gray-500">
-                {searchQuery || statusFilter !== 'all' || paymentFilter !== 'all'
-                  ? "Try adjusting your filters to find what you're looking for."
-                  : "New bookings will appear here once they are created."}
-              </p>
-              {(searchQuery || statusFilter !== 'all' || paymentFilter !== 'all') && (
-                <Button
-                  variant="outline"
-                  className="mt-4"
-                  onClick={resetFilters}
+
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {filteredBookings.map((booking) => (
+                <div
+                  key={booking.id}
+                  className="p-4 active:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => router.push(`/admin/bookings/${booking.booking_id}`)}
                 >
-                  Clear All Filters
-                </Button>
-              )}
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <span className="text-[10px] font-bold text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10 tracking-widest uppercase">
+                        {booking.booking_id}
+                      </span>
+                      <h3 className="text-sm font-bold text-gray-900 mt-1.5 leading-none">{booking.user.name}</h3>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <div className={`text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${booking.status === 'completed' ? 'bg-green-100 text-green-700 border border-green-200' :
+                          booking.status === 'cancelled' ? 'bg-red-100 text-red-700 border border-red-200' :
+                            'bg-blue-100 text-blue-700 border border-blue-200'
+                        }`}>
+                        {booking.status}
+                      </div>
+                      <span className="text-xs font-black text-gray-900 tracking-tight">₹{booking.total_price.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 bg-gray-50 p-2.5 rounded-lg border border-gray-100/50">
+                    <div>
+                      <span className="text-[9px] font-bold text-gray-400 uppercase block tracking-tight">Vehicle</span>
+                      <div className="font-bold text-[11px] text-gray-700 truncate">{booking.vehicle.name}</div>
+                      <span className="text-[9px] font-mono text-gray-500 uppercase">{booking.registration_number || 'No Reg'}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase block tracking-tight">Payment</span>
+                      <div className={`text-[11px] font-black uppercase ${booking.payment_status === 'completed' ? 'text-green-600' : 'text-orange-600'
+                        }`}>
+                        {booking.payment_status}
+                      </div>
+                      <span className="text-[9px] font-bold text-gray-400 uppercase">{booking.booking_type}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ) : (
-            <DataTable
-              columns={columns}
-              data={filteredBookings}
-              searchKey="booking_id"
-              showSearch={false} // Custom search bar used above
-              onRowClick={(row: any) => router.push(`/admin/bookings/${row.booking_id}`)}
-            />
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -175,6 +175,136 @@ function BookingsTable({
   );
 }
 
+// BookingsViewContent component to switch between table and cards
+function BookingsViewContent({
+  bookings,
+  loading,
+  onInitiate,
+  onView
+}: {
+  bookings: BookingWithRelations[],
+  loading: boolean,
+  onInitiate: (booking: BookingWithRelations) => void,
+  onView: (booking: BookingWithRelations) => void
+}) {
+  if (loading) {
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (bookings.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500 bg-white border border-dashed border-gray-200 rounded-xl">
+        No bookings found
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="hidden md:block">
+        <BookingsTable
+          bookings={bookings}
+          loading={loading}
+          onInitiate={onInitiate}
+          onView={onView}
+        />
+      </div>
+      <div className="md:hidden space-y-3">
+        {bookings.map((booking) => (
+          <BookingCard
+            key={booking.id}
+            booking={booking}
+            onInitiate={onInitiate}
+            onView={onView}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+// BookingCard component for mobile view
+function BookingCard({
+  booking,
+  onInitiate,
+  onView
+}: {
+  booking: BookingWithRelations,
+  onInitiate: (booking: BookingWithRelations) => void,
+  onView: (booking: BookingWithRelations) => void
+}) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Booking ID</span>
+          <p className="text-sm font-semibold text-gray-900">{booking.booking_id}</p>
+        </div>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${booking.status === 'cancelled'
+          ? 'bg-red-50 text-red-600 border border-red-100'
+          : booking.status === 'confirmed'
+            ? 'bg-green-50 text-green-600 border border-green-100'
+            : booking.status === 'initiated'
+              ? 'bg-blue-50 text-blue-600 border border-blue-100'
+              : 'bg-yellow-50 text-yellow-600 border border-yellow-100'
+          }`}>
+          {booking.status}
+        </span>
+      </div>
+
+      <div className="space-y-3 mb-4">
+        <div>
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vehicle</span>
+          <p className="text-sm text-gray-800">{booking.vehicle?.name || 'Vehicle not assigned'}</p>
+        </div>
+        <div className="flex justify-between gap-4">
+          <div className="flex-1">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Customer</span>
+            <p className="text-sm text-gray-800">{booking.user?.name || 'Customer not assigned'}</p>
+            {booking.user?.phone && (
+              <p className="text-xs text-gray-500 font-medium">{booking.user.phone}</p>
+            )}
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Start Date</span>
+            <p className="text-xs text-gray-800 font-medium">{formatDateTime(booking.start_date)}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-3 border-t border-gray-50">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onView(booking)}
+          className="flex-1 h-9 text-xs border-gray-200 rounded-lg font-semibold"
+        >
+          <Eye className="h-3.5 w-3.5 mr-1.5" />
+          View
+        </Button>
+        <Button
+          variant={booking.status === 'initiated' ? 'secondary' : 'default'}
+          size="sm"
+          onClick={() => onInitiate(booking)}
+          disabled={booking.status === 'cancelled'}
+          className={`flex-1 h-9 text-xs rounded-lg font-semibold ${booking.status === 'initiated'
+            ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+            : 'bg-orange-600 hover:bg-orange-700 text-white'
+            }`}
+        >
+          <PlayCircle className="h-3.5 w-3.5 mr-1.5" />
+          {booking.status === 'initiated' ? 'Update' : 'Initiate'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+
 export default function TripInitiationPage() {
   const [bookings, setBookings] = useState<BookingWithRelations[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<BookingWithRelations[]>([]);
@@ -373,22 +503,22 @@ export default function TripInitiationPage() {
         </div>
 
         <div className="flex-1 flex flex-col w-full">
-          <div className="bg-white p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+          <div className="bg-white p-3 md:p-4 border-b">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search bookings..."
-                  className="pl-10 h-11 border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 rounded-xl"
+                  className="pl-10 h-10 border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 rounded-xl text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Status</Label>
+              <div className="space-y-1">
+                <Label className="text-[9px] uppercase font-bold text-gray-400 ml-1">Status</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-11 border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 rounded-xl">
+                  <SelectTrigger className="h-10 border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 rounded-xl text-sm">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -401,10 +531,10 @@ export default function TripInitiationPage() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Type</Label>
+              <div className="space-y-1">
+                <Label className="text-[9px] uppercase font-bold text-gray-400 ml-1">Type</Label>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="h-11 border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 rounded-xl">
+                  <SelectTrigger className="h-10 border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 rounded-xl text-sm">
                     <SelectValue placeholder="Type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -415,8 +545,8 @@ export default function TripInitiationPage() {
                 </Select>
               </div>
 
-              <div className="flex pb-0.5">
-                <Button onClick={handleRefresh} variant="outline" className="w-full h-11 gap-2 border-gray-300 rounded-xl shadow-sm hover:bg-gray-50">
+              <div className="flex pt-1 sm:pt-0">
+                <Button onClick={handleRefresh} variant="outline" className="w-full h-10 gap-2 border-gray-300 rounded-xl shadow-sm hover:bg-gray-50 text-sm">
                   <RefreshCw className="h-4 w-4" />
                   Refresh
                 </Button>
@@ -424,17 +554,19 @@ export default function TripInitiationPage() {
             </div>
           </div>
 
-          <div className="px-4 flex-1 overflow-hidden">
-            <Tabs defaultValue="pending" className="w-full h-full flex flex-col">
-              <TabsList className="mb-4 bg-gray-100 p-1 rounded-lg">
-                <TabsTrigger value="pending" className="data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm rounded-md px-4 py-2">Pending</TabsTrigger>
-                <TabsTrigger value="initiated" className="data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm rounded-md px-4 py-2">Initiated</TabsTrigger>
-                <TabsTrigger value="all" className="data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm rounded-md px-4 py-2">All</TabsTrigger>
-              </TabsList>
+          <div className="flex-1 overflow-hidden">
+            <Tabs defaultValue="pending" className="w-full flex flex-col">
+              <div className="px-3 md:px-4 py-3">
+                <TabsList className="bg-gray-100 p-1 rounded-xl w-full sm:w-auto h-auto">
+                  <TabsTrigger value="pending" className="flex-1 sm:flex-none data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm rounded-lg px-4 py-2 text-xs font-semibold">Pending</TabsTrigger>
+                  <TabsTrigger value="initiated" className="flex-1 sm:flex-none data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm rounded-lg px-4 py-2 text-xs font-semibold">Initiated</TabsTrigger>
+                  <TabsTrigger value="all" className="flex-1 sm:flex-none data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm rounded-lg px-4 py-2 text-xs font-semibold">All</TabsTrigger>
+                </TabsList>
+              </div>
 
-              <div className="flex-1 min-h-0">
-                <TabsContent value="pending" className="mt-0 h-full">
-                  <BookingsTable
+              <div className="flex-1 overflow-y-auto px-3 md:px-4 pb-4">
+                <TabsContent value="pending" className="mt-0 outline-none">
+                  <BookingsViewContent
                     bookings={filteredBookings.filter(b =>
                       (b.status === 'confirmed' && b.payment_status === 'completed') ||
                       (b.booking_type === 'offline' && b.status === 'confirmed')
@@ -445,8 +577,8 @@ export default function TripInitiationPage() {
                   />
                 </TabsContent>
 
-                <TabsContent value="initiated" className="mt-0 h-full">
-                  <BookingsTable
+                <TabsContent value="initiated" className="mt-0 outline-none">
+                  <BookingsViewContent
                     bookings={filteredBookings.filter(b => b.status === 'initiated')}
                     loading={loading}
                     onInitiate={handleInitiateTrip}
@@ -454,8 +586,8 @@ export default function TripInitiationPage() {
                   />
                 </TabsContent>
 
-                <TabsContent value="all" className="mt-0 h-full">
-                  <BookingsTable
+                <TabsContent value="all" className="mt-0 outline-none">
+                  <BookingsViewContent
                     bookings={filteredBookings}
                     loading={loading}
                     onInitiate={handleInitiateTrip}
