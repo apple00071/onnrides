@@ -355,7 +355,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl w-[95vw] md:w-full max-h-[90vh] overflow-y-auto p-4 md:p-6">
         <DialogHeader>
           <DialogTitle className="text-xl flex items-center gap-2">
             Trip Initiation: Booking #{booking.booking_id}
@@ -369,7 +369,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
         </DialogHeader>
 
         <Tabs defaultValue="customer" className="w-full">
-          <TabsList className="grid grid-cols-5 mb-4">
+          <TabsList className="flex md:grid md:grid-cols-5 mb-4 overflow-x-auto scrollbar-hide justify-start md:justify-center">
             <TabsTrigger value="customer" className="flex items-center gap-1">
               <UserCircle className="h-4 w-4" />
               Customer
@@ -637,7 +637,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
               <div className="space-y-4">
                 <h4 className="font-medium text-gray-700">Vehicle Safety Checklist</h4>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-3 md:gap-4">
                   {[
                     { key: 'fuelLevelChecked', label: 'Fuel level verified' },
                     { key: 'odometerRecorded', label: 'Odometer reading recorded' },
@@ -647,7 +647,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     { key: 'brakesFunctional', label: 'Brakes functional' },
                     { key: 'tiresPressure', label: 'Tires pressure checked' }
                   ].map((item) => (
-                    <div key={item.key} className="flex items-center space-x-2">
+                    <div key={item.key} className="flex items-center space-x-3 p-2 bg-gray-50 rounded-md md:bg-transparent md:p-0 md:space-x-2">
                       <input
                         type="checkbox"
                         id={item.key}
@@ -655,7 +655,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                         onChange={() => handleChecklistChange(item.key as keyof typeof checklist)}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
-                      <label htmlFor={item.key} className="text-sm text-gray-700">
+                      <label htmlFor={item.key} className="text-sm text-gray-700 cursor-pointer">
                         {item.label}
                       </label>
                     </div>
@@ -989,18 +989,20 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                 </div>
 
                 {/* Signature */}
-                <div className="border rounded-md p-4 space-y-3">
+                <div className="border rounded-md p-4 space-y-3 col-span-1 md:col-span-2">
                   <h4 className="font-medium">Customer Signature</h4>
                   <p className="text-sm text-gray-500">Have the customer sign below to acknowledge the vehicle condition and booking details.</p>
 
-                  <SignatureCanvas
-                    initialValue={signatureData}
-                    onChange={handleSignatureChange}
-                    label="Customer Signature"
-                    required={true}
-                    instructionText="Customer, please sign here"
-                    errorMessage="Customer signature is required"
-                  />
+                  <div className="w-full overflow-hidden">
+                    <SignatureCanvas
+                      initialValue={signatureData}
+                      onChange={handleSignatureChange}
+                      label="Customer Signature"
+                      required={true}
+                      instructionText="Customer, please sign here"
+                      errorMessage="Customer signature is required"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

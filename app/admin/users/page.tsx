@@ -115,20 +115,26 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-xl border shadow-sm">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 line-clamp-1">User Management</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage your application users and their access levels
-          </p>
+      {/* Header & Actions Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-xl border shadow-sm gap-4">
+        <div className="hidden md:block">
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">User Management</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Manage user accounts and details</p>
         </div>
-        <Button
-          variant="destructive"
-          className="flex items-center gap-2"
-          onClick={() => setIsDeleteDialogOpen(true)}
-        >
-          <Trash2 className="h-4 w-4" /> Delete All Users
-        </Button>
+        <div className="flex justify-between items-center w-full sm:w-auto gap-3">
+          <div className="md:hidden text-sm font-medium text-gray-500">
+            {users.length} Users
+          </div>
+          <Button
+            variant="destructive"
+            className="flex items-center gap-2 h-10 px-4 rounded-xl shadow-sm"
+            onClick={() => setIsDeleteDialogOpen(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Clear All Users</span>
+            <span className="sm:hidden">Clear All</span>
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">

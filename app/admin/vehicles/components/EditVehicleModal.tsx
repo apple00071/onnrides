@@ -297,7 +297,7 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
           <DialogTitle className="text-xl font-semibold">Edit Vehicle</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Vehicle Name</Label>
               <Input
@@ -321,7 +321,7 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
 
           <div className="space-y-2">
             <Label>Location</Label>
-            <div className="grid grid-cols-2 gap-4 p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4">
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="location-madhapur"
@@ -412,8 +412,8 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2 col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2 col-span-1 md:col-span-2">
               <Label>Quantities Per Location</Label>
               <p className="text-xs text-gray-500 mb-2">
                 Set how many vehicles are available at each selected location
@@ -439,7 +439,7 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
                             [loc]: newQty
                           }));
                         }}
-                        className="w-24"
+                        className="w-full sm:w-24"
                         required
                       />
                     </div>
@@ -502,7 +502,7 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
           {/* Regular pricing section - always visible */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Regular User Pricing</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>7 Days Price</Label>
                 <Input
@@ -540,7 +540,7 @@ export function EditVehicleModal({ isOpen, onClose, vehicle, onSuccess }: EditVe
           {formData.is_delivery_enabled && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Delivery Partner Pricing</h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>7 Days Price (Delivery)</Label>
                   <Input

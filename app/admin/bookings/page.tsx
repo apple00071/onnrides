@@ -83,36 +83,44 @@ export default function BookingsPage() {
   const paymentOptions = Array.from(new Set(bookings.map((b: Booking) => b.payment_status)));
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-xl border shadow-sm gap-4">
-        <div>
+    <div className="space-y-6">
+      {/* Search & Actions Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="hidden md:block">
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">Booking Management</h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Manage your rental orders, payments, and schedules
-          </p>
+          <p className="text-xs text-gray-500 mt-0.5">Manage orders, payments, and schedules</p>
         </div>
-        <Button
-          className="bg-[#f26e24] hover:bg-[#d95e1d] text-white shadow-sm flex items-center gap-2 h-10 px-5"
-          onClick={() => router.push('/admin/offline-booking')}
-        >
-          <PlusCircle className="h-4 w-4" /> Create Offline Booking
-        </Button>
+        <div className="flex justify-between items-center w-full sm:w-auto gap-3">
+          <div className="md:hidden text-sm font-medium text-gray-500">
+            {bookings.length} Bookings
+          </div>
+          <Button
+            className="bg-[#f26e24] hover:bg-[#d95e1d] text-white shadow-sm flex items-center gap-2 h-10 px-4 rounded-xl"
+            onClick={() => router.push('/admin/offline-booking')}
+          >
+            <PlusCircle className="h-4 w-4" />
+            <span className="hidden sm:inline">Create Offline Booking</span>
+            <span className="sm:hidden">Offline</span>
+          </Button>
+        </div>
       </div>
 
-      <div className="bg-white p-4 rounded-xl border shadow-sm">
-        <div className="flex flex-col lg:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search by ID, Customer, or Reg No..."
-              value={searchQuery}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-              className="pl-9 h-10 border-gray-200 focus:border-primary/50 focus:ring-primary/20 transition-all"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
+      <div className="bg-white p-4 md:p-6 rounded-xl border shadow-sm space-y-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search by ID, Customer, or Reg No..."
+            value={searchQuery}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+            className="pl-10 h-11 border-gray-200 focus:border-primary/50 focus:ring-primary/20 transition-all font-medium"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+          <div className="space-y-1.5">
+            <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Status</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px] h-10 border-gray-200">
+              <SelectTrigger className="h-10 border-gray-200 bg-gray-50/30">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -124,9 +132,12 @@ export default function BookingsPage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
 
+          <div className="space-y-1.5">
+            <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Payment</Label>
             <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-              <SelectTrigger className="w-[150px] h-10 border-gray-200">
+              <SelectTrigger className="h-10 border-gray-200 bg-gray-50/30">
                 <SelectValue placeholder="Payment" />
               </SelectTrigger>
               <SelectContent>
@@ -138,14 +149,16 @@ export default function BookingsPage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
 
+          <div className="flex gap-2 h-10">
             {(searchQuery || statusFilter !== 'all' || paymentFilter !== 'all') && (
               <Button
-                variant="ghost"
+                variant="outline"
                 onClick={resetFilters}
-                className="h-10 px-3 flex items-center gap-2 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+                className="flex-1 border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors h-10"
               >
-                <FilterX className="h-4 w-4" /> Reset
+                <FilterX className="h-4 w-4 mr-2" /> Reset
               </Button>
             )}
           </div>

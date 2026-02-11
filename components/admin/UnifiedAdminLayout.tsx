@@ -81,7 +81,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
                 {/* Mobile Title (Optional, since Sidebar already has mobile header) */}
 
-                <main className="flex-1 p-6 md:p-8">
+                <main className="flex-1 p-4 md:p-8">
                     <ErrorBoundary>
                         {children}
                     </ErrorBoundary>

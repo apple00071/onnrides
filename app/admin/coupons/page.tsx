@@ -89,13 +89,26 @@ export default function CouponsPage() {
   };
 
   return (
-    <div className="w-full py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold">Coupon Management</h1>
-        <Button onClick={handleAddCoupon} className="bg-primary hover:bg-primary/90">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Coupon
-        </Button>
+    <div className="space-y-6">
+      {/* Header & Actions Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-xl border shadow-sm gap-4">
+        <div className="hidden md:block">
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Coupon Management</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Manage discounts and promotions</p>
+        </div>
+        <div className="flex justify-between items-center w-full sm:w-auto gap-3">
+          <div className="md:hidden text-sm font-medium text-gray-500">
+            {filteredCoupons.length} Coupons
+          </div>
+          <Button
+            onClick={handleAddCoupon}
+            className="bg-[#f26e24] hover:bg-[#d95e1d] text-white shadow-sm flex items-center gap-2 h-10 px-4 rounded-xl"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add New Coupon</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        </div>
       </div>
 
       <Card className="p-6">
@@ -159,9 +172,8 @@ export default function CouponsPage() {
                       {coupon.times_used} / {coupon.usage_limit || '∞'}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        coupon.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span className={`px-2 py-1 rounded-full text-xs ${coupon.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
                         {coupon.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>

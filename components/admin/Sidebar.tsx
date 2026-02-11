@@ -166,27 +166,33 @@ export function Sidebar() {
 
       {/* Mobile Header */}
       <div className="fixed top-0 left-0 right-0 h-16 bg-background border-b md:hidden z-50">
-        <div className="flex h-full items-center justify-between px-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggle}
-            className="md:hidden"
-            aria-label={isOpen ? "Close menu" : "Open menu"}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          <div className="relative h-8 w-28">
+        <div className="flex h-full items-center justify-between px-3">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggle}
+              className="md:hidden"
+              aria-label={isOpen ? "Close menu" : "Open menu"}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-gray-900 line-clamp-1">
+                {sidebarLinks.find(link => link.href === pathname)?.label || 'Admin'}
+              </span>
+            </div>
+          </div>
+          <div className="relative h-7 w-24">
             <Image
               src="/logo.png"
               alt="OnnRides Admin"
               fill
               className="object-contain"
               priority
-              sizes="112px"
+              sizes="96px"
             />
           </div>
-          <div className="w-10" /> {/* Empty div for balanced spacing */}
         </div>
       </div>
 

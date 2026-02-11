@@ -5,12 +5,12 @@ import { useSession } from 'next-auth/react';
 import { toast } from 'react-hot-toast';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from '@/components/ui/card';
 import { SETTINGS } from '@/lib/settings';
 import { redirectToLogin } from '@/lib/auth-utils';
@@ -38,23 +38,23 @@ export default function SettingsPage() {
   const initializeAndFetchSettings = async () => {
     try {
       setLoading(true);
-      
+
       // Initialize settings
       await fetch('/api/settings/initialize');
-      
+
       // Fetch current settings
       const [maintenanceResponse, gstResponse] = await Promise.all([
         fetch('/api/settings/maintenance'),
         fetch('/api/settings?key=gst_enabled')
       ]);
-      
+
       const maintenanceData = await maintenanceResponse.json();
       const gstData = await gstResponse.json();
-      
+
       if (maintenanceData.success) {
         setMaintenanceMode(maintenanceData.maintenance);
       }
-      
+
       if (gstData.success && gstData.data) {
         setGstEnabled(gstData.data.value === 'true');
       }
@@ -77,9 +77,9 @@ export default function SettingsPage() {
           enabled: checked,
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         setMaintenanceMode(checked);
         toast.success(checked ? 'Maintenance mode enabled' : 'Maintenance mode disabled');
@@ -104,9 +104,9 @@ export default function SettingsPage() {
           value: String(checked)
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         setGstEnabled(checked);
         toast.success(checked ? 'GST enabled' : 'GST disabled');
@@ -134,10 +134,17 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Site Settings</CardTitle>
+    <div className="space-y-6">
+      <div className="hidden md:block bg-white p-5 rounded-xl border shadow-sm">
+        <h1 className="text-xl font-bold text-gray-900 tracking-tight">System Settings</h1>
+        <p className="text-xs text-gray-500 mt-0.5">Manage global configuration and parameters</p>
+      </div>
+      <div className="md:hidden text-sm font-medium text-gray-400 mb-2 px-1">
+        Admin / Settings
+      </div>
+      <Card className="border-none sm:border shadow-none sm:shadow-sm">
+        <CardHeader className="px-4 py-6 sm:px-6 hidden md:block">
+          <CardTitle className="text-2xl">Site Settings</CardTitle>
           <CardDescription>
             Manage your site settings
           </CardDescription>

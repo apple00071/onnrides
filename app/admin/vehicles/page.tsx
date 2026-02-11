@@ -435,11 +435,38 @@ export default function VehiclesPage() {
     content = (
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-gray-900">Vehicles</h1>
+        {/* Mobile Header (Hidden on Desktop) */}
+        <div className="flex justify-between items-center mb-6 md:hidden">
+          <h1 className="text-xl font-bold">Vehicles</h1>
           <Button
             onClick={handleAddClick}
-            className="bg-[#f26e24] hover:bg-[#e05d13] text-white"
+            className="bg-[#f26e24] hover:bg-[#e05d13] text-white shadow-sm h-9 px-3 text-sm"
+          >
+            <FaPlus className="w-3 h-3 mr-1.5" />
+            Add
+          </Button>
+        </div>
+
+        {/* Mobile Filter Summary (Visible only on mobile) */}
+        <div className="md:hidden flex justify-between items-center mb-4">
+          <div className="text-sm font-medium text-gray-500">
+            {filteredVehicles.length} vehicles found
+          </div>
+          <Button
+            size="sm"
+            onClick={handleAddClick}
+            className="bg-[#f26e24] hover:bg-[#e05d13] text-white shadow-sm h-9 px-4"
+          >
+            <FaPlus className="w-3.5 h-3.5 mr-2" />
+            Add
+          </Button>
+        </div>
+
+        {/* Desktop Header Actions (Hidden on Mobile) */}
+        <div className="hidden md:flex justify-end mb-6">
+          <Button
+            onClick={handleAddClick}
+            className="bg-[#f26e24] hover:bg-[#e05d13] text-white shadow-sm"
           >
             <FaPlus className="w-4 h-4 mr-2" />
             Add Vehicle
@@ -478,93 +505,106 @@ export default function VehiclesPage() {
         )}
 
         {/* Filters & Search */}
-        <div className="flex flex-col md:flex-row gap-4 bg-white p-6 rounded-xl border shadow-sm">
-          <div className="flex-1 relative">
+        {/* Filters & Search */}
+        <div className="bg-white p-4 md:p-6 rounded-xl border shadow-sm space-y-4">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search vehicles by name, brand or model..."
+              placeholder="Search vehicles..."
               value={searchQuery}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-11 border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 transition-all"
             />
           </div>
 
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex items-center gap-2 pr-4 border-r">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 bg-gray-50/50">
               <Checkbox
                 id="select-all"
                 checked={selectedVehicles.length === filteredVehicles.length && filteredVehicles.length > 0}
                 onCheckedChange={() => toggleSelectAll(filteredVehicles)}
+                className="h-4 w-4 border-gray-300"
               />
-              <Label htmlFor="select-all" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
-                Select All
+              <Label htmlFor="select-all" className="text-sm font-semibold text-gray-700 cursor-pointer select-none">
+                Select All ({filteredVehicles.length})
               </Label>
             </div>
 
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {vehicleTypes.map(type => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Type</Label>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="h-11 border-gray-200 rounded-xl">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {vehicleTypes.map(type => (
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select value={brandFilter} onValueChange={setBrandFilter}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue placeholder="Brand" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Brands</SelectItem>
-                {vehicleBrands.map(brand => (
-                  <SelectItem key={brand} value={brand}>{brand}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Brand</Label>
+              <Select value={brandFilter} onValueChange={setBrandFilter}>
+                <SelectTrigger className="h-11 border-gray-200 rounded-xl">
+                  <SelectValue placeholder="Brand" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Brands</SelectItem>
+                  {vehicleBrands.map(brand => (
+                    <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select value={locationFilter} onValueChange={setLocationFilter}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue placeholder="Location" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Locations</SelectItem>
-                {allLocations.map(loc => (
-                  <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Location</Label>
+              <Select value={locationFilter} onValueChange={setLocationFilter}>
+                <SelectTrigger className="h-11 border-gray-200 rounded-xl">
+                  <SelectValue placeholder="Location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {allLocations.map(loc => (
+                    <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <div className="flex bg-gray-100 p-1 rounded-lg">
-              <button
-                onClick={() => setAvailabilityFilter('all')}
-                className={cn(
-                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-                  availabilityFilter === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                )}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setAvailabilityFilter('available')}
-                className={cn(
-                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-                  availabilityFilter === 'available' ? "bg-white text-green-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                )}
-              >
-                Available
-              </button>
-              <button
-                onClick={() => setAvailabilityFilter('unavailable')}
-                className={cn(
-                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
-                  availabilityFilter === 'unavailable' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                )}
-              >
-                Unavailable
-              </button>
+            <div className="sm:col-span-2 lg:col-span-4 flex justify-start pt-2">
+              <div className="flex bg-gray-100 p-1 rounded-xl w-full sm:w-auto gap-0.5 sm:gap-1">
+                <button
+                  onClick={() => setAvailabilityFilter('all')}
+                  className={cn(
+                    "flex-1 sm:flex-none px-3 sm:px-6 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all",
+                    availabilityFilter === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  )}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setAvailabilityFilter('available')}
+                  className={cn(
+                    "flex-1 sm:flex-none px-3 sm:px-6 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all",
+                    availabilityFilter === 'available' ? "bg-white text-green-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  )}
+                >
+                  Available
+                </button>
+                <button
+                  onClick={() => setAvailabilityFilter('unavailable')}
+                  className={cn(
+                    "flex-1 sm:flex-none px-3 sm:px-6 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all",
+                    availabilityFilter === 'unavailable' ? "bg-white text-red-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  )}
+                >
+                  Unavailable
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -579,11 +619,11 @@ export default function VehiclesPage() {
           {filteredVehicles.map((vehicle: Vehicle) => (
             <Card key={vehicle.id} className="bg-white border border-gray-200 rounded-lg shadow-sm relative">
               {/* Bulk Select Checkbox */}
-              <div className="absolute top-2 left-2 z-10">
+              <div className="absolute top-3 left-3 z-10">
                 <Checkbox
                   checked={selectedVehicles.includes(vehicle.id)}
                   onCheckedChange={() => toggleVehicleSelection(vehicle.id)}
-                  className="bg-white border-2"
+                  className="bg-white/90 border-gray-300 h-4 w-4"
                 />
               </div>
               {/* Image */}
@@ -667,9 +707,10 @@ export default function VehiclesPage() {
                         id={`is_available-${vehicle.id}`}
                         checked={vehicle.is_available}
                         onCheckedChange={(checked: boolean) => handleAvailabilityChange(vehicle.id, checked)}
+                        className="scale-90"
                       />
-                      <Label htmlFor={`is_available-${vehicle.id}`} className="text-xs">
-                        Available
+                      <Label htmlFor={`is_available-${vehicle.id}`} className="text-[10px] font-medium text-gray-500 uppercase">
+                        {vehicle.is_available ? 'Available' : 'Unavailable'}
                       </Label>
                     </div>
                     <div className="flex gap-2">
@@ -677,6 +718,7 @@ export default function VehiclesPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(vehicle)}
+                        className="h-8 px-3 text-xs"
                       >
                         Edit
                       </Button>
@@ -684,7 +726,7 @@ export default function VehiclesPage() {
                         variant="destructive"
                         size="sm"
                         onClick={() => setVehicleToDelete(vehicle.id)}
-                        className="bg-red-500 hover:bg-red-600 text-white"
+                        className="h-8 px-3 text-xs bg-red-500 hover:bg-red-600 text-white"
                       >
                         Delete
                       </Button>

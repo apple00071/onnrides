@@ -176,14 +176,22 @@ export default function FinancialReconciliationPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-semibold">Daily Financial Reconciliation</h1>
-          <p className="text-gray-600">{format(new Date(), 'EEEE, MMMM do, yyyy')}</p>
+      {/* Header Actions */}
+      <div className="flex justify-between items-center mb-6">
+        <div className="hidden md:block">
+          <h1 className="text-2xl font-semibold">Financial Reconciliation</h1>
+          <p className="text-gray-600 font-medium">{format(new Date(), 'EEEE, MMMM do, yyyy')}</p>
         </div>
-        <Button onClick={handleReconcile} className="bg-[#f26e24] hover:bg-[#e05d13]">
+        <div className="md:hidden text-sm font-medium text-gray-500">
+          Admin / Finance
+        </div>
+        <Button
+          onClick={handleReconcile}
+          className="bg-[#f26e24] hover:bg-[#e05d13] h-10 px-4 md:h-11 md:px-6 font-semibold rounded-xl shadow-sm"
+        >
           <Calculator className="w-4 h-4 mr-2" />
-          Complete Reconciliation
+          <span className="hidden sm:inline">Complete Reconciliation</span>
+          <span className="sm:hidden">Reconcile</span>
         </Button>
       </div>
 

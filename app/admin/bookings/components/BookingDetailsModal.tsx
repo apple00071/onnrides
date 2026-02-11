@@ -79,7 +79,7 @@ export default function BookingDetailsModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+              <Dialog.Panel className="w-[95vw] sm:max-w-2xl transform overflow-hidden rounded-2xl bg-white p-4 md:p-6 text-left align-middle shadow-xl transition-all max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between mb-4">
                   <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
                     Booking Details
@@ -169,14 +169,14 @@ export default function BookingDetailsModal({
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
                         ${booking.status === 'completed' ? 'bg-green-100 text-green-800' :
                           booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                          booking.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                          'bg-yellow-100 text-yellow-800'}`}>
+                            booking.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                              'bg-yellow-100 text-yellow-800'}`}>
                         {booking.status}
                       </span>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
                         ${booking.payment_status === 'completed' ? 'bg-green-100 text-green-800' :
                           booking.payment_status === 'failed' ? 'bg-red-100 text-red-800' :
-                          'bg-yellow-100 text-yellow-800'}`}>
+                            'bg-yellow-100 text-yellow-800'}`}>
                         {booking.payment_status}
                       </span>
                     </div>

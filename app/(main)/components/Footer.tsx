@@ -104,11 +104,11 @@ export default function Footer() {
           <div className="prose max-w-none prose-invert">
             <h1 className="text-3xl font-bold text-white mb-6">Bike Rentals in Hyderabad – Explore the City with Onnrides</h1>
             <h2 className="text-2xl font-semibold text-white mb-4">Unlock the Freedom of Two Wheels in Hyderabad</h2>
-            
+
             <p className="text-white/90 mb-6">
               Looking for convenient and affordable bike rentals in Hyderabad? Onnrides offers the perfect two-wheeler solution to navigate the city with ease. Whether you're cruising through traffic-packed roads or taking a weekend ride to scenic spots around the city, we've got the right bike for you.
             </p>
-            
+
             <p className="text-white/90 mb-8">
               Choose from a wide range of bikes and scooters such as the Honda Activa, Suzuki Access, Yamaha FZ, Bajaj Avenger, Royal Enfield Classic 350, or even a Honda CBR 250. With flexible rental options and easy pickup and drop services, Onnrides is your go-to choice for bike rentals in Hyderabad.
             </p>
@@ -117,14 +117,14 @@ export default function Footer() {
             <p className="text-white/90 mb-6">
               Skip the long-term commitment of buying a bike. With Onnrides, you only pay for the time you ride—no down payments, no EMIs, no maintenance headaches. We offer hourly, daily, weekly, and monthly rental plans to suit every need.
             </p>
-            
+
             <p className="text-white/90 mb-8">
               Whether you're a student, a professional commuter, or an occasional rider, renting a bike in Hyderabad has never been this easy or economical.
             </p>
 
             <h2 className="text-2xl font-semibold text-white mb-4">Bike Rental Locations in Hyderabad</h2>
             <p className="text-white/90 mb-4">We offer bike rentals in multiple locations across Hyderabad, including:</p>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <Link href="/" className="text-white hover:text-white/80 transition-colors">Ameerpet</Link>
               <Link href="/" className="text-white hover:text-white/80 transition-colors">Erragadda</Link>
               <Link href="/" className="text-white hover:text-white/80 transition-colors">Financial District</Link>

@@ -429,14 +429,14 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
             {/* User Info Section */}
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
               <div className="p-6">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Name</h3>
                     <p className="mt-1">{user.name || 'N/A'}</p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Email</h3>
-                    <p className="mt-1">{user.email}</p>
+                    <p className="mt-1 break-all">{user.email}</p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Phone</h3>
@@ -478,7 +478,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                 ) : (
                   <div className="space-y-4">
                     {documents.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between">
+                      <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-lg border border-gray-100">
                         <div>
                           <p className="font-medium capitalize">{doc.type}</p>
                           <p className="text-sm text-gray-500">{formatDate(doc.created_at)}</p>
@@ -486,7 +486,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                             <p className="text-sm text-red-500 mt-1">Reason: {doc.rejection_reason}</p>
                           )}
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center justify-between sm:justify-end space-x-2">
                           <button
                             onClick={() => {
                               setSelectedDocument(doc);
@@ -497,32 +497,34 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                             <FaEye className="w-4 h-4 mr-1" />
                             View
                           </button>
-                          {doc.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => handleDocumentStatus(doc.id, 'approved')}
-                                className="p-2 text-green-600 hover:text-green-800"
-                                disabled={loading}
-                              >
-                                <FaCheck className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDocumentStatus(doc.id, 'rejected')}
-                                className="p-2 text-red-600 hover:text-red-800"
-                                disabled={loading}
-                              >
-                                <FaTimes className="w-4 h-4" />
-                              </button>
-                            </>
-                          )}
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${doc.status === 'approved'
+                          <div className="flex items-center space-x-2">
+                            {doc.status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => handleDocumentStatus(doc.id, 'approved')}
+                                  className="p-2 text-green-600 hover:text-green-800 rounded-full hover:bg-green-50"
+                                  disabled={loading}
+                                >
+                                  <FaCheck className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDocumentStatus(doc.id, 'rejected')}
+                                  className="p-2 text-red-600 hover:text-red-800 rounded-full hover:bg-red-50"
+                                  disabled={loading}
+                                >
+                                  <FaTimes className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${doc.status === 'approved'
                               ? 'bg-green-100 text-green-800'
                               : doc.status === 'rejected'
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                            {doc.status}
-                          </span>
+                              }`}>
+                              {doc.status}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -566,18 +568,18 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                         </div>
                         <div className="flex flex-col items-end space-y-2">
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${booking.status === 'completed'
-                              ? 'bg-green-100 text-green-800'
-                              : booking.status === 'cancelled'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
+                            ? 'bg-green-100 text-green-800'
+                            : booking.status === 'cancelled'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-yellow-100 text-yellow-800'
                             }`}>
                             {booking.status}
                           </span>
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${booking.payment_status === 'completed'
-                              ? 'bg-green-100 text-green-800'
-                              : booking.payment_status === 'failed'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
+                            ? 'bg-green-100 text-green-800'
+                            : booking.payment_status === 'failed'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-yellow-100 text-yellow-800'
                             }`}>
                             Payment: {booking.payment_status}
                           </span>

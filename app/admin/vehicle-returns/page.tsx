@@ -148,15 +148,16 @@ export default function VehicleReturnsPage() {
   };
 
   return (
-    <div className="container mx-auto py-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Booking Completion</CardTitle>
-          <CardDescription>
-            Manage and track completed bookings and vehicle returns
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <div className="space-y-6">
+      <div className="hidden md:block bg-white p-5 rounded-xl border shadow-sm">
+        <h1 className="text-xl font-bold text-gray-900 tracking-tight">Booking Completion</h1>
+        <p className="text-xs text-gray-500 mt-0.5">Manage and track completed bookings and returns</p>
+      </div>
+      <div className="md:hidden text-sm font-medium text-gray-400 mb-2 px-1">
+        Admin / Returns
+      </div>
+      <Card className="border-none shadow-none sm:border sm:shadow-sm mt-0">
+        <CardContent className="pt-6 sm:pt-4">
           <div className="flex justify-between items-center mb-6">
             <div className="flex space-x-4">
               <Button
@@ -183,125 +184,131 @@ export default function VehicleReturnsPage() {
           ) : (
             <>
               {activeTab === 'bookings' && (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Booking ID</TableHead>
-                        <TableHead>Vehicle</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Start Date</TableHead>
-                        <TableHead>End Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {bookings.map((booking) => (
-                        <TableRow key={booking.booking_id}>
-                          <TableCell>{booking.booking_id}</TableCell>
-                          <TableCell>
-                            {booking.vehicle?.name || 'Not assigned'}
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{booking.user?.name || 'Not assigned'}</div>
-                              <div className="text-sm text-muted-foreground">{booking.user?.phone || 'No phone'}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>{formatDateTime(booking.start_date)}</TableCell>
-                          <TableCell>{formatDateTime(booking.end_date)}</TableCell>
-                          <TableCell>
-                            <Badge variant={getStatusBadgeVariant(booking.status)}>
-                              {booking.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {booking.status !== 'completed' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleProcessReturn(booking.booking_id)}
-                              >
-                                Complete Booking
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {bookings.length === 0 && (
+                <div className="rounded-md border overflow-x-auto">
+                  <div className="min-w-[800px]">
+                    <Table>
+                      <TableHeader>
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-4">
-                            No bookings found
-                          </TableCell>
+                          <TableHead>Booking ID</TableHead>
+                          <TableHead>Vehicle</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Start Date</TableHead>
+                          <TableHead>End Date</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {bookings.map((booking) => (
+                          <TableRow key={booking.booking_id}>
+                            <TableCell>{booking.booking_id}</TableCell>
+                            <TableCell>
+                              {booking.vehicle?.name || 'Not assigned'}
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{booking.user?.name || 'Not assigned'}</div>
+                                <div className="text-sm text-muted-foreground">{booking.user?.phone || 'No phone'}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{formatDateTime(booking.start_date)}</TableCell>
+                            <TableCell>{formatDateTime(booking.end_date)}</TableCell>
+                            <TableCell>
+                              <Badge variant={getStatusBadgeVariant(booking.status)}>
+                                {booking.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {booking.status !== 'completed' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleProcessReturn(booking.booking_id)}
+                                >
+                                  Complete Booking
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {bookings.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-4">
+                              No bookings found
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               )}
               {activeTab === 'returns' && (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Booking ID</TableHead>
-                      <TableHead>Vehicle</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Return Date</TableHead>
-                      <TableHead>Additional Charges</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Processed By</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {returns.map((returnItem) => (
-                      <TableRow key={returnItem.id}>
-                        <TableCell>{returnItem.booking_id}</TableCell>
-                        <TableCell>
-                          <div>
-                            <div>{returnItem.vehicle_name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {returnItem.vehicle_type}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div>{returnItem.user_name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {returnItem.user_email}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {formatDateTime(returnItem.created_at)}
-                        </TableCell>
-                        <TableCell>
-                          {returnItem.additional_charges > 0 ? (
-                            <div className="text-orange-600 font-medium">
-                              ₹{returnItem.additional_charges}
-                            </div>
-                          ) : (
-                            <div className="text-muted-foreground">No charges</div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusBadgeVariant(returnItem.status)}>
-                            {returnItem.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{returnItem.processed_by_name}</TableCell>
-                      </TableRow>
-                    ))}
-                    {returns.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-4">
-                          No completed bookings found
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                <div className="rounded-md border overflow-x-auto">
+                  <div className="min-w-[800px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Booking ID</TableHead>
+                          <TableHead>Vehicle</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Return Date</TableHead>
+                          <TableHead>Additional Charges</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Processed By</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {returns.map((returnItem) => (
+                          <TableRow key={returnItem.id}>
+                            <TableCell>{returnItem.booking_id}</TableCell>
+                            <TableCell>
+                              <div>
+                                <div>{returnItem.vehicle_name}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {returnItem.vehicle_type}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div>{returnItem.user_name}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {returnItem.user_email}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {formatDateTime(returnItem.created_at)}
+                            </TableCell>
+                            <TableCell>
+                              {returnItem.additional_charges > 0 ? (
+                                <div className="text-orange-600 font-medium">
+                                  ₹{returnItem.additional_charges}
+                                </div>
+                              ) : (
+                                <div className="text-muted-foreground">No charges</div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={getStatusBadgeVariant(returnItem.status)}>
+                                {returnItem.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{returnItem.processed_by_name}</TableCell>
+                          </TableRow>
+                        ))}
+                        {returns.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-4">
+                              No completed bookings found
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
               )}
 
               {activeTab === 'returns' && (

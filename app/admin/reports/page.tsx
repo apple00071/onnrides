@@ -47,8 +47,16 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Reports</h1>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-xl border shadow-sm gap-4">
+        <div className="hidden md:block">
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">System Reports</h1>
+          <p className="text-xs text-gray-500 mt-0.5">View and export activity logs</p>
+        </div>
+        <div className="md:hidden text-sm font-medium text-gray-500">
+          Admin / Reports
+        </div>
+      </div>
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">

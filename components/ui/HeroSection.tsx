@@ -172,10 +172,10 @@ export default function HeroSection() {
 
   return (
     <>
-      <div className="relative h-[50vh] sm:h-screen w-full">
+      <div className="relative min-h-[600px] sm:h-screen w-full">
         {/* Background Image */}
         <div className="absolute inset-0">
-          <div className="relative h-[50vh] sm:h-screen w-full sm:hidden">
+          <div className="relative h-full w-full sm:hidden">
             <Image
               src="/hero-mobile.png"
               alt="Hero Background"
@@ -224,8 +224,8 @@ export default function HeroSection() {
         </div>
 
         {/* Mobile Search Form */}
-        <div className="sm:hidden absolute bottom-0 left-0 right-0 p-4 bg-transparent">
-          <div className="bg-white rounded-xl shadow-lg p-4">
+        <div className="sm:hidden absolute inset-x-0 bottom-0 p-4 z-20">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-4 border border-gray-100">
             <SearchFormContent
               pickupDate={pickupDate}
               setPickupDate={setPickupDate}
