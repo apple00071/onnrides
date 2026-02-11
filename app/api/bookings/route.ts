@@ -171,37 +171,48 @@ export async function GET(request: NextRequest) {
         v.images as vehicle_images,
         v.price_per_hour as vehicle_price_per_hour
       FROM bookings b
-      JOIN vehicles v ON b.vehicle_id = v.id
+      LEFT JOIN vehicles v ON b.vehicle_id = v.id
       WHERE b.user_id = $1
       ORDER BY b.created_at DESC
       LIMIT $2 OFFSET $3
     `, [session.user.id, limit, offset]);
 
-    // Update the bookings mapping to handle both column naming conventions
-    const bookings = result.rows.map((booking: BookingRow) => ({
-      id: booking.id,
-      booking_id: booking.booking_id,
-      status: booking.status,
-      start_date: booking.start_date,
-      end_date: booking.end_date,
-      pickup_datetime: booking.pickup_datetime || booking.start_date,
-      dropoff_datetime: booking.dropoff_datetime || booking.end_date,
-      total_price: parseFloat((booking.total_amount || booking.total_price || 0).toString()),
-      payment_status: booking.payment_status || 'pending',
-      created_at: booking.created_at,
-      updated_at: booking.updated_at,
-      pickup_location: booking.pickup_location,
-      dropoff_location: booking.dropoff_location,
-      vehicle: {
-        id: booking.vehicle_id,
-        name: booking.vehicle_name,
-        type: booking.vehicle_type,
-        location: booking.vehicle_location,
-        images: booking.vehicle_images,
-        price_per_hour: booking.vehicle_price_per_hour
-      }
-    }));
+    /*
+    // Verify data shape
+    if (result.rows.length > 0) {
+      console.log('DEBUG: First raw row:', result.rows[0]);
+    }
+    */
 
+    // Update the bookings mapping to handle both column naming conventions
+    const bookings = result.rows.map((booking: BookingRow) => {
+      const mapped = {
+        id: booking.id,
+        booking_id: booking.booking_id,
+        status: booking.status,
+        start_date: booking.pickup_datetime || booking.start_date,
+        end_date: booking.dropoff_datetime || booking.end_date,
+        pickup_datetime: booking.pickup_datetime || booking.start_date,
+        dropoff_datetime: booking.dropoff_datetime || booking.end_date,
+        total_price: parseFloat((booking.total_amount || booking.total_price || 0).toString()),
+        payment_status: booking.payment_status || 'pending',
+        created_at: booking.created_at,
+        updated_at: booking.updated_at,
+        pickup_location: booking.pickup_location,
+        dropoff_location: booking.dropoff_location,
+        vehicle: {
+          id: booking.vehicle_id,
+          name: booking.vehicle_name || 'Vehicle Unavailable',
+          type: booking.vehicle_type || 'Unknown',
+          location: booking.vehicle_location || 'Not Available',
+          images: booking.vehicle_images || '[]',
+          price_per_hour: booking.vehicle_price_per_hour || 0
+        }
+      };
+      return mapped;
+    });
+
+    /*
     logger.info('Bookings fetched successfully', {
       userId: session.user.id,
       page,
@@ -209,6 +220,7 @@ export async function GET(request: NextRequest) {
       totalBookings,
       bookingsCount: bookings.length
     });
+    */
 
     return NextResponse.json({
       success: true,

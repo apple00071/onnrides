@@ -113,16 +113,22 @@ export async function GET() {
 
     const activeRentals = parseInt(activeRentalsResult.rows[0].active_rentals);
 
-    // Today's revenue (completed bookings today)
+    // Today's revenue (sum of all completed payments today)
+    // Use CURRENT_DATE to avoid timezone issues
     const todayRevenueResult = await query(`
-      SELECT COALESCE(SUM(paid_amount), 0) as today_revenue
-      FROM bookings
-      WHERE status = 'completed'
-      AND DATE(created_at) = DATE($1)
-      AND payment_status = 'completed'
-    `, [today]);
+      SELECT COALESCE(SUM(amount), 0) as today_revenue
+      FROM payments
+      WHERE DATE(created_at) = CURRENT_DATE
+      AND status IN ('completed', 'refunded')
+    `);
 
     const todayRevenue = parseFloat(todayRevenueResult.rows[0].today_revenue || 0);
+
+    logger.info('Today revenue query result:', {
+      todayRevenue,
+      rowCount: todayRevenueResult.rows.length,
+      rawValue: todayRevenueResult.rows[0]
+    });
 
     // Overdue returns (active bookings where end_date has passed)
     const overdueReturnsResult = await query(`

@@ -145,15 +145,16 @@ export default function BookingsPage() {
   }
 
   const currentBookings = bookings.filter(booking =>
-    (booking.status === 'confirmed' || booking.status === 'active') &&
-    (booking.payment_status === 'completed' || booking.payment_status === 'fully_paid') &&
+    (booking.status === 'confirmed' || booking.status === 'active' || booking.status === 'initiated') &&
     new Date(booking.end_date) > new Date()
   );
 
   const pendingBookings = bookings.filter(booking =>
     booking.status === 'pending' ||
+    booking.status === 'failed' ||
     ((booking.status === 'confirmed' || booking.status === 'active') &&
-      (booking.payment_status === 'pending' || booking.payment_status === 'initiated'))
+      new Date(booking.end_date) > new Date() &&
+      !['completed', 'fully_paid'].includes(booking.payment_status))
   );
 
   const pastBookings = bookings.filter(booking =>

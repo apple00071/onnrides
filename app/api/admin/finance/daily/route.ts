@@ -18,7 +18,17 @@ export async function GET(request: Request) {
         }
 
         const { searchParams } = new URL(request.url);
-        const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
+
+        // Use IST date as default if no date provided
+        const now = new Date();
+        const istDate = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(now); // Returns YYYY-MM-DD
+
+        const date = searchParams.get('date') || istDate;
 
         // 1. Get Opening Balance (Closing balance of the previous reconciled day)
         const openingBalanceResult = await query(
@@ -28,7 +38,7 @@ export async function GET(request: Request) {
         const openingBalance = parseFloat(openingBalanceResult.rows[0]?.closing_balance || '0');
 
         // 2. Get Collections by Method
-        const collectionsResult = await query<CollectionRow>(
+        const collectionsResult = await query(
             `SELECT method, SUM(amount) as total 
        FROM payments 
        WHERE DATE(created_at) = $1 AND status = 'completed'
@@ -39,13 +49,15 @@ export async function GET(request: Request) {
         let cashCollections = 0;
         let cardCollections = 0;
         let upiCollections = 0;
+        let bankCollections = 0;
 
-        collectionsResult.rows.forEach((row) => {
+        collectionsResult.rows.forEach((row: any) => {
             const method = row.method?.toLowerCase();
             const total = parseFloat(String(row.total || '0'));
             if (method === 'cash') cashCollections = total;
             else if (method === 'card') cardCollections = total;
             else if (method === 'upi') upiCollections = total;
+            else if (method === 'bank_transfer') bankCollections = total;
         });
 
         // 3. Get Expenses
@@ -55,16 +67,19 @@ export async function GET(request: Request) {
         );
         const expenses = parseFloat(expensesResult.rows[0]?.total || '0');
 
-        // 4. Get Cash Refunds
+        // 4. Get Refunds (All methods)
+        // Note: Refunds are stored as negative amounts in the payments table
         const refundsResult = await query(
-            "SELECT SUM(amount) as total FROM payments WHERE DATE(created_at) = $1 AND status = 'refunded' AND method = 'cash'",
+            "SELECT SUM(amount) as total FROM payments WHERE DATE(created_at) = $1 AND status = 'refunded'",
             [date]
         );
-        const cashRefunds = parseFloat(refundsResult.rows[0]?.total || '0');
+        const totalRefunds = parseFloat(refundsResult.rows[0]?.total || '0'); // This will be negative
 
         // 5. Aggregation with Rounding
-        const totalCollections = Math.round((cashCollections + cardCollections + upiCollections) * 100) / 100;
-        const closingBalance = Math.round((openingBalance + totalCollections - cashRefunds - expenses) * 100) / 100;
+        const totalCollections = Math.round((cashCollections + cardCollections + upiCollections + bankCollections) * 100) / 100;
+
+        // Calculate closing balance: Opening + Collections + Refunds (negative) - Expenses
+        const closingBalance = Math.round((openingBalance + totalCollections + totalRefunds - expenses) * 100) / 100;
 
         // 6. Get Transactions List
         const transactionsResult = await query(
@@ -92,7 +107,8 @@ export async function GET(request: Request) {
                     cashCollections,
                     cardCollections,
                     upiCollections,
-                    cashRefunds,
+                    bankCollections,
+                    totalRefunds,
                     expenses,
                     totalCollections,
                     closingBalance,

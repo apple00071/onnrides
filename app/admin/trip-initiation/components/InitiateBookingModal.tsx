@@ -133,7 +133,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
     aadhaarBack: null,
     customerPhoto: null
   });
-  
+
   const [documentPreviews, setDocumentPreviews] = useState<DocumentPreviews>({
     dlFront: booking.documents?.dlFront || null,
     dlBack: booking.documents?.dlBack || null,
@@ -141,7 +141,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
     aadhaarBack: booking.documents?.aadhaarBack || null,
     customerPhoto: booking.documents?.customerPhoto || null
   });
-  
+
   // File input references
   const fileInputRefs = {
     dlFront: useRef<HTMLInputElement>(null),
@@ -171,16 +171,16 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: keyof DocumentFiles) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      
+
       // Create a preview URL
       const previewUrl = URL.createObjectURL(file);
-      
+
       // Update file state
       setDocumentFiles(prev => ({
         ...prev,
         [type]: file
       }));
-      
+
       // Update preview state
       setDocumentPreviews(prev => ({
         ...prev,
@@ -188,7 +188,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
       }));
     }
   };
-  
+
   const triggerFileInput = (type: keyof typeof fileInputRefs) => {
     if (fileInputRefs[type].current) {
       fileInputRefs[type].current?.click();
@@ -236,7 +236,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
   const handleInitiateTrip = async () => {
     try {
       setLoading(true);
-      
+
       // Validate that all essential information is provided
       if (!customerInfo.name || !customerInfo.phone) {
         toast({
@@ -250,7 +250,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
 
       // Validate required documents
       const requiredDocuments = ['dlFront', 'dlBack', 'aadhaarFront', 'aadhaarBack', 'customerPhoto'] as const;
-      const missingDocuments = requiredDocuments.filter(doc => 
+      const missingDocuments = requiredDocuments.filter(doc =>
         !documentFiles[doc] && !documentPreviews[doc]
       );
 
@@ -288,7 +288,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
 
       // Create FormData for file uploads
       const formData = new FormData();
-      
+
       // Append customer info
       formData.append('customerInfo', JSON.stringify(customerInfo));
       formData.append('tripNotes', tripNotes);
@@ -305,8 +305,21 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
 
       // Append signature if it exists
       if (signatureData) {
-        // Convert base64 to blob
-        const signatureBlob = await fetch(signatureData).then(r => r.blob());
+        // Convert base64 to blob manually to avoid CSP issues with fetch('data:...')
+        const dataURLtoBlob = (dataurl: string) => {
+          const arr = dataurl.split(',');
+          const mimeMatch = arr[0].match(/:(.*?);/);
+          const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+          const bstr = atob(arr[1]);
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+          }
+          return new Blob([u8arr], { type: mime });
+        };
+
+        const signatureBlob = dataURLtoBlob(signatureData);
         formData.append('signature', signatureBlob, 'signature.png');
       }
 
@@ -346,7 +359,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
         <DialogHeader>
           <DialogTitle className="text-xl flex items-center gap-2">
             Trip Initiation: Booking #{booking.booking_id}
-            <Badge 
+            <Badge
               variant={booking.booking_type === 'offline' ? 'secondary' : 'default'}
               className="ml-2"
             >
@@ -378,7 +391,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
               Checklist
             </TabsTrigger>
           </TabsList>
-          
+
           {/* Customer Information Tab */}
           <TabsContent value="customer" className="mt-0">
             <div className="space-y-4">
@@ -396,11 +409,11 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                   </Badge>
                 )}
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Full Name*</label>
-                  <Input 
+                  <Input
                     name="name"
                     value={customerInfo.name}
                     onChange={handleInputChange}
@@ -412,10 +425,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     <p className="text-xs text-red-500">Name is required</p>
                   )}
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Phone Number*</label>
-                  <Input 
+                  <Input
                     name="phone"
                     value={customerInfo.phone}
                     onChange={handleInputChange}
@@ -427,10 +440,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     <p className="text-xs text-red-500">Phone number is required</p>
                   )}
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Email Address</label>
-                  <Input 
+                  <Input
                     name="email"
                     value={customerInfo.email}
                     onChange={handleInputChange}
@@ -438,40 +451,40 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     type="email"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">DL Number</label>
-                  <Input 
+                  <Input
                     name="dlNumber"
                     value={customerInfo.dlNumber}
                     onChange={handleInputChange}
                     placeholder="Driving License Number"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Aadhaar Number</label>
-                  <Input 
+                  <Input
                     name="aadhaarNumber"
                     value={customerInfo.aadhaarNumber}
                     onChange={handleInputChange}
                     placeholder="Aadhaar Number"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Date of Birth</label>
-                  <Input 
+                  <Input
                     name="dob"
                     value={customerInfo.dob}
                     onChange={handleInputChange}
                     placeholder="Date of Birth"
                   />
                 </div>
-                
+
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium">Address</label>
-                  <Textarea 
+                  <Textarea
                     name="address"
                     value={customerInfo.address}
                     onChange={handleInputChange}
@@ -479,20 +492,20 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     rows={2}
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Emergency Contact</label>
-                  <Input 
+                  <Input
                     name="emergencyContact"
                     value={customerInfo.emergencyContact}
                     onChange={handleInputChange}
                     placeholder="Emergency contact number"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Emergency Contact Name</label>
-                  <Input 
+                  <Input
                     name="emergencyName"
                     value={customerInfo.emergencyName}
                     onChange={handleInputChange}
@@ -502,57 +515,57 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
               </div>
             </div>
           </TabsContent>
-          
+
           {/* Vehicle Information Tab */}
           <TabsContent value="vehicle" className="mt-0">
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Vehicle & Booking Details</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-gray-50 rounded-md p-4">
                   <h4 className="text-sm font-medium text-gray-500 mb-1">Vehicle</h4>
                   <p className="text-lg font-medium">{booking.vehicle?.name || 'N/A'}</p>
                 </div>
-                
+
                 <div className="bg-gray-50 rounded-md p-4">
                   <h4 className="text-sm font-medium text-gray-500 mb-1">Total Amount</h4>
                   <p className="text-lg font-medium">{formatCurrency(booking.total_price)}</p>
                 </div>
-                
+
                 <div className="bg-gray-50 rounded-md p-4">
                   <h4 className="text-sm font-medium text-gray-500 mb-1">Pick-up Time</h4>
                   <p className="text-md">{formatDateTime(booking.start_date)}</p>
                 </div>
-                
+
                 <div className="bg-gray-50 rounded-md p-4">
                   <h4 className="text-sm font-medium text-gray-500 mb-1">Return Time</h4>
                   <p className="text-md">{formatDateTime(booking.end_date)}</p>
                 </div>
-                
+
                 <div className="bg-gray-50 rounded-md p-4">
                   <h4 className="text-sm font-medium text-gray-500 mb-1">Payment Method</h4>
                   <p className="text-md">{booking.payment_method || 'N/A'}</p>
                 </div>
-                
+
                 <div className="bg-gray-50 rounded-md p-4">
                   <h4 className="text-sm font-medium text-gray-500 mb-1">Payment Reference</h4>
                   <p className="text-md">{booking.payment_reference || 'N/A'}</p>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Vehicle Number</label>
-                  <Input 
+                  <Input
                     value={vehicleNumber}
                     onChange={(e) => setVehicleNumber(e.target.value)}
                     placeholder="Enter vehicle registration number"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Trip Notes</label>
-                  <Textarea 
+                  <Textarea
                     value={tripNotes}
                     onChange={(e) => setTripNotes(e.target.value)}
                     placeholder="Add notes about the vehicle condition, special arrangements, etc."
@@ -562,19 +575,19 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
               </div>
             </div>
           </TabsContent>
-          
+
           {/* Operational Inspection Tab */}
           <TabsContent value="operational" className="mt-0">
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Pre-Rental Vehicle Inspection</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-4">
                   <h4 className="font-medium text-gray-700">Operational Data</h4>
-                  
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Fuel Level (%)</label>
-                    <Input 
+                    <Input
                       type="number"
                       value={operationalData.fuelLevel}
                       onChange={(e) => setOperationalData(prev => ({ ...prev, fuelLevel: e.target.value }))}
@@ -583,10 +596,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                       max={100}
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Odometer Reading (km)</label>
-                    <Input 
+                    <Input
                       type="number"
                       value={operationalData.odometerReading}
                       onChange={(e) => setOperationalData(prev => ({ ...prev, odometerReading: e.target.value }))}
@@ -595,23 +608,23 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <h4 className="font-medium text-gray-700">Inspection Notes</h4>
-                  
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Damage Assessment</label>
-                    <Textarea 
+                    <Textarea
                       value={operationalData.damageNotes}
                       onChange={(e) => setOperationalData(prev => ({ ...prev, damageNotes: e.target.value }))}
                       placeholder="Note any existing damages, scratches, dents, etc."
                       rows={3}
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Cleanliness Check</label>
-                    <Textarea 
+                    <Textarea
                       value={operationalData.cleanlinessNotes}
                       onChange={(e) => setOperationalData(prev => ({ ...prev, cleanlinessNotes: e.target.value }))}
                       placeholder="Note vehicle cleanliness and any required cleaning"
@@ -620,10 +633,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <h4 className="font-medium text-gray-700">Vehicle Safety Checklist</h4>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
                     { key: 'fuelLevelChecked', label: 'Fuel level verified' },
@@ -649,7 +662,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                   ))}
                 </div>
               </div>
-              
+
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-medium text-blue-800 mb-2">Inspection Summary</h4>
                 <div className="text-sm text-blue-700 space-y-1">
@@ -661,12 +674,12 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
               </div>
             </div>
           </TabsContent>
-          
+
           {/* Documents Tab */}
           <TabsContent value="documents" className="mt-0">
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Required Documents</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* DL Front */}
                 <div className="border rounded-md p-4">
@@ -684,12 +697,12 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                       </Badge>
                     )}
                   </div>
-                  
+
                   <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center rounded-md overflow-hidden">
                     {documentPreviews.dlFront ? (
-                      <img 
-                        src={documentPreviews.dlFront} 
-                        alt="DL Front" 
+                      <img
+                        src={documentPreviews.dlFront}
+                        alt="DL Front"
                         className="w-full h-full object-contain"
                       />
                     ) : (
@@ -699,7 +712,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                       </div>
                     )}
                   </div>
-                  
+
                   <input
                     type="file"
                     ref={fileInputRefs.dlFront}
@@ -707,10 +720,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     accept="image/*"
                     className="hidden"
                   />
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full mt-2 flex items-center justify-center gap-1"
                     onClick={() => triggerFileInput('dlFront')}
                   >
@@ -718,7 +731,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     {documentPreviews.dlFront ? 'Change Image' : 'Upload Image'}
                   </Button>
                 </div>
-                
+
                 {/* DL Back */}
                 <div className="border rounded-md p-4">
                   <div className="flex justify-between items-start mb-2">
@@ -735,12 +748,12 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                       </Badge>
                     )}
                   </div>
-                  
+
                   <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center rounded-md overflow-hidden">
                     {documentPreviews.dlBack ? (
-                      <img 
-                        src={documentPreviews.dlBack} 
-                        alt="DL Back" 
+                      <img
+                        src={documentPreviews.dlBack}
+                        alt="DL Back"
                         className="w-full h-full object-contain"
                       />
                     ) : (
@@ -750,7 +763,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                       </div>
                     )}
                   </div>
-                  
+
                   <input
                     type="file"
                     ref={fileInputRefs.dlBack}
@@ -758,10 +771,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     accept="image/*"
                     className="hidden"
                   />
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full mt-2 flex items-center justify-center gap-1"
                     onClick={() => triggerFileInput('dlBack')}
                   >
@@ -769,7 +782,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     {documentPreviews.dlBack ? 'Change Image' : 'Upload Image'}
                   </Button>
                 </div>
-                
+
                 {/* Aadhaar Front */}
                 <div className="border rounded-md p-4">
                   <div className="flex justify-between items-start mb-2">
@@ -786,12 +799,12 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                       </Badge>
                     )}
                   </div>
-                  
+
                   <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center rounded-md overflow-hidden">
                     {documentPreviews.aadhaarFront ? (
-                      <img 
-                        src={documentPreviews.aadhaarFront} 
-                        alt="Aadhaar Front" 
+                      <img
+                        src={documentPreviews.aadhaarFront}
+                        alt="Aadhaar Front"
                         className="w-full h-full object-contain"
                       />
                     ) : (
@@ -801,7 +814,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                       </div>
                     )}
                   </div>
-                  
+
                   <input
                     type="file"
                     ref={fileInputRefs.aadhaarFront}
@@ -809,10 +822,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     accept="image/*"
                     className="hidden"
                   />
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full mt-2 flex items-center justify-center gap-1"
                     onClick={() => triggerFileInput('aadhaarFront')}
                   >
@@ -820,7 +833,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     {documentPreviews.aadhaarFront ? 'Change Image' : 'Upload Image'}
                   </Button>
                 </div>
-                
+
                 {/* Aadhaar Back */}
                 <div className="border rounded-md p-4">
                   <div className="flex justify-between items-start mb-2">
@@ -837,12 +850,12 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                       </Badge>
                     )}
                   </div>
-                  
+
                   <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center rounded-md overflow-hidden">
                     {documentPreviews.aadhaarBack ? (
-                      <img 
-                        src={documentPreviews.aadhaarBack} 
-                        alt="Aadhaar Back" 
+                      <img
+                        src={documentPreviews.aadhaarBack}
+                        alt="Aadhaar Back"
                         className="w-full h-full object-contain"
                       />
                     ) : (
@@ -852,7 +865,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                       </div>
                     )}
                   </div>
-                  
+
                   <input
                     type="file"
                     ref={fileInputRefs.aadhaarBack}
@@ -860,10 +873,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     accept="image/*"
                     className="hidden"
                   />
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full mt-2 flex items-center justify-center gap-1"
                     onClick={() => triggerFileInput('aadhaarBack')}
                   >
@@ -871,7 +884,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     {documentPreviews.aadhaarBack ? 'Change Image' : 'Upload Image'}
                   </Button>
                 </div>
-                
+
                 {/* Customer Photo */}
                 <div className="border rounded-md p-4">
                   <div className="flex justify-between items-start mb-2">
@@ -888,12 +901,12 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                       </Badge>
                     )}
                   </div>
-                  
+
                   <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center rounded-md overflow-hidden">
                     {documentPreviews.customerPhoto ? (
-                      <img 
-                        src={documentPreviews.customerPhoto} 
-                        alt="Customer Photo" 
+                      <img
+                        src={documentPreviews.customerPhoto}
+                        alt="Customer Photo"
                         className="w-full h-full object-contain"
                       />
                     ) : (
@@ -903,7 +916,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                       </div>
                     )}
                   </div>
-                  
+
                   <input
                     type="file"
                     ref={fileInputRefs.customerPhoto}
@@ -911,10 +924,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     accept="image/*"
                     className="hidden"
                   />
-                  
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full mt-2 flex items-center justify-center gap-1"
                     onClick={() => triggerFileInput('customerPhoto')}
                   >
@@ -922,7 +935,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     {documentPreviews.customerPhoto ? 'Change Image' : 'Upload Image'}
                   </Button>
                 </div>
-                
+
                 {/* Terms & Conditions Section - Added as a full-width section above signature */}
                 <div className="border rounded-md p-4 col-span-2">
                   <div className="flex justify-between items-start mb-2">
@@ -939,7 +952,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                       </Badge>
                     )}
                   </div>
-                  
+
                   <div className="bg-gray-50 p-4 rounded-md mb-3 max-h-40 overflow-y-auto text-sm">
                     <p className="font-medium mb-2">OnnRides Vehicle Rental Agreement:</p>
                     <ol className="list-decimal pl-5 space-y-2">
@@ -955,10 +968,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                       <li>Cancellation policy: Cancellations made less than 24 hours before pickup may be subject to a fee.</li>
                     </ol>
                   </div>
-                  
+
                   <div className="flex items-start space-x-3">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       id="termsAccepted"
                       checked={termsAccepted}
                       onChange={() => setTermsAccepted(!termsAccepted)}
@@ -974,16 +987,16 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Signature */}
                 <div className="border rounded-md p-4 space-y-3">
                   <h4 className="font-medium">Customer Signature</h4>
                   <p className="text-sm text-gray-500">Have the customer sign below to acknowledge the vehicle condition and booking details.</p>
-                  
+
                   <SignatureCanvas
                     initialValue={signatureData}
                     onChange={handleSignatureChange}
-                    label="Customer Signature" 
+                    label="Customer Signature"
                     required={true}
                     instructionText="Customer, please sign here"
                     errorMessage="Customer signature is required"
@@ -992,17 +1005,17 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
               </div>
             </div>
           </TabsContent>
-          
+
           {/* Checklist Tab */}
           <TabsContent value="checklist" className="mt-0">
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Pre-Trip Checklist</h3>
               <p className="text-sm text-gray-500">Please verify all items before initiating the trip</p>
-              
+
               <div className="space-y-3">
                 <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-md">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     id="identityVerified"
                     checked={checklist.identityVerified}
                     onChange={() => handleChecklistChange('identityVerified')}
@@ -1013,10 +1026,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     <p className="text-sm text-gray-500">Confirm that the customer's identity matches provided ID</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-md">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     id="documentsVerified"
                     checked={checklist.documentsVerified}
                     onChange={() => handleChecklistChange('documentsVerified')}
@@ -1027,10 +1040,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     <p className="text-sm text-gray-500">Verify that all required documents are valid and authentic</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-md">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     id="paymentConfirmed"
                     checked={checklist.paymentConfirmed}
                     onChange={() => handleChecklistChange('paymentConfirmed')}
@@ -1041,10 +1054,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     <p className="text-sm text-gray-500">Verify that all payments have been received and processed</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-md">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     id="vehicleChecked"
                     checked={checklist.vehicleChecked}
                     onChange={() => handleChecklistChange('vehicleChecked')}
@@ -1055,10 +1068,10 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                     <p className="text-sm text-gray-500">Confirm that the vehicle has been inspected and is ready</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-md">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     id="customerBriefed"
                     checked={checklist.customerBriefed}
                     onChange={() => handleChecklistChange('customerBriefed')}
@@ -1070,7 +1083,7 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
                   </div>
                 </div>
               </div>
-              
+
               {!allChecklistItemsComplete() && (
                 <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm">
                   <div className="flex items-start gap-2">
@@ -1087,8 +1100,8 @@ export function InitiateBookingModal({ booking, isOpen, onClose, onInitiated }: 
         </Tabs>
 
         <DialogFooter className="mt-6 gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={onClose}
             disabled={loading}
           >

@@ -228,25 +228,22 @@ export default function Navbar() {
 
       {/* Mobile Sidebar */}
       <div
-        className={`fixed inset-0 z-50 md:hidden ${
-          isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        } transition-all duration-300 ease-in-out`}
+        className={`fixed inset-0 z-50 md:hidden ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          } transition-all duration-300 ease-in-out`}
         aria-hidden={!isMenuOpen}
       >
         {/* Overlay */}
         <div
-          className={`fixed inset-0 bg-black transition-opacity duration-300 ${
-            isMenuOpen ? 'bg-opacity-50' : 'bg-opacity-0'
-          }`}
+          className={`fixed inset-0 bg-black transition-opacity duration-300 ${isMenuOpen ? 'bg-opacity-50' : 'bg-opacity-0'
+            }`}
           onClick={() => setIsMenuOpen(false)}
           aria-hidden="true"
         />
 
         {/* Sidebar */}
-        <div 
-          className={`fixed inset-y-0 right-0 w-full max-w-sm bg-white h-full shadow-xl flex flex-col transform ${
-            isMenuOpen ? 'translate-x-0' : 'translate-x-full'
-          } transition-transform duration-300 ease-in-out overflow-y-auto`}
+        <div
+          className={`fixed inset-y-0 right-0 w-full max-w-sm bg-white h-full shadow-xl flex flex-col transform ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'
+            } transition-transform duration-300 ease-in-out overflow-y-auto`}
         >
           <div className="sticky top-0 px-4 pt-5 pb-4 flex items-center justify-between z-10 bg-white">
             <Link href="/" onClick={() => setIsMenuOpen(false)} className="inline-block">
@@ -261,7 +258,7 @@ export default function Navbar() {
                 />
               </div>
             </Link>
-            <button 
+            <button
               className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 text-gray-600 hover:text-[#f26e24] hover:bg-gray-200 focus:outline-none transition-colors"
               onClick={() => setIsMenuOpen(false)}
               aria-label="Close menu"
@@ -285,16 +282,16 @@ export default function Navbar() {
                 </div>
                 {session.user.role === 'delivery_partner' && (
                   <>
-                    <Link 
-                      href="/delivery-bookings" 
+                    <Link
+                      href="/delivery-bookings"
                       onClick={() => setIsMenuOpen(false)}
                       className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
                     >
                       <Truck className="h-5 w-5 text-[#f26e24]" />
                       <span className="font-goodtimes text-gray-700">Deliveries</span>
                     </Link>
-                    <Link 
-                      href="/delivery-partners" 
+                    <Link
+                      href="/delivery-partners"
                       onClick={() => setIsMenuOpen(false)}
                       className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
                     >
@@ -303,16 +300,16 @@ export default function Navbar() {
                     </Link>
                   </>
                 )}
-                <Link 
-                  href="/profile" 
+                <Link
+                  href="/profile"
                   onClick={() => setIsMenuOpen(false)}
                   className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
                 >
                   <UserCircle className="h-5 w-5 text-[#f26e24]" />
                   <span className="font-goodtimes text-gray-700">Profile</span>
                 </Link>
-                <Link 
-                  href="/bookings" 
+                <Link
+                  href="/bookings"
                   onClick={() => setIsMenuOpen(false)}
                   className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
                 >
@@ -324,38 +321,38 @@ export default function Navbar() {
             ) : null}
 
             {/* Common menu links */}
-            <Link 
+            <Link
               href="/"
-              onClick={() => setIsMenuOpen(false)} 
+              onClick={() => setIsMenuOpen(false)}
               className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
             >
               <Home className="h-5 w-5 text-[#f26e24]" />
               <span className="font-goodtimes text-gray-700">Home</span>
             </Link>
-            <Link 
+            <Link
               href="/about"
-              onClick={() => setIsMenuOpen(false)} 
+              onClick={() => setIsMenuOpen(false)}
               className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
             >
               <Info className="h-5 w-5 text-[#f26e24]" />
               <span className="font-goodtimes text-gray-700">About</span>
             </Link>
-            <Link 
+            <Link
               href="/contact"
-              onClick={() => setIsMenuOpen(false)} 
+              onClick={() => setIsMenuOpen(false)}
               className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
             >
               <Phone className="h-5 w-5 text-[#f26e24]" />
               <span className="font-goodtimes text-gray-700">Contact Us</span>
             </Link>
-            
+
             {/* Auth buttons */}
             <div className="border-t border-gray-200 my-4"></div>
             {session?.user ? (
-              <button 
+              <button
                 onClick={() => {
                   setIsMenuOpen(false);
-                  signOut({ callbackUrl: '/auth/signin' });
+                  signOut({ callbackUrl: '/login' });
                 }}
                 className="flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-red-50 text-red-600 transition-colors w-full"
               >
@@ -364,17 +361,17 @@ export default function Navbar() {
               </button>
             ) : (
               <div className="space-y-4">
-                <Link 
+                <Link
                   href="/auth/signin"
-                  onClick={() => setIsMenuOpen(false)} 
+                  onClick={() => setIsMenuOpen(false)}
                   className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700 transition-colors w-full"
                 >
                   <User className="h-4 w-4 mr-2" />
                   <span className="font-goodtimes">Sign In</span>
                 </Link>
-                <Link 
+                <Link
                   href="/auth/signup"
-                  onClick={() => setIsMenuOpen(false)} 
+                  onClick={() => setIsMenuOpen(false)}
                   className="flex items-center justify-center px-4 py-2 bg-[#f26e24] text-white rounded-md hover:bg-[#e05d13] transition-colors w-full"
                 >
                   <span className="font-goodtimes">Sign Up</span>

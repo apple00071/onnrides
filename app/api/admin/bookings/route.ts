@@ -165,49 +165,54 @@ export async function GET(request: Request) {
 
     // Map the data to match BookingWithRelations interface
     const mappedBookings = result.rows.map((booking: any) => {
-      // For offline bookings with non-terminal statuses, show as 'active'
-      const terminalStatuses = ['completed', 'cancelled', 'failed'];
-      const status = (booking.booking_type === 'offline' && !terminalStatuses.includes(booking.status)) ? 'active' : booking.status;
+      try {
+        // For offline bookings with non-terminal statuses, show as 'active'
+        const terminalStatuses = ['completed', 'cancelled', 'failed'];
+        const status = (booking.booking_type === 'offline' && !terminalStatuses.includes(booking.status)) ? 'active' : booking.status;
 
-      // Format booking ID as ORXXX
-      const displayId = `OR${booking.booking_id.substring(0, 3).toUpperCase()}`;
+        // Format booking ID as ORXXX
+        const displayId = `OR${booking.booking_id.substring(0, 3).toUpperCase()}`;
 
-      return {
-        id: displayId,
-        booking_id: booking.booking_id || '',
-        user_id: booking.user_id,
-        vehicle_id: booking.vehicle_id,
-        start_date: booking.start_date,
-        end_date: booking.end_date,
-        total_price: parseFloat(String(booking.total_price)) || 0,
-        status: status,
-        payment_status: booking.payment_status || 'pending',
-        payment_method: booking.payment_method || null,
-        payment_reference: booking.payment_reference || null,
-        booking_type: booking.booking_type || 'online',
-        created_at: booking.created_at,
-        updated_at: booking.updated_at,
-        registration_number: booking.registration_number,
-        pickup_location: booking.pickup_location || null,
-        vehicle: {
-          id: booking.vehicle_id,
-          name: booking.effective_vehicle_name,
-          type: booking.vehicle_type
-        },
-        user: {
-          id: booking.user_id,
-          name: booking.effective_user_name,
-          phone: booking.effective_user_phone,
-          email: booking.effective_user_email
-        },
-        documents: {},
-        missing_info: identifyMissingInformation({
-          ...booking,
-          user_name: booking.effective_user_name,
-          user_phone: booking.effective_user_phone,
-          documents: {}
-        })
-      };
+        return {
+          id: booking.id, // Return actual UUID
+          booking_id: displayId, // Return formatted ID for display
+          user_id: booking.user_id,
+          vehicle_id: booking.vehicle_id,
+          start_date: booking.start_date,
+          end_date: booking.end_date,
+          total_price: parseFloat(String(booking.total_price)) || 0,
+          status: status,
+          payment_status: booking.payment_status || 'pending',
+          payment_method: booking.payment_method || (booking.payment_details?.razorpay_payment_id ? 'Online' : null),
+          payment_reference: booking.payment_reference || booking.payment_details?.razorpay_payment_id || booking.payment_details?.razorpay_order_id || null,
+          booking_type: booking.booking_type || 'online',
+          created_at: booking.created_at,
+          updated_at: booking.updated_at,
+          registration_number: booking.registration_number,
+          pickup_location: booking.pickup_location || null,
+          vehicle: {
+            id: booking.vehicle_id,
+            name: booking.effective_vehicle_name,
+            type: booking.vehicle_type
+          },
+          user: {
+            id: booking.user_id,
+            name: booking.effective_user_name,
+            phone: booking.effective_user_phone,
+            email: booking.effective_user_email
+          },
+          documents: {},
+          missing_info: identifyMissingInformation({
+            ...booking,
+            user_name: booking.effective_user_name,
+            user_phone: booking.effective_user_phone,
+            documents: {}
+          })
+        };
+      } catch (err: any) {
+        console.error('Error mapping booking:', booking.id, err);
+        throw err;
+      }
     });
 
     return NextResponse.json({

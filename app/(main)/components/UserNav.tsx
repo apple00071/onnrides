@@ -24,25 +24,10 @@ interface UserNavProps {
 export default function UserNav({ user }: UserNavProps) {
   const handleSignOut = async () => {
     try {
-      // First clear session via next-auth
-      await signOut({ redirect: false });
-
-      // Then call our custom logout endpoint
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
-
-      // Clear any local storage data
-      localStorage.clear();
-      sessionStorage.clear();
-
-      // Redirect to sign in page
-      window.location.href = '/auth/signin';
+      await signOut({ callbackUrl: '/login' });
     } catch (error) {
       logger.error('Sign out error:', error);
-      // Force reload even on error to ensure user is signed out
-      window.location.href = '/auth/signin';
+      window.location.href = '/login';
     }
   };
 
@@ -68,8 +53,8 @@ export default function UserNav({ user }: UserNavProps) {
           </span>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent 
-        align="end" 
+      <DropdownMenuContent
+        align="end"
         className="w-56 bg-white shadow-lg border border-gray-200 rounded-md overflow-hidden z-50"
         sideOffset={8}
       >
@@ -86,7 +71,7 @@ export default function UserNav({ user }: UserNavProps) {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator className="bg-gray-200" />
-        <DropdownMenuItem 
+        <DropdownMenuItem
           className="text-red-600 hover:text-red-700 hover:bg-red-50 focus:text-red-700 focus:bg-red-50 cursor-pointer font-goodtimes px-4 py-2 transition-colors"
           onClick={handleSignOut}
         >

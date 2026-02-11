@@ -198,7 +198,7 @@ export async function POST(request: Request) {
         [booking_id]
       );
 
-      // If remaining payment was collected, update payment status
+      // If remaining payment was collected, update payment status and create payment record
       if (remaining_payment_collected) {
         await query(
           `UPDATE bookings 
@@ -209,9 +209,93 @@ export async function POST(request: Request) {
           [remaining_payment_method || 'cash', booking_id]
         );
 
-        logger.info('Remaining payment collected for booking', {
+        // Calculate remaining 95% amount for online bookings
+        const remainingAmount = Math.round(bookingDetails.total_price * 0.95);
+
+        // Create payment record for remaining balance collection
+        await query(
+          `INSERT INTO payments (
+            id,
+            booking_id,
+            amount,
+            status,
+            method,
+            reference,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, 'completed', $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [
+            randomUUID(),
+            booking_id,
+            remainingAmount,
+            remaining_payment_method || 'cash',
+            `balance_${bookingDetails.booking_id}`
+          ]
+        );
+
+        logger.info('Remaining payment collected and recorded', {
           bookingId: booking_id,
+          amount: remainingAmount,
           method: remaining_payment_method
+        });
+      }
+
+      // Create payment record for additional charges if any
+      if (additional_charges && additional_charges > 0) {
+        await query(
+          `INSERT INTO payments (
+            id,
+            booking_id,
+            amount,
+            status,
+            method,
+            reference,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, 'completed', $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [
+            randomUUID(),
+            booking_id,
+            additional_charges,
+            remaining_payment_method || 'cash',
+            `additional_${bookingDetails.booking_id}`
+          ]
+        );
+
+        logger.info('Additional charges recorded', {
+          bookingId: booking_id,
+          amount: additional_charges,
+          method: remaining_payment_method || 'cash'
+        });
+      }
+
+      // Create payment record for security deposit refund if applicable
+      if (security_deposit_refund_amount && security_deposit_refund_amount > 0) {
+        // Record refund as a negative payment (outgoing cash)
+        await query(
+          `INSERT INTO payments (
+            id,
+            booking_id,
+            amount,
+            status,
+            method,
+            reference,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, 'refunded', $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [
+            randomUUID(),
+            booking_id,
+            -security_deposit_refund_amount, // Negative amount for refund
+            security_deposit_refund_method || 'cash',
+            `deposit_refund_${bookingDetails.booking_id}`
+          ]
+        );
+
+        logger.info('Security deposit refund recorded', {
+          bookingId: booking_id,
+          amount: security_deposit_refund_amount,
+          method: security_deposit_refund_method
         });
       }
 
