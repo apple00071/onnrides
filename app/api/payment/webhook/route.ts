@@ -26,9 +26,9 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     if (!signature) {
       logger.error('Missing Razorpay signature');
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Missing signature' 
+      return NextResponse.json({
+        success: false,
+        error: 'Missing signature'
       }, { status: 400 });
     }
 
@@ -40,18 +40,18 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     if (signature !== expectedSignature) {
       logger.error('Invalid webhook signature');
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Invalid signature' 
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid signature'
       }, { status: 400 });
     }
 
     const payload = JSON.parse(body);
-    const { 
-      payload: { 
+    const {
+      payload: {
         payment: { entity: paymentEntity },
         order: { entity: orderEntity }
-      } 
+      }
     } = payload;
 
     logger.info('Received webhook:', {
@@ -66,15 +66,15 @@ export async function POST(request: NextRequest): Promise<Response> {
        FROM bookings b
        LEFT JOIN vehicles v ON b.vehicle_id = v.id
        LEFT JOIN users u ON b.user_id = u.id
-       WHERE payment_details->>'razorpay_order_id' = $1::uuid`,
+       WHERE payment_details->>'razorpay_order_id' = $1::text`,
       [orderEntity.id]
     );
 
     if (bookingResult.rows.length === 0) {
       logger.error('Booking not found for order:', orderEntity.id);
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Booking not found' 
+      return NextResponse.json({
+        success: false,
+        error: 'Booking not found'
       }, { status: 404 });
     }
 
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     // Update booking
     await query(
       `UPDATE bookings 
-       SET status = $1::uuid,
+       SET status = $1::text,
            payment_status = $2,
            payment_details = payment_details || $3::jsonb
        WHERE id = $4::uuid`,
@@ -112,6 +112,35 @@ export async function POST(request: NextRequest): Promise<Response> {
       ]
     );
 
+    // Create payment record for finance audit trail
+    if (paymentEntity.status === 'captured') {
+      try {
+        await query(
+          `INSERT INTO payments (
+            id,
+            booking_id,
+            amount,
+            status,
+            method,
+            reference,
+            created_at,
+            updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [
+            crypto.randomUUID(),
+            booking.id,
+            Number(paymentEntity.amount) / 100, // paise to rupees
+            'completed',
+            paymentEntity.method || 'online',
+            paymentEntity.id
+          ]
+        );
+      } catch (payError) {
+        logger.error('Failed to create payment record in webhook:', payError);
+        // Don't fail the webhook if audit record fails, but log it
+      }
+    }
+
     logger.info('Updated booking status:', {
       bookingId: booking.id,
       status: bookingStatus,
@@ -122,7 +151,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     if (paymentEntity.status === 'captured') {
       // Verify email configuration
       const isEmailConfigValid = await verifyEmailConfig();
-      
+
       if (!isEmailConfigValid) {
         logger.error('Email configuration is invalid', {
           smtp_user: process.env.SMTP_USER,

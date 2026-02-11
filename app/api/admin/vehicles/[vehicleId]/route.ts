@@ -87,7 +87,7 @@ export async function PUT(
     const price7Days = data.price_7_days ? Number(data.price_7_days) : null;
     const price15Days = data.price_15_days ? Number(data.price_15_days) : null;
     const price30Days = data.price_30_days ? Number(data.price_30_days) : null;
-    
+
     // Boolean and enum values
     const isAvailable = data.is_available !== undefined ? Boolean(data.is_available) : true;
     const status = data.status || 'active';
@@ -108,7 +108,7 @@ export async function PUT(
         WHERE id = $9
         RETURNING *;
       `;
-      
+
       const result = await query(updateQuery, [
         isAvailable,
         price,
@@ -170,13 +170,26 @@ export async function DELETE(
 
     const { vehicleId } = params;
 
-    // Delete the vehicle using query
-    const result = await query(
-      'DELETE FROM vehicles WHERE id = $1 RETURNING id::text',
+    // S2: Implement Vehicle Deletion Guard (Check active bookings)
+    const activeBookings = await query(
+      `SELECT COUNT(*) FROM bookings 
+       WHERE vehicle_id = $1 AND status IN ('pending', 'confirmed', 'initiated')`,
       [vehicleId]
     );
 
-    if (result.rowCount === 0) {
+    if (parseInt(activeBookings.rows[0].count) > 0) {
+      return NextResponse.json({
+        error: 'Cannot delete vehicle with active bookings. Cancel or complete all bookings first.'
+      }, { status: 400 });
+    }
+
+    // Delete the vehicle using query
+    const result = await query(
+      'DELETE FROM vehicles WHERE id = $1 RETURNING id',
+      [vehicleId]
+    );
+
+    if (result.rows.length === 0) {
       return NextResponse.json(
         { error: 'Vehicle not found' },
         { status: 404 }

@@ -2,10 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // POST /api/admin/setup - Create initial admin account and database schema
 export async function POST(request: NextRequest) {
   try {
+    // S-Verify: Verify admin access
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+      logger.warn('Unauthorized attempt to access setup API');
+      return NextResponse.json({ error: 'Unauthorized access' }, { status: 403 });
+    }
+
     // Drop existing tables to ensure clean setup
     await query('DROP TABLE IF EXISTS bookings CASCADE');
     await query('DROP TABLE IF EXISTS vehicles CASCADE');
@@ -92,6 +101,7 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(adminPassword, salt);
 
     // Insert admin user
+    // Fixed SQL casting: removed ::uuid for VARCHAR field
     const result = await query(`
       INSERT INTO users (
         name,
@@ -101,8 +111,8 @@ export async function POST(request: NextRequest) {
         is_blocked,
         is_verified
       )
-      VALUES ($1::uuid, $2, $3, $4, $5, $6)
-      RETURNING id::text, email, role
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, email, role
     `, [
       'Admin User',
       adminEmail,
@@ -114,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     const user = result.rows[0];
     logger.info('Admin user created:', user);
-    
+
     return NextResponse.json({
       success: true,
       message: 'Database initialized and admin user created successfully',
@@ -131,4 +141,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

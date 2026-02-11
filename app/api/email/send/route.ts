@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { EmailService } from '@/lib/email/service';
 import logger from '@/lib/logger';
 
@@ -6,22 +8,19 @@ export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if the EmailService is properly initialized
-    const emailService = EmailService.getInstance();
-    const status = emailService.getInitializationStatus();
-    
-    if (!status.initialized) {
-      logger.error('Email service not initialized when attempting to send email', {
-        error: status.error?.message || 'Unknown initialization error'
-      });
-      return NextResponse.json(
-        { 
-          error: 'Email service not properly initialized', 
-          details: status.error?.message || 'Unknown initialization error'
-        },
-        { status: 500 }
-      );
+    // Auth check: allow internal server-to-server calls or authenticated users
+    const internalSecret = request.headers.get('x-internal-secret');
+    const isInternalCall = internalSecret === process.env.CRON_SECRET;
+
+    if (!isInternalCall) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      }
     }
+
+    // EmailService handles initialization internally within sendEmail/sendBookingConfirmation
+    const emailService = EmailService.getInstance();
 
     // Parse request body
     const body = await request.json();
@@ -34,8 +33,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { type, data } = body;
-    
-    logger.info('Processing email request', { 
+
+    logger.info('Processing email request', {
       type,
       recipient: data.email,
       metadata: {
@@ -72,7 +71,7 @@ export async function POST(request: NextRequest) {
             paymentId: data.paymentId
           }
         );
-        logger.info('Booking confirmation email sent successfully', { 
+        logger.info('Booking confirmation email sent successfully', {
           recipient: data.email,
           bookingId: data.bookingId
         });
@@ -128,9 +127,9 @@ export async function POST(request: NextRequest) {
         name: error.name
       } : error
     });
-    
+
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to send email',
         details: error instanceof Error ? error.message : 'Unknown error'
       },

@@ -195,8 +195,8 @@ export async function POST(request: NextRequest) {
              END as payment_details,
              created_at 
            FROM bookings 
-           WHERE user_id = $1::uuid 
-           OR id = $2::uuid
+           WHERE (user_id = $1::uuid 
+           OR id = $2::uuid)
            AND created_at > NOW() - interval '1 day'
            ORDER BY created_at DESC`,
           [userId, body.booking_id]

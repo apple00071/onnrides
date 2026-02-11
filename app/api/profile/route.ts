@@ -82,7 +82,7 @@ export async function PUT(request: NextRequest) {
     // Update user profile
     const result = await query(
       `UPDATE users 
-       SET name = $1::uuid, updated_at = NOW() 
+       SET name = $1::text, updated_at = NOW() 
        WHERE id = $2::uuid 
        RETURNING id::text, name, email, phone, role`,
       [name, session.user.id]

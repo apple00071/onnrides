@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
+    // Auth check: admin only
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
     // First check and fix settings table
     const settingsTableExists = await query(`
       SELECT EXISTS (
@@ -44,7 +52,7 @@ export async function GET(request: NextRequest) {
 
     // Then proceed with bookings table modifications
     await query('DROP VIEW IF EXISTS bookings_view CASCADE');
-    
+
     await query(`
       -- Drop existing index and constraint if they exist
       DROP INDEX IF EXISTS "idx_bookings_payment_intent_id";
@@ -82,10 +90,10 @@ export async function GET(request: NextRequest) {
     `);
 
     logger.info('Database schema updated successfully');
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Database schema updated successfully' 
+
+    return NextResponse.json({
+      success: true,
+      message: 'Database schema updated successfully'
     });
   } catch (error) {
     logger.error('Error fixing database schema:', error);

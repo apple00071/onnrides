@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { randomUUID } from 'crypto';
 
 export async function POST(
   request: Request,
@@ -76,6 +77,29 @@ export async function POST(
           updated_at = CURRENT_TIMESTAMP
         WHERE id = $5`,
         [newPaidAmount, newPendingAmount, newPaymentStatus, payment_method, booking.id]
+      );
+
+      // Create a record in the payments table for the audit trail
+      const paymentId = randomUUID();
+      await query(
+        `INSERT INTO payments (
+          id,
+          booking_id,
+          amount,
+          status,
+          method,
+          reference,
+          created_at,
+          updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [
+          paymentId,
+          booking.id,
+          collectAmount,
+          'completed',
+          payment_method,
+          body.payment_reference || 'Manual collection'
+        ]
       );
 
       await query('COMMIT');

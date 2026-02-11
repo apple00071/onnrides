@@ -155,13 +155,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate date formats
-    try {
-      new Date(start_date);
-      new Date(end_date);
-    } catch (e) {
+    const parsedStart = Date.parse(start_date);
+    const parsedEnd = Date.parse(end_date);
+    if (isNaN(parsedStart) || isNaN(parsedEnd)) {
       logger.error('Invalid date format:', { start_date, end_date });
       return new NextResponse(JSON.stringify({
         error: 'Invalid date format',
+        details: { start_date, end_date }
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (parsedEnd <= parsedStart) {
+      logger.error('End date must be after start date:', { start_date, end_date });
+      return new NextResponse(JSON.stringify({
+        error: 'End date must be after start date',
         details: { start_date, end_date }
       }), {
         status: 400,

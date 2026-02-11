@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { getCurrentUser } from '@/lib/auth';
-import type { User } from '@/lib/types';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { QueryResultRow } from 'pg';
 
-interface AuthResult {
-  user: User;
+interface DocumentRow extends QueryResultRow {
+  id: string;
+  user_id: string;
+  status: string;
 }
 
 export async function PUT(
@@ -13,9 +16,9 @@ export async function PUT(
   { params }: { params: { documentId: string } }
 ) {
   try {
-    // Check if user is authenticated and is an admin
-    const user = await getCurrentUser();
-    if (!user || user.role !== 'admin') {
+    // S-Verify: Verify admin access using standardized session check
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -28,8 +31,7 @@ export async function PUT(
     }
 
     const { status } = await request.json();
-    // Check status against valid values directly in query
-    const validStatuses = ['draft', 'published', 'archived'];
+    const validStatuses = ['pending', 'approved', 'rejected', 'draft', 'published', 'archived'];
     if (!status || !validStatuses.includes(status)) {
       return NextResponse.json(
         { error: 'Invalid status value' },
@@ -37,14 +39,16 @@ export async function PUT(
       );
     }
 
-    // Update document status using raw SQL
-    const [updatedDocument] = await query(
+    // Fixed: query returns QueryResult, destructure from .rows
+    const result = await query<DocumentRow>(
       `UPDATE documents 
        SET status = $1, updated_at = CURRENT_TIMESTAMP 
        WHERE id = $2 
        RETURNING *`,
       [status, documentId]
     );
+
+    const updatedDocument = result.rows[0];
 
     if (!updatedDocument) {
       return NextResponse.json(
@@ -54,14 +58,14 @@ export async function PUT(
     }
 
     // Get all documents for this user
-    const userDocuments = await query(
+    const userDocuments = await query<DocumentRow>(
       `SELECT * FROM documents WHERE user_id = $1`,
       [updatedDocument.user_id]
     );
 
-    // Check if all required documents are approved
-    const totalDocuments = userDocuments.length;
-    const approvedDocuments = userDocuments.filter(doc => doc.status === 'approved').length;
+    // Fixed: access .rows for length and filter
+    const totalDocuments = userDocuments.rows.length;
+    const approvedDocuments = userDocuments.rows.filter(doc => doc.status === 'approved').length;
 
     return NextResponse.json({
       message: 'Document status updated successfully',

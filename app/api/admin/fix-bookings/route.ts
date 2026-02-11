@@ -20,11 +20,16 @@ export async function GET(request: NextRequest) {
       BEGIN 
           -- Drop and recreate status check constraint to allow more values
           ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_status_check;
-          ALTER TABLE bookings ADD CONSTRAINT bookings_status_check CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed', 'active', 'failed'));
+          ALTER TABLE bookings ADD CONSTRAINT bookings_status_check CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed', 'active', 'initiated', 'failed'));
 
           -- Drop and recreate payment_status check constraint to allow more values
           ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_payment_status_check;
-          ALTER TABLE bookings ADD CONSTRAINT bookings_payment_status_check CHECK (payment_status IN ('pending', 'paid', 'refunded', 'completed', 'failed', 'partially_paid'));
+          ALTER TABLE bookings ADD CONSTRAINT bookings_payment_status_check CHECK (payment_status IN ('pending', 'paid', 'refunded', 'completed', 'failed', 'partially_paid', 'fully_paid'));
+
+          -- VEHICLE_RETURNS TABLE FIXES
+          -- Drop and recreate status check constraint for vehicle_returns
+          ALTER TABLE vehicle_returns DROP CONSTRAINT IF EXISTS vehicle_returns_status_check;
+          ALTER TABLE vehicle_returns ADD CONSTRAINT vehicle_returns_status_check CHECK (status IN ('pending', 'completed', 'failed'));
 
           -- Add pickup_location if it doesn't exist
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'bookings' AND column_name = 'pickup_location') THEN

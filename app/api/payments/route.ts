@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import { query } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { getRazorpayInstance } from '@/lib/razorpay';
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
@@ -23,10 +24,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Get booking
-    const booking = await query(
+    const bookingResult = await query(
       `SELECT * FROM bookings WHERE id = $1 LIMIT 1`,
       [bookingId]
-    ).then(rows => rows[0]);
+    );
+
+    const booking = bookingResult.rows[0];
 
     if (!booking) {
       return NextResponse.json(
@@ -35,7 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (booking.user_id !== user.id) {
+    if (booking.user_id !== session.user.id) {
       return NextResponse.json(
         { message: 'Unauthorized' },
         { status: 401 }
@@ -54,7 +57,7 @@ export async function POST(request: NextRequest) {
     logger.info('Creating payment order:', {
       bookingId,
       amount,
-      userId: user.id
+      userId: session.user.id
     });
 
     // Create Razorpay order
@@ -65,7 +68,7 @@ export async function POST(request: NextRequest) {
       receipt: bookingId,
       notes: {
         booking_id: bookingId,
-        user_id: user.id
+        user_id: session.user.id
       }
     });
 
@@ -89,8 +92,8 @@ export async function POST(request: NextRequest) {
       description: `Booking #${bookingId}`,
       order_id: order.id,
       prefill: {
-        name: user.name || undefined,
-        email: user.email || undefined,
+        name: session.user.name || undefined,
+        email: session.user.email || undefined,
       },
       theme: {
         color: '#f26e24'

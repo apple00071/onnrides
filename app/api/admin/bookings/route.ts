@@ -117,22 +117,12 @@ export async function GET(request: Request) {
     }
 
     const url = new URL(request.url);
-    const page = parseInt(url.searchParams.get('page') || '1');
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1') || 1);
     const limit = 10;
     const offset = (page - 1) * limit;
 
-    // First check if payments table exists
-    const checkTableResult = await query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_name = 'payments'
-      );
-    `);
-
-    const paymentsTableExists = checkTableResult.rows[0].exists;
-
-    // Construct query based on whether payments table exists
-    const queryText = paymentsTableExists ? `
+    // Get bookings with related data
+    const queryText = `
       SELECT 
         b.*,
         u.name as user_name,
@@ -141,9 +131,6 @@ export async function GET(request: Request) {
         v.name as vehicle_name,
         v.type as vehicle_type,
         v.id as vehicle_id,
-        p.status as payment_status,
-        p.payment_reference as payment_reference,
-        p.payment_method as payment_method,
         CASE 
           WHEN b.booking_type = 'offline' THEN b.customer_name
           ELSE u.name
@@ -166,40 +153,6 @@ export async function GET(request: Request) {
       FROM bookings b
       LEFT JOIN users u ON b.user_id = u.id
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
-      LEFT JOIN payments p ON b.payment_id = p.id
-      ORDER BY b.created_at DESC
-      LIMIT $1 OFFSET $2
-    ` : `
-      SELECT 
-        b.*,
-        u.name as user_name,
-        u.email as user_email,
-        u.phone as user_phone,
-        v.name as vehicle_name,
-        v.type as vehicle_type,
-        v.id as vehicle_id,
-        CASE 
-          WHEN b.booking_type = 'offline' THEN b.customer_name
-          ELSE u.name
-        END as effective_user_name,
-        CASE 
-          WHEN b.booking_type = 'offline' THEN b.customer_phone
-          ELSE u.phone
-        END as effective_user_phone,
-        CASE 
-          WHEN b.booking_type = 'offline' THEN b.email
-          ELSE u.email
-        END as effective_user_email,
-        COALESCE(v.name, 'Vehicle not assigned') as effective_vehicle_name,
-        b.registration_number,
-        b.start_date::text as start_date,
-        b.end_date::text as end_date,
-        b.created_at::text as created_at,
-        b.updated_at::text as updated_at,
-        b.pickup_location
-      FROM bookings b
-      LEFT JOIN users u ON b.user_id = u.id
-      LEFT JOIN vehicles v ON b.vehicle_id = v.id
       ORDER BY b.created_at DESC
       LIMIT $1 OFFSET $2
     `;
@@ -212,8 +165,9 @@ export async function GET(request: Request) {
 
     // Map the data to match BookingWithRelations interface
     const mappedBookings = result.rows.map((booking: any) => {
-      // For offline bookings, set status to 'active'
-      const status = booking.booking_type === 'offline' ? 'active' : booking.status;
+      // For offline bookings with non-terminal statuses, show as 'active'
+      const terminalStatuses = ['completed', 'cancelled', 'failed'];
+      const status = (booking.booking_type === 'offline' && !terminalStatuses.includes(booking.status)) ? 'active' : booking.status;
 
       // Format booking ID as ORXXX
       const displayId = `OR${booking.booking_id.substring(0, 3).toUpperCase()}`;
@@ -299,6 +253,15 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { status } = body;
 
+    // Validate status is a known value
+    const VALID_STATUSES = ['pending', 'confirmed', 'cancelled', 'completed', 'active', 'initiated', 'failed'];
+    if (!status || !VALID_STATUSES.includes(status)) {
+      return NextResponse.json(
+        { success: false, error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
     // Check if booking exists and get current status
     const currentBookingResult = await query(`
       SELECT status FROM bookings WHERE id = $1
@@ -312,6 +275,25 @@ export async function PATCH(request: Request) {
     }
 
     const currentStatus = currentBookingResult.rows[0].status;
+
+    // Validate status transition
+    const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+      pending: ['confirmed', 'cancelled', 'failed'],
+      confirmed: ['initiated', 'active', 'cancelled', 'completed'],
+      initiated: ['active', 'completed', 'cancelled'],
+      active: ['completed', 'cancelled'],
+      completed: [],
+      cancelled: [],
+      failed: ['pending']
+    };
+
+    const allowed = ALLOWED_TRANSITIONS[currentStatus] || [];
+    if (!allowed.includes(status)) {
+      return NextResponse.json(
+        { success: false, error: `Cannot transition from '${currentStatus}' to '${status}'` },
+        { status: 400 }
+      );
+    }
 
     // Update booking status
     const result = await query(`
@@ -379,6 +361,21 @@ export async function DELETE(request: Request) {
     if (!bookingId) {
       return NextResponse.json(
         { success: false, error: 'Booking ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Check for related records before deleting
+    const relatedRecords = await query(`
+      SELECT 
+        (SELECT COUNT(*) FROM vehicle_returns WHERE booking_id = $1) as returns_count,
+        (SELECT COUNT(*) FROM trip_initiations WHERE booking_id = $1) as initiations_count
+    `, [bookingId]);
+
+    const { returns_count, initiations_count } = relatedRecords.rows[0];
+    if (parseInt(returns_count) > 0 || parseInt(initiations_count) > 0) {
+      return NextResponse.json(
+        { success: false, error: 'Cannot delete booking with existing return or trip records. Cancel the booking instead.' },
         { status: 400 }
       );
     }

@@ -5,6 +5,20 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
 
+interface BookingRow {
+  id: string;
+  booking_id: string;
+  user_id: string;
+  vehicle_id: string;
+  status: string;
+  total_price: string;
+  paid_amount: string;
+  pending_amount: string;
+  start_date: Date;
+  end_date: Date;
+  [key: string]: any;
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ bookingId: string }> }
@@ -227,6 +241,11 @@ export async function PATCH(
       updateFields.push(`total_price = $${paramIndex++}`);
       updateValues.push(total_price);
       modifications.push(`Total Price: ₹${currentBooking.total_price} → ₹${total_price}`);
+
+      // High Severity: Recalculate pending_amount when total_price changes
+      const newPendingAmount = parseFloat(total_price) - parseFloat(currentBooking.paid_amount || '0');
+      updateFields.push(`pending_amount = $${paramIndex++}`);
+      updateValues.push(newPendingAmount);
     }
 
     if (updateFields.length === 0) {
@@ -240,17 +259,43 @@ export async function PATCH(
     updateFields.push(`updated_at = NOW()`);
     updateValues.push(resolvedParams.bookingId);
 
-    // Execute update
-    const result = await query(`
-      UPDATE bookings
-      SET ${updateFields.join(', ')}
-      WHERE booking_id = $${paramIndex}
-      RETURNING *
-    `, updateValues);
+    // Execute update inside a transaction
+    let updatedBooking;
+    await query('BEGIN');
+    try {
+      const result = await query(`
+        UPDATE bookings
+        SET ${updateFields.join(', ')}
+        WHERE booking_id = $${paramIndex}
+        RETURNING *
+      `, updateValues);
 
-    const booking = result.rows[0];
+      updatedBooking = result.rows[0];
 
-    // Get booking details for notifications
+      // Handle vehicle availability atomically based on status
+      if (status === 'completed' || status === 'cancelled') {
+        const vehicleId = vehicle_id || currentBooking.vehicle_id;
+        await query(`
+          UPDATE vehicles
+          SET is_available = true, updated_at = NOW()
+          WHERE id = $1
+        `, [vehicleId]);
+      } else if (status === 'confirmed' || status === 'initiated') {
+        const vehicleId = vehicle_id || currentBooking.vehicle_id;
+        await query(`
+          UPDATE vehicles
+          SET is_available = false, updated_at = NOW()
+          WHERE id = $1
+        `, [vehicleId]);
+      }
+
+      await query('COMMIT');
+    } catch (transactionError) {
+      await query('ROLLBACK');
+      throw transactionError;
+    }
+
+    // Refresh booking details for notifications
     const bookingDetailsResult = await query(`
       SELECT 
         b.*,
@@ -266,15 +311,6 @@ export async function PATCH(
     `, [resolvedParams.bookingId]);
 
     const bookingDetails = bookingDetailsResult.rows[0];
-
-    // Handle vehicle availability based on status
-    if (status === 'completed' || status === 'cancelled') {
-      await query(`
-        UPDATE vehicles
-        SET is_available = true, updated_at = NOW()
-        WHERE id = $1
-      `, [bookingDetails.vehicle_id]);
-    }
 
     // Send WhatsApp notifications based on changes made
     if (modifications.length > 0 && currentBooking) {
@@ -317,8 +353,8 @@ export async function PATCH(
         const nonStatusModifications = modifications.filter(mod => !mod.includes('Status:'));
         if (nonStatusModifications.length > 0) {
           const modificationType = nonStatusModifications.some(mod => mod.includes('Date')) ? 'dates' :
-                                  nonStatusModifications.some(mod => mod.includes('Vehicle')) ? 'vehicle' :
-                                  nonStatusModifications.some(mod => mod.includes('Location')) ? 'location' : 'other';
+            nonStatusModifications.some(mod => mod.includes('Vehicle')) ? 'vehicle' :
+              nonStatusModifications.some(mod => mod.includes('Location')) ? 'location' : 'other';
 
           await whatsappService.sendBookingModification({
             booking_id: currentBooking.booking_id,
@@ -342,7 +378,7 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      data: booking
+      data: updatedBooking
     });
   } catch (error) {
     logger.error('Error updating booking:', error);
@@ -368,6 +404,39 @@ export async function DELETE(
     }
 
     const resolvedParams = await params;
+
+    // Get booking
+    const bookingResult = await query(`
+      SELECT * FROM bookings 
+      WHERE id = $1 
+      LIMIT 1
+    `, [resolvedParams.bookingId]);
+    const booking = bookingResult.rows[0];
+
+    if (!booking) {
+      return NextResponse.json(
+        { success: false, error: 'Booking not found' },
+        { status: 404 }
+      );
+    }
+    const internalId = booking.id;
+
+    // Check for related records before deleting
+
+    const relatedRecords = await query(`
+      SELECT 
+        (SELECT COUNT(*) FROM vehicle_returns WHERE booking_id = $1) as returns_count,
+        (SELECT COUNT(*) FROM trip_initiations WHERE booking_id = $1) as initiations_count
+    `, [internalId]);
+
+    const { returns_count, initiations_count } = relatedRecords.rows[0];
+    if (parseInt(returns_count) > 0 || parseInt(initiations_count) > 0) {
+      return NextResponse.json(
+        { success: false, error: 'Cannot delete booking with existing return or trip records. Cancel the booking instead.' },
+        { status: 400 }
+      );
+    }
+
     const deletedBookingResult = await query(`
       DELETE FROM bookings
       WHERE booking_id = $1

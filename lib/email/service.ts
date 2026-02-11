@@ -293,4 +293,7 @@ export class EmailService {
     `;
     await this.sendEmail(to, 'Password Reset', html);
   }
+  public getInitializationStatus(): { isInitialized: boolean; error: Error | null } {
+    return { isInitialized: this.initialized, error: this.initializationError };
+  }
 }

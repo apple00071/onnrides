@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     }
 
     const url = new URL(request.url);
-    const page = parseInt(url.searchParams.get('page') || '1');
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1') || 1);
     const limit = 10;
     const offset = (page - 1) * limit;
 
@@ -105,45 +105,47 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if booking exists and get customer details for WhatsApp notification
-    const bookingCheck = await query(
-      `SELECT
-        b.id,
-        b.booking_id,
-        b.status,
-        b.vehicle_id,
-        b.total_price,
-        b.registration_number as vehicle_number,
-        u.name as customer_name,
-        u.phone as customer_phone,
-        v.name as vehicle_name
-      FROM bookings b
-      JOIN users u ON b.user_id = u.id
-      JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.id = $1`,
-      [booking_id]
-    );
-
-    if (bookingCheck.rows.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Booking not found' },
-        { status: 404 }
-      );
-    }
-
-    const bookingDetails = bookingCheck.rows[0];
-
-    if (bookingDetails.status === 'completed') {
-      return NextResponse.json(
-        { success: false, error: 'Vehicle already returned for this booking' },
-        { status: 400 }
-      );
-    }
-
     // Start transaction
     await query('BEGIN');
 
     try {
+      // Lock the booking row to prevent race conditions
+      const bookingCheck = await query(
+        `SELECT
+          b.id,
+          b.booking_id,
+          b.status,
+          b.vehicle_id,
+          b.total_price,
+          b.registration_number as vehicle_number,
+          u.name as customer_name,
+          u.phone as customer_phone,
+          v.name as vehicle_name
+        FROM bookings b
+        JOIN users u ON b.user_id = u.id
+        JOIN vehicles v ON b.vehicle_id = v.id
+        WHERE b.id = $1
+        FOR UPDATE OF b`,
+        [booking_id]
+      );
+
+      if (bookingCheck.rows.length === 0) {
+        await query('ROLLBACK');
+        return NextResponse.json(
+          { success: false, error: 'Booking not found' },
+          { status: 404 }
+        );
+      }
+
+      const bookingDetails = bookingCheck.rows[0];
+
+      if (bookingDetails.status === 'completed') {
+        await query('ROLLBACK');
+        return NextResponse.json(
+          { success: false, error: 'Vehicle already returned for this booking' },
+          { status: 400 }
+        );
+      }
       // Generate a new UUID for the vehicle return
       const returnId = randomUUID();
 
@@ -213,11 +215,11 @@ export async function POST(request: Request) {
         });
       }
 
-      // Update vehicle availability
+      // Update vehicle availability (only if vehicle still exists)
       await query(
         `UPDATE vehicles
         SET is_available = true, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1`,
+        WHERE id = $1 AND EXISTS (SELECT 1 FROM vehicles WHERE id = $1)`,
         [bookingDetails.vehicle_id]
       );
 
@@ -226,7 +228,7 @@ export async function POST(request: Request) {
       // Send WhatsApp vehicle return confirmation
       try {
         const whatsappService = WhatsAppNotificationService.getInstance();
-        const finalAmount = bookingDetails.total_price + (additional_charges || 0);
+        const finalAmount = Number(bookingDetails.total_price) + (additional_charges || 0);
 
         await whatsappService.sendVehicleReturnConfirmation({
           booking_id: bookingDetails.booking_id,

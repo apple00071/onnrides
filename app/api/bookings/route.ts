@@ -158,9 +158,6 @@ export async function GET(request: NextRequest) {
         b.end_date as dropoff_datetime,
         
         -- Create formatted dates for display (optional, but keep for compatibility if needed)
-        TO_CHAR(b.start_date, 'DD Mon YYYY, FMHH12:MI AM') as formatted_pickup,
-        TO_CHAR(b.end_date, 'DD Mon YYYY, FMHH12:MI AM') as formatted_dropoff,
-        
         b.total_price as total_amount,
         b.payment_status,
         b.created_at,
@@ -187,10 +184,8 @@ export async function GET(request: NextRequest) {
       status: booking.status,
       start_date: booking.start_date,
       end_date: booking.end_date,
-      formatted_pickup: booking.formatted_pickup,
-      formatted_dropoff: booking.formatted_dropoff,
-      pickup_datetime: booking.pickup_datetime,
-      dropoff_datetime: booking.dropoff_datetime,
+      pickup_datetime: booking.pickup_datetime || booking.start_date,
+      dropoff_datetime: booking.dropoff_datetime || booking.end_date,
       total_price: parseFloat((booking.total_amount || booking.total_price || 0).toString()),
       payment_status: booking.payment_status || 'pending',
       created_at: booking.created_at,

@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    logger.info('Running email test', { 
+    logger.info('Running email test', {
       targetEmail: email,
       user: session.user.email
     });
@@ -42,16 +42,16 @@ export async function POST(request: NextRequest) {
     const emailService = EmailService.getInstance();
     const status = emailService.getInitializationStatus();
 
-    if (!status.initialized) {
+    if (!status.isInitialized) {
       logger.error('Email service not initialized correctly', {
         error: status.error?.message || 'Unknown error'
       });
-      
+
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: 'Email service not initialized correctly',
-          details: status.error?.message || 'Unknown error' 
+          details: status.error?.message || 'Unknown error'
         },
         { status: 500 }
       );
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       null // no booking ID for this test
     );
 
-    logger.info('Test email sent successfully', { 
+    logger.info('Test email sent successfully', {
       messageId,
       recipient: email
     });
@@ -86,10 +86,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Error sending test email:', error);
-    
+
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Failed to send test email',
         details: error instanceof Error ? error.message : 'Unknown error'
       },

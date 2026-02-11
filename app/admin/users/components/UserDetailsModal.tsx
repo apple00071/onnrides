@@ -81,13 +81,13 @@ interface CancelBookingModalProps {
   loading: boolean;
 }
 
-function DocumentViewerModal({ 
-  isOpen, 
-  onClose, 
-  document 
-}: { 
-  isOpen: boolean; 
-  onClose: () => void; 
+function DocumentViewerModal({
+  isOpen,
+  onClose,
+  document
+}: {
+  isOpen: boolean;
+  onClose: () => void;
   document: UserDocument | null;
 }) {
   if (!document) return null;
@@ -227,7 +227,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
 
   const handleDocumentStatus = async (documentId: string, status: 'approved' | 'rejected') => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
       const response = await fetch(`/api/admin/users/${user.id}/documents`, {
@@ -245,8 +245,8 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
       }
 
       if (data.success) {
-        setDocuments(prevDocs => 
-          prevDocs.map(doc => 
+        setDocuments(prevDocs =>
+          prevDocs.map(doc =>
             doc.id === documentId ? { ...doc, status } : doc
           )
         );
@@ -260,8 +260,8 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
             ...user,
             documents: {
               ...user.documents,
-              approved: status === 'approved' 
-                ? (user.documents?.approved || 0) + 1 
+              approved: status === 'approved'
+                ? (user.documents?.approved || 0) + 1
                 : Math.max(0, (user.documents?.approved || 0) - 1),
               total: currentTotal
             }
@@ -280,7 +280,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
 
   const handleCancelBooking = async () => {
     if (!selectedBooking || !user) return;
-    
+
     setCancelLoading(true);
     try {
       const response = await fetch(`/api/admin/bookings/${selectedBooking.id}/cancel`, {
@@ -348,7 +348,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
 
   const handleDeleteUser = async () => {
     if (!user) return;
-    
+
     setIsDeleting(true);
     try {
       const response = await fetch(`/api/admin/users/${user.id}`, {
@@ -386,7 +386,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
       const response = await fetch(`/api/admin/users/${user.id}/block`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blocked: !user.is_blocked }),
+        body: JSON.stringify({ blocked: !user.isBlocked }),
       });
 
       if (!response.ok) {
@@ -396,7 +396,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
 
       const updatedUser = await response.json();
       onUserUpdated(updatedUser);
-      toast.success(`User ${user.is_blocked ? 'unblocked' : 'blocked'} successfully`);
+      toast.success(`User ${user.isBlocked ? 'unblocked' : 'blocked'} successfully`);
     } catch (error) {
       logger.error('Error updating user status:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update user status');
@@ -445,9 +445,8 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Role</h3>
                     <p className="mt-1">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                      }`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                        }`}>
                         {user.role}
                       </span>
                     </p>
@@ -462,7 +461,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Joined</h3>
-                    <p className="mt-1">{formatDate(user.created_at)}</p>
+                    <p className="mt-1">{formatDate(user.createdAt)}</p>
                   </div>
                 </div>
               </div>
@@ -516,13 +515,12 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                               </button>
                             </>
                           )}
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            doc.status === 'approved'
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${doc.status === 'approved'
                               ? 'bg-green-100 text-green-800'
                               : doc.status === 'rejected'
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-yellow-100 text-yellow-800'
-                          }`}>
+                            }`}>
                             {doc.status}
                           </span>
                         </div>
@@ -567,22 +565,20 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                           </div>
                         </div>
                         <div className="flex flex-col items-end space-y-2">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            booking.status === 'completed'
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${booking.status === 'completed'
                               ? 'bg-green-100 text-green-800'
                               : booking.status === 'cancelled'
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-yellow-100 text-yellow-800'
-                          }`}>
+                            }`}>
                             {booking.status}
                           </span>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            booking.payment_status === 'completed'
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${booking.payment_status === 'completed'
                               ? 'bg-green-100 text-green-800'
                               : booking.payment_status === 'failed'
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-yellow-100 text-yellow-800'
-                          }`}>
+                            }`}>
                             Payment: {booking.payment_status}
                           </span>
                         </div>
@@ -663,10 +659,10 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {user.is_blocked ? 'Unblock User' : 'Block User'}
+              {user.isBlocked ? 'Unblock User' : 'Block User'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {user.is_blocked ? (
+              {user.isBlocked ? (
                 'Are you sure you want to unblock this user? They will be able to access the platform again.'
               ) : (
                 'Are you sure you want to block this user? They will not be able to access the platform until unblocked.'
@@ -678,18 +674,18 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
             <AlertDialogAction
               onClick={handleBlockUser}
               disabled={isBlocking}
-              className={user.is_blocked ? 
-                "bg-green-600 hover:bg-green-700 text-white" : 
+              className={user.isBlocked ?
+                "bg-green-600 hover:bg-green-700 text-white" :
                 "bg-orange-600 hover:bg-orange-700 text-white"
               }
             >
               {isBlocking ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {user.is_blocked ? 'Unblocking...' : 'Blocking...'}
+                  {user.isBlocked ? 'Unblocking...' : 'Blocking...'}
                 </div>
               ) : (
-                user.is_blocked ? 'Unblock' : 'Block'
+                user.isBlocked ? 'Unblock' : 'Block'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

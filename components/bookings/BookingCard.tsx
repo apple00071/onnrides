@@ -12,8 +12,13 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
   const formattedStartDate = format(new Date(booking.start_date), 'MMM d, yyyy h:mm a');
   const formattedEndDate = format(new Date(booking.end_date), 'MMM d, yyyy h:mm a');
 
-  const getStatusColor = (status: BookingStatus) => {
-    switch (status) {
+  // Hardening: Ensure price is treated as a number for formatting
+  const displayPrice = typeof booking.total_price === 'string'
+    ? parseFloat(booking.total_price)
+    : booking.total_price;
+
+  const getStatusColor = (status: BookingStatus | string) => {
+    switch (status?.toLowerCase()) {
       case 'completed':
         return 'bg-green-100 text-green-800';
       case 'cancelled':
@@ -21,15 +26,21 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       case 'confirmed':
+      case 'active':
         return 'bg-blue-100 text-blue-800';
+      case 'initiated':
+        return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getPaymentStatusColor = (status: PaymentStatus) => {
-    switch (status) {
+  const getPaymentStatusColor = (status: PaymentStatus | string) => {
+    const s = status?.toLowerCase();
+    switch (s) {
       case 'completed':
+      case 'fully_paid':
+      case 'paid':
         return 'bg-green-100 text-green-800';
       case 'failed':
         return 'bg-red-100 text-red-800';
@@ -38,6 +49,18 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const formatStatus = (status: string) => {
+    if (!status) return 'Unknown';
+    return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
+  };
+
+  const formatPaymentStatus = (status: string) => {
+    const s = status?.toLowerCase();
+    if (s === 'fully_paid' || s === 'paid' || s === 'completed') return 'Paid';
+    if (s === 'pending') return 'Payment Pending';
+    return formatStatus(status);
   };
 
   return (
@@ -60,41 +83,43 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
 
         <div className="space-y-2 text-sm">
           {/* Dates */}
-          <div>
-            <p className="text-gray-600">Start Date</p>
-            <p className="font-medium">{formattedStartDate}</p>
-          </div>
-          <div>
-            <p className="text-gray-600">End Date</p>
-            <p className="font-medium">{formattedEndDate}</p>
+          <div className="flex justify-between">
+            <div>
+              <p className="text-gray-600 text-xs">Start Date</p>
+              <p className="font-medium">{formattedStartDate}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-gray-600 text-xs">End Date</p>
+              <p className="font-medium">{formattedEndDate}</p>
+            </div>
           </div>
 
           {/* Location */}
           {(booking.pickup_location || booking.vehicle?.location) && (
             <div>
-              <p className="text-gray-600">Location</p>
-              <p className="font-medium">{booking.pickup_location || booking.vehicle?.location}</p>
+              <p className="text-gray-600 text-xs">Location</p>
+              <p className="font-medium">{booking.pickup_location || (Array.isArray(booking.vehicle?.location) ? booking.vehicle.location[0] : booking.vehicle?.location)}</p>
             </div>
           )}
 
           {/* Price */}
-          <div>
+          <div className="flex justify-between items-center py-2 border-t border-gray-100">
             <p className="text-gray-600">Total Price</p>
-            <p className="font-medium">₹{booking.total_price}</p>
+            <p className="text-lg font-bold text-indigo-600">₹{(displayPrice || 0).toLocaleString('en-IN')}</p>
           </div>
 
           {/* Status */}
           <div className="flex justify-between items-center pt-2">
             <div>
               <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(booking.status)}`}>
-                {booking.status}
+                {formatStatus(booking.status)}
               </span>
             </div>
 
             {/* Payment Status */}
             <div>
               <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPaymentStatusColor(booking.payment_status)}`}>
-                {booking.payment_status}
+                {formatPaymentStatus(booking.payment_status)}
               </span>
             </div>
           </div>
@@ -112,4 +137,4 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
       </div>
     </div>
   );
-} 
+}

@@ -57,11 +57,57 @@ async function ensurePaymentsTable() {
   }
 }
 
+export async function GET() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get statistics summary
+    // This is a placeholder for actual statistics retrieval
+    // For demonstration, let's assume some dummy finance data
+    const cashCollections = 1234.567;
+    const cardCollections = 789.123;
+    const upiCollections = 456.789;
+    const openingBalance = 1000.00;
+    const cashRefunds = 50.25;
+    const expenses = 150.75;
+
+    const totalCollections = Math.round((cashCollections + cardCollections + upiCollections) * 100) / 100;
+    const closingBalance = Math.round((openingBalance + totalCollections - cashRefunds - expenses) * 100) / 100;
+
+    return NextResponse.json({
+      success: true,
+      message: 'Statistics retrieved successfully',
+      data: {
+        cashCollections: Math.round(cashCollections * 100) / 100,
+        cardCollections: Math.round(cardCollections * 100) / 100,
+        upiCollections: Math.round(upiCollections * 100) / 100,
+        totalCollections,
+        openingBalance: Math.round(openingBalance * 100) / 100,
+        cashRefunds: Math.round(cashRefunds * 100) / 100,
+        expenses: Math.round(expenses * 100) / 100,
+        closingBalance,
+      }
+    });
+  } catch (error) {
+    logger.error('Error retrieving statistics:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Check for admin authentication
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -121,9 +167,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error('Error cleaning up database:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
       },
       { status: 500 }
     );

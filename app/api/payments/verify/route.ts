@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { validatePaymentVerification } from '@/lib/razorpay';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
 
@@ -23,7 +25,7 @@ export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     }
@@ -36,6 +38,12 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Auth check: must be logged in
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
 
@@ -176,7 +184,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     logger.error('Payment verification error:', error);
-    
+
     return NextResponse.json({
       success: false,
       error: isPaymentError(error) ? error.message : 'Payment verification failed'

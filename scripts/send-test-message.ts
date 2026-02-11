@@ -5,19 +5,17 @@ async function sendTestMessage() {
     try {
         logger.info('Sending test message...');
         const whatsappService = WhatsAppService.getInstance();
-        
+
         // Initialize WhatsApp if not already initialized
         if (!whatsappService.getInitializationStatus().isInitialized) {
             logger.info('Initializing WhatsApp service...');
             await whatsappService.initialize();
         }
-        
-        // Send test message
-        await whatsappService.sendMessage(
-            '8247494622',
-            'This is a test message from OnnRides. Please ignore.'
-        );
-        
+
+        // Send test message using the PUBLIC method
+        // sendMessage is private and takes an object.
+        await whatsappService.sendTestMessage('8247494622');
+
         logger.info('Test message sent successfully');
         process.exit(0);
     } catch (error) {

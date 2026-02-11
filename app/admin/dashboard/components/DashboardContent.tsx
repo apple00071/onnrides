@@ -5,7 +5,7 @@ import { StatsCard } from './StatsCard';
 import { QuickActionCard } from './QuickActionCard';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { formatDateTime } from '@/lib/utils/time-formatter';
+import { formatDateTime, formatIST } from '@/lib/utils/time-formatter';
 
 interface DashboardData {
   totalUsers: number;
@@ -115,7 +115,7 @@ export default function DashboardContent() {
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-gray-900">Today's Operations</h3>
-          <span className="text-sm text-gray-500">{format(new Date(), 'EEEE, MMMM do, yyyy')}</span>
+          <span className="text-sm text-gray-500">{formatIST(new Date())}</span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
@@ -184,11 +184,10 @@ export default function DashboardContent() {
                     ₹{parseFloat(booking.amount || '0').toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
                       booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
+                        'bg-red-100 text-red-800'
+                      }`}>
                       {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                     </span>
                   </td>
@@ -211,14 +210,13 @@ export default function DashboardContent() {
           {data.recentActivity.map((activity, index) => (
             <div key={`${activity.type}-${index}`} className="p-4 hover:bg-gray-50">
               <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-full ${
-                  activity.type === 'booking' ? 'bg-blue-100 text-blue-600' :
+                <div className={`p-2 rounded-full ${activity.type === 'booking' ? 'bg-blue-100 text-blue-600' :
                   activity.type === 'vehicle' ? 'bg-green-100 text-green-600' :
-                  'bg-purple-100 text-purple-600'
-                }`}>
+                    'bg-purple-100 text-purple-600'
+                  }`}>
                   {activity.type === 'booking' ? <FaCalendarCheck className="h-4 w-4" /> :
-                   activity.type === 'vehicle' ? <FaCar className="h-4 w-4" /> :
-                   <FaUsers className="h-4 w-4" />}
+                    activity.type === 'vehicle' ? <FaCar className="h-4 w-4" /> :
+                      <FaUsers className="h-4 w-4" />}
                 </div>
                 <div>
                   <p className="text-sm text-gray-900">{activity.message}</p>
@@ -236,19 +234,19 @@ export default function DashboardContent() {
           title="Add New Vehicle"
           description="List a new vehicle for rent"
           icon={<FaPlus className="h-6 w-6" />}
-          onClick={() => {/* Add navigation logic */}}
+          onClick={() => {/* Add navigation logic */ }}
         />
         <QuickActionCard
           title="Manage Users"
           description="View and manage user accounts"
           icon={<FaUserCog className="h-6 w-6" />}
-          onClick={() => {/* Add navigation logic */}}
+          onClick={() => {/* Add navigation logic */ }}
         />
         <QuickActionCard
           title="View Reports"
           description="Access detailed analytics"
           icon={<FaChartBar className="h-6 w-6" />}
-          onClick={() => {/* Add navigation logic */}}
+          onClick={() => {/* Add navigation logic */ }}
         />
       </div>
     </div>

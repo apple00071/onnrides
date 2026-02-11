@@ -60,7 +60,13 @@ interface BookingDetails {
 
 // Helper function to format date in IST
 const formatDateIST = (dateString: string) => {
-  return formatInTimeZone(new Date(dateString), 'Asia/Kolkata', 'PPP p');
+  if (!dateString) return '—';
+  try {
+    return formatInTimeZone(new Date(dateString), 'Asia/Kolkata', 'dd/MM/yyyy h:mm a');
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return dateString || '—';
+  }
 };
 
 // Helper function to parse location
@@ -184,8 +190,12 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
             <div className="space-y-2">
               <p>
                 <span className="font-semibold">Status:</span>{' '}
-                <Badge variant={booking.status === 'active' ? 'success' : 'secondary'}>
-                  {booking.status}
+                <Badge variant={
+                  booking.status === 'active' || booking.status === 'completed' || booking.status === 'confirmed'
+                    ? 'success'
+                    : booking.status === 'cancelled' ? 'destructive' : 'secondary'
+                }>
+                  {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                 </Badge>
               </p>
               <p>
@@ -201,7 +211,7 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                 >
                   {booking.paymentStatus === 'pending'
                     ? 'Payment Pending'
-                    : booking.paymentStatus === 'completed'
+                    : booking.paymentStatus === 'completed' || booking.paymentStatus === 'fully_paid' || booking.paymentStatus === 'paid'
                       ? 'Paid'
                       : booking.paymentStatus}
                 </Badge>

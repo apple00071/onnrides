@@ -56,9 +56,11 @@ export async function POST(
     const newEndDate = addHours(originalEndDate, hours);
 
     // Calculate additional price
-    const hourlyRate = booking.total_price / ((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / (1000 * 60 * 60));
-    const additionalPrice = hourlyRate * hours;
-    const newTotalPrice = booking.total_price + additionalPrice;
+    const totalPrice = Number(booking.total_price);
+    const durationMs = new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime();
+    const hourlyRate = totalPrice / (durationMs / (1000 * 60 * 60));
+    const additionalPrice = Math.round(hourlyRate * hours * 100) / 100;
+    const newTotalPrice = Math.round((totalPrice + additionalPrice) * 100) / 100;
 
     // Update booking
     const result = await query(`

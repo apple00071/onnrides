@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
-import { razorpay } from '@/lib/razorpay';
+import { createOrder } from '@/lib/razorpay';
 
 export async function POST(
   request: NextRequest,
@@ -30,9 +30,8 @@ export async function POST(
     const booking = result.rows[0];
 
     // Create Razorpay order
-    const order = await razorpay.orders.create({
-      amount: Math.round(booking.total_price * 100), // Convert to paise
-      currency: 'INR',
+    const order = await createOrder({
+      amount: booking.total_price, // createOrder in lib/razorpay.ts handles the 100x conversion
       receipt: booking.booking_id,
       notes: {
         booking_id: booking.booking_id,

@@ -66,6 +66,8 @@ export interface Vehicle {
   transmission?: string;
   fuel_type?: string;
   seating_capacity?: number;
+  mileage?: number;
+  price_per_day?: number;
 }
 
 export interface VehicleDetailsProps {

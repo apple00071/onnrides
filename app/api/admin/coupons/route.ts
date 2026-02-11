@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result.rows);
   } catch (error) {
-    console.error('Error fetching coupons:', error);
+    logger.error('Error fetching coupons:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch coupons' },
       { status: 500 }
@@ -54,16 +54,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate discount_type
+    const discountType = data.discount_type || 'percentage';
+    if (!DISCOUNT_TYPES.includes(discountType)) {
+      return NextResponse.json(
+        { error: `Invalid discount_type. Must be one of: ${DISCOUNT_TYPES.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
     // Insert new coupon into database
     const result = await query(`
-      INSERT INTO coupons (code, discount, max_uses, description)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO coupons (code, discount, discount_type, max_uses, description)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *
-    `, [data.code, data.discount, data.max_uses, data.description || null]);
+    `, [data.code, data.discount, discountType, data.max_uses, data.description || null]);
 
     return NextResponse.json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating coupon:', error);
+    logger.error('Error creating coupon:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to create coupon' },
       { status: 500 }

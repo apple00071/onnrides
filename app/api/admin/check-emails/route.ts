@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ADMIN_EMAILS, DEFAULT_ADMIN_EMAILS } from '@/lib/notifications/admin-notification';
 import { query } from '@/lib/db';
 import { EmailService } from '@/lib/email/service';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -9,13 +11,18 @@ export const runtime = 'nodejs';
 
 /**
  * API endpoint for checking email configuration and admin emails
- * For debugging purposes only - should be disabled in production
  */
 export async function GET(req: NextRequest) {
   try {
+    // S-Verify: Added mandatory admin check
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized access' }, { status: 403 });
+    }
+
     // Get admin emails from environment
     const adminEmails = ADMIN_EMAILS.length > 0 ? ADMIN_EMAILS : DEFAULT_ADMIN_EMAILS;
-    
+
     // Get SMTP configuration
     const smtpConfig = {
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -25,7 +32,7 @@ export async function GET(req: NextRequest) {
       // Don't expose the password, just indicate if it's set
       hasPassword: Boolean(process.env.SMTP_PASS),
     };
-    
+
     // Check database connection
     let dbStatus = 'Unknown';
     try {
@@ -34,7 +41,7 @@ export async function GET(req: NextRequest) {
     } catch (dbError: any) {
       dbStatus = `Error: ${dbError.message}`;
     }
-    
+
     // Check email logs table
     let emailLogsStatus = 'Unknown';
     try {
@@ -45,7 +52,7 @@ export async function GET(req: NextRequest) {
           AND table_name = 'email_logs'
         );
       `);
-      
+
       if (result.rows[0].exists) {
         const columnsResult = await query(`
           SELECT column_name 
@@ -53,7 +60,7 @@ export async function GET(req: NextRequest) {
           WHERE table_schema = 'public' 
           AND table_name = 'email_logs';
         `);
-        
+
         const columns = columnsResult.rows.map((row: any) => row.column_name);
         emailLogsStatus = `Table exists with columns: ${columns.join(', ')}`;
       } else {
@@ -88,20 +95,26 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    // Only allow in development mode
+    // S-Verify: Added mandatory admin check
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized access' }, { status: 403 });
+    }
+
+    // Only allow in development mode (or strictly for admins if allowed in prod)
     if (process.env.NODE_ENV !== 'development') {
       return NextResponse.json({ error: 'Endpoint disabled in production' }, { status: 403 });
     }
-    
+
     const adminEmails = ADMIN_EMAILS.length > 0 ? ADMIN_EMAILS : DEFAULT_ADMIN_EMAILS;
     if (!adminEmails.length) {
       return NextResponse.json({ error: 'No admin emails configured' }, { status: 400 });
     }
-    
+
     // Send a test email
     const testId = Math.random().toString(36).substring(2, 15);
     const emailService = EmailService.getInstance();
-    
+
     const results = [];
     for (const email of adminEmails) {
       try {
@@ -116,7 +129,7 @@ export async function POST(req: NextRequest) {
             <p>Environment: ${process.env.NODE_ENV || 'unknown'}</p>
           `
         );
-        
+
         results.push({
           email,
           success: true,
@@ -125,13 +138,13 @@ export async function POST(req: NextRequest) {
         });
       } catch (err: any) {
         results.push({
-          email, 
+          email,
           success: false,
           error: err.message
         });
       }
     }
-    
+
     return NextResponse.json({
       success: true,
       message: `Test email sent to ${adminEmails.join(', ')}`,

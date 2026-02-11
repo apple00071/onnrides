@@ -9,33 +9,27 @@ export async function POST(
   { params }: { params: { userId: string } }
 ) {
   try {
-    // Check admin authentication
+    // Audit-S1: Check admin authentication
     const session = await getServerSession(authOptions);
-    if (!session?.user?.role || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
     const { userId } = params;
     const { blocked } = await request.json();
 
-    // Update user's blocked status
+    // S3: Update user's blocked status with correct schema
     const result = await query(
       `UPDATE users 
-       SET "isBlocked" = $1::uuid, 
-           "updatedAt" = NOW() 
-       WHERE id = $2::uuid 
-       RETURNING id::text, name, email, role, phone, "isBlocked", "createdAt"`,
+       SET is_blocked = $1::boolean, 
+           updated_at = NOW() 
+       WHERE id = $2 
+       RETURNING id::text, name, email, role, phone, is_blocked`,
       [blocked, userId]
     );
 
-    if (result.rowCount === 0) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     const updatedUser = result.rows[0];
@@ -47,9 +41,6 @@ export async function POST(
     return NextResponse.json(updatedUser);
   } catch (error) {
     logger.error('Error updating user block status:', error);
-    return NextResponse.json(
-      { error: 'Failed to update user status' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
-} 
+}

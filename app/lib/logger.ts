@@ -1,4 +1,4 @@
-import logger from '@/lib/logger';
+import baseLogger from '@/lib/logger';
 /* eslint-disable no-console */
 const isDevelopment = process.env.NODE_ENV === 'development';
 const isProduction = process.env.NODE_ENV === 'production';
@@ -24,22 +24,14 @@ const shouldLog = (level: LogLevel): boolean => {
 
 const productionLog = (level: LogLevel, ...args: any[]): void => {
   if (isProduction) {
-    // Here you could integrate with a production logging service
-    // For now, we'll only log errors and warnings in production
     if (level === 'error' || level === 'warn') {
       const timestamp = new Date().toISOString();
-      const logData = {
-        timestamp,
-        level,
-        data: args
-      };
-      
-      // You could send this to a logging service
-      // For now, we'll just do minimal console output in production
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+
       if (level === 'error') {
-        logger.error('[Error]', timestamp, ...args);
+        baseLogger.error(`[Error] ${timestamp} ${message}`);
       } else if (level === 'warn') {
-        logger.warn('[Warning]', timestamp, ...args);
+        baseLogger.warn(`[Warning] ${timestamp} ${message}`);
       }
     }
   }
@@ -48,7 +40,8 @@ const productionLog = (level: LogLevel, ...args: any[]): void => {
 export const logger = {
   debug: (...args: any[]): void => {
     if (shouldLog('debug')) {
-      logger.debug('[Debug]', ...args);
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+      baseLogger.debug(message);
     }
   },
   log: (...args: any[]): void => {
@@ -60,7 +53,8 @@ export const logger = {
   error: (error: Error | string, ...args: any[]): void => {
     if (shouldLog('error')) {
       const errorMessage = error instanceof Error ? formatError(error) : error;
-      productionLog('error', errorMessage, ...args);
+      const additionalMessage = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+      productionLog('error', `${errorMessage} ${additionalMessage}`);
     }
   },
   warn: (...args: any[]): void => {

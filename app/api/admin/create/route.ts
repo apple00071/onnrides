@@ -1,11 +1,18 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 import { findUserByEmail, createUser } from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // S-Verify: Verify admin access
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized access' }, { status: 403 });
+    }
+
     const { email, password, name } = await request.json();
 
     if (!email || !password) {

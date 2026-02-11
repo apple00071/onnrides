@@ -4,11 +4,19 @@ import { WhatsAppReminderService } from '../../../../lib/whatsapp/reminder-servi
 // This endpoint can be called by external cron services like Vercel Cron or GitHub Actions
 export async function GET(request: NextRequest) {
   try {
-    // Verify the request is from a trusted source (optional)
+    // Verify the request is from a trusted source
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
-    
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+
+    if (!cronSecret) {
+      console.error('CRON_SECRET environment variable is not configured');
+      return NextResponse.json({
+        success: false,
+        error: 'Server misconfigured'
+      }, { status: 500 });
+    }
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({
         success: false,
         error: 'Unauthorized'
@@ -16,12 +24,12 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('Starting scheduled WhatsApp reminders...');
-    
+
     const reminderService = WhatsAppReminderService.getInstance();
     await reminderService.runAllReminders();
-    
+
     console.log('Scheduled WhatsApp reminders completed successfully');
-    
+
     return NextResponse.json({
       success: true,
       message: 'WhatsApp reminders sent successfully',

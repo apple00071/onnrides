@@ -6,7 +6,6 @@ import { useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { formatDateTimeIST } from '@/lib/utils/timezone';
 import { Badge } from '@/components/ui/badge';
 
 interface Booking {
@@ -102,7 +101,6 @@ export default function BookingsPage() {
   };
 
   useEffect(() => {
-    // Show success message if booking was just completed
     if (success && bookingNumber) {
       toast.success(`Booking confirmed! Your booking number is ${bookingNumber}`);
     }
@@ -147,18 +145,19 @@ export default function BookingsPage() {
   }
 
   const currentBookings = bookings.filter(booking =>
-    booking.status === 'confirmed' &&
-    booking.payment_status === 'completed' &&
+    (booking.status === 'confirmed' || booking.status === 'active') &&
+    (booking.payment_status === 'completed' || booking.payment_status === 'fully_paid') &&
     new Date(booking.end_date) > new Date()
   );
 
   const pendingBookings = bookings.filter(booking =>
     booking.status === 'pending' ||
-    (booking.status === 'confirmed' && booking.payment_status === 'pending')
+    ((booking.status === 'confirmed' || booking.status === 'active') &&
+      (booking.payment_status === 'pending' || booking.payment_status === 'initiated'))
   );
 
   const pastBookings = bookings.filter(booking =>
-    (booking.status === 'completed' || new Date(booking.end_date) <= new Date()) ||
+    (booking.status === 'completed' || booking.status === 'finished' || new Date(booking.end_date) <= new Date()) ||
     booking.status === 'cancelled'
   );
 
@@ -179,15 +178,15 @@ export default function BookingsPage() {
     }
   };
 
-  // Helper function to safely parse location
   const parseLocation = (location: string | string[]): string => {
     try {
-      if (!location) {
-        return 'Location not available';
-      }
+      if (!location) return 'Location not available';
       if (typeof location === 'string') {
-        const parsed = JSON.parse(location);
-        return Array.isArray(parsed) ? parsed[0] : location;
+        if (location.startsWith('[') || location.startsWith('{')) {
+          const parsed = JSON.parse(location);
+          return Array.isArray(parsed) ? parsed[0] : location;
+        }
+        return location;
       }
       return Array.isArray(location) ? location[0] : 'Location not available';
     } catch {
@@ -200,7 +199,7 @@ export default function BookingsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-8">My Bookings</h1>
 
-        {!bookings || bookings.length === 0 ? (
+        {bookings.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <p className="text-gray-500">No bookings found</p>
             <button
@@ -212,74 +211,53 @@ export default function BookingsPage() {
           </div>
         ) : (
           <div className="space-y-8">
-            {/* Current Bookings */}
             {currentBookings.length > 0 && (
               <section>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Current Bookings</h2>
                 <div className="grid gap-6">
                   {currentBookings.map(booking => (
-                    <BookingCard
-                      key={booking.id}
-                      booking={booking}
-                      formatDate={formatDate}
-                      parseLocation={parseLocation}
-                    />
+                    <BookingCard key={booking.id} booking={booking} formatDate={formatDate} parseLocation={parseLocation} />
                   ))}
                 </div>
               </section>
             )}
 
-            {/* Pending Bookings */}
             {pendingBookings.length > 0 && (
               <section>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Pending Bookings</h2>
                 <div className="grid gap-6">
                   {pendingBookings.map(booking => (
-                    <BookingCard
-                      key={booking.id}
-                      booking={booking}
-                      formatDate={formatDate}
-                      parseLocation={parseLocation}
-                    />
+                    <BookingCard key={booking.id} booking={booking} formatDate={formatDate} parseLocation={parseLocation} />
                   ))}
                 </div>
               </section>
             )}
 
-            {/* Past Bookings */}
             {pastBookings.length > 0 && (
               <section>
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Past Bookings</h2>
                 <div className="grid gap-6">
                   {pastBookings.map(booking => (
-                    <BookingCard
-                      key={booking.id}
-                      booking={booking}
-                      formatDate={formatDate}
-                      parseLocation={parseLocation}
-                    />
+                    <BookingCard key={booking.id} booking={booking} formatDate={formatDate} parseLocation={parseLocation} />
                   ))}
                 </div>
               </section>
             )}
 
-            {/* Pagination */}
             {pagination.totalPages > 1 && (
               <div className="flex justify-center items-center space-x-4 mt-8">
                 <button
                   onClick={() => handlePageChange(pagination.page - 1)}
                   disabled={pagination.page === 1}
-                  className="px-4 py-2 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="px-4 py-2 border rounded-md disabled:opacity-50 hover:bg-gray-50"
                 >
                   Previous
                 </button>
-                <span className="text-gray-600">
-                  Page {pagination.page} of {pagination.totalPages}
-                </span>
+                <span className="text-gray-600">Page {pagination.page} of {pagination.totalPages}</span>
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
                   disabled={pagination.page === pagination.totalPages}
-                  className="px-4 py-2 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="px-4 py-2 border rounded-md disabled:opacity-50 hover:bg-gray-50"
                 >
                   Next
                 </button>
@@ -292,40 +270,31 @@ export default function BookingsPage() {
   );
 }
 
-// BookingCard component
 function BookingCard({ booking, formatDate, parseLocation }: {
   booking: Booking;
   formatDate: (date: string) => { date: string; time: string };
   parseLocation: (location: string | string[]) => string;
 }) {
-  // Extract date and time parts from formatted strings from API
-  const getDateAndTimeParts = (formattedDateString: string | undefined, fallbackDate: string) => {
-    if (formattedDateString) {
-      // If it's already a formatted string from the API like "07 May 2025, 4:30 PM"
-      const parts = formattedDateString.split(',');
-      if (parts.length === 2) {
-        return {
-          date: parts[0].trim(),
-          time: parts[1].trim()
-        };
-      }
-    }
+  const pickupDateTime = formatDate(booking.pickup_datetime || booking.start_date);
+  const dropoffDateTime = formatDate(booking.dropoff_datetime || booking.end_date);
 
-    // Fallback to our formatDate function
-    return formatDate(fallbackDate);
+  const getStatusDisplay = (status: string) => {
+    const s = status?.toLowerCase();
+    if (s === 'confirmed') return { label: 'Confirmed', variant: 'default' };
+    if (s === 'active' || s === 'completed') return { label: s.charAt(0).toUpperCase() + s.slice(1), variant: 'default' };
+    if (s === 'cancelled') return { label: 'Cancelled', variant: 'destructive' };
+    return { label: s.charAt(0).toUpperCase() + s.slice(1), variant: 'secondary' };
   };
 
-  // Get pickup date/time
-  const pickupDateTime = getDateAndTimeParts(
-    booking.formatted_pickup as string,
-    booking.pickup_datetime || booking.start_date
-  );
+  const getPaymentDisplay = (paymentStatus: string) => {
+    const s = paymentStatus?.toLowerCase();
+    if (s === 'completed' || s === 'fully_paid' || s === 'paid') return { label: 'Payment Completed', variant: 'default' };
+    if (s === 'failed') return { label: 'Payment Failed', variant: 'destructive' };
+    return { label: 'Payment Pending', variant: 'secondary' };
+  };
 
-  // Get dropoff date/time
-  const dropoffDateTime = getDateAndTimeParts(
-    booking.formatted_dropoff as string,
-    booking.dropoff_datetime || booking.end_date
-  );
+  const statusInfo = getStatusDisplay(booking.status);
+  const paymentInfo = getPaymentDisplay(booking.payment_status);
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
@@ -335,36 +304,34 @@ function BookingCard({ booking, formatDate, parseLocation }: {
           <p className="text-gray-500 text-sm">{booking.booking_id}</p>
         </div>
         <div className="flex gap-2">
-          <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
-            {booking.status === 'confirmed' ? 'Confirmed' : 'Pending'}
-          </Badge>
-          <Badge variant={booking.payment_status === 'completed' ? 'default' : 'secondary'}>
-            {booking.payment_status === 'completed' ? 'Payment Completed' : 'Payment Pending'}
-          </Badge>
+          {/* @ts-ignore */}
+          <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+          {/* @ts-ignore */}
+          <Badge variant={paymentInfo.variant}>{paymentInfo.label}</Badge>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
         <div>
-          <p className="text-gray-600 mb-1">Pickup</p>
-          <p className="font-medium">{pickupDateTime.date}</p>
-          <p className="text-sm text-gray-700">{pickupDateTime.time}</p>
-          <p className="text-gray-500 text-sm mt-1">{parseLocation(booking.pickup_location || booking.vehicle.location)}</p>
+          <p className="text-gray-600 mb-1 font-medium text-sm">Pickup</p>
+          <p className="font-semibold text-gray-900">{pickupDateTime.date}</p>
+          <p className="text-sm text-gray-600">{pickupDateTime.time}</p>
+          <p className="text-gray-500 text-xs mt-1 italic">{parseLocation(booking.pickup_location || booking.vehicle.location)}</p>
         </div>
         <div>
-          <p className="text-gray-600 mb-1">Drop-off</p>
-          <p className="font-medium">{dropoffDateTime.date}</p>
-          <p className="text-sm text-gray-700">{dropoffDateTime.time}</p>
-          <p className="text-gray-500 text-sm mt-1">{parseLocation(booking.dropoff_location || booking.pickup_location || booking.vehicle.location)}</p>
+          <p className="text-gray-600 mb-1 font-medium text-sm">Drop-off</p>
+          <p className="font-semibold text-gray-900">{dropoffDateTime.date}</p>
+          <p className="text-sm text-gray-600">{dropoffDateTime.time}</p>
+          <p className="text-gray-500 text-xs mt-1 italic">{parseLocation(booking.dropoff_location || booking.pickup_location || booking.vehicle.location)}</p>
         </div>
       </div>
 
       <div className="mt-4 pt-4 border-t border-gray-100">
         <div className="flex justify-between items-center">
-          <span className="text-gray-600">Total Amount</span>
-          <span className="text-lg font-semibold">₹{booking.total_price}</span>
+          <span className="text-gray-600 font-medium">Total Amount</span>
+          <span className="text-lg font-bold text-orange-600">₹{booking.total_price}</span>
         </div>
       </div>
     </div>
   );
-} 
+}

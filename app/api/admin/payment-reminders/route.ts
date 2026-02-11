@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       FROM bookings b
       JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.id = $1 OR b.booking_id = $1
+      WHERE b.id = $1
     `, [booking_id]);
 
     if (bookingResult.rows.length === 0) {
@@ -73,11 +73,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (result) {
-      logger.info('Payment reminder sent successfully', { 
-        bookingId: booking.booking_id, 
-        reminderType: reminder_type 
+      logger.info('Payment reminder sent successfully', {
+        bookingId: booking.booking_id,
+        reminderType: reminder_type
       });
-      
+
       return NextResponse.json({
         success: true,
         message: 'Payment reminder sent successfully'

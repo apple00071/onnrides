@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { transporter, verifyEmailConfig } from '@/lib/email/config';
 import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   logger.info('Received test email request');
-  
+
   try {
+    // Auth check: admin only
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     // First verify the configuration
     logger.info('Verifying email configuration...');
     const isConfigValid = await verifyEmailConfig();
-    
+
     if (!isConfigValid) {
       logger.error('Email configuration verification failed');
       return NextResponse.json(
-        { 
+        {
           error: 'Email configuration verification failed',
           details: 'Failed to verify SMTP connection'
         },
@@ -42,17 +49,6 @@ export async function POST(request: NextRequest) {
           <h1 style="color: #f26e24; text-align: center;">Email Test Successful!</h1>
           <p>This is a test email to verify your email configuration.</p>
           <p>If you're seeing this, it means your email setup is working correctly!</p>
-          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="margin-top: 0;">Configuration Used:</h3>
-            <ul style="list-style-type: none; padding-left: 0;">
-              <li>Environment: ${process.env.NODE_ENV}</li>
-              <li>SMTP Host: ${process.env.SMTP_HOST}</li>
-              <li>SMTP Port: ${process.env.SMTP_PORT || '465'}</li>
-              <li>From: ${process.env.SMTP_FROM}</li>
-              <li>Secure: true</li>
-              <li>TLS: Enabled (v1.2+)</li>
-            </ul>
-          </div>
           <p style="color: #666; font-size: 12px;">Sent at: ${new Date().toLocaleString()}</p>
         </div>
       `,
@@ -102,7 +98,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to send test email',
         details: error instanceof Error ? error.message : 'Unknown error'
       },

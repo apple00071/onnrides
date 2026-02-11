@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 3600; // Revalidate every hour
@@ -11,7 +12,7 @@ export async function GET() {
     );
     return NextResponse.json({ vehicles: result.rows });
   } catch (error) {
-    console.error('Error fetching vehicles:', error);
+    logger.error('Error fetching vehicles:', error);
     // Return empty array instead of error for static generation
     return NextResponse.json({ vehicles: [] });
   }

@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         // Update document status
         const updateResult = await query(
             `UPDATE documents 
-             SET status = $1::uuid, 
+             SET status = $1::text, 
                  rejection_reason = $2,
                  updated_at = NOW()
              WHERE id = $3::uuid
@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
                 supportEmail: process.env.SUPPORT_EMAIL || 'support@onnrides.com'
             };
 
-            const subject = status === 'approved' 
-                ? 'Document Verification Successful' 
+            const subject = status === 'approved'
+                ? 'Document Verification Successful'
                 : 'Document Verification Failed';
 
             const template = status === 'approved'
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
                 `;
 
             await emailService.sendEmail(document.email, subject, template);
-            
+
             logger.info('Document verification email sent:', {
                 documentId,
                 userId: document.user_id,
