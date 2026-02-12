@@ -56,11 +56,6 @@ const nextConfig = {
         permanent: true,
       },
       {
-        source: '/admin-login',
-        destination: '/admin/login',
-        permanent: true,
-      },
-      {
         source: '/privacy',
         destination: '/privacy-policy',
         permanent: true,

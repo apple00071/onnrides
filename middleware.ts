@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Always allow admin login page
-    if (pathname === '/admin-login') {
+    if (pathname === '/admin-login' || pathname === '/admin/login') {
       return undefined;
     }
 

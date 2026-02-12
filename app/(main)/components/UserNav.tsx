@@ -24,10 +24,10 @@ interface UserNavProps {
 export default function UserNav({ user }: UserNavProps) {
   const handleSignOut = async () => {
     try {
-      await signOut({ callbackUrl: '/login' });
+      await signOut({ callbackUrl: '/auth/signin' });
     } catch (error) {
       logger.error('Sign out error:', error);
-      window.location.href = '/login';
+      window.location.href = '/auth/signin';
     }
   };
 
