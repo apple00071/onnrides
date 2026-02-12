@@ -2,7 +2,7 @@
 
 import logger from '@/lib/logger';
 import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { 
   BarChart, 

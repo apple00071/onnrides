@@ -131,6 +131,8 @@ export async function GET(request: Request) {
         v.name as vehicle_name,
         v.type as vehicle_type,
         v.id as vehicle_id,
+        ti.vehicle_number as trip_vehicle_number,
+        ti.customer_phone as trip_customer_phone,
         CASE 
           WHEN b.booking_type = 'offline' THEN b.customer_name
           ELSE u.name
@@ -153,6 +155,7 @@ export async function GET(request: Request) {
       FROM bookings b
       LEFT JOIN users u ON b.user_id = u.id
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
+      LEFT JOIN trip_initiations ti ON b.id = ti.booking_id
       ORDER BY b.created_at DESC
       LIMIT $1 OFFSET $2
     `;
@@ -185,7 +188,7 @@ export async function GET(request: Request) {
           booking_type: booking.booking_type || 'online',
           created_at: booking.created_at,
           updated_at: booking.updated_at,
-          registration_number: booking.registration_number,
+          registration_number: booking.trip_vehicle_number || booking.registration_number,
           pickup_location: booking.pickup_location || null,
           vehicle: {
             id: booking.vehicle_id,
@@ -195,7 +198,7 @@ export async function GET(request: Request) {
           user: {
             id: booking.user_id,
             name: booking.effective_user_name,
-            phone: booking.effective_user_phone,
+            phone: booking.trip_customer_phone || booking.effective_user_phone,
             email: booking.effective_user_email
           },
           documents: {},

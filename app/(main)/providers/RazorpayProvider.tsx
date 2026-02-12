@@ -1,7 +1,7 @@
 'use client';
 
 import Script from 'next/script';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import logger from '@/lib/logger';
 import { useState, useEffect } from 'react';
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -69,7 +69,6 @@ export default function VehicleReturnsPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [activeTab, setActiveTab] = useState<'bookings' | 'returns'>('bookings');
 
-  const { toast } = useToast();
 
   // Fetch bookings
   const fetchBookings = async () => {
@@ -153,10 +152,6 @@ export default function VehicleReturnsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="hidden md:block bg-white p-5 rounded-xl border shadow-sm">
-        <h1 className="text-xl font-bold text-gray-900 tracking-tight">Booking Completion</h1>
-        <p className="text-xs text-gray-500 mt-0.5">Manage and track completed bookings and returns</p>
-      </div>
       <div className="md:hidden text-sm font-medium text-gray-400 mb-2 px-1">
         Admin / Returns
       </div>

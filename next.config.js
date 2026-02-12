@@ -42,7 +42,31 @@ const nextConfig = {
     ignoreDuringBuilds: true
   },
   // Use output: 'standalone' for better deployment compatibility 
-  output: 'standalone'
+  output: 'standalone',
+  async redirects() {
+    return [
+      {
+        source: '/login',
+        destination: '/auth/signin',
+        permanent: true,
+      },
+      {
+        source: '/register',
+        destination: '/auth/signup',
+        permanent: true,
+      },
+      {
+        source: '/admin-login',
+        destination: '/admin/login',
+        permanent: true,
+      },
+      {
+        source: '/privacy',
+        destination: '/privacy-policy',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

@@ -34,76 +34,39 @@ interface VehicleDistribution {
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if user is authenticated and is an admin
+    // Auth check: admin only
     const session = await getServerSession(authOptions);
-    const user = session?.user as User | undefined;
-
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session?.user || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const reports: Reports = {
-      total_bookings: 0,
-      total_revenue: 0,
-      total_users: 0,
-      total_vehicles: 0,
-      pending_documents: 0,
-      monthly_revenue: [],
-      vehicle_distribution: []
-    };
+    // Get URL parameters for pagination (optional but good practice)
+    const url = new URL(request.url);
+    const limit = parseInt(url.searchParams.get('limit') || '50');
+    const offset = parseInt(url.searchParams.get('offset') || '0');
 
-    // Get total bookings and revenue
-    const bookingsStats = await query(`
+    // Get activity logs
+    const result = await query(`
       SELECT 
-        COUNT(*) as total_bookings,
-        COALESCE(SUM(total_price), 0) as total_revenue
-      FROM bookings
-    `);
-
-    reports.total_bookings = parseInt(bookingsStats.rows[0].total_bookings);
-    reports.total_revenue = parseFloat(bookingsStats.rows[0].total_revenue);
-
-    // Get total users
-    const usersStats = await query('SELECT COUNT(*) as total FROM users');
-    reports.total_users = parseInt(usersStats.rows[0].total);
-
-    // Get total vehicles
-    const vehiclesStats = await query('SELECT COUNT(*) as total FROM vehicles');
-    reports.total_vehicles = parseInt(vehiclesStats.rows[0].total);
-
-    // Get pending documents
-    const documentsStats = await query("SELECT COUNT(*) as total FROM documents WHERE status = 'pending'");
-    reports.pending_documents = parseInt(documentsStats.rows[0].total);
-
-    // Get monthly revenue
-    const monthlyRevenueResult = await query(`
-      SELECT 
-        TO_CHAR(created_at, 'YYYY-MM') as month,
-        COALESCE(SUM(total_price), 0) as revenue
-      FROM bookings
-      WHERE created_at >= NOW() - INTERVAL '12 months'
-      GROUP BY TO_CHAR(created_at, 'YYYY-MM')
-      ORDER BY month DESC
-    `);
-
-    reports.monthly_revenue = monthlyRevenueResult.rows.map((row: any) => ({
-      month: row.month,
-      revenue: parseFloat(row.revenue)
-    }));
-
-    // Get vehicle type distribution
-    const distributionResult = await query(`
-      SELECT 
+        id,
         type,
-        COUNT(*) as count
-      FROM vehicles
-      GROUP BY type
-      ORDER BY count DESC
-    `);
+        message,
+        metadata,
+        created_at
+      FROM activity_logs
+      ORDER BY created_at DESC
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
 
-    reports.vehicle_distribution = distributionResult.rows.map((row: any) => ({
-      type: row.type,
-      count: parseInt(row.count)
+    // Map database rows to the format expected by the frontend
+    const reports = result.rows.map((row: any) => ({
+      id: row.id,
+      type: row.type || 'SYSTEM',
+      data: {
+        message: row.message,
+        ...(row.metadata || {})
+      },
+      created_at: row.created_at
     }));
 
     return NextResponse.json(reports);
@@ -114,4 +77,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

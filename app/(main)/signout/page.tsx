@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import logger from '@/lib/logger';
 
 export default function SignOut() {

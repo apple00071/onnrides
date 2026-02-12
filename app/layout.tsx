@@ -4,7 +4,7 @@ import './globals.css';
 import { Providers } from './providers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { AuthProvider } from './providers/AuthProvider';
+import { AuthProvider } from './context-providers/AuthProvider';
 import { ScriptLoader } from '@/components/ScriptLoader';
 import { NotificationBar } from '@/components/ui/NotificationBar';
 import JsonLd from './components/JsonLd';
@@ -12,7 +12,7 @@ import ClientOnly from './(main)/providers/ClientOnly';
 import logger from '@/lib/logger';
 import { cn, suppressHydrationWarning } from '@/lib/utils';
 import GoogleAnalytics from './components/GoogleAnalytics';
-import { Toaster } from '@/components/ui/toaster';
+import { ToasterProvider } from '@/components/providers/ToasterProvider';
 import { SidebarProvider } from '@/hooks/use-sidebar';
 import { inter } from './fonts'
 import { redirect } from 'next/navigation';
@@ -20,7 +20,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SessionProvider } from '@/components/providers/session-provider';
 import { MaintenanceCheck } from '@/components/MaintenanceCheck';
 import { getBooleanSetting, SETTINGS } from '@/lib/settings';
-import { DynamicErrorBoundary, DynamicToaster } from './components/DynamicClientComponents';
+import { DynamicErrorBoundary } from './components/DynamicClientComponents';
 
 // Force dynamic rendering for all pages
 export const dynamic = 'force-dynamic';
@@ -355,14 +355,13 @@ export default async function RootLayout({
                   <MaintenanceCheck isMaintenanceMode={maintenanceMode}>
                     {children}
                   </MaintenanceCheck>
-                  <DynamicToaster />
+                  <ToasterProvider />
                   <ScriptLoader />
                 </SidebarProvider>
               </ClientOnly>
             </Providers>
           </DynamicErrorBoundary>
           <JsonLd data={structuredDataItems} />
-          <DynamicToaster />
         </body>
       </html>
     );
@@ -381,7 +380,7 @@ export default async function RootLayout({
               </div>
             </div>
           </div>
-          <DynamicToaster />
+          <ToasterProvider />
         </body>
       </html>
     );

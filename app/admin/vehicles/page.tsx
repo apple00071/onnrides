@@ -21,7 +21,7 @@ import { useRouter } from 'next/navigation';
 import { Vehicle, VehicleFormData } from '@/app/(main)/vehicles/types';
 import { VehicleType, VehicleStatus, VEHICLE_STATUS } from '@/lib/schema';
 import { cn } from '@/lib/utils';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { PageHeader, PageHeaderActions } from '@/components/ui/page-header';
 import Image from 'next/image';
 import { Search, ImageIcon } from 'lucide-react';
@@ -434,32 +434,23 @@ export default function VehiclesPage() {
 
     content = (
       <div className="space-y-6">
-        {/* Header */}
-        {/* Mobile Header (Hidden on Desktop) */}
-        <div className="flex justify-between items-center mb-6 md:hidden">
-          <h1 className="text-xl font-bold">Vehicles</h1>
-          <Button
-            onClick={handleAddClick}
-            className="bg-[#f26e24] hover:bg-[#e05d13] text-white shadow-sm h-9 px-3 text-sm"
-          >
-            <FaPlus className="w-3 h-3 mr-1.5" />
-            Add
-          </Button>
-        </div>
-
-        {/* Mobile Filter Summary (Visible only on mobile) */}
-        <div className="md:hidden flex justify-between items-center mb-4">
-          <div className="text-sm font-medium text-gray-500">
-            {filteredVehicles.length} vehicles found
+        {/* Mobile Header (Visible only on mobile) */}
+        <div className="md:hidden mb-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-xl font-bold">Vehicles</h1>
+              <p className="text-xs font-medium text-gray-500 mt-0.5">
+                {filteredVehicles.length} vehicles found
+              </p>
+            </div>
+            <Button
+              onClick={handleAddClick}
+              className="bg-[#f26e24] hover:bg-[#e05d13] text-white shadow-sm h-9 px-4"
+            >
+              <FaPlus className="w-3.5 h-3.5 mr-2" />
+              Add
+            </Button>
           </div>
-          <Button
-            size="sm"
-            onClick={handleAddClick}
-            className="bg-[#f26e24] hover:bg-[#e05d13] text-white shadow-sm h-9 px-4"
-          >
-            <FaPlus className="w-3.5 h-3.5 mr-2" />
-            Add
-          </Button>
         </div>
 
         {/* Desktop Header Actions (Hidden on Mobile) */}
@@ -523,7 +514,7 @@ export default function VehiclesPage() {
                 id="select-all"
                 checked={selectedVehicles.length === filteredVehicles.length && filteredVehicles.length > 0}
                 onCheckedChange={() => toggleSelectAll(filteredVehicles)}
-                className="h-4 w-4 border-gray-300"
+                className="border-gray-300"
               />
               <Label htmlFor="select-all" className="text-sm font-semibold text-gray-700 cursor-pointer select-none">
                 Select All ({filteredVehicles.length})
@@ -623,7 +614,7 @@ export default function VehiclesPage() {
                 <Checkbox
                   checked={selectedVehicles.includes(vehicle.id)}
                   onCheckedChange={() => toggleVehicleSelection(vehicle.id)}
-                  className="h-4 w-4 rounded-md border-gray-300 bg-white/50 backdrop-blur-sm data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all shadow-sm"
+                  className="rounded-md border-gray-300 bg-white/50 backdrop-blur-sm data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all shadow-sm"
                 />
               </div>
               {/* Image */}
@@ -707,7 +698,7 @@ export default function VehiclesPage() {
                           id={`is_available-${vehicle.id}`}
                           checked={vehicle.is_available}
                           onCheckedChange={(checked: boolean) => handleAvailabilityChange(vehicle.id, checked)}
-                          className="h-5 w-9 data-[state=checked]:bg-green-500"
+                          className="data-[state=checked]:bg-green-500"
                         />
                       </div>
                       <Label

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatDateTimeIST, toIST } from '@/lib/utils/timezone';

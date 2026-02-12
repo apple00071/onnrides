@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { initializeRazorpayPayment } from '@/app/(main)/providers/RazorpayProvider';
 import logger from '@/lib/logger';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export default function PaymentPage() {
   const searchParams = useSearchParams();

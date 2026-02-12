@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import UserNav from './UserNav';
 import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { User, LogOut, Home, Phone, Info, Car, UserCircle, Menu, X, Truck, MapPin } from 'lucide-react';
 
 export default function Navbar() {

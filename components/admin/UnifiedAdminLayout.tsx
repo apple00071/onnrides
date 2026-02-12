@@ -12,7 +12,7 @@ import { toast } from 'react-hot-toast';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
-    const { isOpen, isMobile } = useSidebar();
+    const { isOpen, isMobile, isHovered } = useSidebar();
     const pathname = usePathname();
     const router = useRouter();
     const { data: session } = useSession();
@@ -41,8 +41,8 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
             <Sidebar />
 
             <div className={cn(
-                "flex flex-1 flex-col transition-all duration-300",
-                isMobile ? "pt-16" : (isOpen ? "md:ml-48" : "md:ml-16")
+                "flex flex-1 flex-col transition-all duration-200",
+                isMobile ? "pt-16" : (isOpen || isHovered ? "md:ml-48" : "md:ml-16")
             )}>
                 {/* Desktop Header */}
                 <header className="hidden md:flex h-16 items-center justify-between border-b bg-background px-8 sticky top-0 z-30">

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Upload } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import logger from '@/lib/logger';
 
 interface DocumentVerificationProps {

@@ -110,6 +110,7 @@
     "tsx": "^4.7.1",
     "twilio": "^4.22.0",
     "uuid": "^9.0.1",
+    "vaul": "^1.1.2",
     "victory-vendor": "^37.3.6",
     "wasenderapi": "^0.1.5",
     "winston": "^3.11.0",

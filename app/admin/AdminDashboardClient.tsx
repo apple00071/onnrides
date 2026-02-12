@@ -10,7 +10,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ErrorBoundary from '@/components/ErrorBoundary';
 

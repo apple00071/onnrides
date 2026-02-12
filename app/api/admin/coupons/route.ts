@@ -26,11 +26,11 @@ export async function GET(request: NextRequest) {
       ORDER BY created_at DESC
     `);
 
-    return NextResponse.json(result.rows);
+    return NextResponse.json({ success: true, coupons: result.rows });
   } catch (error) {
     logger.error('Error fetching coupons:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch coupons' },
+      { success: false, error: error instanceof Error ? error.message : 'Failed to fetch coupons' },
       { status: 500 }
     );
   }
@@ -41,15 +41,15 @@ export async function POST(request: NextRequest) {
     // Check if user is admin
     const isUserAdmin = await isAdmin();
     if (!isUserAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const data = await request.json();
 
     // Validate required fields
-    if (!data.code || !data.discount || !data.max_uses) {
+    if (!data.code || !data.discount_value) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { success: false, error: 'Missing required fields' },
         { status: 400 }
       );
     }
@@ -58,19 +58,41 @@ export async function POST(request: NextRequest) {
     const discountType = data.discount_type || 'percentage';
     if (!DISCOUNT_TYPES.includes(discountType)) {
       return NextResponse.json(
-        { error: `Invalid discount_type. Must be one of: ${DISCOUNT_TYPES.join(', ')}` },
+        { success: false, error: `Invalid discount_type. Must be one of: ${DISCOUNT_TYPES.join(', ')}` },
         { status: 400 }
       );
     }
 
     // Insert new coupon into database
     const result = await query(`
-      INSERT INTO coupons (code, discount, discount_type, max_uses, description)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO coupons (
+        code, 
+        discount_value, 
+        discount_type, 
+        description,
+        min_booking_amount,
+        max_discount_amount,
+        start_date,
+        end_date,
+        usage_limit,
+        is_active
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
-    `, [data.code, data.discount, discountType, data.max_uses, data.description || null]);
+    `, [
+      data.code,
+      data.discount_value,
+      discountType,
+      data.description || null,
+      data.min_booking_amount || null,
+      data.max_discount_amount || null,
+      data.start_date || null,
+      data.end_date || null,
+      data.usage_limit || null,
+      data.is_active ?? true
+    ]);
 
-    return NextResponse.json(result.rows[0]);
+    return NextResponse.json({ success: true, coupon: result.rows[0] });
   } catch (error) {
     logger.error('Error creating coupon:', error);
     return NextResponse.json(

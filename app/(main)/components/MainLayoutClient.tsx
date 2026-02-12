@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import logger from '@/lib/logger';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import { ProviderRegistry } from '../../providers/ProviderRegistry';
+import { ProviderRegistry } from '../../context-providers/ProviderRegistry';
 
 // Remove Inter font import and configuration
 
@@ -24,7 +24,7 @@ export default function MainLayoutClient({
 
   return (
     <div className="min-h-screen bg-background">
-      <Script 
+      <Script
         id="structured-data"
         type="application/ld+json"
         dangerouslySetInnerHTML={{

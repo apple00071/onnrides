@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import logger from '@/lib/logger';
 import { formatDateTime } from '@/lib/utils/time-formatter';
 

@@ -25,7 +25,8 @@ async function runMigrations() {
       '030_standardize_column_names.sql',
       '031_safe_column_handling.sql',
       '032_add_is_blocked_column.sql',
-      '033_add_booking_type.sql'
+      '033_add_booking_type.sql',
+      '014_security_hardening.sql'
     ];
     
     // Create migrations table if it doesn't exist

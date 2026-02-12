@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { DataTable } from '@/components/ui/data-table';
 import { columns, type User } from './columns';
 import { Button } from '@/components/ui/button';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
 import { DeleteConfirmationDialog } from '@/components/admin/DeleteConfirmationDialog';
 import { Badge } from '@/components/ui/badge';
@@ -118,10 +118,6 @@ export default function UsersPage() {
     <div className="space-y-6">
       {/* Header & Actions Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-xl border shadow-sm gap-4">
-        <div className="hidden md:block">
-          <h1 className="text-xl font-bold text-gray-900 tracking-tight">User Management</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Manage user accounts and details</p>
-        </div>
         <div className="flex justify-between items-center w-full sm:w-auto gap-3">
           <div className="md:hidden text-sm font-medium text-gray-500">
             {users.length} Users

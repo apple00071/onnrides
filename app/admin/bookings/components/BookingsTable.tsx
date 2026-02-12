@@ -10,7 +10,7 @@ import { toZonedTime } from 'date-fns-tz';
 import { formatCurrency } from '@/lib/utils/currency-formatter';
 import { ViewBookingModal } from './ViewBookingModal';
 import { ViewHistoryModal } from './ViewHistoryModal';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import logger from '@/lib/logger';
 import { type Booking, type User, type Vehicle } from "@/lib/schema";
 import { formatDate, formatTime } from '@/lib/utils/time-formatter';
@@ -73,7 +73,6 @@ export function BookingsTable() {
   const [selectedBooking, setSelectedBooking] = useState<BookingWithRelations | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchBookings();
@@ -85,7 +84,7 @@ export function BookingsTable() {
       setError(null);
       const response = await fetch(`/api/admin/bookings?page=${currentPage}`);
       const result = await response.json();
-      
+
       if (!response.ok || !result.success) {
         throw new Error(result.error || 'Failed to fetch bookings');
       }
@@ -106,7 +105,7 @@ export function BookingsTable() {
       }));
 
       console.log('Mapped bookings:', mappedBookings);
-      
+
       setBookings(mappedBookings);
       setTotalPages(result.pagination.totalPages);
       setTotalItems(result.pagination.totalItems);
@@ -116,10 +115,8 @@ export function BookingsTable() {
       setBookings([]);
       setTotalPages(1);
       setTotalItems(0);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to load bookings",
-        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -144,17 +141,17 @@ export function BookingsTable() {
     try {
       // Store the original booking state
       const originalBooking = { ...booking };
-      
+
       // Optimistically update the UI
       setBookings(prevBookings =>
         prevBookings.map(b =>
           b.booking_id === booking.booking_id
-            ? { 
-                ...b, 
-                status: 'cancelled', 
-                payment_status: 'cancelled',
-                updated_at: new Date().toISOString() 
-              }
+            ? {
+              ...b,
+              status: 'cancelled',
+              payment_status: 'cancelled',
+              updated_at: new Date().toISOString()
+            }
             : b
         )
       );
@@ -184,8 +181,7 @@ export function BookingsTable() {
         throw new Error(data.error || 'Failed to cancel booking');
       }
 
-      toast({
-        title: "Success",
+      toast.success("Success", {
         description: "Booking cancelled successfully"
       });
 
@@ -195,10 +191,8 @@ export function BookingsTable() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to cancel booking';
       logger.error('Error cancelling booking:', { error: errorMessage, bookingId: booking.booking_id });
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: errorMessage,
-        variant: "destructive"
       });
     }
   };
@@ -311,7 +305,7 @@ export function BookingsTable() {
                       </span>
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
-                      <Badge 
+                      <Badge
                         variant={getStatusBadgeVariant(booking.status)}
                         className="capitalize"
                       >
@@ -319,16 +313,16 @@ export function BookingsTable() {
                       </Badge>
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
-                      <Badge 
+                      <Badge
                         variant={
                           booking.payment_status === 'completed' ? 'success' :
-                          booking.payment_status === 'pending' ? 'warning' :
-                          'secondary'
+                            booking.payment_status === 'pending' ? 'warning' :
+                              'secondary'
                         }
                         className="capitalize"
                       >
-                        {booking.booking_type === 'online' && booking.payment_status === 'completed' ? 
-                          '5% Collected' : 
+                        {booking.booking_type === 'online' && booking.payment_status === 'completed' ?
+                          '5% Collected' :
                           booking.payment_status
                         }
                       </Badge>

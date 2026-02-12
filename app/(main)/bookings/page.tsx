@@ -3,7 +3,7 @@
 import logger from '@/lib/logger';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { Badge } from '@/components/ui/badge';

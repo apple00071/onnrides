@@ -46,6 +46,12 @@ export async function POST(
     const vehicleNumber = formData.get('vehicleNumber') as string;
     const termsAccepted = formData.get('termsAccepted') === 'true';
 
+    // Operational Data
+    const fuelLevel = formData.get('fuelLevel') as string;
+    const odometerReading = formData.get('odometerReading') as string;
+    const damageNotes = formData.get('damageNotes') as string;
+    const cleanlinessNotes = formData.get('cleanlinessNotes') as string;
+
     // Handle file uploads
     const documentUrls: Record<string, string> = {};
     const fileTypes = ['dlFront', 'dlBack', 'aadhaarFront', 'aadhaarBack', 'customerPhoto'];
@@ -71,13 +77,25 @@ export async function POST(
     await query('BEGIN');
 
     try {
+      // Runtime Migration: Ensure columns exist
+      await query(`
+        ALTER TABLE trip_initiations 
+        ADD COLUMN IF NOT EXISTS fuel_level VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS odometer_reading VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS damage_notes TEXT,
+        ADD COLUMN IF NOT EXISTS cleanliness_notes TEXT
+      `);
+
       // Check if trip initiation exists
       const existingInitiationResult = await query(
-        'SELECT id FROM trip_initiations WHERE booking_id = $1',
+        'SELECT id, documents FROM trip_initiations WHERE booking_id = $1',
         [bookingId]
       );
 
       if (existingInitiationResult.rows.length > 0) {
+        const existingDocs = existingInitiationResult.rows[0].documents || {};
+        const mergedDocs = { ...existingDocs, ...documentUrls };
+
         // Update existing trip initiation
         await query(`
           UPDATE trip_initiations SET
@@ -95,8 +113,12 @@ export async function POST(
             documents = $12,
             terms_accepted = $13,
             notes = $14,
+            fuel_level = $15,
+            odometer_reading = $16,
+            damage_notes = $17,
+            cleanliness_notes = $18,
             updated_at = NOW()
-          WHERE booking_id = $15
+          WHERE booking_id = $19
         `, [
           checklistCompleted,
           customerInfo.name,
@@ -109,9 +131,13 @@ export async function POST(
           customerInfo.aadhaarNumber,
           customerInfo.dob,
           vehicleNumber,
-          JSON.stringify(documentUrls),
+          JSON.stringify(mergedDocs),
           termsAccepted,
           tripNotes,
+          fuelLevel,
+          odometerReading,
+          damageNotes,
+          cleanlinessNotes,
           bookingId
         ]);
       } else {
@@ -132,8 +158,12 @@ export async function POST(
             vehicle_number,
             documents,
             terms_accepted,
-            notes
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            notes,
+            fuel_level,
+            odometer_reading,
+            damage_notes,
+            cleanliness_notes
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         `, [
           bookingId,
           checklistCompleted,
@@ -149,7 +179,11 @@ export async function POST(
           vehicleNumber,
           JSON.stringify(documentUrls),
           termsAccepted,
-          tripNotes
+          tripNotes,
+          fuelLevel,
+          odometerReading,
+          damageNotes,
+          cleanlinessNotes
         ]);
       }
 
@@ -194,6 +228,57 @@ export async function POST(
       {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to initiate trip'
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ bookingId: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const resolvedParams = await params;
+    const bookingId = resolvedParams.bookingId;
+
+    if (!bookingId) {
+      return NextResponse.json(
+        { success: false, error: 'Booking ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const result = await query(
+      `SELECT * FROM trip_initiations WHERE booking_id = $1`,
+      [bookingId]
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Trip initiation not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      initiation: result.rows[0]
+    });
+  } catch (error) {
+    logger.error('Error fetching trip initiation:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch trip initiation'
       },
       { status: 500 }
     );

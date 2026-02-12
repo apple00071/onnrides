@@ -84,47 +84,31 @@ export default function BookingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Search & Actions Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="hidden md:block">
-          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Booking Management</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Manage orders, payments, and schedules</p>
-        </div>
-        <div className="flex justify-between items-center w-full sm:w-auto gap-3">
-          <div className="md:hidden text-sm font-medium text-gray-500">
-            {bookings.length} Bookings
+      <div className="bg-white p-3 md:p-4 rounded-xl border shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          {/* Search - 3 columns on desktop */}
+          <div className="md:col-span-3 relative">
+            <label className="text-[10px] uppercase font-bold text-gray-400 ml-1 mb-1 block">Search</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search bookings..."
+                value={searchQuery}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                className="pl-10 h-10 border-gray-200 focus:border-primary/50 focus:ring-primary/20 transition-all font-medium text-sm rounded-lg"
+              />
+            </div>
           </div>
-          <Button
-            className="bg-[#f26e24] hover:bg-[#d95e1d] text-white shadow-sm flex items-center gap-2 h-10 px-4 rounded-xl"
-            onClick={() => router.push('/admin/offline-booking')}
-          >
-            <PlusCircle className="h-4 w-4" />
-            <span className="hidden sm:inline">Create Offline Booking</span>
-            <span className="sm:hidden">Offline</span>
-          </Button>
-        </div>
-      </div>
 
-      <div className="bg-white p-3 md:p-6 rounded-xl border shadow-sm space-y-3 md:space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search bookings..."
-            value={searchQuery}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-            className="pl-10 h-10 md:h-11 border-gray-200 focus:border-primary/50 focus:ring-primary/20 transition-all font-medium text-sm rounded-lg"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 items-end">
-          <div className="space-y-1">
+          {/* Status - 2 columns on desktop */}
+          <div className="md:col-span-2 space-y-1">
             <label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Status</label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 md:h-10 border-gray-200 bg-gray-50/30 text-xs font-medium rounded-lg">
+              <SelectTrigger className="h-10 border-gray-200 bg-gray-50/30 text-xs font-medium rounded-lg">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 {statusOptions.map((status) => (
                   <SelectItem key={status} value={status} className="capitalize text-xs">
                     {status}
@@ -134,14 +118,15 @@ export default function BookingsPage() {
             </Select>
           </div>
 
-          <div className="space-y-1">
+          {/* Payment - 2 columns on desktop */}
+          <div className="md:col-span-2 space-y-1">
             <label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Payment</label>
             <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-              <SelectTrigger className="h-9 md:h-10 border-gray-200 bg-gray-50/30 text-xs font-medium rounded-lg">
+              <SelectTrigger className="h-10 border-gray-200 bg-gray-50/30 text-xs font-medium rounded-lg">
                 <SelectValue placeholder="Payment" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="all">All Payment</SelectItem>
                 {paymentOptions.map((payment) => (
                   <SelectItem key={payment} value={payment} className="capitalize text-xs">
                     {payment}
@@ -151,16 +136,32 @@ export default function BookingsPage() {
             </Select>
           </div>
 
-          <div className="col-span-2 md:col-span-1 flex gap-2 pt-1 md:pt-0">
-            {(searchQuery || statusFilter !== 'all' || paymentFilter !== 'all') && (
+          {/* Reset Filters - 2 columns on desktop */}
+          <div className="md:col-span-2 flex items-end">
+            {(searchQuery || statusFilter !== 'all' || paymentFilter !== 'all') ? (
               <Button
                 variant="outline"
                 onClick={resetFilters}
-                className="flex-1 border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors h-9 md:h-10 text-[10px] font-bold uppercase tracking-wider rounded-lg"
+                className="w-full border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors h-10 text-[10px] font-bold uppercase tracking-wider rounded-lg"
               >
                 <FilterX className="h-3.5 w-3.5 mr-1.5" /> Reset
               </Button>
+            ) : (
+              <div className="h-10 flex items-center px-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/50 rounded-lg border border-dashed border-gray-200 w-full justify-center">
+                Filters
+              </div>
             )}
+          </div>
+
+          {/* Create Offline Booking - 3 columns on desktop */}
+          <div className="md:col-span-3 flex items-end">
+            <Button
+              className="w-full bg-[#f26e24] hover:bg-[#d95e1d] text-white shadow-sm flex items-center justify-center gap-2 h-10 px-4 rounded-xl font-bold text-xs"
+              onClick={() => router.push('/admin/offline-booking')}
+            >
+              <PlusCircle className="h-4 w-4" />
+              <span>Create Offline Booking</span>
+            </Button>
           </div>
         </div>
       </div>
@@ -226,8 +227,8 @@ export default function BookingsPage() {
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
                       <div className={`text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${booking.status === 'completed' ? 'bg-green-100 text-green-700 border border-green-200' :
-                          booking.status === 'cancelled' ? 'bg-red-100 text-red-700 border border-red-200' :
-                            'bg-blue-100 text-blue-700 border border-blue-200'
+                        booking.status === 'cancelled' ? 'bg-red-100 text-red-700 border border-red-200' :
+                          'bg-blue-100 text-blue-700 border border-blue-200'
                         }`}>
                         {booking.status}
                       </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { FaCheck, FaTimes, FaEye, FaBan } from 'react-icons/fa';
 import logger from '@/lib/logger';
 import {

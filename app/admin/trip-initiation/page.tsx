@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Loader2, Eye, PlayCircle, Filter, Search, RefreshCw } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils/time-formatter';
 import { formatCurrency } from '@/lib/utils/currency-formatter';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import logger from '@/lib/logger';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -319,7 +319,6 @@ export default function TripInitiationPage() {
   const [selectedBooking, setSelectedBooking] = useState<BookingWithRelations | null>(null);
   const [isInitiateModalOpen, setIsInitiateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const { toast } = useToast();
 
   // Fetch bookings on mount and when page, filters change
   useEffect(() => {
@@ -402,10 +401,8 @@ export default function TripInitiationPage() {
       setFilteredBookings([]);
       setTotalPages(1);
       setTotalItems(0);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to load bookings",
-        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -461,8 +458,7 @@ export default function TripInitiationPage() {
   };
 
   const handleTripInitiated = async (bookingId: string) => {
-    toast({
-      title: "Success",
+    toast.success("Success", {
       description: "Trip successfully initiated"
     });
 
@@ -494,13 +490,6 @@ export default function TripInitiationPage() {
   return (
     <div className="flex flex-col min-h-screen w-full">
       <div className="flex-1 flex flex-col w-full">
-        {/* Desktop Summary Info (Hidden on Mobile) */}
-        <div className="hidden md:block bg-white border-b px-4 py-4">
-          <h2 className="text-lg font-semibold text-gray-900 border-l-4 border-orange-500 pl-3">Manage Trip Initiations</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Review and initiate trips for confirmed bookings
-          </p>
-        </div>
 
         <div className="flex-1 flex flex-col w-full">
           <div className="bg-white p-3 md:p-4 border-b">

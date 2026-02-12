@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import logger from '@/lib/logger';

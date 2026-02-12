@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -18,7 +18,6 @@ interface CreateOfflineBookingModalProps {
 
 export function CreateOfflineBookingModal({ isOpen, onClose }: CreateOfflineBookingModalProps) {
   const router = useRouter();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {

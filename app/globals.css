@@ -223,9 +223,7 @@
       font-size: 16px !important; /* Prevents zoom on focus in iOS */
     }
 
-    /* Better touch targets */
-    button, 
-    [role="button"],
+    /* Better touch targets - removed redundant 44px override to allow specialized components to scale */
     input[type="submit"], 
     input[type="reset"],
     input[type="button"] {

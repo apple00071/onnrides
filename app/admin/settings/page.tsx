@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -135,10 +135,6 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="hidden md:block bg-white p-5 rounded-xl border shadow-sm">
-        <h1 className="text-xl font-bold text-gray-900 tracking-tight">System Settings</h1>
-        <p className="text-xs text-gray-500 mt-0.5">Manage global configuration and parameters</p>
-      </div>
       <div className="md:hidden text-sm font-medium text-gray-400 mb-2 px-1">
         Admin / Settings
       </div>

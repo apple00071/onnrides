@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { VehicleDetailsProps } from './types';
 import { useAuth } from '@/providers/AuthProvider';
 

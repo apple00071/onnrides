@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,8 @@ import AddCouponModal from './components/AddCouponModal';
 import EditCouponModal from './components/EditCouponModal';
 import DeleteCouponModal from './components/DeleteCouponModal';
 import logger from '@/lib/logger';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface Coupon {
   id: string;
@@ -49,10 +50,13 @@ export default function CouponsPage() {
         throw new Error('Failed to fetch coupons');
       }
       const data = await response.json();
-      setCoupons(data.coupons);
+      // Defensive check for API response structure
+      const couponsData = Array.isArray(data) ? data : (data.coupons || []);
+      setCoupons(couponsData);
     } catch (error) {
       logger.error('Error fetching coupons:', error);
       toast.error('Failed to load coupons');
+      setCoupons([]); // Ensure we reset to empty array on error
     } finally {
       setLoading(false);
     }
@@ -68,10 +72,13 @@ export default function CouponsPage() {
     setIsDeleteModalOpen(true);
   };
 
-  const filteredCoupons = coupons.filter(coupon =>
-    coupon.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (coupon.description?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-  );
+  // Defensive filtering logic
+  const filteredCoupons = (coupons || []).filter(coupon => {
+    if (!coupon) return false;
+    const codeMatch = (coupon.code || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const descMatch = (coupon.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+    return codeMatch || descMatch;
+  });
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
@@ -92,10 +99,6 @@ export default function CouponsPage() {
     <div className="space-y-6">
       {/* Header & Actions Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-xl border shadow-sm gap-4">
-        <div className="hidden md:block">
-          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Coupon Management</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Manage discounts and promotions</p>
-        </div>
         <div className="flex justify-between items-center w-full sm:w-auto gap-3">
           <div className="md:hidden text-sm font-medium text-gray-500">
             {filteredCoupons.length} Coupons

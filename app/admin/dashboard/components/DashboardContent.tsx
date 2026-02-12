@@ -4,7 +4,7 @@ import { FaUsers, FaCalendarCheck, FaCar, FaPlus, FaUserCog, FaChartBar } from '
 import { StatsCard } from './StatsCard';
 import { QuickActionCard } from './QuickActionCard';
 import { useRouter } from 'next/navigation';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { formatDateTime, formatIST } from '@/lib/utils/time-formatter';
 
 interface DashboardData {

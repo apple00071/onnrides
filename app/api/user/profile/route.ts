@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     logger.info('Session data:', session);
-    
+
     if (!session?.user) {
       logger.warn('No user in session');
       return NextResponse.json(
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -60,9 +60,9 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { email } = body;
+    const { email, name } = body;
 
-    // Validate email
+    // Validate email if provided
     if (email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       return NextResponse.json(
         { error: 'Invalid email format' },
@@ -71,26 +71,29 @@ export async function PUT(request: NextRequest) {
     }
 
     // Check if email is already taken by another user
-    const emailCheckResult = await query(
-      'SELECT id FROM users WHERE email = $1 AND id != $2',
-      [email, session.user.id]
-    );
-
-    if (emailCheckResult.rows.length > 0) {
-      return NextResponse.json(
-        { error: 'Email is already in use' },
-        { status: 400 }
+    if (email) {
+      const emailCheckResult = await query(
+        'SELECT id FROM users WHERE email = $1 AND id != $2',
+        [email, session.user.id]
       );
+
+      if (emailCheckResult.rows.length > 0) {
+        return NextResponse.json(
+          { error: 'Email is already in use' },
+          { status: 400 }
+        );
+      }
     }
 
     // Update user profile
     const { rows: updatedProfile } = await query(
       `UPDATE users 
        SET email = COALESCE($1, email),
+           name = COALESCE($2, name),
            updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $2 
+       WHERE id = $3 
        RETURNING id, name, email, phone, role, created_at, updated_at`,
-      [email, session.user.id]
+      [email || null, name || null, session.user.id]
     );
 
     if (!updatedProfile[0]) {
@@ -102,7 +105,7 @@ export async function PUT(request: NextRequest) {
 
     logger.info('Profile updated successfully:', {
       userId: session.user.id,
-      updatedFields: { email }
+      updatedFields: { email, name }
     });
 
     return NextResponse.json({

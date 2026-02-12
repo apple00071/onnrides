@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Calculator, DollarSign, CreditCard, Banknote, FileText } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface CashFlowData {
   openingBalance: number;
@@ -52,7 +52,6 @@ export default function FinancialReconciliationPage() {
   });
   const [transactions, setTransactions] = useState<DailyTransaction[]>([]);
   const [newExpense, setNewExpense] = useState({ amount: '', description: '' });
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchFinancialData();
@@ -73,10 +72,8 @@ export default function FinancialReconciliationPage() {
       }
     } catch (error) {
       console.error('Error fetching financial data:', error);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to load financial data",
-        variant: "destructive"
       });
     } finally {
       setLoading(false);
@@ -99,33 +96,26 @@ export default function FinancialReconciliationPage() {
       const result = await response.json();
 
       if (result.success) {
-        toast({
-          title: "Success",
+        toast.success("Success", {
           description: "Daily reconciliation completed successfully",
         });
         fetchFinancialData();
       } else {
-        toast({
-          title: "Error",
+        toast.error("Error", {
           description: result.error || "Failed to reconcile",
-          variant: "destructive"
         });
       }
     } catch (error) {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to complete reconciliation",
-        variant: "destructive"
       });
     }
   };
 
   const handleAddExpense = async () => {
     if (!newExpense.amount || !newExpense.description) {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Please enter both amount and description",
-        variant: "destructive"
       });
       return;
     }
@@ -146,24 +136,19 @@ export default function FinancialReconciliationPage() {
       const result = await response.json();
 
       if (result.success) {
-        toast({
-          title: "Success",
+        toast.success("Success", {
           description: "Expense added successfully",
         });
         setNewExpense({ amount: '', description: '' });
         fetchFinancialData();
       } else {
-        toast({
-          title: "Error",
+        toast.error("Error", {
           description: result.error || "Failed to add expense",
-          variant: "destructive"
         });
       }
     } catch (error) {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Failed to add expense",
-        variant: "destructive"
       });
     }
   };
@@ -183,11 +168,7 @@ export default function FinancialReconciliationPage() {
   return (
     <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6">
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Financial Reconciliation</h1>
-          <p className="text-xs text-gray-500 font-medium mt-0.5">{format(new Date(), 'EEEE, MMMM do, yyyy')}</p>
-        </div>
+      <div className="flex justify-end">
         <Button
           onClick={handleReconcile}
           className="w-full sm:w-auto bg-[#f26e24] hover:bg-[#e05d13] h-10 px-6 font-bold rounded-xl shadow-sm transition-all"

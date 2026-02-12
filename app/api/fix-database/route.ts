@@ -75,8 +75,11 @@ export async function GET(request: NextRequest) {
       CREATE INDEX IF NOT EXISTS idx_bookings_payment_intent_id 
       ON bookings(payment_intent_id);
       
-      -- Recreate the bookings view with proper type casting
-      CREATE OR REPLACE VIEW bookings_view AS
+      -- Recreate the bookings view ensuring it is explicitly security invoker
+      DROP VIEW IF EXISTS bookings_view CASCADE;
+      CREATE OR REPLACE VIEW bookings_view 
+      WITH (security_invoker = true)
+      AS
       SELECT 
         b.*,
         u.name as user_name,

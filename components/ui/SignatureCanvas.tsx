@@ -35,46 +35,58 @@ export function SignatureCanvas({
   const [isEmpty, setIsEmpty] = useState(!initialValue);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [signatureData, setSignatureData] = useState<string | null>(initialValue);
+  const [showError, setShowError] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   // Detect mobile device
   useEffect(() => {
-    setIsMobile(window.innerWidth < 768 || ('ontouchstart' in window));
-    
-    const handleResize = () => {
+    const checkMobile = () => {
       setIsMobile(window.innerWidth < 768 || ('ontouchstart' in window));
     };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  const getCoordinates = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    let clientX, clientY;
+
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = (e as React.MouseEvent).clientX;
+      clientY = (e as React.MouseEvent).clientY;
+    }
+
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  };
 
   // Setup canvas and restore any saved signature
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Clear and prepare canvas
     const prepareCanvas = () => {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Set canvas dimensions based on container width if width is 0
       if (width === 0 && containerRef.current) {
         canvas.width = containerRef.current.clientWidth;
       } else {
         canvas.width = width;
       }
-      
-      // Adjust height for mobile devices
+
       const mobileAdjustedHeight = isMobile ? Math.min(height, 150) : height;
       canvas.height = mobileAdjustedHeight;
 
-      // Clear canvas with white background
       ctx.fillStyle = 'white';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw signature guide line
       ctx.beginPath();
       ctx.moveTo(10, canvas.height - 30);
       ctx.lineTo(canvas.width - 10, canvas.height - 30);
@@ -82,7 +94,6 @@ export function SignatureCanvas({
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      // Restore signature if one exists
       if (signatureData) {
         const img = new Image();
         img.onload = () => {
@@ -97,7 +108,6 @@ export function SignatureCanvas({
 
     prepareCanvas();
 
-    // Handle window resize
     const handleResize = () => {
       if (width === 0) {
         prepareCanvas();
@@ -108,171 +118,134 @@ export function SignatureCanvas({
     return () => window.removeEventListener('resize', handleResize);
   }, [height, width, signatureData, isMobile]);
 
-  // Handle drawing functions
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const startDrawing = (e: any) => {
     if (disabled) return;
-    
     setHasInteracted(true);
     setIsDrawing(true);
-    
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
+
     ctx.beginPath();
-    ctx.lineWidth = isMobile ? 2 : 3; // Thinner lines on mobile for precision
+    ctx.lineWidth = isMobile ? 2 : 3;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = 'black';
-    
-    // Get correct position whether mouse or touch
-    if ('touches' in e) {
-      e.preventDefault(); // Prevent scrolling when drawing
-      const touch = e.touches[0];
-      const rect = canvas.getBoundingClientRect();
-      ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
-    } else {
-      ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-    }
+
+    const { x, y } = getCoordinates(e, canvas);
+    ctx.moveTo(x, y);
+    if (showError) setShowError(false);
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const draw = (e: any) => {
     if (!isDrawing || disabled) return;
-    
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Get position based on event type
     if ('touches' in e) {
-      e.preventDefault(); // Prevent scrolling when drawing
-      const touch = e.touches[0];
-      const rect = canvas.getBoundingClientRect();
-      ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
-    } else {
-      ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+      e.preventDefault();
     }
-    
+
+    const { x, y } = getCoordinates(e, canvas);
+    ctx.lineTo(x, y);
     ctx.stroke();
-    setIsEmpty(false);
+    if (isEmpty) setIsEmpty(false);
   };
 
-  const stopDrawing = () => {
+  const endDrawing = () => {
     if (disabled) return;
-    
     setIsDrawing(false);
-    
-    if (!isEmpty) {
-      // Save the signature as data URL
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const dataUrl = canvas.toDataURL('image/png');
-        setSignatureData(dataUrl);
-        if (onChange) onChange(dataUrl);
-      }
+    if (!isEmpty && onChange && canvasRef.current) {
+      const dataUrl = canvasRef.current.toDataURL('image/png');
+      setSignatureData(dataUrl);
+      onChange(dataUrl);
+    }
+    if (required && isEmpty) {
+      setShowError(true);
     }
   };
 
-  const clearSignature = () => {
+  const clearCanvas = () => {
     if (disabled) return;
-    
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
-    // Clear with white background
+
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Redraw the signature line
+
     ctx.beginPath();
     ctx.moveTo(10, canvas.height - 30);
     ctx.lineTo(canvas.width - 10, canvas.height - 30);
     ctx.strokeStyle = '#e5e7eb';
     ctx.lineWidth = 1;
     ctx.stroke();
-    
-    // Update states
+
     setIsEmpty(true);
     setSignatureData(null);
     if (onChange) onChange(null);
+    setShowError(false);
   };
 
-  // Determine if we should show an error
-  const showError = required && isEmpty && hasInteracted;
-
   return (
-    <div className={cn("space-y-1 sm:space-y-2", className)}>
+    <div className={cn("space-y-1 sm:space-y-2", className)} ref={containerRef}>
       {label && (
         <div className="flex items-center justify-between">
           <label className="text-xs sm:text-sm font-medium">
             {label} {required && <span className="text-red-500">*</span>}
           </label>
-          <Button 
-            type="button" 
-            variant="outline" 
-            size="sm" 
-            onClick={clearSignature}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={clearCanvas}
             disabled={disabled || isEmpty}
-            className={cn(
-              "text-xs h-7",
-              isMobile ? "px-2 py-0" : "py-1"
-            )}
+            className="text-xs h-7 px-2 py-0"
           >
             Clear
           </Button>
         </div>
       )}
-      
-      <div 
-        ref={containerRef}
+
+      <div
         className={cn(
-          "relative rounded-md border", 
+          "relative rounded-md border bg-white touch-none",
           showError ? "border-red-500" : "border-gray-300",
           disabled ? "opacity-60 cursor-not-allowed" : "",
-          className
         )}
       >
         <canvas
           ref={canvasRef}
           onMouseDown={startDrawing}
           onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseLeave={stopDrawing}
+          onMouseUp={endDrawing}
+          onMouseLeave={endDrawing}
           onTouchStart={startDrawing}
           onTouchMove={draw}
-          onTouchEnd={stopDrawing}
+          onTouchEnd={endDrawing}
           className={cn(
-            "touch-none select-none rounded-md w-full",
+            "block w-full rounded-md",
             disabled ? "cursor-not-allowed" : "cursor-crosshair"
           )}
-          style={{ backgroundColor: 'white' }}
+          style={{ touchAction: 'none' }}
         />
-        
+
         {isEmpty && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <p className="text-gray-400 text-xs sm:text-sm px-3 text-center">
-              {isMobile ? "Sign here with your finger" : instructionText}
+            <p className="text-gray-400 text-xs sm:text-sm px-3 text-center select-none">
+              {instructionText}
             </p>
           </div>
         )}
       </div>
-      
-      {showError && (
+
+      {showError && errorMessage && (
         <p className="text-red-500 text-xs mt-1">{errorMessage}</p>
-      )}
-      
-      {isMobile && (
-        <p className="text-xs text-gray-500 mt-1">
-          For best results, hold your device in landscape orientation.
-        </p>
       )}
     </div>
   );
-} 
+}

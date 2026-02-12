@@ -1,6 +1,6 @@
 'use client';
 
-import { Toaster } from 'react-hot-toast';
+import { Toaster } from 'sonner';
 import { SessionProvider } from 'next-auth/react';
 import { ThemeProvider } from 'next-themes';
 import { useEffect, useState } from 'react';

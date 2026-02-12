@@ -3,7 +3,7 @@
 import logger from '@/lib/logger';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { Switch } from "@/components/ui/switch";
 
 interface Vehicle {

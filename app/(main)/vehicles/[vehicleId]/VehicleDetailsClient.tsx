@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 interface Props {
   params: {
@@ -25,16 +25,16 @@ interface Props {
 export default function VehicleDetailsClient({ params }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [pickupDate, setPickupDate] = useState<Date | undefined>(new Date());
   const [dropoffDate, setDropoffDate] = useState<Date | undefined>(new Date());
   const [pickupTime, setPickupTime] = useState<string>('12:00');
   const [dropoffTime, setDropoffTime] = useState<string>('12:00');
-  
+
   useEffect(() => {
     const fetchVehicle = async () => {
       try {
@@ -43,14 +43,14 @@ export default function VehicleDetailsClient({ params }: Props) {
           throw new Error('Failed to fetch vehicle details');
         }
         const data = await response.json();
-        
+
         // Normalize price data
         const normalizedData = {
           ...data,
           price_per_hour: Number(data.price_per_hour || data.pricePerHour || 0),
           min_booking_hours: Number(data.min_booking_hours || data.minBookingHours || 1)
         };
-        
+
         console.log('Vehicle data:', normalizedData);
         setVehicle(normalizedData);
       } catch (err) {
@@ -102,7 +102,7 @@ export default function VehicleDetailsClient({ params }: Props) {
       </div>
     );
   }
-  
+
   // Parse images
   let images = [];
   try {
@@ -114,7 +114,7 @@ export default function VehicleDetailsClient({ params }: Props) {
   } catch (e) {
     images = [];
   }
-  
+
   // Parse locations
   let locations: string[] = [];
   try {
@@ -146,7 +146,7 @@ export default function VehicleDetailsClient({ params }: Props) {
         if (vehicle.location.includes('[') && vehicle.location.includes(']')) {
           // Remove brackets and split by commas
           const cleanedStr = vehicle.location.replace(/^\[|\]$/g, '').trim();
-          locations = cleanedStr.split(',').map(s => 
+          locations = cleanedStr.split(',').map(s =>
             s.replace(/[\[\]"']/g, '').trim()
           ).filter(Boolean);
         } else {
@@ -158,36 +158,36 @@ export default function VehicleDetailsClient({ params }: Props) {
   } catch (e) {
     locations = [];
   }
-  
+
   // Display locations properly with formatting
   const formattedLocations = locations.filter(Boolean);
-  
+
   // Calculate total hours and price
   const calculateTotalHours = () => {
     if (!pickupDate || !dropoffDate) return 0;
     const pickup = new Date(pickupDate);
     pickup.setHours(parseInt(pickupTime.split(':')[0]), parseInt(pickupTime.split(':')[1]), 0);
-    
+
     const dropoff = new Date(dropoffDate);
     dropoff.setHours(parseInt(dropoffTime.split(':')[0]), parseInt(dropoffTime.split(':')[1]), 0);
-    
+
     const diffMs = dropoff.getTime() - pickup.getTime();
     const hours = Math.max(Math.ceil(diffMs / (1000 * 60 * 60)), vehicle.min_booking_hours);
     return hours;
   };
-  
+
   const totalHours = calculateTotalHours();
   const totalPrice = totalHours * vehicle.price_per_hour;
-  
+
   const handleProceedToBooking = () => {
     if (!pickupDate || !dropoffDate) {
       toast.error('Please select dates for your booking');
       return;
     }
-    
+
     const formattedPickupDate = format(pickupDate, 'yyyy-MM-dd');
     const formattedDropoffDate = format(dropoffDate, 'yyyy-MM-dd');
-    
+
     router.push(
       `/vehicles/${params.vehicleId}/booking?pickupDate=${formattedPickupDate}&pickupTime=${pickupTime}&dropoffDate=${formattedDropoffDate}&dropoffTime=${dropoffTime}`
     );
@@ -239,9 +239,9 @@ export default function VehicleDetailsClient({ params }: Props) {
             <div className="flex items-center space-x-2">
               <MapPin className="w-5 h-5 text-gray-500" />
               <span className="text-gray-700">
-                {formattedLocations.length > 0 ? 
-                  (formattedLocations.length > 1 ? 
-                    `${formattedLocations[0]} + ${formattedLocations.length - 1} more` : 
+                {formattedLocations.length > 0 ?
+                  (formattedLocations.length > 1 ?
+                    `${formattedLocations[0]} + ${formattedLocations.length - 1} more` :
                     formattedLocations[0]
                   ) : 'Multiple locations'}
               </span>
@@ -294,7 +294,7 @@ export default function VehicleDetailsClient({ params }: Props) {
                     </PopoverContent>
                   </Popover>
                 </div>
-                
+
                 {/* Pickup Time */}
                 <div className="space-y-2">
                   <Label htmlFor="pickupTime">Pickup Time</Label>
@@ -311,7 +311,7 @@ export default function VehicleDetailsClient({ params }: Props) {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 {/* Dropoff Date */}
                 <div className="space-y-2">
                   <Label htmlFor="dropoffDate">Dropoff Date</Label>
@@ -333,14 +333,14 @@ export default function VehicleDetailsClient({ params }: Props) {
                         mode="single"
                         selected={dropoffDate}
                         onSelect={setDropoffDate}
-                        disabled={(date) => 
+                        disabled={(date) =>
                           !pickupDate || date < pickupDate
                         }
                       />
                     </PopoverContent>
                   </Popover>
                 </div>
-                
+
                 {/* Dropoff Time */}
                 <div className="space-y-2">
                   <Label htmlFor="dropoffTime">Dropoff Time</Label>
@@ -358,7 +358,7 @@ export default function VehicleDetailsClient({ params }: Props) {
                   </Select>
                 </div>
               </div>
-              
+
               {/* Pricing Summary */}
               <div className="mt-4 border-t pt-4">
                 <div className="flex justify-between mb-2">
@@ -374,7 +374,7 @@ export default function VehicleDetailsClient({ params }: Props) {
                   <span>₹{totalPrice}</span>
                 </div>
               </div>
-              
+
               <Button className="w-full mt-4" onClick={handleProceedToBooking}>
                 Proceed to Booking
               </Button>

@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { Providers } from '@/app/providers';
 import logger from '@/lib/logger';
 import UnifiedAdminLayout from '@/components/admin/UnifiedAdminLayout';
-import { Toaster } from '@/components/ui/toaster';
+import { ToasterProvider } from '@/components/providers/ToasterProvider';
 
 export function generateMetadata(): Metadata {
   return {
@@ -49,7 +49,7 @@ export default async function AdminLayout({
         <UnifiedAdminLayout>
           {children}
         </UnifiedAdminLayout>
-        <Toaster />
+        <ToasterProvider />
       </Providers>
     );
   } catch (error) {

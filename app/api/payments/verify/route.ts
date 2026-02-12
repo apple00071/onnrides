@@ -4,21 +4,11 @@ import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { validatePaymentVerification } from '@/lib/razorpay';
-import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
+import { AdminNotificationService } from '@/lib/notifications/admin-notification';
+import { formatDate } from '@/lib/utils/time-formatter';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
-
-// Define error interface for better error handling
-interface PaymentError extends Error {
-  code?: string;
-  details?: unknown;
-}
-
-// Type guard for PaymentError
-function isPaymentError(error: unknown): error is PaymentError {
-  return error instanceof Error;
-}
 
 // CORS preflight
 export async function OPTIONS() {
@@ -32,162 +22,126 @@ export async function OPTIONS() {
   });
 }
 
-export async function GET() {
-  return NextResponse.json({ status: 'ok' });
-}
-
 export async function POST(request: NextRequest) {
   try {
     // Auth check: must be logged in
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, booking_id } = body;
 
     // Validate required fields
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    if (!razorpay_payment_id || !booking_id) {
       return NextResponse.json({
         success: false,
         error: 'Missing required payment verification fields'
       }, { status: 400 });
     }
 
-    // Find the booking using direct database query
-    logger.info('Looking for booking with order ID:', { razorpay_order_id });
+    // Begin transaction
+    await query('BEGIN');
 
-    const bookingResult = await query(`
-      SELECT * FROM bookings 
-      WHERE payment_details->>'razorpay_order_id' = $1
-         OR payment_details->>'order_id' = $1
-      LIMIT 1
-    `, [razorpay_order_id]);
-
-    // Handle case when booking is not found
-    if (bookingResult.rows.length === 0) {
-      logger.error('Booking not found for payment verification:', { razorpay_order_id });
-
-      // Log recent bookings for debugging
-      const recentBookingsResult = await query(`
-        SELECT id, booking_id, payment_details 
-        FROM bookings 
-        WHERE payment_details IS NOT NULL 
-        ORDER BY created_at DESC 
-        LIMIT 5
-      `, []);
-
-      logger.info('Recent bookings with payment details:', {
-        count: recentBookingsResult.rows.length,
-        bookings: recentBookingsResult.rows
-      });
-
-      return NextResponse.json({
-        success: false,
-        error: 'Booking not found'
-      }, { status: 404 });
-    }
-
-    // Extract the booking from the result
-    const bookingData = bookingResult.rows[0];
-
-    // Verify payment signature
     try {
-      const isValid = validatePaymentVerification({
-        order_id: razorpay_order_id,
-        payment_id: razorpay_payment_id,
-        signature: razorpay_signature
-      });
+      // Determine if the booking_id is a UUID or a custom short ID
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(booking_id);
 
-      if (!isValid) {
-        throw new Error('Invalid payment signature');
+      // Find and lock the booking row
+      const queryText = `
+         SELECT b.*, v.name as vehicle_name, u.email as user_email, u.name as user_name
+         FROM bookings b
+         INNER JOIN vehicles v ON b.vehicle_id = v.id
+         INNER JOIN users u ON b.user_id = u.id
+         WHERE ${isUuid ? 'b.id = $1::uuid' : 'b.booking_id = $1::text'}
+         FOR UPDATE`;
+
+      const bookingLockResult = await query(queryText, [booking_id]);
+
+      if (bookingLockResult.rowCount === 0) {
+        throw new Error('Booking not found');
       }
 
-      // Update booking with payment verification details using direct query
-      const updatedBookingResult = await query(`
-        UPDATE bookings
-        SET payment_details = jsonb_set(
-          COALESCE(payment_details, '{}'::jsonb),
-          '{razorpay_payment_id}',
-          to_jsonb($1::text)
-        ) || jsonb_build_object(
-          'razorpay_signature', $2::text,
-          'verified_at', $3::text,
-          'status', 'verified'
-        ),
-        payment_status = 'completed',
-        status = CASE WHEN status = 'pending' THEN 'confirmed' ELSE status END,
-        updated_at = $4
-        WHERE id = $5
-        RETURNING id, booking_id
-      `, [
-        razorpay_payment_id,
-        razorpay_signature,
-        new Date().toISOString(),
-        new Date(),
-        bookingData.id
-      ]);
+      const booking = bookingLockResult.rows[0];
 
-      const updatedBooking = updatedBookingResult.rows[0];
+      // Verify payment signature if order_id is present
+      if (razorpay_order_id && razorpay_signature) {
+        const isValid = validatePaymentVerification({
+          order_id: razorpay_order_id,
+          payment_id: razorpay_payment_id,
+          signature: razorpay_signature
+        });
+
+        if (!isValid) {
+          throw new Error('Invalid payment signature');
+        }
+      }
+
+      // Update booking status
+      await query(
+        `UPDATE bookings 
+         SET payment_status = 'completed',
+             status = 'confirmed',
+             payment_reference = $1::text,
+             payment_details = $2::jsonb,
+             updated_at = NOW()
+         WHERE id = $3::uuid`,
+        [
+          razorpay_payment_id,
+          JSON.stringify(body),
+          booking.id
+        ]
+      );
+
+      // Create payment record
+      await query(
+        `INSERT INTO payments (
+          id, booking_id, amount, status, method, reference, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+        [
+          crypto.randomUUID(),
+          booking.id,
+          booking.total_price,
+          'completed',
+          'online',
+          razorpay_payment_id
+        ]
+      );
+
+      // Commit transaction
+      await query('COMMIT');
+
+      // Send admin notification
+      try {
+        const adminNotificationService = AdminNotificationService.getInstance();
+        await adminNotificationService.sendPaymentNotification({
+          booking_id: booking.booking_id || booking.id,
+          payment_id: razorpay_payment_id,
+          user_name: booking.user_name,
+          amount: booking.total_price,
+          payment_method: 'Online',
+          status: 'success',
+          transaction_time: new Date()
+        });
+      } catch (adminNotifyError) {
+        logger.error('Failed to send admin payment notification:', adminNotifyError);
+      }
 
       return NextResponse.json({
         success: true,
-        booking_id: updatedBooking.booking_id
+        message: 'Payment verified successfully'
       });
 
-    } catch (error) {
-      // Handle verification failure
-      await query(`
-        UPDATE bookings
-        SET payment_details = jsonb_set(
-          COALESCE(payment_details, '{}'::jsonb),
-          '{razorpay_payment_id}',
-          to_jsonb($1::text)
-        ) || jsonb_build_object(
-          'razorpay_signature', $2::text,
-          'failed_at', $3::text,
-          'status', 'failed',
-          'error', $4::text
-        ),
-        payment_status = 'pending',
-        updated_at = $5
-        WHERE id = $6
-      `, [
-        razorpay_payment_id,
-        razorpay_signature,
-        new Date().toISOString(),
-        error instanceof Error ? error.message : 'Payment verification failed',
-        new Date(),
-        bookingData.id
-      ]);
-
-      // Send WhatsApp payment failure notification
-      try {
-        const whatsappService = WhatsAppNotificationService.getInstance();
-        await whatsappService.sendPaymentReminder({
-          booking_id: bookingData.booking_id,
-          customer_name: bookingData.customer_name,
-          customer_phone: bookingData.phone_number,
-          vehicle_model: bookingData.vehicle_model,
-          amount_due: bookingData.total_price,
-          due_date: new Date(bookingData.start_date),
-          reminder_type: 'first'
-        });
-
-        logger.info('Payment failure WhatsApp notification sent', { bookingId: bookingData.booking_id });
-      } catch (whatsappError) {
-        logger.error('Failed to send payment failure WhatsApp notification:', whatsappError);
-      }
-
-      throw error;
+    } catch (txError) {
+      await query('ROLLBACK');
+      throw txError;
     }
   } catch (error) {
     logger.error('Payment verification error:', error);
-
     return NextResponse.json({
       success: false,
-      error: isPaymentError(error) ? error.message : 'Payment verification failed'
+      error: error instanceof Error ? error.message : 'Payment verification failed'
     }, { status: 400 });
   }
-} 
+}

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import Head from 'next/head';
 
 export default function SignIn() {
