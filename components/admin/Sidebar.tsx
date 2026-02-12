@@ -10,6 +10,7 @@ import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSidebar } from '@/components/admin/SidebarProvider';
+import { signOut } from 'next-auth/react';
 import {
   LayoutDashboard,
   Car,
@@ -254,6 +255,15 @@ export function Sidebar() {
                   ))}
                 </nav>
               </ScrollArea>
+              <div className="border-t p-4">
+                <button
+                  onClick={() => signOut({ callbackUrl: '/admin-login' })}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut className="h-5 w-5" />
+                  <span>Logout</span>
+                </button>
+              </div>
             </motion.div>
           </>
         )}
