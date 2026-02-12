@@ -66,3 +66,5 @@ build/
 .wwebjs_cache/
 whatsapp-auth/
 whatsapp-sessions/
+duplicates_result.txt
+*.txt
