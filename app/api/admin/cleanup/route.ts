@@ -167,15 +167,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-  } catch (error) {
-  logger.error('Error cleaning up database:', error);
-  return NextResponse.json(
-    {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    },
-    { status: 500 }
-  );
-}
 } 

@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(booking_id);
     // Use withTransaction helper from @/lib/db to ensure all queries run on the same client
     await withTransaction(async (client) => {
       // Find and lock the booking row

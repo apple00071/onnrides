@@ -197,20 +197,11 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, booking });
-
-  } catch (dbError) {
-    await query('ROLLBACK');
-    logger.error('Error creating offline booking:', dbError);
+  } catch (error) {
+    logger.error('Error in offline booking route:', error);
     return NextResponse.json({
       success: false,
-      error: dbError instanceof Error ? dbError.message : 'Database error'
+      error: error instanceof Error ? error.message : 'Internal Server Error'
     }, { status: 500 });
   }
-} catch (error) {
-  logger.error('Error in offline booking route:', error);
-  return NextResponse.json({
-    success: false,
-    error: error instanceof Error ? error.message : 'Internal Server Error'
-  }, { status: 500 });
-}
 }
