@@ -446,18 +446,22 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                 ) : (
                   <div className="space-y-4">
                     {/* Online Booking Logic */}
+                    {/* Dynamic Payment Summary */}
                     <div className="p-3 bg-blue-50 border border-blue-100 rounded-md text-sm">
-                      <p className="font-medium text-blue-800 mb-2">5% Online Collection Policy</p>
-                      <div className="space-y-1 text-blue-700">
-                        <div className="flex justify-between">
-                          <span>Collected (5%)</span>
-                          <span className="font-medium">₹{Math.round(booking.amount * 0.05).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between border-t border-blue-200 pt-1 mt-1">
-                          <span>To Collect (95%)</span>
-                          <span className="font-bold">₹{Math.round(booking.amount * 0.95).toLocaleString()}</span>
-                        </div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-blue-700">Total Amount</span>
+                        <span className="font-bold text-blue-900">₹{booking.amount?.toLocaleString()}</span>
                       </div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-blue-700">Paid {booking.booking_type === 'online' ? '(Online)' : ''}</span>
+                        <span className="font-bold text-green-700">₹{booking.paid_amount?.toLocaleString() || '0'}</span>
+                      </div>
+                      {booking.pending_amount && booking.pending_amount > 0 && (
+                        <div className="flex justify-between border-t border-blue-200 pt-1 mt-1">
+                          <span className="text-orange-700 font-medium">Pending</span>
+                          <span className="font-bold text-orange-700">₹{booking.pending_amount.toLocaleString()}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Collection Action */}

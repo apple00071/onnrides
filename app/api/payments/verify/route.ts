@@ -85,6 +85,8 @@ export async function POST(request: NextRequest) {
              status = 'confirmed',
              payment_reference = $1::text,
              payment_details = $2::jsonb,
+             paid_amount = total_price,
+             pending_amount = 0,
              updated_at = NOW()
          WHERE id = $3::uuid`,
         [
