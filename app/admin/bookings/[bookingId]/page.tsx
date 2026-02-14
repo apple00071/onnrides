@@ -12,6 +12,7 @@ import { getBadgeColor } from '@/lib/constants/status-colors';
 interface BookingDetails {
   id: string;
   booking_id: string;
+  created_at: string;
   customer: {
     id: string;
     name: string;
@@ -184,7 +185,12 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
         <div className="flex justify-between items-start mb-6">
           <div>
             <h1 className="text-2xl font-semibold">Booking Details</h1>
-            <p className="text-gray-600">Booking ID: {booking.booking_id}</p>
+            <div className="flex flex-col">
+              <p className="text-gray-600">Booking ID: {booking.booking_id}</p>
+              <p className="text-sm text-gray-500">
+                Booked on: {formatDateTime(booking.created_at)}
+              </p>
+            </div>
           </div>
           <div className="flex gap-2">
             <Badge className={getBadgeColor(booking.status)}>

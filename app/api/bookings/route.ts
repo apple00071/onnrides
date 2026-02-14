@@ -395,7 +395,9 @@ export async function POST(request: NextRequest): Promise<Response> {
     // 3. Calculate Final Amounts
     const gst = gstEnabled ? Math.round(basePrice * (gstPercentage / 100)) : 0;
     const serviceFee = Math.round(basePrice * (serviceFeePercentage / 100));
-    const totalAmount = basePrice + gst + serviceFee;
+    // Apply 5% Special Discount
+    const specialDiscount = Math.round(basePrice * 0.05);
+    const totalAmount = basePrice + gst + serviceFee - specialDiscount;
     const advancePayment = Math.round(totalAmount * (advancePaymentPercentage / 100));
 
     logger.info('Server-side pricing calculated:', {

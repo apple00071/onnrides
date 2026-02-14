@@ -582,7 +582,6 @@ export default function VehiclesPage() {
                         is_available: vehicle.is_available ?? true
                       }}
                       selectedLocation={currentLocation}
-                      onLocationSelect={handleLocationSelect}
                       pickupDateTime={pickupDateTime?.toISOString()}
                       dropoffDateTime={dropoffDateTime?.toISOString()}
                       showBookingButton={true}

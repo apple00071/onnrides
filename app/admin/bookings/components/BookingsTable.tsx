@@ -242,6 +242,7 @@ export function BookingsTable() {
             <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booked On</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start</th>
@@ -256,7 +257,7 @@ export function BookingsTable() {
             <tbody className="bg-white divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-20 text-center">
+                  <td colSpan={11} className="px-4 py-20 text-center">
                     <div className="flex items-center justify-center space-x-2">
                       <Loader2 className="h-6 w-6 animate-spin text-primary" />
                       <span>Loading bookings...</span>
@@ -265,7 +266,7 @@ export function BookingsTable() {
                 </tr>
               ) : bookings.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-20 text-center text-gray-500">
+                  <td colSpan={11} className="px-4 py-20 text-center text-gray-500">
                     No bookings found
                   </td>
                 </tr>
@@ -274,6 +275,12 @@ export function BookingsTable() {
                   <tr key={booking.id} className="border-b hover:bg-gray-50">
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
                       {booking.booking_id || '—'}
+                    </td>
+                    <td className="px-3 py-3 text-xs whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{formatDate(booking.created_at)}</span>
+                        <span className="text-gray-500">{formatTime(booking.created_at)}</span>
+                      </div>
                     </td>
                     <td className="px-3 py-3 text-xs whitespace-nowrap">
                       <div className="font-medium">{booking.vehicle?.name}</div>

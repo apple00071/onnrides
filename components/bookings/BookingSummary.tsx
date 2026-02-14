@@ -104,7 +104,9 @@ export function BookingSummary({
     const basePrice = totalAmount;
     const gst = gstEnabled ? Math.round(basePrice * 0.18) : 0;
     const serviceFee = Math.round(basePrice * 0.05);
-    const subtotal = basePrice + (gstEnabled ? gst : 0) + serviceFee;
+    // Add 5% Special Discount for all users
+    const specialDiscount = Math.round(basePrice * 0.05);
+    const subtotal = basePrice + (gstEnabled ? gst : 0) + serviceFee - specialDiscount;
     const discountedTotal = subtotal - (couponDiscount || 0);
     const advancePayment = Math.round(discountedTotal * 0.05);
     const remainingPayment = discountedTotal - advancePayment;
@@ -113,6 +115,7 @@ export function BookingSummary({
       basePrice,
       gst,
       serviceFee,
+      specialDiscount,
       subtotal,
       discountedTotal,
       advancePayment,
@@ -298,6 +301,10 @@ export function BookingSummary({
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Service Fee (5%)</span>
             <span className="text-gray-900">{formatCurrency(priceCalculation.serviceFee)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-green-600">Special Discount (5%)</span>
+            <span className="text-green-600">-{formatCurrency(priceCalculation.specialDiscount)}</span>
           </div>
           {couponDiscount > 0 && (
             <div className="flex justify-between text-sm">

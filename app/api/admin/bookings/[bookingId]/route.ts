@@ -104,6 +104,7 @@ export async function GET(
     const formattedData = {
       id: booking.id,
       booking_id: booking.booking_id,
+      created_at: booking.created_at,
       customer: customerInfo,
       vehicle: {
         name: booking.vehicle_name,
