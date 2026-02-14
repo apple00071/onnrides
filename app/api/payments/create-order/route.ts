@@ -76,21 +76,26 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Calculate 5% advance payment
+    const amountToCharge = Math.ceil(Number(booking.total_price) * 0.05);
+
     // Create Razorpay order
     // Note: createOrder in @/lib/razorpay handles conversion to paise
     logger.info('Creating order with amount:', {
-      amount: booking.total_price,
+      amount: amountToCharge,
       bookingId,
-      originalAmount: booking.total_price
+      totalAmount: booking.total_price,
+      percentage: '5%'
     });
 
     const razorpayOrder = await createOrder({
-      amount: Number(booking.total_price),
+      amount: amountToCharge,
       currency: 'INR',
       receipt: bookingId,
       notes: {
         booking_id: bookingId,
-        user_id: session.user.id
+        user_id: session.user.id,
+        payment_type: 'advance_5_percent'
       }
     });
 

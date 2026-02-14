@@ -79,14 +79,15 @@ export async function POST(request: NextRequest) {
       }
 
       // Update booking status
+      // Update booking status
       await query(
         `UPDATE bookings 
-         SET payment_status = 'completed',
+         SET payment_status = 'partially_paid',
              status = 'confirmed',
              payment_reference = $1::text,
              payment_details = $2::jsonb,
-             paid_amount = total_price,
-             pending_amount = 0,
+             paid_amount = CEIL(total_price * 0.05),
+             pending_amount = total_price - CEIL(total_price * 0.05),
              updated_at = NOW()
          WHERE id = $3::uuid`,
         [
