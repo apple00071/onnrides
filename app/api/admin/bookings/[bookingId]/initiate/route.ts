@@ -21,13 +21,27 @@ export async function POST(
     }
 
     const resolvedParams = await params;
-    const bookingId = resolvedParams.bookingId;
-    if (!bookingId) {
+    const bookingIdParam = resolvedParams.bookingId;
+    if (!bookingIdParam) {
       return NextResponse.json(
         { success: false, error: 'Booking ID is required' },
         { status: 400 }
       );
     }
+
+    // Get internal booking ID (UUID)
+    const bookingResult = await query(
+      'SELECT id FROM bookings WHERE TRIM(booking_id) ILIKE TRIM($1)',
+      [bookingIdParam]
+    );
+
+    if (bookingResult.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Booking not found' },
+        { status: 404 }
+      );
+    }
+    const bookingId = bookingResult.rows[0].id;
 
     const formData = await request.formData();
 
@@ -83,7 +97,8 @@ export async function POST(
         ADD COLUMN IF NOT EXISTS fuel_level VARCHAR(50),
         ADD COLUMN IF NOT EXISTS odometer_reading VARCHAR(50),
         ADD COLUMN IF NOT EXISTS damage_notes TEXT,
-        ADD COLUMN IF NOT EXISTS cleanliness_notes TEXT
+        ADD COLUMN IF NOT EXISTS cleanliness_notes TEXT,
+        ADD COLUMN IF NOT EXISTS checklist_details JSONB
       `);
 
       // Check if trip initiation exists
@@ -117,8 +132,9 @@ export async function POST(
             odometer_reading = $16,
             damage_notes = $17,
             cleanliness_notes = $18,
+            checklist_details = $19,
             updated_at = NOW()
-          WHERE booking_id = $19
+          WHERE booking_id = $20
         `, [
           checklistCompleted,
           customerInfo.name,
@@ -138,6 +154,7 @@ export async function POST(
           odometerReading,
           damageNotes,
           cleanlinessNotes,
+          JSON.stringify(checklist),
           bookingId
         ]);
       } else {
@@ -162,8 +179,9 @@ export async function POST(
             fuel_level,
             odometer_reading,
             damage_notes,
-            cleanliness_notes
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+            cleanliness_notes,
+            checklist_details
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
         `, [
           bookingId,
           checklistCompleted,
@@ -183,7 +201,8 @@ export async function POST(
           fuelLevel,
           odometerReading,
           damageNotes,
-          cleanlinessNotes
+          cleanlinessNotes,
+          JSON.stringify(checklist)
         ]);
       }
 
@@ -248,14 +267,28 @@ export async function GET(
     }
 
     const resolvedParams = await params;
-    const bookingId = resolvedParams.bookingId;
+    const bookingIdParam = resolvedParams.bookingId;
 
-    if (!bookingId) {
+    if (!bookingIdParam) {
       return NextResponse.json(
         { success: false, error: 'Booking ID is required' },
         { status: 400 }
       );
     }
+
+    // Get internal booking ID (UUID)
+    const bookingResult = await query(
+      'SELECT id FROM bookings WHERE TRIM(booking_id) ILIKE TRIM($1)',
+      [bookingIdParam]
+    );
+
+    if (bookingResult.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Booking not found' },
+        { status: 404 }
+      );
+    }
+    const bookingId = bookingResult.rows[0].id;
 
     const result = await query(
       `SELECT * FROM trip_initiations WHERE booking_id = $1`,

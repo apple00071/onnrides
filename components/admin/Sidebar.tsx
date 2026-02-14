@@ -56,11 +56,7 @@ const sidebarLinks: SidebarLink[] = [
     label: 'Bookings',
     icon: CalendarDays
   },
-  {
-    href: '/admin/trip-initiation',
-    label: 'Trip Initiation',
-    icon: QrCode
-  },
+
   {
     href: '/admin/vehicle-returns',
     label: 'Vehicle Returns',

@@ -34,6 +34,17 @@ export async function GET(
     }
 
     const resolvedParams = await params;
+
+    // Runtime Migration: Ensure columns exist
+    await query(`
+      ALTER TABLE trip_initiations 
+      ADD COLUMN IF NOT EXISTS fuel_level VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS odometer_reading VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS damage_notes TEXT,
+      ADD COLUMN IF NOT EXISTS cleanliness_notes TEXT,
+      ADD COLUMN IF NOT EXISTS checklist_details JSONB
+    `);
+
     const result = await query(`
       SELECT
         b.*,
@@ -45,11 +56,23 @@ export async function GET(
         TRIM(BOTH '"' FROM b.pickup_location::text) as pickup_location_clean,
         vr.additional_charges,
         vr.condition_notes,
-        vr.created_at as return_date
+        vr.created_at as return_date,
+        ti.checklist_details,
+        ti.fuel_level,
+        ti.odometer_reading,
+        ti.damage_notes,
+        ti.cleanliness_notes,
+        ti.documents as trip_documents,
+        ti.customer_name as ti_customer_name,
+        ti.customer_phone as ti_customer_phone,
+        ti.customer_email as ti_customer_email,
+        ti.customer_dl_number as ti_dl_number,
+        ti.customer_aadhaar_number as ti_aadhaar_number
       FROM bookings b
       LEFT JOIN users u ON b.user_id = u.id
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
       LEFT JOIN vehicle_returns vr ON b.id = vr.booking_id
+      LEFT JOIN trip_initiations ti ON b.id = ti.booking_id
       WHERE TRIM(b.booking_id) ILIKE TRIM($1)
     `, [resolvedParams.bookingId]);
 
@@ -134,7 +157,20 @@ export async function GET(
         return_date: booking.return_date
       } : undefined,
       notes: booking.notes,
-      terms_accepted: booking.terms_accepted
+      terms_accepted: booking.terms_accepted,
+      trip_initiation: booking.ti_customer_name ? {
+        checklist_details: booking.checklist_details,
+        fuel_level: booking.fuel_level,
+        odometer_reading: booking.odometer_reading,
+        damage_notes: booking.damage_notes,
+        cleanliness_notes: booking.cleanliness_notes,
+        documents: booking.trip_documents,
+        customer_name: booking.ti_customer_name,
+        customer_phone: booking.ti_customer_phone,
+        customer_email: booking.ti_customer_email,
+        dl_number: booking.ti_dl_number,
+        aadhaar_number: booking.ti_aadhaar_number
+      } : null
     };
 
     return NextResponse.json({
