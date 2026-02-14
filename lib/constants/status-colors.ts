@@ -11,6 +11,12 @@ export const STATUS_BADGE_COLORS = {
     failed: 'bg-red-100 text-red-800 border-red-200',
     confirmed: 'bg-blue-100 text-blue-800 border-blue-200',
 
+    // Payment & Booking Types
+    partially_paid: 'bg-orange-100 text-orange-800 border-orange-200',
+    initiated: 'bg-blue-100 text-blue-800 border-blue-200',
+    online: 'bg-primary/5 text-primary border-primary/20',
+    offline: 'bg-blue-50 text-blue-700 border-blue-200',
+
     // Availability Statuses
     available: 'bg-green-100 text-green-800 border-green-200',
     unavailable: 'bg-gray-100 text-gray-800 border-gray-200',

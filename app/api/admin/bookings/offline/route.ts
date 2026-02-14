@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth/auth-options';
-import { query } from '@/lib/db';
+import { query, withTransaction } from '@/lib/db';
 import { randomUUID } from 'crypto';
 import { generateBookingId } from '@/lib/utils/booking-id';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
@@ -60,11 +60,9 @@ export async function POST(request: Request) {
     // Create a new booking with readable ID
     const displayBookingId = generateBookingId(vehicleType);
 
-    // Start transaction
-    await query('BEGIN');
-
-    try {
-      const result = await query(
+    // Start transaction using withTransaction helper
+    const booking = await withTransaction(async (client) => {
+      const result = await client.query(
         `INSERT INTO bookings (
           id,
           booking_id,
@@ -145,13 +143,13 @@ export async function POST(request: Request) {
         ]
       );
 
-      const booking = result.rows[0];
+      const newBooking = result.rows[0];
 
       // Create payment record if paid amount exists
       const paidAmountStr = formData.get('paidAmount') as string;
       const paidAmount = parseFloat(paidAmountStr || '0');
       if (paidAmount > 0) {
-        await query(
+        await client.query(
           `INSERT INTO payments (
             id,
             booking_id,
@@ -164,7 +162,7 @@ export async function POST(request: Request) {
           ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
           [
             randomUUID(),
-            booking.id,
+            newBooking.id,
             paidAmount,
             'completed',
             formData.get('paymentMethod'),
@@ -172,47 +170,47 @@ export async function POST(request: Request) {
           ]
         );
       }
+      return newBooking;
+    });
 
-      await query('COMMIT');
+    // Send WhatsApp notification outside transaction
+    try {
+      const whatsappService = WhatsAppNotificationService.getInstance();
+      await whatsappService.sendOfflineBookingConfirmation({
+        id: booking.id,
+        booking_id: displayBookingId,
+        customer_name: (formData.get('customerName') as string),
+        phone_number: (formData.get('phoneNumber') as string),
+        email: (formData.get('email') as string),
+        vehicle_model: (formData.get('vehicleModel') as string),
+        registration_number: (formData.get('registrationNumber') as string),
+        start_date: new Date(formData.get('startDateTime') as string),
+        end_date: new Date(formData.get('endDateTime') as string),
+        total_amount: Number(formData.get('totalAmount')),
+        pickup_location: 'Office Location',
+        status: 'active'
+      });
 
-      // Send WhatsApp notification
-      try {
-        const whatsappService = WhatsAppNotificationService.getInstance();
-        await whatsappService.sendOfflineBookingConfirmation({
-          id: booking.id,
-          booking_id: displayBookingId,
-          customer_name: (formData.get('customerName') as string),
-          phone_number: (formData.get('phoneNumber') as string),
-          email: (formData.get('email') as string),
-          vehicle_model: (formData.get('vehicleModel') as string),
-          registration_number: (formData.get('registrationNumber') as string),
-          start_date: new Date(formData.get('startDateTime') as string),
-          end_date: new Date(formData.get('endDateTime') as string),
-          total_amount: Number(formData.get('totalAmount')),
-          pickup_location: 'Office Location',
-          status: 'active'
-        });
-
-        logger.info('Offline booking WhatsApp notification sent successfully', { bookingId: displayBookingId });
-      } catch (waError) {
-        logger.error('WhatsApp notification failed:', waError);
-      }
-
-      return NextResponse.json({ success: true, booking });
-
-    } catch (dbError) {
-      await query('ROLLBACK');
-      logger.error('Error creating offline booking:', dbError);
-      return NextResponse.json({
-        success: false,
-        error: dbError instanceof Error ? dbError.message : 'Database error'
-      }, { status: 500 });
+      logger.info('Offline booking WhatsApp notification sent successfully', { bookingId: displayBookingId });
+    } catch (waError) {
+      logger.error('WhatsApp notification failed:', waError);
     }
-  } catch (error) {
-    logger.error('Error in offline booking route:', error);
+
+    return NextResponse.json({ success: true, booking });
+
+  } catch (dbError) {
+    await query('ROLLBACK');
+    logger.error('Error creating offline booking:', dbError);
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Internal Server Error'
+      error: dbError instanceof Error ? dbError.message : 'Database error'
     }, { status: 500 });
   }
+} catch (error) {
+  logger.error('Error in offline booking route:', error);
+  return NextResponse.json({
+    success: false,
+    error: error instanceof Error ? error.message : 'Internal Server Error'
+  }, { status: 500 });
+}
 }

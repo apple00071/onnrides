@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, withTransaction } from '@/lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
+import { randomUUID } from 'crypto';
 
 interface BookingRow {
   id: string;
@@ -298,9 +299,8 @@ export async function PATCH(
 
     // Execute update inside a transaction
     let updatedBooking;
-    await query('BEGIN');
-    try {
-      const result = await query(`
+    await withTransaction(async (client) => {
+      const result = await client.query(`
         UPDATE bookings
         SET ${updateFields.join(', ')}
         WHERE TRIM(booking_id) ILIKE TRIM($${paramIndex})
@@ -312,7 +312,7 @@ export async function PATCH(
       // Handle vehicle availability atomically based on status
       if (status === 'completed' || status === 'cancelled') {
         const vehicleId = vehicle_id || currentBooking.vehicle_id;
-        await query(`
+        await client.query(`
           UPDATE vehicles
           SET is_available = true, updated_at = NOW()
           WHERE id = $1
@@ -323,7 +323,7 @@ export async function PATCH(
         if (status === 'completed' && currentBooking.status !== 'completed') {
           const pendingAmount = parseFloat(currentBooking.pending_amount || '0');
           if (pendingAmount > 0) {
-            await query(
+            await client.query(
               `INSERT INTO payments (
                 id,
                 booking_id,
@@ -335,7 +335,7 @@ export async function PATCH(
                 updated_at
               ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
               [
-                crypto.randomUUID(),
+                randomUUID(),
                 currentBooking.id,
                 pendingAmount,
                 'completed',
@@ -345,7 +345,7 @@ export async function PATCH(
             );
 
             // Also update the booking's paid_amount and pending_amount to maintain integrity
-            await query(
+            await client.query(
               `UPDATE bookings SET 
                 paid_amount = total_price,
                 pending_amount = 0,
@@ -361,7 +361,7 @@ export async function PATCH(
             });
           } else {
             // Even if pendingAmount is 0, ensure payment_status is 'completed'
-            await query(
+            await client.query(
               `UPDATE bookings SET 
                 payment_status = 'completed',
                 updated_at = NOW()
@@ -372,18 +372,13 @@ export async function PATCH(
         }
       } else if (status === 'confirmed' || status === 'initiated') {
         const vehicleId = vehicle_id || currentBooking.vehicle_id;
-        await query(`
+        await client.query(`
           UPDATE vehicles
           SET is_available = false, updated_at = NOW()
           WHERE id = $1
         `, [vehicleId]);
       }
-
-      await query('COMMIT');
-    } catch (transactionError) {
-      await query('ROLLBACK');
-      throw transactionError;
-    }
+    });
 
     // Refresh booking details for notifications
     const bookingDetailsResult = await query(`

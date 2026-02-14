@@ -1,5 +1,5 @@
 import { EmailService } from '@/lib/email/service';
-import { WhatsAppService } from '@/app/lib/whatsapp/service';
+import { WaSenderService } from '@/lib/whatsapp/wasender-service';
 import logger from '@/lib/logger';
 import { formatCurrency } from '@/lib/utils/currency-formatter';
 import { formatIST } from '@/lib/utils/time-formatter';
@@ -33,7 +33,7 @@ export interface AdminNotificationData {
 export class AdminNotificationService {
   private static instance: AdminNotificationService;
   private emailService: EmailService;
-  private whatsappService: WhatsAppService;
+  private waSenderService: WaSenderService;
   private notificationQueue: AdminNotificationData[] = [];
   private isProcessing = false;
   private emailFailureCount = 0;
@@ -41,13 +41,13 @@ export class AdminNotificationService {
 
   private constructor() {
     this.emailService = EmailService.getInstance();
-    this.whatsappService = WhatsAppService.getInstance();
-    
+    this.waSenderService = WaSenderService.getInstance();
+
     // Log configuration on initialization
     logger.info('AdminNotificationService initialized with:', {
-      adminEmails: this.getAdminEmails().length > 0 ? 
+      adminEmails: this.getAdminEmails().length > 0 ?
         this.getAdminEmails() : 'None configured',
-      adminPhones: this.getAdminPhones().length > 0 ? 
+      adminPhones: this.getAdminPhones().length > 0 ?
         'Configured' : 'None configured',
     });
   }
@@ -90,9 +90,9 @@ export class AdminNotificationService {
       if (this.isProcessing) {
         this.notificationQueue.push(data);
         logger.info('Added notification to queue', { type: data.type, title: data.title });
-        return { 
-          success: true, 
-          emailsSent: [], 
+        return {
+          success: true,
+          emailsSent: [],
           whatsappSent: [],
           errors: ['Added to queue for processing']
         };
@@ -101,9 +101,9 @@ export class AdminNotificationService {
       this.isProcessing = true;
       const adminEmails = this.getAdminEmails();
       const adminPhones = this.getAdminPhones();
-      
+
       // Log attempt
-      logger.info('Sending admin notification', { 
+      logger.info('Sending admin notification', {
         type: data.type,
         title: data.title,
         recipientCount: {
@@ -115,7 +115,7 @@ export class AdminNotificationService {
       // Create HTML content
       const htmlContent = this.createHtmlContent(data);
       const textContent = this.createTextContent(data);
-      
+
       const errors: string[] = [];
       const emailsSent: string[] = [];
       const whatsappSent: string[] = [];
@@ -124,19 +124,19 @@ export class AdminNotificationService {
       const emailPromises = adminEmails.map(async (email) => {
         try {
           if (!email || !email.trim()) return;
-          
+
           const emailResult = await this.emailService.sendEmail(
             email.trim(),
             data.title,
             htmlContent
           );
-          
+
           emailsSent.push(email);
-          logger.info(`Admin email sent to ${email}`, { 
+          logger.info(`Admin email sent to ${email}`, {
             messageId: emailResult.messageId,
             logId: emailResult.logId
           });
-          
+
           // Save a DB record for the admin notification using direct SQL
           try {
             await query(`
@@ -157,14 +157,14 @@ export class AdminNotificationService {
           } catch (dbError) {
             logger.error('Failed to save admin notification to database:', dbError);
           }
-          
+
           this.emailFailureCount = 0; // Reset counter on success
         } catch (error) {
           this.emailFailureCount++;
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           logger.error(`Failed to send admin email to ${email}:`, { error: errorMessage, type: data.type });
           errors.push(`Email to ${email} failed: ${errorMessage}`);
-          
+
           // Save failed notification record using direct SQL
           try {
             await query(`
@@ -193,14 +193,14 @@ export class AdminNotificationService {
       const whatsappPromises = adminPhones.map(async (phone) => {
         try {
           if (!phone || !phone.trim()) return;
-          
+
           // Send a generic text message through the WhatsApp service
           // Use the sendTestMessage method which is public instead of the private sendMessage method
-          await this.whatsappService.sendTestMessage(phone.trim());
-          
+          await this.waSenderService.sendTextMessage(phone.trim(), textContent);
+
           whatsappSent.push(phone);
           logger.info(`Admin WhatsApp sent to ${phone}`);
-          
+
           // Save a DB record for the WhatsApp notification using direct SQL
           try {
             await query(`
@@ -224,7 +224,7 @@ export class AdminNotificationService {
         } catch (whatsappError: any) {
           errors.push(`Failed to send WhatsApp to ${phone}: ${whatsappError?.message || 'Unknown error'}`);
           logger.error(`Failed to send WhatsApp to admin ${phone}:`, whatsappError);
-          
+
           this.whatsappFailureCount++;
           if (this.whatsappFailureCount > MAX_FAILURE_THRESHOLD) {
             logger.warn(`WhatsApp failure threshold exceeded (${this.whatsappFailureCount}/${MAX_FAILURE_THRESHOLD})`);
@@ -234,22 +234,22 @@ export class AdminNotificationService {
 
       // Wait for all notifications to complete
       await Promise.all([...emailPromises, ...whatsappPromises]);
-      
+
       const success = emailsSent.length > 0 || whatsappSent.length > 0;
-      
+
       // Process queue if any
       this.isProcessing = false;
       this.processQueue();
-      
+
       // Alert about persistent failures
       if (this.emailFailureCount >= 3) {
         logger.warn(`Multiple admin email failures detected (${this.emailFailureCount}). Check SMTP configuration.`);
       }
-      
+
       if (this.whatsappFailureCount >= 3) {
         logger.warn(`Multiple admin WhatsApp failures detected (${this.whatsappFailureCount}). Check WhatsApp API.`);
       }
-      
+
       // Return results
       return {
         success,
@@ -276,7 +276,7 @@ export class AdminNotificationService {
     if (this.notificationQueue.length === 0 || this.isProcessing) {
       return;
     }
-    
+
     const nextNotification = this.notificationQueue.shift();
     if (nextNotification) {
       await this.sendNotification(nextNotification);
@@ -288,33 +288,33 @@ export class AdminNotificationService {
    */
   private createHtmlContent(data: AdminNotificationData): string {
     let detailsHtml = '';
-    
+
     if (data.data) {
       detailsHtml = '<h2>Details:</h2><ul>';
-      
+
       for (const [key, value] of Object.entries(data.data)) {
         const formattedKey = key.replace(/_/g, ' ').replace(/^\w|\s\w/g, c => c.toUpperCase());
-        
+
         let formattedValue = value;
-        
+
         // Format dates
         if (value instanceof Date || (typeof value === 'string' && !isNaN(Date.parse(value)))) {
           formattedValue = formatDateIST(value);
         }
-        
+
         // Format prices/currency values
         if (key.includes('price') || key.includes('amount') || key.includes('cost')) {
           if (typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)))) {
             formattedValue = formatCurrency(Number(value));
           }
         }
-        
+
         detailsHtml += `<li><strong>${formattedKey}:</strong> ${formattedValue}</li>`;
       }
-      
+
       detailsHtml += '</ul>';
     }
-    
+
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #f0f0f0; border-radius: 5px;">
         <h1 style="color: #f26e24;">${data.title}</h1>
@@ -335,31 +335,31 @@ export class AdminNotificationService {
    */
   private createTextContent(data: AdminNotificationData): string {
     let detailsText = '';
-    
+
     if (data.data) {
       detailsText = '\n\nDetails:\n';
-      
+
       for (const [key, value] of Object.entries(data.data)) {
         const formattedKey = key.replace(/_/g, ' ').replace(/^\w|\s\w/g, c => c.toUpperCase());
-        
+
         let formattedValue = value;
-        
+
         // Format dates
         if (value instanceof Date || (typeof value === 'string' && !isNaN(Date.parse(value)))) {
           formattedValue = formatDateIST(value);
         }
-        
+
         // Format prices/currency values
         if (key.includes('price') || key.includes('amount') || key.includes('cost')) {
           if (typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)))) {
             formattedValue = formatCurrency(Number(value));
           }
         }
-        
+
         detailsText += `${formattedKey}: ${formattedValue}\n`;
       }
     }
-    
+
     return `*${data.title}*\n\n${data.message}${detailsText}\n\nSent at: ${formatDateIST(new Date())}`;
   }
 

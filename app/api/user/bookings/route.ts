@@ -4,7 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { randomUUID } from 'crypto';
-import { sendBookingNotification } from '@/lib/whatsapp/integration';
+import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
+import { AdminNotificationService } from '@/lib/notifications/admin-notification';
 import { toISTSql, selectWithISTDates } from '@/lib/utils/sql-helpers';
 import { withTimezoneProcessing } from '@/middleware/timezone-middleware';
 
@@ -244,15 +245,42 @@ export async function POST(request: NextRequest) {
 
       const booking = result.rows[0];
 
-      // Send WhatsApp notification
-      await sendBookingNotification(session.user, {
-        vehicleName,
-        startDate: start_date,
-        endDate: end_date,
-        bookingId: booking.id,
-        status: 'pending',
-        totalPrice: total_price.toString()
-      });
+      // Send WhatsApp notification to Customer
+      try {
+        const waService = WhatsAppNotificationService.getInstance();
+        await waService.sendBookingConfirmation({
+          id: booking.id,
+          booking_id: booking.booking_id || booking.id,
+          customer_name: session.user.name || 'Customer',
+          phone_number: session.user.phone,
+          vehicle_model: vehicleName,
+          registration_number: undefined,
+          pickup_location: undefined,
+          start_date: new Date(start_date),
+          end_date: new Date(end_date),
+          total_amount: total_price,
+          status: 'pending'
+        });
+      } catch (waError) {
+        logger.error('Failed to send WhatsApp to customer:', waError);
+      }
+
+      // Send Admin Notification
+      try {
+        const adminService = AdminNotificationService.getInstance();
+        await adminService.sendBookingNotification({
+          booking_id: booking.id,
+          pickup_location: 'Online Booking',
+          user_name: session.user.name || 'Customer',
+          user_phone: session.user.phone || 'N/A',
+          vehicle_name: vehicleName,
+          start_date: new Date(start_date),
+          end_date: new Date(end_date),
+          total_price: total_price
+        });
+      } catch (adminError) {
+        logger.error('Failed to send Admin notification:', adminError);
+      }
 
       logger.info('Created booking:', {
         bookingId: booking.id,

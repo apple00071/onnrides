@@ -83,9 +83,8 @@ export async function sendBookingConfirmationAndRequirements(
   }
 ) {
   try {
-    // Import the WhatsApp service here to avoid circular dependencies if any
-    const { WhatsAppService } = await import('@/app/lib/whatsapp/service');
-    const whatsappService = WhatsAppService.getInstance();
+    // Use WhatsAppNotificationService
+    const whatsappService = WhatsAppNotificationService.getInstance();
 
     // Send email confirmation using the API endpoint
     try {
@@ -126,14 +125,16 @@ export async function sendBookingConfirmationAndRequirements(
     // Send WhatsApp notification
     try {
       await whatsappService.sendBookingConfirmation({
-        customerName: name,
-        customerPhone: phone,
-        vehicleType: '',
-        vehicleModel: bookingDetails.vehicleName,
-        startDate: bookingDetails.startDate,
-        endDate: bookingDetails.endDate,
-        bookingId: bookingId,
-        totalAmount: `₹${bookingDetails.totalAmount.toFixed(2)}`
+        id: bookingId, // Use bookingId as fallback for internal ID
+        booking_id: bookingId,
+        customer_name: name,
+        phone_number: phone,
+        vehicle_model: bookingDetails.vehicleName,
+        start_date: new Date(bookingDetails.startDate),
+        end_date: new Date(bookingDetails.endDate),
+        total_amount: bookingDetails.totalAmount,
+        status: 'confirmed', // This seems to be a confirmation context
+        pickup_location: 'Default Location' // Optional or need to be passed
       });
 
       logger.info('WhatsApp notification sent:', {

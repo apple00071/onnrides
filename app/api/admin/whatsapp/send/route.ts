@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { WhatsAppService } from '@/app/lib/whatsapp/service';
+import { WaSenderService } from '@/lib/whatsapp/wasender-service';
 import logger from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
 
     // Send message using WhatsApp service
     try {
-      const whatsappService = WhatsAppService.getInstance();
-      await whatsappService.sendMessage(to, message);
-      
+      const waSender = WaSenderService.getInstance();
+      await waSender.sendTextMessage(to, message);
+
       return NextResponse.json({
         status: 'success',
         message: 'Message sent successfully'

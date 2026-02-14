@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, withTransaction } from '@/lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -9,6 +9,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ bookingId: string }> }
 ) {
+  const resultData: any = {};
   try {
     const session = await getServerSession(authOptions);
 
@@ -58,16 +59,14 @@ export async function POST(
       );
     }
 
-    // Start transaction
-    await query('BEGIN');
-
-    try {
+    // Use withTransaction helper from @/lib/db to ensure all queries run on the same client
+    await withTransaction(async (client) => {
       // Update payment details
       const newPaidAmount = paidAmount + collectAmount;
       const newPendingAmount = pendingAmount - collectAmount;
       const newPaymentStatus = newPendingAmount <= 0 ? 'completed' : 'partially_paid';
 
-      await query(
+      await client.query(
         `UPDATE bookings 
         SET 
           paid_amount = $1,
@@ -81,7 +80,7 @@ export async function POST(
 
       // Create a record in the payments table for the audit trail
       const paymentId = randomUUID();
-      await query(
+      await client.query(
         `INSERT INTO payments (
           id,
           booking_id,
@@ -102,8 +101,6 @@ export async function POST(
         ]
       );
 
-      await query('COMMIT');
-
       logger.info('Payment collected for booking', {
         bookingId: resolvedParams.bookingId,
         amount: collectAmount,
@@ -111,20 +108,19 @@ export async function POST(
         newStatus: newPaymentStatus
       });
 
-      return NextResponse.json({
-        success: true,
-        data: {
-          collected_amount: collectAmount,
-          new_paid_amount: newPaidAmount,
-          new_pending_amount: newPendingAmount,
-          payment_status: newPaymentStatus
-        }
+      // Pass values back to external scope
+      Object.assign(resultData, {
+        collected_amount: collectAmount,
+        new_paid_amount: newPaidAmount,
+        new_pending_amount: newPendingAmount,
+        payment_status: newPaymentStatus
       });
+    });
 
-    } catch (error) {
-      await query('ROLLBACK');
-      throw error;
-    }
+    return NextResponse.json({
+      success: true,
+      data: resultData
+    });
 
   } catch (error) {
     logger.error('Error collecting payment:', error);

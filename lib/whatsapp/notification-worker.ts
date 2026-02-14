@@ -1,5 +1,5 @@
 import { query } from '@/lib/db';
-import { WhatsAppService } from '@/app/lib/whatsapp/service';
+import { WaSenderService } from './wasender-service';
 import logger from '@/lib/logger';
 
 interface NotificationQueueItem {
@@ -13,12 +13,12 @@ interface NotificationQueueItem {
 }
 
 export class NotificationWorker {
-    private whatsappService: WhatsAppService;
+    private waSender: WaSenderService;
     private isProcessing: boolean = false;
     private processInterval: NodeJS.Timeout | null = null;
 
     constructor() {
-        this.whatsappService = WhatsAppService.getInstance();
+        this.waSender = WaSenderService.getInstance();
     }
 
     public start() {
@@ -84,7 +84,7 @@ export class NotificationWorker {
     private async processBookingConfirmation(notification: NotificationQueueItem) {
         const { userName, vehicleName, startDate, bookingId } = notification.data;
 
-        await this.whatsappService.sendMessage(
+        await this.waSender.sendTextMessage(
             notification.recipient,
             `🎉 Booking Confirmed!\n\n` +
             `Hello ${userName}!\n\n` +

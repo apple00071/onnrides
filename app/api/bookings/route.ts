@@ -11,7 +11,7 @@ import Razorpay from 'razorpay';
 import { createOrder } from '@/lib/razorpay';
 import { generateBookingId } from '@/lib/utils/booking-id';
 import { EmailService } from '@/lib/email/service';
-import { WhatsAppService } from '@/app/lib/whatsapp/service';
+
 import { toUTC } from '@/lib/utils/timezone';
 import { RazorpayOrder } from '@/lib/razorpay';
 import { formatIST, formatDateTime, formatDate, formatTime } from '@/lib/utils/time-formatter';

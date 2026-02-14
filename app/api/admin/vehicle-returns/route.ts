@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, withTransaction } from '@/lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -105,12 +105,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Start transaction
-    await query('BEGIN');
-
-    try {
+    // Start transaction using withTransaction helper
+    await withTransaction(async (client) => {
       // Lock the booking row to prevent race conditions
-      const bookingCheck = await query(
+      const bookingCheck = await client.query(
         `SELECT
           b.id,
           b.booking_id,
@@ -130,27 +128,19 @@ export async function POST(request: Request) {
       );
 
       if (bookingCheck.rows.length === 0) {
-        await query('ROLLBACK');
-        return NextResponse.json(
-          { success: false, error: 'Booking not found' },
-          { status: 404 }
-        );
+        throw new Error('Booking not found');
       }
 
       const bookingDetails = bookingCheck.rows[0];
 
       if (bookingDetails.status === 'completed') {
-        await query('ROLLBACK');
-        return NextResponse.json(
-          { success: false, error: 'Vehicle already returned for this booking' },
-          { status: 400 }
-        );
+        throw new Error('Vehicle already returned for this booking');
       }
       // Generate a new UUID for the vehicle return
       const returnId = randomUUID();
 
       // Create vehicle return record
-      const returnResult = await query(
+      await client.query(
         `INSERT INTO vehicle_returns (
           id,
           booking_id,
@@ -191,7 +181,7 @@ export async function POST(request: Request) {
       );
 
       // Update booking status to completed
-      await query(
+      await client.query(
         `UPDATE bookings 
         SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
         WHERE id = $1`,
@@ -200,7 +190,7 @@ export async function POST(request: Request) {
 
       // If remaining payment was collected, update payment status and create payment record
       if (remaining_payment_collected) {
-        await query(
+        await client.query(
           `UPDATE bookings 
           SET payment_status = 'fully_paid', 
               payment_method = COALESCE(payment_method, $1),
@@ -213,7 +203,7 @@ export async function POST(request: Request) {
         const remainingAmount = Math.round(bookingDetails.total_price * 0.95);
 
         // Create payment record for remaining balance collection
-        await query(
+        await client.query(
           `INSERT INTO payments (
             id,
             booking_id,
@@ -242,7 +232,7 @@ export async function POST(request: Request) {
 
       // Create payment record for additional charges if any
       if (additional_charges && additional_charges > 0) {
-        await query(
+        await client.query(
           `INSERT INTO payments (
             id,
             booking_id,
@@ -272,7 +262,7 @@ export async function POST(request: Request) {
       // Create payment record for security deposit refund if applicable
       if (security_deposit_refund_amount && security_deposit_refund_amount > 0) {
         // Record refund as a negative payment (outgoing cash)
-        await query(
+        await client.query(
           `INSERT INTO payments (
             id,
             booking_id,
@@ -300,45 +290,37 @@ export async function POST(request: Request) {
       }
 
       // Update vehicle availability (only if vehicle still exists)
-      await query(
+      await client.query(
         `UPDATE vehicles
         SET is_available = true, updated_at = CURRENT_TIMESTAMP
         WHERE id = $1 AND EXISTS (SELECT 1 FROM vehicles WHERE id = $1)`,
         [bookingDetails.vehicle_id]
       );
 
-      await query('COMMIT');
+      // Store booking details for notification outside transaction
+      Object.assign(bookingDetailsForNotification, bookingDetails);
+    });
 
-      // Send WhatsApp vehicle return confirmation
-      try {
-        const whatsappService = WhatsAppNotificationService.getInstance();
-        const finalAmount = Number(bookingDetails.total_price) + (additional_charges || 0);
+    // Send WhatsApp vehicle return confirmation
+    try {
+      const whatsappService = WhatsAppNotificationService.getInstance();
+      const finalAmount = Number(bookingDetailsForNotification.total_price) + (additional_charges || 0);
 
-        await whatsappService.sendVehicleReturnConfirmation({
-          booking_id: bookingDetails.booking_id,
-          customer_name: bookingDetails.customer_name,
-          customer_phone: bookingDetails.customer_phone,
-          vehicle_model: bookingDetails.vehicle_name,
-          vehicle_number: bookingDetails.vehicle_number,
-          return_date: new Date(),
-          condition_notes: condition_notes || undefined,
-          additional_charges: additional_charges || 0,
-          final_amount: finalAmount
-        });
-
-        logger.info('Vehicle return WhatsApp notification sent successfully', { bookingId: booking_id });
-      } catch (whatsappError) {
-        logger.error('Failed to send vehicle return WhatsApp notification:', whatsappError);
-      }
-
-      return NextResponse.json({
-        success: true,
-        data: returnResult.rows[0]
+      await whatsappService.sendVehicleReturnConfirmation({
+        booking_id: bookingDetailsForNotification.booking_id,
+        customer_name: bookingDetailsForNotification.customer_name,
+        customer_phone: bookingDetailsForNotification.customer_phone,
+        vehicle_model: bookingDetailsForNotification.vehicle_name,
+        vehicle_number: bookingDetailsForNotification.vehicle_number,
+        return_date: new Date(),
+        condition_notes: condition_notes || undefined,
+        additional_charges: additional_charges || 0,
+        final_amount: finalAmount
       });
 
-    } catch (error) {
-      await query('ROLLBACK');
-      throw error;
+      logger.info('Vehicle return WhatsApp notification sent successfully', { bookingId: booking_id });
+    } catch (whatsappError) {
+      logger.error('Failed to send vehicle return WhatsApp notification:', whatsappError);
     }
 
   } catch (error) {

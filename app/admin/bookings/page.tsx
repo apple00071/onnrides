@@ -15,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from '@/components/ui/badge';
+import { getBadgeColor } from '@/lib/constants/status-colors';
 
 export default function BookingsPage() {
   const router = useRouter();
@@ -220,35 +222,39 @@ export default function BookingsPage() {
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <span className="text-[10px] font-bold text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10 tracking-widest uppercase">
+                      <span className="text-[11px] font-black text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10 tracking-widest uppercase">
                         {booking.booking_id}
                       </span>
-                      <h3 className="text-sm font-bold text-gray-900 mt-1.5 leading-none">{booking.user.name}</h3>
+                      <h3 className="text-sm font-bold text-gray-900 mt-2 leading-none">{booking.user.name}</h3>
                     </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      <div className={`text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${booking.status === 'completed' ? 'bg-green-100 text-green-700 border border-green-200' :
-                        booking.status === 'cancelled' ? 'bg-red-100 text-red-700 border border-red-200' :
-                          'bg-blue-100 text-blue-700 border border-blue-200'
-                        }`}>
+                    <div className="flex flex-col items-end gap-2">
+                      <Badge className={`${getBadgeColor(booking.status)} shadow-sm font-black text-[10px] uppercase tracking-tighter px-2 py-0.5`}>
                         {booking.status}
-                      </div>
-                      <span className="text-xs font-black text-gray-900 tracking-tight">₹{booking.total_price.toLocaleString()}</span>
+                      </Badge>
+                      <span className="text-sm font-black text-gray-900 tracking-tight">₹{booking.total_price.toLocaleString()}</span>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 bg-gray-50 p-2.5 rounded-lg border border-gray-100/50">
                     <div>
-                      <span className="text-[9px] font-bold text-gray-400 uppercase block tracking-tight">Vehicle</span>
-                      <div className="font-bold text-[11px] text-gray-700 truncate">{booking.vehicle.name}</div>
-                      <span className="text-[9px] font-mono text-gray-500 uppercase">{booking.registration_number || 'No Reg'}</span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase block tracking-tight mb-1">Vehicle</span>
+                      <div className="font-bold text-[12px] text-gray-700 truncate">{booking.vehicle.name}</div>
+                      <span className="text-[10px] font-mono tracking-wider text-primary bg-primary/5 px-1.5 py-0.5 rounded mt-1 w-fit uppercase border border-primary/10">
+                        {booking.registration_number || 'No Reg No'}
+                      </span>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[9px] font-bold text-gray-400 uppercase block tracking-tight">Payment</span>
-                      <div className={`text-[11px] font-black uppercase ${booking.payment_status === 'completed' ? 'text-green-600' : 'text-orange-600'
-                        }`}>
-                        {booking.payment_status}
-                      </div>
-                      <span className="text-[9px] font-bold text-gray-400 uppercase">{booking.booking_type}</span>
+                    <div className="flex flex-col items-end">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase block tracking-tight mb-1 text-right w-full">Payment</span>
+                      <Badge
+                        variant="outline"
+                        className={`${getBadgeColor(booking.payment_status)} font-black text-[10px] uppercase h-5`}
+                      >
+                        {booking.booking_type === 'online' && booking.payment_status === 'completed'
+                          ? '5% Online'
+                          : booking.payment_status
+                        }
+                      </Badge>
+                      <span className="text-[9px] font-bold text-gray-400 uppercase mt-1">{booking.booking_type}</span>
                     </div>
                   </div>
                 </div>

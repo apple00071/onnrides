@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { query } from '@/lib/db';
+import { query, withTransaction } from '@/lib/db';
 import logger from '@/lib/logger';
 
 // Helper function to check if table exists
-async function tableExists(tableName: string): Promise<boolean> {
+async function tableExists(tableName: string, client?: any): Promise<boolean> {
   try {
-    const result = await query(`
+    const q = client ? client.query.bind(client) : query;
+    const result = await q(`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = 'public' 
@@ -22,12 +23,13 @@ async function tableExists(tableName: string): Promise<boolean> {
 }
 
 // Helper function to create payments table if it doesn't exist
-async function ensurePaymentsTable() {
+async function ensurePaymentsTable(client?: any) {
   try {
-    const exists = await tableExists('payments');
+    const exists = await tableExists('payments', client);
     if (!exists) {
       logger.info('Creating payments table...');
-      await query(`
+      const q = client ? client.query.bind(client) : query;
+      await q(`
         CREATE TABLE IF NOT EXISTS payments (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           booking_id UUID REFERENCES bookings(id),
@@ -113,57 +115,48 @@ export async function POST(request: NextRequest) {
 
     logger.info('Starting database cleanup...');
 
-    // Start transaction
-    await query('BEGIN');
+    let stats: any = {};
 
-    try {
+    // Use withTransaction helper from @/lib/db to ensure all queries run on the same client
+    await withTransaction(async (client) => {
       // Ensure payments table exists before proceeding
-      await ensurePaymentsTable();
+      await ensurePaymentsTable(client);
 
       // Delete all payment records first (due to foreign key constraints)
       logger.info('Deleting payment records...');
-      const { rowCount: deletedPayments } = await query('DELETE FROM payments');
+      const { rowCount: deletedPayments } = await client.query('DELETE FROM payments');
       logger.info('Deleted payment records:', { count: deletedPayments });
 
       // Delete all booking records
       logger.info('Deleting booking records...');
-      const { rowCount: deletedBookings } = await query('DELETE FROM bookings');
+      const { rowCount: deletedBookings } = await client.query('DELETE FROM bookings');
       logger.info('Deleted booking records:', { count: deletedBookings });
 
       // Delete all vehicle records
       logger.info('Deleting vehicle records...');
-      const { rowCount: deletedVehicles } = await query('DELETE FROM vehicles');
+      const { rowCount: deletedVehicles } = await client.query('DELETE FROM vehicles');
       logger.info('Deleted vehicle records:', { count: deletedVehicles });
 
       // Reset sequences if they exist
       logger.info('Resetting sequences...');
-      await query('ALTER SEQUENCE IF EXISTS bookings_id_seq RESTART WITH 1');
-      await query('ALTER SEQUENCE IF EXISTS payments_id_seq RESTART WITH 1');
-      await query('ALTER SEQUENCE IF EXISTS vehicles_id_seq RESTART WITH 1');
+      await client.query('ALTER SEQUENCE IF EXISTS bookings_id_seq RESTART WITH 1');
+      await client.query('ALTER SEQUENCE IF EXISTS payments_id_seq RESTART WITH 1');
+      await client.query('ALTER SEQUENCE IF EXISTS vehicles_id_seq RESTART WITH 1');
 
-      // Commit transaction
-      await query('COMMIT');
-
-      logger.info('Database cleanup completed successfully:', {
+      stats = {
         deletedPayments,
         deletedBookings,
         deletedVehicles
-      });
+      };
+    });
 
-      return NextResponse.json({
-        success: true,
-        message: 'Database cleanup completed successfully',
-        data: {
-          deletedPayments,
-          deletedBookings,
-          deletedVehicles
-        }
-      });
-    } catch (error) {
-      // Rollback transaction on error
-      await query('ROLLBACK');
-      throw error;
-    }
+    logger.info('Database cleanup completed successfully:', stats);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Database cleanup completed successfully',
+      data: stats
+    });
   } catch (error) {
     logger.error('Error cleaning up database:', error);
     return NextResponse.json(
@@ -174,4 +167,15 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+  } catch (error) {
+  logger.error('Error cleaning up database:', error);
+  return NextResponse.json(
+    {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    },
+    { status: 500 }
+  );
+}
 } 

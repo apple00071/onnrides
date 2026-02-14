@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { query } from '@/lib/db';
+import { query, withTransaction } from '@/lib/db';
 import logger from '@/lib/logger';
 import { uploadFile } from '@/lib/upload';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
@@ -88,11 +88,9 @@ export async function POST(
     const checklistCompleted = Object.values(checklist).every(v => v === true);
 
     // Use a transaction to ensure atomicity
-    await query('BEGIN');
-
-    try {
+    await withTransaction(async (client) => {
       // Runtime Migration: Ensure columns exist
-      await query(`
+      await client.query(`
         ALTER TABLE trip_initiations 
         ADD COLUMN IF NOT EXISTS fuel_level VARCHAR(50),
         ADD COLUMN IF NOT EXISTS odometer_reading VARCHAR(50),
@@ -102,7 +100,7 @@ export async function POST(
       `);
 
       // Check if trip initiation exists
-      const existingInitiationResult = await query(
+      const existingInitiationResult = await client.query(
         'SELECT id, documents FROM trip_initiations WHERE booking_id = $1',
         [bookingId]
       );
@@ -112,7 +110,7 @@ export async function POST(
         const mergedDocs = { ...existingDocs, ...documentUrls };
 
         // Update existing trip initiation
-        await query(`
+        await client.query(`
           UPDATE trip_initiations SET
             checklist_completed = $1,
             customer_name = $2,
@@ -159,7 +157,7 @@ export async function POST(
         ]);
       } else {
         // Create new trip initiation
-        await query(`
+        await client.query(`
           INSERT INTO trip_initiations (
             booking_id,
             checklist_completed,
@@ -207,18 +205,13 @@ export async function POST(
       }
 
       // Update booking status
-      await query(`
+      await client.query(`
         UPDATE bookings SET
           status = 'initiated',
           updated_at = NOW()
         WHERE id = $1
       `, [bookingId]);
-
-      await query('COMMIT');
-    } catch (error) {
-      await query('ROLLBACK');
-      throw error;
-    }
+    });
 
     // Send WhatsApp trip start confirmation
     try {

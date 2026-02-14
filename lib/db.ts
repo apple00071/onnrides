@@ -70,6 +70,21 @@ export const query: QueryFunction = async <T extends QueryResultRow = any>(text:
   throw lastError;
 };
 
+export async function withTransaction<T>(callback: (client: any) => Promise<T>): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await callback(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function initializeDatabase(): Promise<boolean> {
   try {
     const result = await query('SELECT NOW()');
@@ -115,5 +130,5 @@ export async function createUser(data: Partial<DbUser>): Promise<DbUser> {
 }
 
 // Export as default for backward compatibility
-export const db = { query, pool, initializeDatabase, closePool, findUserByEmail, createUser };
+export const db = { query, pool, initializeDatabase, closePool, findUserByEmail, createUser, withTransaction };
 export default db;

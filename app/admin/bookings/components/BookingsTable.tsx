@@ -209,6 +209,8 @@ export function BookingsTable() {
         return 'destructive';
       case 'pending':
         return 'warning';
+      case 'initiated':
+        return 'confirmed';
       default:
         return 'secondary';
     }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
-import { WhatsAppService } from '@/app/lib/whatsapp/service';
+import { WaSenderService } from '@/lib/whatsapp/wasender-service';
 import logger from '@/lib/logger';
 
 export async function POST(
@@ -42,26 +42,33 @@ export async function POST(
     const userPhone = userResult.rows[0].phone;
 
     // Send WhatsApp notification
-    const whatsapp = WhatsAppService.getInstance();
-    const result = await whatsapp.sendMessage(userPhone, action);
+    const waSender = WaSenderService.getInstance();
+    const success = await waSender.sendTextMessage(
+      userPhone,
+      `Your account has been ${action}. Please contact support for more details.`
+    );
 
-    logger.info(`Notification sent to user ${params.userId}`, { messageId: result.messageId });
+    if (success) {
+      logger.info(`Notification sent to user ${params.userId}`);
+    } else {
+      logger.warn(`Failed to send notification to user ${params.userId}`);
+    }
 
     return NextResponse.json({
       success: true,
-      message: 'Notification sent successfully',
+      message: success ? 'Notification sent successfully' : 'Notification failed to send',
       details: {
         userId: params.userId,
-        messageId: result.messageId,
+        status: success ? 'sent' : 'failed',
         timestamp: new Date().toISOString()
       }
     });
   } catch (error) {
     logger.error('Error sending notification:', error);
     return NextResponse.json(
-      { 
+      {
         error: error instanceof Error ? error.message : 'Failed to send notification',
-        success: false 
+        success: false
       },
       { status: 500 }
     );

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, withTransaction } from '@/lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { validatePaymentVerification } from '@/lib/razorpay';
 import { AdminNotificationService } from '@/lib/notifications/admin-notification';
-import { formatDate } from '@/lib/utils/time-formatter';
+import { randomUUID } from 'crypto';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -23,6 +23,7 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
+  let booking: any;
   try {
     // Auth check: must be logged in
     const session = await getServerSession(authOptions);
@@ -41,13 +42,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Begin transaction
-    await query('BEGIN');
-
-    try {
-      // Determine if the booking_id is a UUID or a custom short ID
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(booking_id);
-
+    // Use withTransaction helper from @/lib/db to ensure all queries run on the same client
+    await withTransaction(async (client) => {
       // Find and lock the booking row
       const queryText = `
          SELECT b.*, v.name as vehicle_name, u.email as user_email, u.name as user_name
@@ -57,13 +53,13 @@ export async function POST(request: NextRequest) {
          WHERE ${isUuid ? 'b.id = $1::uuid' : 'b.booking_id = $1::text'}
          FOR UPDATE`;
 
-      const bookingLockResult = await query(queryText, [booking_id]);
+      const bookingLockResult = await client.query(queryText, [booking_id]);
 
       if (bookingLockResult.rowCount === 0) {
         throw new Error('Booking not found');
       }
 
-      const booking = bookingLockResult.rows[0];
+      booking = bookingLockResult.rows[0];
 
       // Verify payment signature if order_id is present
       if (razorpay_order_id && razorpay_signature) {
@@ -79,8 +75,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Update booking status
-      // Update booking status
-      await query(
+      await client.query(
         `UPDATE bookings 
          SET payment_status = 'partially_paid',
              status = 'confirmed',
@@ -98,12 +93,12 @@ export async function POST(request: NextRequest) {
       );
 
       // Create payment record
-      await query(
+      await client.query(
         `INSERT INTO payments (
           id, booking_id, amount, status, method, reference, created_at, updated_at
         ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
         [
-          crypto.randomUUID(),
+          randomUUID(),
           booking.id,
           booking.total_price,
           'completed',
@@ -111,35 +106,28 @@ export async function POST(request: NextRequest) {
           razorpay_payment_id
         ]
       );
+    });
 
-      // Commit transaction
-      await query('COMMIT');
-
-      // Send admin notification
-      try {
-        const adminNotificationService = AdminNotificationService.getInstance();
-        await adminNotificationService.sendPaymentNotification({
-          booking_id: booking.booking_id || booking.id,
-          payment_id: razorpay_payment_id,
-          user_name: booking.user_name,
-          amount: booking.total_price,
-          payment_method: 'Online',
-          status: 'success',
-          transaction_time: new Date()
-        });
-      } catch (adminNotifyError) {
-        logger.error('Failed to send admin payment notification:', adminNotifyError);
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: 'Payment verified successfully'
+    // Send admin notification
+    try {
+      const adminNotificationService = AdminNotificationService.getInstance();
+      await adminNotificationService.sendPaymentNotification({
+        booking_id: booking.booking_id || booking.id,
+        payment_id: razorpay_payment_id,
+        user_name: booking.user_name,
+        amount: booking.total_price,
+        payment_method: 'Online',
+        status: 'success',
+        transaction_time: new Date()
       });
-
-    } catch (txError) {
-      await query('ROLLBACK');
-      throw txError;
+    } catch (adminNotifyError) {
+      logger.error('Failed to send admin payment notification:', adminNotifyError);
     }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Payment verified successfully'
+    });
   } catch (error) {
     logger.error('Payment verification error:', error);
     return NextResponse.json({

@@ -1,23 +1,21 @@
-import { WhatsAppService } from '@/app/lib/whatsapp/service';
+import { WaSenderService } from '@/lib/whatsapp/wasender-service';
 import logger from '../lib/logger';
 
 async function sendTestMessage() {
     try {
         logger.info('Sending test message...');
-        const whatsappService = WhatsAppService.getInstance();
+        const waSender = WaSenderService.getInstance();
 
-        // Initialize WhatsApp if not already initialized
-        if (!whatsappService.getInitializationStatus().isInitialized) {
-            logger.info('Initializing WhatsApp service...');
-            await whatsappService.initialize();
+        // Send test message
+        const result = await waSender.sendTextMessage('8247494622', 'Test message from OnnRides WaSender integration');
+
+        if (result) {
+            logger.info('Test message sent successfully');
+            process.exit(0);
+        } else {
+            logger.error('Failed to send test message');
+            process.exit(1);
         }
-
-        // Send test message using the PUBLIC method
-        // sendMessage is private and takes an object.
-        await whatsappService.sendTestMessage('8247494622');
-
-        logger.info('Test message sent successfully');
-        process.exit(0);
     } catch (error) {
         logger.error('Failed to send test message:', error);
         process.exit(1);
