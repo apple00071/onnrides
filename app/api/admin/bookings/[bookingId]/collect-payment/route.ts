@@ -97,7 +97,7 @@ export async function POST(
           collectAmount,
           'completed',
           payment_method,
-          body.payment_reference || 'Manual collection'
+          body.payment_reference || `MANUAL_${booking.booking_id}_${Date.now()}`
         ]
       );
 

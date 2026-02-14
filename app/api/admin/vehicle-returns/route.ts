@@ -219,7 +219,7 @@ export async function POST(request: Request) {
             booking_id,
             remainingAmount,
             remaining_payment_method || 'cash',
-            `balance_${bookingDetails.booking_id}`
+            `balance_${bookingDetails.booking_id}_${Date.now()}`
           ]
         );
 
@@ -248,7 +248,7 @@ export async function POST(request: Request) {
             booking_id,
             additional_charges,
             remaining_payment_method || 'cash',
-            `additional_${bookingDetails.booking_id}`
+            `additional_${bookingDetails.booking_id}_${Date.now()}`
           ]
         );
 
@@ -278,7 +278,7 @@ export async function POST(request: Request) {
             booking_id,
             -security_deposit_refund_amount, // Negative amount for refund
             security_deposit_refund_method || 'cash',
-            `deposit_refund_${bookingDetails.booking_id}`
+            `deposit_refund_${bookingDetails.booking_id}_${Date.now()}`
           ]
         );
 

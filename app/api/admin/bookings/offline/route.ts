@@ -166,7 +166,7 @@ export async function POST(request: Request) {
             paidAmount,
             'completed',
             formData.get('paymentMethod'),
-            formData.get('paymentReference')
+            (formData.get('paymentReference') as string) || `OFFLINE_${displayBookingId}_${Date.now()}`
           ]
         );
       }
