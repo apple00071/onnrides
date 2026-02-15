@@ -88,7 +88,7 @@ export async function POST(
     const checklistCompleted = Object.values(checklist).every(v => v === true);
 
     // Use a transaction to ensure atomicity
-    await withTransaction(async (client) => {
+    await withTransaction(async (client: any) => {
       // Runtime Migration: Ensure columns exist
       await client.query(`
         ALTER TABLE trip_initiations 

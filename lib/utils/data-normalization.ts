@@ -53,7 +53,7 @@ export const robustParse = (val: any, depth = 0): any => {
             lastValue = current;
 
             // 1. Remove outer quotes if they exist
-            let cleaned = current.replace(/^\"|\"$/g, '').trim();
+            const cleaned = current.replace(/^\"|\"$/g, '').trim();
 
             // 2. Handle escaped quotes (e.g., \" or \\\")
             // We want to normalize them for a potential JSON.parse

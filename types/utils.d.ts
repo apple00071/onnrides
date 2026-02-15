@@ -11,20 +11,6 @@ declare module '@/lib/utils/time-formatter' {
   export function formatIST(date: string | Date): string;
 }
 
-declare module '@/components/ui/use-toast' {
-  export interface Toast {
-    title?: string;
-    description?: string;
-    variant?: 'default' | 'destructive';
-  }
-
-  export function toast(props: Toast): void;
-  export function useToast(): { toast: (props: Toast) => void };
-}
-
-declare module '@/components/ui/toast' {
-  export { toast } from '@/components/ui/use-toast';
-}
 
 declare module './ViewBookingModal' {
   interface ViewBookingModalProps {

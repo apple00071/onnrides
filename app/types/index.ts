@@ -1,4 +1,4 @@
-import { VEHICLE_STATUS } from '@/lib/db/schema';
+import { VEHICLE_STATUS } from '@/lib/database/schema';
 
 export type VehicleType = 'bike';
 export type VehicleStatus = 'active' | 'maintenance' | 'retired';
@@ -25,6 +25,7 @@ export interface Vehicle {
   delivery_price_15_days?: number | null;
   delivery_price_30_days?: number | null;
   is_delivery_enabled?: boolean;
+  zero_deposit?: boolean;
   vehicle_category: 'normal' | 'delivery' | 'both';
   available?: boolean;
   nextAvailable?: {

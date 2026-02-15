@@ -1,9 +1,10 @@
-import nodemailer, { Transporter } from 'nodemailer';
+import * as nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 import logger from '../logger';
 import { query } from '@/lib/db';
 import { randomUUID } from 'crypto';
 
-interface BookingConfirmationData {
+export interface BookingConfirmationData {
   userName: string;
   vehicleName: string;
   bookingId: string;
@@ -13,7 +14,7 @@ interface BookingConfirmationData {
   paymentId: string;
 }
 
-interface PaymentFailureData {
+export interface PaymentFailureData {
   userName: string;
   bookingId: string;
   amount: string;
@@ -23,13 +24,13 @@ interface PaymentFailureData {
   supportPhone: string;
 }
 
-interface PasswordResetData {
+export interface PasswordResetData {
   name: string;
   resetLink: string;
   supportEmail: string;
 }
 
-interface DocumentUploadReminderData {
+export interface DocumentUploadReminderData {
   name: string;
   bookingId: string;
   uploadUrl: string;

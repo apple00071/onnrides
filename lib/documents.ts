@@ -1,5 +1,6 @@
 import logger from '@/lib/logger';
 import { query } from '@/lib/db';
+import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
 
 export async function checkDocumentVerification(userId: string): Promise<{
   isVerified: boolean;

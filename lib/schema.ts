@@ -71,6 +71,12 @@ export interface Vehicle {
   status: VehicleStatus;
   description: string | null;
   features: string | null;
+  is_delivery_enabled: boolean;
+  zero_deposit: boolean;
+  vehicle_category: 'normal' | 'delivery' | 'both';
+  delivery_price_7_days: number | null;
+  delivery_price_15_days: number | null;
+  delivery_price_30_days: number | null;
   created_at: Date;
   updated_at: Date;
 }

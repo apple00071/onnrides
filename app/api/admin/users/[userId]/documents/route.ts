@@ -50,7 +50,7 @@ export async function GET(
     logger.info('Documents fetched:', {
       userId,
       count: result.rows.length,
-      documents: result.rows.map(doc => ({
+      documents: result.rows.map((doc: any) => ({
         id: doc.id,
         type: doc.type,
         status: doc.status,
@@ -59,23 +59,23 @@ export async function GET(
     });
 
     // Ensure all documents have valid URLs
-    const documents = result.rows.map(doc => {
+    const documents = result.rows.map((doc: any) => {
       // If URL is relative, make it absolute
       if (doc.file_url && !doc.file_url.startsWith('http')) {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
         doc.file_url = `${baseUrl}${doc.file_url}`;
-        logger.debug('Converted relative URL to absolute:', { 
-          originalUrl: doc.file_url, 
-          baseUrl, 
-          finalUrl: doc.file_url 
+        logger.debug('Converted relative URL to absolute:', {
+          originalUrl: doc.file_url,
+          baseUrl,
+          finalUrl: doc.file_url
         });
       }
       return doc;
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      documents 
+    return NextResponse.json({
+      success: true,
+      documents
     });
   } catch (error) {
     logger.error('Error fetching user documents:', {
@@ -84,8 +84,8 @@ export async function GET(
       userId: params.userId
     });
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         message: 'Failed to fetch documents',
         error: error instanceof Error ? error.message : 'Unknown error'
       },
@@ -97,13 +97,13 @@ export async function GET(
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { userId: string } }
-): Promise<ApiNextResponse<ApiResponse<{document: Document; user_verified: boolean}>>> {
+): Promise<ApiNextResponse<ApiResponse<{ document: Document; user_verified: boolean }>>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user || session.user.role !== 'admin') {
       logger.warn('Unauthorized document approval attempt:', { userId: params.userId });
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' }, 
+        { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
@@ -142,7 +142,7 @@ export async function PATCH(
       'SELECT * FROM documents WHERE user_id = $1::uuid',
       [userId]
     );
-    const allDocsApproved = userDocuments.rows.every(doc => doc.status === 'approved');
+    const allDocsApproved = userDocuments.rows.every((doc: any) => doc.status === 'approved');
 
     logger.debug(`Successfully updated document ${documentId} status to ${status}`);
     return NextResponse.json({
@@ -160,8 +160,8 @@ export async function PATCH(
       userId: params.userId
     });
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Failed to update document status',
         message: error instanceof Error ? error.message : 'Unknown error'
       },

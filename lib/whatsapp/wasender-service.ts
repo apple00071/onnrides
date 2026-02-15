@@ -130,7 +130,7 @@ export class WaSenderService {
 
   private formatPhoneNumber(phone: string): string {
     // Remove all non-digit characters
-    let cleaned = phone.replace(/\D/g, '');
+    const cleaned = phone.replace(/\D/g, '');
     
     // If it starts with 91 (India country code), keep as is
     if (cleaned.startsWith('91')) {

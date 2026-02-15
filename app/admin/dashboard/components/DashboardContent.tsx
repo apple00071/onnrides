@@ -6,6 +6,7 @@ import { QuickActionCard } from './QuickActionCard';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { formatDateTime, formatIST } from '@/lib/utils/time-formatter';
+import { formatCurrency } from '@/lib/utils/currency';
 
 interface DashboardData {
   totalUsers: number;
@@ -123,7 +124,7 @@ export default function DashboardContent() {
             <div className="text-sm text-gray-600">Active Rentals</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">₹{data.todayRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(data.todayRevenue)}</div>
             <div className="text-sm text-gray-600">Today's Revenue</div>
           </div>
           <div className="text-center">
@@ -181,7 +182,7 @@ export default function DashboardContent() {
                     {booking.vehicle_name || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ₹{parseFloat(booking.amount || '0').toLocaleString()}
+                    {formatCurrency(booking.amount || '0')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :

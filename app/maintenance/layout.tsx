@@ -20,7 +20,7 @@ export default function MaintenanceLayout({
       if ('caches' in window) {
         caches.keys().then((names) => {
           // Delete all caches
-          for (let name of names) {
+          for (const name of names) {
             caches.delete(name);
           }
         });

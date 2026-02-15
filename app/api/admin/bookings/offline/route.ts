@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth/auth-options';
-import { query, withTransaction } from '@/lib/db';
+import { query, withTransaction } from '../../../../../lib/db';
 import { randomUUID } from 'crypto';
 import { generateBookingId } from '@/lib/utils/booking-id';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     const displayBookingId = generateBookingId(vehicleType);
 
     // Start transaction using withTransaction helper
-    const booking = await withTransaction(async (client) => {
+    const booking = await withTransaction(async (client: any) => {
       const result = await client.query(
         `INSERT INTO bookings (
           id,

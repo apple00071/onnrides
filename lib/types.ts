@@ -19,8 +19,8 @@ export interface User {
   email: string;
   role: string;
   phone: string | null;
-  createdAt: string;
-  isBlocked: boolean;
+  created_at: string;
+  is_blocked: boolean;
   documents?: {
     total: number;
     approved: number;
@@ -235,5 +235,5 @@ export interface DbUser {
   email: string;
   role: UserRole;
   password: string;
-  isBlocked: boolean;
+  is_blocked: boolean;
 } 

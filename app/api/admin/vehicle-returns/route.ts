@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query, withTransaction } from '@/lib/db';
+import { query, withTransaction } from '../../../../lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -105,8 +105,10 @@ export async function POST(request: Request) {
       );
     }
 
+    let bookingDetailsForNotification: any = {};
+
     // Start transaction using withTransaction helper
-    await withTransaction(async (client) => {
+    await withTransaction(async (client: any) => {
       // Lock the booking row to prevent race conditions
       const bookingCheck = await client.query(
         `SELECT

@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Loader } from '@/components/ui/loader';
 import { Vehicle } from './types';
 
+import { formatCurrency } from '@/lib/utils/currency';
+
 interface VehicleDetailsClientProps {
   vehicleId: string;
 }
@@ -92,7 +94,7 @@ export default function VehicleDetailsClient({ vehicleId }: VehicleDetailsClient
           </div>
 
           <div>
-            <h2 className="text-2xl font-bold">₹{vehicle.price_per_day}/day</h2>
+            <h2 className="text-2xl font-bold">{formatCurrency(vehicle.price_per_day || 0)}/day</h2>
           </div>
 
           <Link

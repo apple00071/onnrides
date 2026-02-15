@@ -6,6 +6,7 @@ import { getBadgeColor } from "@/lib/constants/status-colors";
 import { formatDateTime } from "@/lib/utils/time-formatter";
 import { MoreHorizontal, Eye, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/utils/currency";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -160,7 +161,7 @@ export const columns: ColumnDef<Booking>[] = [
             const amount = parseFloat(row.getValue("total_price"));
             return (
                 <div className="flex flex-col items-start gap-1">
-                    <span className="font-bold text-gray-900">₹{amount.toLocaleString()}</span>
+                    <span className="font-bold text-gray-900">{formatCurrency(amount)}</span>
                     <span className="text-[10px] text-gray-400 font-medium">Total Price</span>
                 </div>
             );

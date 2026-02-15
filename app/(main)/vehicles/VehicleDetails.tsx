@@ -2,6 +2,7 @@ import { query } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { formatCurrency } from '@/lib/utils/currency';
 
 interface VehicleDetailsProps {
   params: {
@@ -59,7 +60,7 @@ export default async function VehicleDetails({ params }: VehicleDetailsProps) {
           </div>
 
           <div>
-            <h2 className="text-2xl font-bold">₹{vehicle.price_per_day}/day</h2>
+            <h2 className="text-2xl font-bold">{formatCurrency(vehicle.price_per_day)}/day</h2>
           </div>
 
           <Link

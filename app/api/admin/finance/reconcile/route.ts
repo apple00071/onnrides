@@ -68,7 +68,7 @@ export async function POST(request: Request) {
         let card_collections = 0;
         let upi_collections = 0;
 
-        methodsRes.rows.forEach(row => {
+        methodsRes.rows.forEach((row: any) => {
             const m = row.method?.toLowerCase();
             const val = parseFloat(row.total || '0');
             if (m === 'cash') cash_collections = val;

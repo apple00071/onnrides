@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authOptions, comparePasswords, hashPassword } from '@/lib/auth';
+import { authOptions, comparePasswords, hashPassword } from '@/app/lib/auth';
 import { getServerSession } from 'next-auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';

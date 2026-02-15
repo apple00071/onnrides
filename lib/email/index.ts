@@ -1,5 +1,7 @@
-export { 
-  sendBookingConfirmationEmail,
-  sendPasswordResetEmail,
-  sendWelcomeEmail
-} from '@/app/lib/whatsapp/service'; 
+export { EmailService } from './service';
+export type {
+  BookingConfirmationData,
+  PaymentFailureData,
+  PasswordResetData,
+  DocumentUploadReminderData
+} from './service';

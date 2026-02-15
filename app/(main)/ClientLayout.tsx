@@ -5,7 +5,7 @@ import { SessionProvider } from 'next-auth/react';
 import { ThemeProvider } from 'next-themes';
 import { useEffect, useState } from 'react';
 import Navbar from './components/Navbar';
-import { Footer } from '@/components/ui/footer';
+import Footer from './components/Footer';
 import RazorpayScript from './providers/RazorpayProvider';
 import ClientOnly from './providers/ClientOnly';
 
@@ -37,14 +37,13 @@ export default function ClientLayout({
             <Footer />
           </>
         ) : (
-          <>
-            <RazorpayScript />
+          <RazorpayScript>
             <Navbar />
             <main className="min-h-screen">
               {children}
             </main>
             <Footer />
-          </>
+          </RazorpayScript>
         )}
       </ThemeProvider>
     </SessionProvider>

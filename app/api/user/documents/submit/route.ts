@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth/user';
 import type { User } from '@/lib/types';
 import logger from '@/lib/logger';
 import { randomUUID } from 'crypto';
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     const document = result.rows[0];
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Document uploaded successfully',
       document: {
         id: document.id,

@@ -53,7 +53,7 @@ export default function OfflineBookingPage() {
 
   // Handle Aadhar input
   const handleAadharChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, ''); // Keep only digits
+    const value = e.target.value.replace(/\D/g, ''); // Keep only digits
     if (value.length <= 12) {
       const formattedValue = formatAadhar(value);
       setFormData(prev => ({ ...prev, aadharNumber: formattedValue }));

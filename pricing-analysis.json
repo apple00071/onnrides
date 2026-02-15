@@ -1,0 +1,112 @@
+[
+  {
+    "name": "Bullet",
+    "daily_base": 1008,
+    "daily_7": 900,
+    "daily_15": 700,
+    "daily_30": 600,
+    "discount_7": 0.10714285714285714,
+    "discount_15": 1,
+    "discount_30": 1
+  },
+  {
+    "name": " R15 v3",
+    "daily_base": 1512,
+    "daily_7": 1200,
+    "daily_15": 1000,
+    "daily_30": 800,
+    "discount_7": 0.20634920634920634,
+    "discount_15": 1,
+    "discount_30": 1
+  },
+  {
+    "name": "TV ntorq",
+    "daily_base": 504,
+    "daily_7": 350,
+    "daily_15": 280,
+    "daily_30": 216.66666666666666,
+    "discount_7": 0.3055555555555556,
+    "discount_15": 1,
+    "discount_30": 1
+  },
+  {
+    "name": "Pulsar 150",
+    "daily_base": 816,
+    "daily_7": 600,
+    "daily_15": 500,
+    "daily_30": 400,
+    "discount_7": 0.2647058823529412,
+    "discount_15": 1,
+    "discount_30": 1
+  },
+  {
+    "name": "Ns125",
+    "daily_base": 816,
+    "daily_7": 600,
+    "daily_15": 500,
+    "daily_30": 400,
+    "discount_7": 0.2647058823529412,
+    "discount_15": 1,
+    "discount_30": 1
+  },
+  {
+    "name": "Duke200",
+    "daily_base": 1512,
+    "daily_7": 1200,
+    "daily_15": 1000,
+    "daily_30": 800,
+    "discount_7": 0.20634920634920634,
+    "discount_15": 1,
+    "discount_30": 1
+  },
+  {
+    "name": "Honda Shine",
+    "daily_base": 600,
+    "daily_7": 350,
+    "daily_15": 280,
+    "daily_30": 216.66666666666666,
+    "discount_7": 0.4166666666666667,
+    "discount_15": 1,
+    "discount_30": 1
+  },
+  {
+    "name": "Apachi",
+    "daily_base": 816,
+    "daily_7": 600,
+    "daily_15": 500,
+    "daily_30": 400,
+    "discount_7": 0.2647058823529412,
+    "discount_15": 1,
+    "discount_30": 1
+  },
+  {
+    "name": "Fz v1",
+    "daily_base": 600,
+    "daily_7": 350,
+    "daily_15": 300,
+    "daily_30": 300,
+    "discount_7": 0.4166666666666667,
+    "discount_15": 1,
+    "discount_30": 1
+  },
+  {
+    "name": "Honda Dio",
+    "daily_base": 504,
+    "daily_7": 350,
+    "daily_15": 280,
+    "daily_30": 216.66666666666666,
+    "discount_7": 0.3055555555555556,
+    "discount_15": 1,
+    "discount_30": 1
+  },
+  {
+    "name": "Activa 6G",
+    "daily_base": 504,
+    "daily_7": 350,
+    "daily_15": 280,
+    "daily_30": 216.66666666666666,
+    "discount_7": 0.3055555555555556,
+    "discount_15": 1,
+    "discount_30": 1
+  }
+]

@@ -4,7 +4,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: UserRole;
+  role: string;
   phone?: string | null;
   created_at?: string;
   is_blocked?: boolean;
@@ -31,6 +31,6 @@ declare module 'next-auth/jwt' {
     id: string;
     email: string;
     name: string;
-    role: UserRole;
+    role: string;
   }
 } 

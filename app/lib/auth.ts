@@ -5,24 +5,6 @@ import { DefaultSession, DefaultUser } from 'next-auth';
 import logger from '@/lib/logger';
 import { query } from '@/lib/db';
 
-// Extend the built-in session types
-declare module "next-auth" {
-  interface User extends DefaultUser {
-    role: "user" | "admin";
-    id: string;
-  }
-
-  interface Session {
-    user: User & DefaultSession["user"];
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    role: "user" | "admin";
-    id: string;
-  }
-}
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -48,9 +30,9 @@ export const authOptions: NextAuthOptions = {
             FROM users
             WHERE email = $1
           `, [credentials.email]);
-          
+
           const user = result.rows[0];
-          
+
           if (!user || !user.password_hash) {
             logger.warn('User not found or no password:', credentials.email);
             return null;
@@ -59,7 +41,7 @@ export const authOptions: NextAuthOptions = {
           // Check if this is an admin login attempt
           const isAdminLogin = credentials.isAdmin === 'true';
           const userRole = user.role?.toLowerCase() || 'user';
-          
+
           if (isAdminLogin && userRole !== 'admin') {
             logger.warn('Non-admin user attempted admin login:', credentials.email);
             return null;
@@ -154,13 +136,13 @@ export async function comparePasswords(password: string, hash: string): Promise<
 
 export async function verifyAdmin(request: Request): Promise<boolean> {
   const session = await getServerSession(authOptions);
-  
+
   if (!session) {
     return false;
   }
 
   return session.user?.role === 'admin';
-} 
+}
 
 export async function getCurrentUser() {
   const session = await getServerSession(authOptions);

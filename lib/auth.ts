@@ -1,3 +1,12 @@
-// Re-export everything from the auth folder for backward compatibility
-export * from './auth/index';
-export { default } from './auth/index'; 
+// Re-export authentication utilities for global availability
+export {
+    authOptions,
+    verifyAuth,
+    verifyAdmin,
+    hashPassword,
+    comparePasswords,
+    getCurrentUser
+} from './auth/index';
+
+import { authOptions } from './auth/index';
+export default authOptions;

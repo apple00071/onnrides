@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, withTransaction } from '@/lib/db';
+import { query, withTransaction } from '../../../../lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(booking_id);
     // Use withTransaction helper from @/lib/db to ensure all queries run on the same client
-    await withTransaction(async (client) => {
+    await withTransaction(async (client: any) => {
       // Find and lock the booking row
       const queryText = `
          SELECT b.*, v.name as vehicle_name, u.email as user_email, u.name as user_name

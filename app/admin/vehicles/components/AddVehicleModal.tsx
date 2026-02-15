@@ -491,7 +491,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess }: AddVehicleModalP
           <div className="flex items-center space-x-2">
             <Checkbox
               id="zero_deposit"
-              checked={(formData as any).zero_deposit ?? false}
+              checked={formData.zero_deposit ?? false}
               onCheckedChange={(checked) => {
                 setFormData(prev => ({
                   ...prev,

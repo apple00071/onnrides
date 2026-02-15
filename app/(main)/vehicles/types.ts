@@ -68,6 +68,7 @@ export interface Vehicle {
   seating_capacity?: number;
   mileage?: number;
   price_per_day?: number;
+  is_delivery_enabled?: boolean;
 }
 
 export interface VehicleDetailsProps {

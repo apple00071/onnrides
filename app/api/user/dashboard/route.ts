@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -50,9 +50,9 @@ export async function GET() {
     `, [session.user.id]);
 
     return NextResponse.json({
-      recent_bookings: recentBookings,
-      total_bookings: Number(bookingsCount?.count || 0),
-      total_spent: Number(totalSpent?.total || 0)
+      recent_bookings: recentBookings.rows,
+      total_bookings: Number(bookingsCount.rows[0]?.count || 0),
+      total_spent: Number(totalSpent.rows[0]?.total || 0)
     });
   } catch (error) {
     logger.error('Error fetching user dashboard:', error);

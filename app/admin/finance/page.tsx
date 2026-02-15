@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Calculator, DollarSign, CreditCard, Banknote, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatCurrency } from '@/lib/utils/currency';
 
 interface CashFlowData {
   openingBalance: number;
@@ -189,7 +190,7 @@ export default function FinancialReconciliationPage() {
           </CardHeader>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-green-600 tracking-tight">
-              ₹{cashFlow.openingBalance.toLocaleString()}
+              {formatCurrency(cashFlow.openingBalance)}
             </div>
           </CardContent>
         </Card>
@@ -203,24 +204,24 @@ export default function FinancialReconciliationPage() {
           </CardHeader>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-blue-600 tracking-tight">
-              ₹{totalCollections.toLocaleString()}
+              {formatCurrency(totalCollections)}
             </div>
             <div className="grid grid-cols-2 gap-x-2 gap-y-3 mt-3 pt-3 border-t border-gray-50">
               <div>
                 <span className="text-[9px] font-bold text-gray-400 uppercase">Cash</span>
-                <p className="text-[11px] font-bold text-gray-700 leading-none">₹{cashFlow.cashCollections.toLocaleString()}</p>
+                <p className="text-[11px] font-bold text-gray-700 leading-none">{formatCurrency(cashFlow.cashCollections)}</p>
               </div>
               <div>
                 <span className="text-[9px] font-bold text-gray-400 uppercase">Card</span>
-                <p className="text-[11px] font-bold text-gray-700 leading-none">₹{cashFlow.cardCollections.toLocaleString()}</p>
+                <p className="text-[11px] font-bold text-gray-700 leading-none">{formatCurrency(cashFlow.cardCollections)}</p>
               </div>
               <div>
                 <span className="text-[9px] font-bold text-gray-400 uppercase">UPI</span>
-                <p className="text-[11px] font-bold text-gray-700 leading-none">₹{cashFlow.upiCollections.toLocaleString()}</p>
+                <p className="text-[11px] font-bold text-gray-700 leading-none">{formatCurrency(cashFlow.upiCollections)}</p>
               </div>
               <div>
                 <span className="text-[9px] font-bold text-gray-400 uppercase">Online</span>
-                <p className="text-[11px] font-bold text-gray-700 leading-none">₹{cashFlow.onlineCollections.toLocaleString()}</p>
+                <p className="text-[11px] font-bold text-gray-700 leading-none">{formatCurrency(cashFlow.onlineCollections)}</p>
               </div>
             </div>
           </CardContent>
@@ -235,13 +236,13 @@ export default function FinancialReconciliationPage() {
           </CardHeader>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-orange-600 tracking-tight">
-              ₹{cashFlow.closingBalance.toLocaleString()}
+              {formatCurrency(cashFlow.closingBalance)}
             </div>
             <div className={`text-xs font-bold mt-2 flex items-center gap-1.5 ${balanceDifference === 0 ? 'text-green-600' : 'text-red-600'}`}>
-              <span className="opacity-70">Expected:</span> ₹{expectedBalance.toLocaleString()}
+              <span className="opacity-70">Expected:</span> {formatCurrency(expectedBalance)}
               {balanceDifference !== 0 && (
                 <Badge variant="destructive" className="h-4 text-[9px] font-black px-1 rounded">
-                  {balanceDifference > 0 ? '+' : ''}₹{balanceDifference.toLocaleString()}
+                  {balanceDifference > 0 ? '+' : ''}{formatCurrency(balanceDifference)}
                 </Badge>
               )}
             </div>
@@ -273,7 +274,7 @@ export default function FinancialReconciliationPage() {
                     </div>
                     <div className="text-right">
                       <div className={`text-sm font-black ${transaction.type === 'refund' ? 'text-red-600' : 'text-green-600'}`}>
-                        {transaction.type === 'refund' ? '-' : '+'}₹{transaction.amount.toLocaleString()}
+                        {transaction.type === 'refund' ? '-' : '+'}{formatCurrency(transaction.amount)}
                       </div>
                       <div className="text-[9px] text-gray-400 font-bold uppercase">
                         {format(new Date(transaction.timestamp), 'HH:mm')}
@@ -326,11 +327,11 @@ export default function FinancialReconciliationPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-gray-50/50 p-2 rounded-lg border border-gray-100">
                 <span className="text-[9px] font-bold text-gray-400 uppercase block tracking-tight">Today's Expenses</span>
-                <span className="text-sm font-black text-gray-900">₹{(cashFlow?.expenses || 0).toLocaleString()}</span>
+                <span className="text-sm font-black text-gray-900">{formatCurrency(cashFlow.expenses || 0)}</span>
               </div>
               <div className="bg-gray-50/50 p-2 rounded-lg border border-gray-100 text-right">
                 <span className="text-[9px] font-bold text-gray-400 uppercase block tracking-tight">Daily Refunds</span>
-                <span className="text-sm font-black text-gray-900">₹{(cashFlow?.cashRefunds || 0).toLocaleString()}</span>
+                <span className="text-sm font-black text-gray-900">{formatCurrency(cashFlow.cashRefunds || 0)}</span>
               </div>
             </div>
           </CardContent>
@@ -343,18 +344,18 @@ export default function FinancialReconciliationPage() {
           <div className="grid grid-cols-3 gap-2 text-center items-center">
             <div>
               <div className="text-[9px] md:text-[10px] text-gray-400 font-black uppercase tracking-wider">Expected</div>
-              <div className="text-xs md:text-base font-bold text-gray-900 tracking-tight">₹{(expectedBalance || 0).toLocaleString()}</div>
+              <div className="text-xs md:text-base font-bold text-gray-900 tracking-tight">{formatCurrency(expectedBalance || 0)}</div>
             </div>
             <div className="border-x border-gray-100 py-1">
               <div className="text-[9px] md:text-[10px] text-gray-400 font-black uppercase tracking-wider">Actual</div>
-              <div className="text-xs md:text-base font-bold text-gray-900 tracking-tight">₹{(cashFlow?.closingBalance || 0).toLocaleString()}</div>
+              <div className="text-xs md:text-base font-bold text-gray-900 tracking-tight">{formatCurrency(cashFlow.closingBalance || 0)}</div>
             </div>
             <div>
               <div className={`text-[9px] md:text-[10px] font-black uppercase tracking-wider ${Math.abs(balanceDifference) < 1 ? 'text-green-600' : 'text-red-600'}`}>
                 {Math.abs(balanceDifference) < 1 ? 'STATUS' : 'DIFF'}
               </div>
               <div className={`text-xs md:text-base font-black tracking-tight ${Math.abs(balanceDifference) < 1 ? 'text-green-600' : 'text-red-600'}`}>
-                {Math.abs(balanceDifference) < 1 ? 'BALANCED' : `₹${(balanceDifference || 0).toLocaleString()}`}
+                {Math.abs(balanceDifference) < 1 ? 'BALANCED' : formatCurrency(balanceDifference || 0)}
               </div>
             </div>
           </div>

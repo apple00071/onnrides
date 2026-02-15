@@ -25,21 +25,22 @@ type ActionType = typeof actionTypes
 
 type Action =
   | {
-      type: ActionType["ADD_TOAST"]
-      toast: ToasterToast
-    }
+    type: ActionType["ADD_TOAST"]
+    toast: ToasterToast
+  }
   | {
-      type: ActionType["UPDATE_TOAST"]
-      toast: Partial<ToasterToast>
-    }
+    type: ActionType["UPDATE_TOAST"]
+    toast: Partial<ToasterToast>
+    id: string
+  }
   | {
-      type: ActionType["DISMISS_TOAST"]
-      toastId?: ToasterToast["id"]
-    }
+    type: ActionType["DISMISS_TOAST"]
+    id: string
+  }
   | {
-      type: ActionType["REMOVE_TOAST"]
-      toastId?: ToasterToast["id"]
-    }
+    type: ActionType["REMOVE_TOAST"]
+    id: string
+  }
 
 const genId = () => Math.random().toString(36).substring(2, 9)
 
@@ -54,7 +55,7 @@ const addToRemoveQueue = (toastId: string) => {
     toastTimeouts.delete(toastId)
     dispatch({
       type: "REMOVE_TOAST",
-      toastId: toastId,
+      id: toastId,
     })
   }, TOAST_REMOVE_DELAY)
 
@@ -84,32 +85,32 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         toasts: state.toasts.map((t) =>
-          t.id === action.toast.id ? { ...t, ...action.toast } : t
+          t.id === action.id ? { ...t, ...action.toast } : t
         ),
       }
 
     case "DISMISS_TOAST": {
-      const { toastId } = action
+      const { id } = action
 
-      if (toastId) {
-        addToRemoveQueue(toastId)
+      if (id) {
+        addToRemoveQueue(id)
       }
 
       return {
         ...state,
         toasts: state.toasts.map((t) =>
-          t.id === toastId || toastId === undefined
+          t.id === id || id === undefined
             ? {
-                ...t,
-                open: false,
-              }
+              ...t,
+              open: false,
+            }
             : t
         ),
       }
     }
 
     case "REMOVE_TOAST":
-      if (action.toastId === undefined) {
+      if (action.id === undefined) {
         return {
           ...state,
           toasts: [],
@@ -117,7 +118,7 @@ function reducer(state: State, action: Action): State {
       }
       return {
         ...state,
-        toasts: state.toasts.filter((t) => t.id !== action.toastId),
+        toasts: state.toasts.filter((t) => t.id !== action.id),
       }
   }
 }
@@ -138,7 +139,7 @@ export function useToast() {
 
       dispatch({
         type: "ADD_TOAST",
-        toast,
+        toast: toast as ToasterToast,
       })
 
       return {

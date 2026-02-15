@@ -40,7 +40,7 @@ const defaultRobotRules = {
 };
 
 // Add security headers
-export const securityHeaders = {
+const securityHeaders = {
   'Content-Security-Policy': `
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://checkout.razorpay.com https://api.razorpay.com https://va.vercel-scripts.com https://sdk.cashfree.com https://www.googletagmanager.com https://www.google-analytics.com https://googleads.g.doubleclick.net;

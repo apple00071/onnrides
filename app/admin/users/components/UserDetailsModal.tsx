@@ -386,7 +386,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
       const response = await fetch(`/api/admin/users/${user.id}/block`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blocked: !user.isBlocked }),
+        body: JSON.stringify({ blocked: !user.is_blocked }),
       });
 
       if (!response.ok) {
@@ -396,7 +396,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
 
       const updatedUser = await response.json();
       onUserUpdated(updatedUser);
-      toast.success(`User ${user.isBlocked ? 'unblocked' : 'blocked'} successfully`);
+      toast.success(`User ${user.is_blocked ? 'unblocked' : 'blocked'} successfully`);
     } catch (error) {
       logger.error('Error updating user status:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update user status');
@@ -461,7 +461,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Joined</h3>
-                    <p className="mt-1">{formatDate(user.createdAt)}</p>
+                    <p className="mt-1">{formatDate(user.created_at)}</p>
                   </div>
                 </div>
               </div>
@@ -661,10 +661,10 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {user.isBlocked ? 'Unblock User' : 'Block User'}
+              {user.is_blocked ? 'Unblock User' : 'Block User'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {user.isBlocked ? (
+              {user.is_blocked ? (
                 'Are you sure you want to unblock this user? They will be able to access the platform again.'
               ) : (
                 'Are you sure you want to block this user? They will not be able to access the platform until unblocked.'
@@ -676,7 +676,7 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
             <AlertDialogAction
               onClick={handleBlockUser}
               disabled={isBlocking}
-              className={user.isBlocked ?
+              className={user.is_blocked ?
                 "bg-green-600 hover:bg-green-700 text-white" :
                 "bg-orange-600 hover:bg-orange-700 text-white"
               }
@@ -684,10 +684,10 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
               {isBlocking ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {user.isBlocked ? 'Unblocking...' : 'Blocking...'}
+                  {user.is_blocked ? 'Unblocking...' : 'Blocking...'}
                 </div>
               ) : (
-                user.isBlocked ? 'Unblock' : 'Block'
+                user.is_blocked ? 'Unblock' : 'Block'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -695,4 +695,4 @@ export default function UserDetailsModal({ user, isOpen, onClose, onUserUpdated 
       </AlertDialog>
     </>
   );
-} 
+}

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query, withTransaction } from '@/lib/db';
+import { query, withTransaction } from '../../../../../../lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -60,7 +60,7 @@ export async function POST(
     }
 
     // Use withTransaction helper from @/lib/db to ensure all queries run on the same client
-    await withTransaction(async (client) => {
+    await withTransaction(async (client: any) => {
       // Update payment details
       const newPaidAmount = paidAmount + collectAmount;
       const newPendingAmount = pendingAmount - collectAmount;

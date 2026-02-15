@@ -43,14 +43,7 @@ export function DrawerDialog({
     footer,
     className,
 }: DrawerDialogProps) {
-    const [isDesktop, setIsDesktop] = React.useState(false)
-
-    React.useEffect(() => {
-        const checkDesktop = () => setIsDesktop(window.innerWidth >= 768)
-        checkDesktop()
-        window.addEventListener('resize', checkDesktop)
-        return () => window.removeEventListener('resize', checkDesktop)
-    }, [])
+    const isDesktop = useMediaQuery("(min-width: 768px)")
 
     if (isDesktop) {
         return (

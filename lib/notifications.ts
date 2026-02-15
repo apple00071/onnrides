@@ -25,7 +25,7 @@ export const notify = {
         primary: '#22c55e',
         secondary: '#fff',
       },
-    });
+    } as any);
   },
 
   error: (message: string, options?: NotificationOptions) => {
@@ -42,7 +42,7 @@ export const notify = {
         primary: '#ef4444',
         secondary: '#fff',
       },
-    });
+    } as any);
   },
 
   loading: (message: string, options?: NotificationOptions) => {

@@ -16,6 +16,7 @@ import {
   preloadImage,
   isValidDataUrl
 } from '@/lib/utils/image-utils';
+import { formatCurrency } from "@/lib/utils/currency";
 
 interface VehicleCardProps {
   vehicle: Vehicle;
@@ -289,7 +290,7 @@ export function VehicleCard({
             ) : (
               <>
                 <div className="text-lg font-bold text-gray-900">
-                  ₹{isNaN(priceDetails.totalAmount) ? 0 : priceDetails.totalAmount}
+                  {formatCurrency(isNaN(priceDetails.totalAmount) ? 0 : priceDetails.totalAmount)}
                 </div>
                 {pickupDateTime && dropoffDateTime && priceDetails.actualHours < priceDetails.minimumHours && (
                   <p className="text-[10px] text-orange-600 mt-0.5">

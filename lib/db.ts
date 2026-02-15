@@ -1,4 +1,5 @@
-import { Pool, QueryResult, QueryResultRow } from 'pg';
+import pg, { QueryResult, QueryResultRow } from 'pg';
+const { Pool } = pg;
 import logger from '@/lib/logger';
 import { createId } from '@paralleldrive/cuid2';
 
@@ -32,10 +33,8 @@ function handleDatabaseError(error: DatabaseError, operation: string) {
   throw new Error(`Database ${operation} failed: ${error.message}`);
 }
 
-// Fixed: Explicit type for the query function to ensure generics work correctly with named exports
-export type QueryFunction = <T extends QueryResultRow = any>(text: string, params?: any[]) => Promise<QueryResult<T>>;
-
-export const query: QueryFunction = async <T extends QueryResultRow = any>(text: string, params: any[] = []): Promise<QueryResult<T>> => {
+// Fixed: Explicit function with generic for query to ensure it works correctly with named exports and type parameters
+export async function query<T extends QueryResultRow = any>(text: string, params: any[] = []): Promise<QueryResult<T>> {
   let retries = MAX_RETRIES;
   let lastError: unknown;
 

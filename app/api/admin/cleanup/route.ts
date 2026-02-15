@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { query, withTransaction } from '@/lib/db';
+import { query, withTransaction } from '../../../../lib/db';
 import logger from '@/lib/logger';
 
 // Helper function to check if table exists
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
     let stats: any = {};
 
     // Use withTransaction helper from @/lib/db to ensure all queries run on the same client
-    await withTransaction(async (client) => {
+    await withTransaction(async (client: any) => {
       // Ensure payments table exists before proceeding
       await ensurePaymentsTable(client);
 

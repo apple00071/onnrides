@@ -2,6 +2,7 @@ import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { formatDateTime } from '@/lib/utils/time-formatter';
+import { formatCurrency } from '@/lib/utils/currency';
 
 interface VehicleReturn {
   additional_charges: number;
@@ -117,7 +118,7 @@ export default function BookingDetailsModal({
                       <p className="text-sm text-gray-900">Booking Date: {booking.booking_date}</p>
                       <p className="text-sm text-gray-900">From: {booking.duration.from}</p>
                       <p className="text-sm text-gray-900">To: {booking.duration.to}</p>
-                      <p className="text-sm text-gray-900">Amount: {booking.amount}</p>
+                      <p className="text-sm text-gray-900">Amount: {formatCurrency(booking.amount)}</p>
                     </div>
                   </div>
 
@@ -132,14 +133,14 @@ export default function BookingDetailsModal({
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Payment Information</h4>
                     <div className="mt-2 space-y-1">
-                      <p className="text-sm text-gray-900">Base Amount: {booking.amount}</p>
+                      <p className="text-sm text-gray-900">Base Amount: {formatCurrency(booking.amount)}</p>
                       {booking.vehicle_return?.additional_charges && booking.vehicle_return.additional_charges > 0 && (
                         <>
                           <p className="text-sm font-medium text-orange-600">
-                            Additional Charges: ₹{booking.vehicle_return.additional_charges}
+                            Additional Charges: {formatCurrency(booking.vehicle_return.additional_charges)}
                           </p>
                           <p className="text-sm font-medium text-gray-900">
-                            Total Amount: ₹{calculateTotalAmount()}
+                            Total Amount: {formatCurrency(calculateTotalAmount())}
                           </p>
                         </>
                       )}

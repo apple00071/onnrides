@@ -151,7 +151,7 @@ export default function EditCouponModal({
               <Label htmlFor="discount_type">Discount Type</Label>
               <Select
                 value={formData.discount_type}
-                onValueChange={(value) => handleChange('discount_type', value)}
+                onValueChange={(value: string) => handleChange('discount_type', value as 'percentage' | 'fixed')}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />

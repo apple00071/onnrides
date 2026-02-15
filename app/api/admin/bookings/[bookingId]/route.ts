@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query, withTransaction } from '@/lib/db';
+import { query, withTransaction } from '../../../../../lib/db';
 import logger from '@/lib/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -237,8 +237,8 @@ export async function PATCH(
     const modifications = [];
 
     // Build update query dynamically based on provided fields
-    const updateFields = [];
-    const updateValues = [];
+    const updateFields: string[] = [];
+    const updateValues: any[] = [];
     let paramIndex = 1;
 
     if (status && status !== currentBooking.status) {
@@ -299,7 +299,7 @@ export async function PATCH(
 
     // Execute update inside a transaction
     let updatedBooking;
-    await withTransaction(async (client) => {
+    await withTransaction(async (client: any) => {
       const result = await client.query(`
         UPDATE bookings
         SET ${updateFields.join(', ')}
