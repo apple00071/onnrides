@@ -5,6 +5,7 @@ import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { randomUUID } from 'crypto';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
+import { checkVehicleAvailability } from '@/lib/bookings/availability';
 import { AdminNotificationService } from '@/lib/notifications/admin-notification';
 import { toISTSql, selectWithISTDates } from '@/lib/utils/sql-helpers';
 import { withTimezoneProcessing } from '@/middleware/timezone-middleware';
@@ -180,6 +181,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Check for vehicle availability (overlap)
+    const isAvailable = await checkVehicleAvailability(vehicle_id, start_date, end_date);
+    if (!isAvailable) {
+      return new NextResponse(JSON.stringify({
+        error: 'Vehicle is already booked for the selected dates'
+      }), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // Log the values we're about to insert
     const bookingId = randomUUID();
     const insertValues = [
@@ -269,7 +281,7 @@ export async function POST(request: NextRequest) {
       try {
         const adminService = AdminNotificationService.getInstance();
         await adminService.sendBookingNotification({
-          booking_id: booking.id,
+          booking_id: booking.booking_id || booking.id,
           pickup_location: 'Online Booking',
           user_name: session.user.name || 'Customer',
           user_phone: session.user.phone || 'N/A',

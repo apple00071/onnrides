@@ -91,7 +91,7 @@ export default function NewVehicleReturnPage() {
 
       setBookingDetails(data.data);
       form.setValue('booking_id', data.data.booking_id);
-      
+
       // Initialize security deposit refund amount if there's a security deposit
       if (data.data.security_deposit_amount && data.data.security_deposit_amount > 0) {
         form.setValue('security_deposit_refund_amount', data.data.security_deposit_amount);
@@ -119,11 +119,12 @@ export default function NewVehicleReturnPage() {
           ...data,
           status: 'completed',
           booking_id: bookingDetails.id,
-          remaining_payment_collected: data.collect_remaining_payment,
-          remaining_payment_method: data.collect_remaining_payment ? data.payment_method : null,
+          // Settlement collection is now handled atomically by netAmount logic in backend
+          remaining_payment_collected: true,
+          remaining_payment_method: data.payment_method,
           security_deposit_deductions: data.security_deposit_deductions || 0,
           security_deposit_refund_amount: data.security_deposit_refund_amount || 0,
-          security_deposit_refund_method: data.security_deposit_refund_method,
+          security_deposit_refund_method: data.payment_method, // Use same method for net settlement
           deduction_reasons: data.deduction_reasons
         }),
       });
@@ -148,386 +149,323 @@ export default function NewVehicleReturnPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-6 px-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Complete Booking</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Vehicle Return</h1>
           <p className="text-gray-600 mt-2">
             Enter the final details to complete the booking
           </p>
         </div>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <Label>Booking ID</Label>
-                  <p className="text-base font-medium mt-1">
-                    {bookingDetails?.booking_id || 'Loading...'}
-                  </p>
-                </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="space-y-4">
+              <div>
+                <Label>Booking ID</Label>
+                <p className="text-base font-medium mt-1">
+                  {bookingDetails?.booking_id || 'Loading...'}
+                </p>
+              </div>
 
-                {bookingDetails && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
-                    {/* Vehicle Details */}
-                    <div className="bg-white rounded-lg p-6 shadow-sm">
-                      <h3 className="text-lg font-semibold mb-4 text-gray-900">Vehicle Details</h3>
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Name</p>
-                          <p className="text-base font-medium">{bookingDetails.vehicle?.name || bookingDetails.vehicle_name || 'Activa 6G'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Type</p>
-                          <p className="text-base">{bookingDetails.vehicle?.type || bookingDetails.vehicle_type || 'bike'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Registration Number</p>
-                          <p className="text-base font-medium">{bookingDetails.vehicle?.registration_number || bookingDetails.registration_number || 'Not assigned'}</p>
-                        </div>
+              {bookingDetails && (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
+                  {/* Vehicle Details */}
+                  <div className="bg-white rounded-lg p-6 shadow-sm">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-900">Vehicle Details</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Name</p>
+                        <p className="text-base font-medium">{bookingDetails.vehicle?.name || 'Activa 6G'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Type</p>
+                        <p className="text-base">{bookingDetails.vehicle?.type || 'bike'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Registration Number</p>
+                        <p className="text-base font-medium">{bookingDetails.vehicle?.registration_number || 'Not assigned'}</p>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Customer Details */}
-                    <div className="bg-white rounded-lg p-6 shadow-sm">
-                      <h3 className="text-lg font-semibold mb-4 text-gray-900">Customer Details</h3>
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Name</p>
-                          <p className="text-base font-medium">{bookingDetails.customer?.name || bookingDetails.user?.name || bookingDetails.customer_name || 'PAVAN KUMAR'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Phone</p>
-                          <p className="text-base">{bookingDetails.customer?.phone || bookingDetails.user?.phone || bookingDetails.customer_phone || bookingDetails.phone_number || 'No phone'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Email</p>
-                          <p className="text-base text-gray-500">{bookingDetails.customer?.email || bookingDetails.user?.email || bookingDetails.customer_email || bookingDetails.email || 'No email'}</p>
-                        </div>
+                  {/* Customer Details */}
+                  <div className="bg-white rounded-lg p-6 shadow-sm">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-900">Customer Details</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Name</p>
+                        <p className="text-base font-medium">
+                          {bookingDetails.trip_initiation?.customer_name || bookingDetails.customer?.name || 'Unknown'}
+                        </p>
+                        {bookingDetails.customer?.name === 'Admin' && !bookingDetails.trip_initiation?.customer_name && (
+                          <p className="text-[10px] text-orange-500 font-bold uppercase mt-1">Test Account</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Phone</p>
+                        <p className="text-base">{bookingDetails.trip_initiation?.customer_phone || bookingDetails.customer?.phone || 'No phone'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Email</p>
+                        <p className="text-base text-gray-500">{bookingDetails.trip_initiation?.customer_email || bookingDetails.customer?.email || 'No email'}</p>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Payment Details */}
-                    <div className="bg-white rounded-lg p-6 shadow-sm">
-                      <h3 className="text-lg font-semibold mb-4 text-gray-900">Payment Details</h3>
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Total Amount</p>
-                          <p className="text-lg font-bold text-green-600">₹{bookingDetails.amount?.toLocaleString() || bookingDetails.total_price?.toLocaleString() || '0'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-600">Payment Status</p>
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            bookingDetails.payment_status === 'completed' ? 'bg-green-100 text-green-800' :
-                            bookingDetails.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  {/* Payment Details */}
+                  <div className="bg-white rounded-lg p-6 shadow-sm">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-900">Payment Details</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Total Amount</p>
+                        <p className="text-lg font-bold text-green-600">₹{bookingDetails.amount?.toLocaleString() || '0'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Payment Status</p>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${bookingDetails.payment_status === 'completed' ? 'bg-green-100 text-green-800' :
+                          bookingDetails.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
-                            {bookingDetails.booking_type === 'online' && bookingDetails.payment_status === 'completed' ?
-                              '5% Collected' :
-                              (bookingDetails.payment_status || 'Pending').charAt(0).toUpperCase() + (bookingDetails.payment_status || 'pending').slice(1)
-                            }
-                          </span>
+                          {(bookingDetails.payment_status || 'Pending').charAt(0).toUpperCase() + (bookingDetails.payment_status || 'pending').slice(1)}
+                        </span>
+                      </div>
+                      {bookingDetails.payment_breakdown && bookingDetails.payment_breakdown.length > 0 && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3 space-y-2">
+                          <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">Payment Breakdown</p>
+                          {bookingDetails.payment_breakdown.map((item: any, idx: number) => (
+                            <div key={idx} className="flex justify-between items-center text-xs">
+                              <span className="text-blue-700 font-medium capitalize">{item.method}</span>
+                              <span className="text-blue-900 font-bold">₹{item.amount.toLocaleString()}</span>
+                            </div>
+                          ))}
+                          <div className="pt-2 border-t border-blue-100 flex justify-between items-center text-xs font-bold">
+                            <span className="text-blue-800 uppercase">Total Collected</span>
+                            <span className="text-blue-900">₹{(bookingDetails.paid_amount || 0).toLocaleString()}</span>
+                          </div>
                         </div>
-                        {bookingDetails.booking_type === 'online' && bookingDetails.payment_status === 'completed' && (
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
-                            <p className="text-xs font-medium text-blue-800">Online Booking - 5% Policy</p>
-                            <p className="text-xs text-blue-700 mt-1">
-                              Collected: ₹{Math.round((bookingDetails.amount || bookingDetails.total_price || 0) * 0.05).toLocaleString()}
-                            </p>
-                            <p className="text-xs text-blue-700">
-                              Remaining: ₹{Math.round((bookingDetails.amount || bookingDetails.total_price || 0) * 0.95).toLocaleString()}
-                            </p>
-                            <p className="text-xs font-medium text-orange-600 mt-2">
-                              ⚠️ Collect remaining amount at pickup
+                      )}
+
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white rounded-lg p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 mb-6">Vehicle Return Details</h3>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="lg:col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="condition_notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Condition Notes</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Enter notes about vehicle condition"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="additional_charges"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Additional Charges (₹)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="odometer_reading"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Odometer Reading</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="fuel_level"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fuel Level (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            min={0}
+                            max={100}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Unified Net Settlement Section */}
+                {bookingDetails && (
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6">Settlement Summary</h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {/* Left Side: Calculations */}
+                      <div className="space-y-4">
+                        <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Pending Booking Balance:</span>
+                            <span className="font-medium">₹{(bookingDetails.pending_amount || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Additional Charges:</span>
+                            <span className="font-medium text-orange-600">₹{(form.watch('additional_charges') || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="pt-2 border-t border-gray-200 flex justify-between font-bold text-gray-900">
+                            <span>Gross Amount Due:</span>
+                            <span>₹{((bookingDetails.pending_amount || 0) + (form.watch('additional_charges') || 0)).toLocaleString()}</span>
+                          </div>
+
+                          {(bookingDetails.security_deposit_amount || 0) > 0 && (
+                            <div className="pt-4 space-y-3">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Security Deposit:</span>
+                                <span className="font-medium text-green-600">₹{bookingDetails.security_deposit_amount.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Deposit Deductions:</span>
+                                <span className="font-medium text-red-600">-₹{(form.watch('security_deposit_deductions') || 0).toLocaleString()}</span>
+                              </div>
+                              <div className="pt-2 border-t border-gray-200 flex justify-between font-bold text-gray-900">
+                                <span>Available for Refund:</span>
+                                <span>₹{Math.max(0, bookingDetails.security_deposit_amount - (form.watch('security_deposit_deductions') || 0)).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Net Result Card */}
+                        <div className={`rounded-lg p-6 border-2 ${((bookingDetails.pending_amount || 0) + (form.watch('additional_charges') || 0) - Math.max(0, (bookingDetails.security_deposit_amount || 0) - (form.watch('security_deposit_deductions') || 0))) > 0
+                          ? 'bg-orange-50 border-orange-200'
+                          : 'bg-green-50 border-green-200'
+                          }`}>
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="text-sm font-semibold uppercase tracking-wider mb-1">
+                                {((bookingDetails.pending_amount || 0) + (form.watch('additional_charges') || 0) - Math.max(0, (bookingDetails.security_deposit_amount || 0) - (form.watch('security_deposit_deductions') || 0))) > 0
+                                  ? 'Collect from Customer'
+                                  : 'Refund to Customer'
+                                }
+                              </p>
+                              <h4 className="text-3xl font-black">
+                                ₹{Math.abs(
+                                  (bookingDetails.pending_amount || 0) +
+                                  (form.watch('additional_charges') || 0) -
+                                  Math.max(0, (bookingDetails.security_deposit_amount || 0) - (form.watch('security_deposit_deductions') || 0))
+                                ).toLocaleString()}
+                              </h4>
+                            </div>
+                            <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+                              {((bookingDetails.pending_amount || 0) + (form.watch('additional_charges') || 0) - Math.max(0, (bookingDetails.security_deposit_amount || 0) - (form.watch('security_deposit_deductions') || 0))) > 0
+                                ? <span className="text-2xl">📥</span>
+                                : <span className="text-2xl">📤</span>
+                              }
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Side: Settlement Actions */}
+                      <div className="space-y-6">
+                        <div className="space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="payment_method"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Settlement Method</FormLabel>
+                                <FormControl>
+                                  <select
+                                    {...field}
+                                    className="flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-0 focus:border-orange-500"
+                                  >
+                                    <option value="cash">Cash</option>
+                                    <option value="upi">UPI/QR Code</option>
+                                    <option value="card">Card Payment</option>
+                                    <option value="bank_transfer">Bank Transfer</option>
+                                  </select>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <div className="pt-4 border-t border-gray-100">
+                            <div className="flex items-center space-x-2 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                              <input
+                                type="checkbox"
+                                id="confirm-settlement"
+                                className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                required
+                              />
+                              <label htmlFor="confirm-settlement" className="text-sm font-medium text-blue-900 leading-tight">
+                                I confirm that the net amount has been settled with the customer.
+                              </label>
+                            </div>
+                            <p className="text-[10px] text-gray-400 mt-2 px-1">
+                              This will record the transaction, update booking status to 'completed', and release the vehicle back to inventory.
                             </p>
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
-
-                <div className="bg-white rounded-lg p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Vehicle Return Details</h3>
-                  
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="lg:col-span-2">
-                      <FormField
-                        control={form.control}
-                        name="condition_notes"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Condition Notes</FormLabel>
-                            <FormControl>
-                              <Textarea
-                                placeholder="Enter notes about vehicle condition"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <FormField
-                      control={form.control}
-                      name="additional_charges"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Additional Charges (₹)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="odometer_reading"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Odometer Reading</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="fuel_level"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Fuel Level (%)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              min={0}
-                              max={100}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* Remaining Payment Collection Section */}
-                  {bookingDetails && bookingDetails.booking_type === 'online' && bookingDetails.payment_status === 'completed' && (
-                    <div className="border-t pt-6 mt-6">
-                      <h4 className="text-md font-semibold text-gray-900 mb-4">Remaining Payment Collection</h4>
-                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
-                        <p className="text-sm font-medium text-orange-800">Remaining Amount to Collect</p>
-                        <p className="text-lg font-bold text-orange-600">
-                          ₹{Math.round((bookingDetails.amount || bookingDetails.total_price || 0) * 0.95).toLocaleString()}
-                        </p>
-                        <p className="text-xs text-orange-700 mt-1">
-                          This is the 95% remaining amount that needs to be collected at vehicle pickup.
-                        </p>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="collect_remaining_payment"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                              <FormControl>
-                                <input
-                                  type="checkbox"
-                                  checked={field.value}
-                                  onChange={field.onChange}
-                                  className="mt-1 h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                                />
-                              </FormControl>
-                              <div className="space-y-1 leading-none">
-                                <FormLabel className="text-sm font-medium">
-                                  Collect Remaining Payment
-                                </FormLabel>
-                                <p className="text-xs text-gray-500">
-                                  Check this box to mark the remaining 95% as collected
-                                </p>
-                              </div>
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="payment_method"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Payment Method</FormLabel>
-                              <FormControl>
-                                <select
-                                  {...field}
-                                  className="flex h-9 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-0 focus:border-blue-500"
-                                >
-                                  <option value="cash">Cash</option>
-                                  <option value="card">Card</option>
-                                  <option value="upi">UPI</option>
-                                  <option value="bank_transfer">Bank Transfer</option>
-                                </select>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Security Deposit Management Section */}
-                  {bookingDetails && bookingDetails.security_deposit_amount && bookingDetails.security_deposit_amount > 0 && (
-                    <div className="border-t pt-6 mt-6">
-                      <h4 className="text-md font-semibold text-gray-900 mb-4">Security Deposit Management</h4>
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                        <p className="text-sm font-medium text-green-800">Security Deposit Amount</p>
-                        <p className="text-lg font-bold text-green-600">
-                          ₹{bookingDetails.security_deposit_amount.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-green-700 mt-1">
-                          This amount was collected as security deposit and needs to be processed for refund.
-                        </p>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <FormField
-                          control={form.control}
-                          name="security_deposit_deductions"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Deductions (₹)</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  {...field}
-                                  onChange={(e) => {
-                                    const deductions = Number(e.target.value) || 0;
-                                    field.onChange(deductions);
-                                    // Auto-calculate refund amount
-                                    const refundAmount = Math.max(0, bookingDetails.security_deposit_amount - deductions);
-                                    form.setValue('security_deposit_refund_amount', refundAmount);
-                                  }}
-                                  min={0}
-                                  max={bookingDetails.security_deposit_amount}
-                                  placeholder="Enter deduction amount"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="security_deposit_refund_amount"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Refund Amount (₹)</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  {...field}
-                                  onChange={(e) => field.onChange(Number(e.target.value))}
-                                  min={0}
-                                  max={bookingDetails.security_deposit_amount}
-                                  placeholder="Auto-calculated"
-                                  className="bg-gray-50"
-                                  readOnly
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <FormField
-                          control={form.control}
-                          name="deduction_reasons"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Deduction Reasons</FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  {...field}
-                                  placeholder="Explain any deductions (damages, cleaning, fuel, etc.)"
-                                  className="min-h-[80px]"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="security_deposit_refund_method"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Refund Method</FormLabel>
-                              <FormControl>
-                                <select
-                                  {...field}
-                                  className="flex h-9 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-0 focus:border-blue-500"
-                                >
-                                  <option value="cash">Cash</option>
-                                  <option value="bank_transfer">Bank Transfer</option>
-                                  <option value="upi">UPI</option>
-                                  <option value="original_method">Same as Payment Method</option>
-                                </select>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <p className="text-xs font-medium text-blue-800">Security Deposit Summary</p>
-                        <div className="text-xs text-blue-700 mt-1 space-y-1">
-                          <p>Original Deposit: ₹{bookingDetails.security_deposit_amount.toLocaleString()}</p>
-                          <p>Deductions: ₹{form.watch('security_deposit_deductions')?.toLocaleString() || '0'}</p>
-                          <p className="font-medium">Refund Amount: ₹{form.watch('security_deposit_refund_amount')?.toLocaleString() || bookingDetails.security_deposit_amount.toLocaleString()}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
+            </div>
 
-              <div className="flex justify-center pt-4">
-                <button 
-                  type="submit" 
-                  disabled={loading}
-                  className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-8 rounded-md transition-colors focus:outline-none focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
-                      Processing...
-                    </>
-                  ) : (
-                    'Complete Booking'
-                  )}
-                </button>
-              </div>
-            </form>
-          </Form>
+            <div className="flex justify-center pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-8 rounded-md transition-colors focus:outline-none focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
+                    Processing...
+                  </>
+                ) : (
+                  'Complete Booking'
+                )}
+              </button>
+            </div>
+          </form>
+        </Form>
       </div>
-    </div>
+    </div >
   );
 } 

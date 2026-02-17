@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils/time-formatter";
+import { Badge } from "@/components/ui/badge";
 
 interface Booking {
   id: string;
@@ -32,44 +33,44 @@ interface RecentBookingsProps {
 
 export function RecentBookings({ data }: RecentBookingsProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Recent Bookings</CardTitle>
+    <Card className="rounded-xl border shadow-sm">
+      <CardHeader className="p-3 md:p-6 pb-2 md:pb-4 border-b md:border-b-0">
+        <CardTitle className="text-sm md:text-xl font-bold text-gray-900">Recent Bookings</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-8">
+      <CardContent className="p-2 md:p-6">
+        <div className="space-y-3 md:space-y-8">
           {data.map((booking, index) => (
             <div key={`${booking.booking_id || booking.id}-${index}`} className="flex items-center">
               <div className="ml-4 space-y-1 w-full">
                 <div className="flex justify-between items-center">
-                  <p className="text-sm font-medium leading-none">
-                    {booking.user_name || 'Anonymous User'}
+                  <p className="text-xs md:text-sm font-bold leading-none text-gray-900">
+                    {booking.user_name || 'Anonymous'}
                   </p>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-[10px] text-gray-400 font-mono">
                     ID: {booking.booking_id || booking.id}
                   </span>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {booking.vehicle_name || (booking.vehicles?.name) || 'Unknown Vehicle'}
-                  ({booking.vehicle_type || (booking.vehicles?.type) || 'Unknown Type'})
+                <p className="text-[11px] md:text-sm text-gray-500 font-medium">
+                  {booking.vehicle_name || (booking.vehicles?.name) || 'Vehicle'}
+                  <span className="text-[10px] text-gray-400 ml-1">({booking.vehicle_type || (booking.vehicles?.type) || 'Type'})</span>
                   {booking.pickup_location && (
                     <span className="ml-2 text-xs text-gray-500">
                       📍 {booking.pickup_location}
                     </span>
                   )}
                 </p>
-                <div className="flex items-center pt-2">
+                <div className="flex items-center pt-1 md:pt-2">
                   <div className="ml-auto flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {formatDateTime(booking.start_date)} - {formatDateTime(booking.end_date)}
+                    <span className="text-[10px] md:text-sm text-gray-400 font-medium">
+                      {formatDateTime(booking.start_date)}
                     </span>
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${booking.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                        booking.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                          'bg-yellow-100 text-yellow-800'
-                      }`}>
+                    <Badge variant="outline" className={`${booking.status === 'completed' ? 'bg-green-50 text-green-700 border-green-100' :
+                      booking.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-100' :
+                        booking.status === 'active' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                          'bg-yellow-50 text-yellow-700 border-yellow-100'
+                      } px-1.5 py-0 rounded text-[9px] font-bold h-4 uppercase`}>
                       {booking.status || 'pending'}
-                    </span>
+                    </Badge>
                   </div>
                 </div>
               </div>

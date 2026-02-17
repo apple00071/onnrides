@@ -5,6 +5,7 @@ import { query, withTransaction } from '@/lib/db';
 import logger from '@/lib/logger';
 import { uploadFile } from '@/lib/upload';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
+import { randomUUID } from 'crypto';
 
 export async function POST(
   request: NextRequest,
@@ -30,8 +31,9 @@ export async function POST(
     }
 
     // Get internal booking ID (UUID)
+    // Support both internal UUID and the user-friendly booking_id
     const bookingResult = await query(
-      'SELECT id FROM bookings WHERE TRIM(booking_id) ILIKE TRIM($1)',
+      'SELECT id, security_deposit_amount FROM bookings WHERE id::text = $1 OR TRIM(booking_id) ILIKE TRIM($1)',
       [bookingIdParam]
     );
 
@@ -41,18 +43,18 @@ export async function POST(
         { status: 404 }
       );
     }
-    const bookingId = bookingResult.rows[0].id;
+    const bookingRow = bookingResult.rows[0];
+    const bookingId = bookingRow.id;
+    const securityDepositAmount = parseFloat(bookingRow.security_deposit_amount) || 0;
 
     const formData = await request.formData();
 
     let customerInfo: any;
-    let checklist: any;
     try {
       customerInfo = JSON.parse(formData.get('customerInfo') as string || '{}');
-      checklist = JSON.parse(formData.get('checklist') as string || '{}');
     } catch {
       return NextResponse.json(
-        { success: false, error: 'Invalid customerInfo or checklist data' },
+        { success: false, error: 'Invalid data format' },
         { status: 400 }
       );
     }
@@ -85,8 +87,6 @@ export async function POST(
       documentUrls.signature = signatureUrl;
     }
 
-    const checklistCompleted = Object.values(checklist).every(v => v === true);
-
     // Use a transaction to ensure atomicity
     await withTransaction(async (client: any) => {
       // Runtime Migration: Ensure columns exist
@@ -112,29 +112,26 @@ export async function POST(
         // Update existing trip initiation
         await client.query(`
           UPDATE trip_initiations SET
-            checklist_completed = $1,
-            customer_name = $2,
-            customer_phone = $3,
-            customer_email = $4,
-            customer_dl_number = $5,
-            customer_address = $6,
-            emergency_contact = $7,
-            emergency_name = $8,
-            customer_aadhaar_number = $9,
-            customer_dob = $10,
-            vehicle_number = $11,
-            documents = $12,
-            terms_accepted = $13,
-            notes = $14,
-            fuel_level = $15,
-            odometer_reading = $16,
-            damage_notes = $17,
-            cleanliness_notes = $18,
-            checklist_details = $19,
+            customer_name = $1,
+            customer_phone = $2,
+            customer_email = $3,
+            customer_dl_number = $4,
+            customer_address = $5,
+            emergency_contact = $6,
+            emergency_name = $7,
+            customer_aadhaar_number = $8,
+            customer_dob = $9,
+            vehicle_number = $10,
+            documents = $11,
+            terms_accepted = $12,
+            notes = $13,
+            fuel_level = $14,
+            odometer_reading = $15,
+            damage_notes = $16,
+            cleanliness_notes = $17,
             updated_at = NOW()
-          WHERE booking_id = $20
+          WHERE booking_id = $18
         `, [
-          checklistCompleted,
           customerInfo.name,
           customerInfo.phone,
           customerInfo.email,
@@ -152,7 +149,6 @@ export async function POST(
           odometerReading,
           damageNotes,
           cleanlinessNotes,
-          JSON.stringify(checklist),
           bookingId
         ]);
       } else {
@@ -160,7 +156,6 @@ export async function POST(
         await client.query(`
           INSERT INTO trip_initiations (
             booking_id,
-            checklist_completed,
             customer_name,
             customer_phone,
             customer_email,
@@ -177,12 +172,10 @@ export async function POST(
             fuel_level,
             odometer_reading,
             damage_notes,
-            cleanliness_notes,
-            checklist_details
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+            cleanliness_notes
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         `, [
           bookingId,
-          checklistCompleted,
           customerInfo.name,
           customerInfo.phone,
           customerInfo.email,
@@ -199,17 +192,23 @@ export async function POST(
           fuelLevel,
           odometerReading,
           damageNotes,
-          cleanlinessNotes,
-          JSON.stringify(checklist)
+          cleanlinessNotes
         ]);
       }
 
-      // Update booking status
       await client.query(`
         UPDATE bookings SET
           status = 'initiated',
           updated_at = NOW()
         WHERE id = $1
+      `, [bookingId]);
+
+      // Update vehicle status
+      await client.query(`
+        UPDATE vehicles SET
+          is_available = false,
+          updated_at = NOW()
+        WHERE id = (SELECT vehicle_id FROM bookings WHERE id = $1)
       `, [bookingId]);
     });
 
@@ -222,7 +221,8 @@ export async function POST(
         customer_phone: customerInfo.phone,
         vehicle_number: vehicleNumber,
         emergency_contact: customerInfo.emergencyContact,
-        emergency_name: customerInfo.emergencyName
+        emergency_name: customerInfo.emergencyName,
+        security_deposit_amount: securityDepositAmount
       });
 
       logger.info('Trip start WhatsApp notification sent successfully', { bookingId });
@@ -270,8 +270,9 @@ export async function GET(
     }
 
     // Get internal booking ID (UUID)
+    // Support both internal UUID and the user-friendly booking_id
     const bookingResult = await query(
-      'SELECT id FROM bookings WHERE TRIM(booking_id) ILIKE TRIM($1)',
+      'SELECT id FROM bookings WHERE id::text = $1 OR TRIM(booking_id) ILIKE TRIM($1)',
       [bookingIdParam]
     );
 

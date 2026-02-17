@@ -35,11 +35,11 @@ export async function POST(
     const currentBookingResult = await query(`
       SELECT
         b.*,
-        u.name as user_name,
-        u.phone as user_phone,
+        COALESCE(b.customer_name, u.name) as user_name,
+        COALESCE(b.phone_number, u.phone) as user_phone,
         v.name as vehicle_name
       FROM bookings b
-      JOIN users u ON b.user_id = u.id
+      LEFT JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
       WHERE b.booking_id = $1
     `, [resolvedParams.bookingId]);

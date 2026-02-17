@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { CalendarIcon, MapPin, Clock, DollarSign, Car } from 'lucide-react';
+import { CalendarIcon, MapPin, Clock, IndianRupee, Car } from 'lucide-react';
 import Image from 'next/image';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -251,7 +251,7 @@ export default function VehicleDetailsClient({ params }: Props) {
               <span className="text-gray-700">Min {vehicle.min_booking_hours} hours</span>
             </div>
             <div className="flex items-center space-x-2">
-              <DollarSign className="w-5 h-5 text-gray-500" />
+              <IndianRupee className="w-5 h-5 text-gray-500" />
               <span className="text-gray-700">₹{vehicle.price_per_hour}/hour</span>
             </div>
             <div className="flex items-center space-x-2">

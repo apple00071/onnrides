@@ -4,11 +4,11 @@ import logger from '@/lib/logger';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { 
-  BarChart, 
-  DollarSign, 
-  Users, 
-  Calendar 
+import {
+  BarChart,
+  IndianRupee,
+  Users,
+  Calendar
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -36,11 +36,11 @@ export default function DashboardPage() {
   const fetchStats = async () => {
     try {
       const response = await fetch('/api/user/dashboard');
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard stats');
       }
-      
+
       const data = await response.json();
       setStats(data);
     } catch (error) {
@@ -88,7 +88,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-green-100 text-green-600">
-              <DollarSign className="h-6 w-6" />
+              <IndianRupee className="h-6 w-6" />
             </div>
             <div className="ml-4">
               <h3 className="text-lg font-semibold">Total Spent</h3>
@@ -157,15 +157,14 @@ export default function DashboardPage() {
                     ₹{booking.total_amount}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      booking.status === 'completed'
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${booking.status === 'completed'
                         ? 'bg-green-100 text-green-800'
                         : booking.status === 'cancelled'
                           ? 'bg-red-100 text-red-800'
                           : booking.status === 'pending'
                             ? 'bg-yellow-100 text-yellow-800'
                             : 'bg-orange-100 text-orange-800'
-                    }`}>
+                      }`}>
                       {booking.status}
                     </span>
                   </td>

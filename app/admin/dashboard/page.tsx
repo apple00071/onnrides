@@ -333,7 +333,7 @@ export default async function DashboardPage() {
           heading="Dashboard"
           text="Overview of your rental business"
         />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 md:gap-4 grid-cols-2 lg:grid-cols-4">
           <BookingStats
             data={bookingStats.status === 'fulfilled' ? bookingStats.value : {
               totalBookings: 0,
@@ -345,31 +345,31 @@ export default async function DashboardPage() {
         </div>
 
         {/* Today's Operations Summary */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Today's Operations</h3>
-            <span className="text-sm text-gray-500">{new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+        <div className="bg-white rounded-xl border shadow-sm p-3 md:p-6 mb-4 md:mb-6">
+          <div className="flex items-center justify-between mb-3 md:mb-4 pb-2 border-b border-gray-50">
+            <h3 className="text-sm md:text-lg font-bold text-gray-900 tracking-tight">Today's Operations</h3>
+            <span className="text-[10px] md:text-sm text-gray-500 font-medium">{new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}</span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{metrics.activeRentals}</div>
-              <div className="text-sm text-gray-600">Active Rentals</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div className="text-center p-2 rounded-lg bg-gray-50/50">
+              <div className="text-xl md:text-2xl font-black text-blue-600 tabular-nums">{metrics.activeRentals}</div>
+              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Active</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">₹{metrics.todayRevenue.toLocaleString()}</div>
-              <div className="text-sm text-gray-600">Today's Revenue</div>
+            <div className="text-center p-2 rounded-lg bg-gray-50/50">
+              <div className="text-xl md:text-2xl font-black text-green-600 tabular-nums">₹{metrics.todayRevenue.toLocaleString()}</div>
+              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Revenue</div>
             </div>
-            <div className="text-center">
-              <div className={`text-2xl font-bold ${metrics.overdueReturns > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <div className="text-center p-2 rounded-lg bg-gray-50/50">
+              <div className={`text-xl md:text-2xl font-black tabular-nums ${metrics.overdueReturns > 0 ? 'text-red-600' : 'text-green-600'}`}>
                 {metrics.overdueReturns}
               </div>
-              <div className="text-sm text-gray-600">Overdue Returns</div>
+              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Overdue</div>
             </div>
-            <div className="text-center">
-              <div className={`text-2xl font-bold ${metrics.availableVehicles < 3 ? 'text-orange-600' : 'text-green-600'}`}>
+            <div className="text-center p-2 rounded-lg bg-gray-50/50">
+              <div className={`text-xl md:text-2xl font-black tabular-nums ${metrics.availableVehicles < 3 ? 'text-orange-600' : 'text-green-600'}`}>
                 {metrics.availableVehicles}
               </div>
-              <div className="text-sm text-gray-600">Available Vehicles</div>
+              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Available</div>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-4 text-sm">

@@ -12,6 +12,7 @@ import { formatCurrency } from '@/lib/utils/currency-formatter';
 import { toast } from 'sonner';
 import logger from '@/lib/logger';
 import { SignatureCanvas } from '@/components/ui/SignatureCanvas';
+import { Checkbox } from '@/components/ui/checkbox';
 import { DrawerDialog } from '@/components/ui/drawer-dialog';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -42,6 +43,18 @@ interface Booking {
         name: string;
         phone: string;
         email?: string;
+    };
+    customer?: {
+        id: string;
+        name: string;
+        phone: string;
+        email?: string;
+        dl_number?: string;
+        aadhar_number?: string;
+        date_of_birth?: string;
+        permanent_address?: string;
+        emergency_contact?: string;
+        emergency_name?: string;
     };
     documents?: {
         dlFront?: string;
@@ -90,37 +103,36 @@ interface DocumentPreviews {
     customerPhoto: string | null;
 }
 
+// Utility to convert base64 to blob manually to avoid CSP issues with fetch('data:...')
+const dataURLtoBlob = (dataurl: string) => {
+    const arr = dataurl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+};
+
 export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess }: InitiateTripModalProps) {
     const [loading, setLoading] = useState(false);
     const [customerInfo, setCustomerInfo] = useState({
-        name: booking.user?.name || '',
-        phone: booking.user?.phone || '',
-        email: booking.user?.email || '',
-        dlNumber: '',
-        aadhaarNumber: '',
-        dob: '',
-        address: '',
-        emergencyContact: '',
-        emergencyName: ''
+        name: booking.customer?.name || booking.user?.name || '',
+        phone: booking.customer?.phone || booking.user?.phone || '',
+        email: booking.customer?.email || booking.user?.email || '',
+        dlNumber: booking.customer?.dl_number || '',
+        aadhaarNumber: booking.customer?.aadhar_number || '',
+        dob: booking.customer?.date_of_birth || '',
+        address: booking.customer?.permanent_address || '',
+        emergencyContact: booking.customer?.emergency_contact || '',
+        emergencyName: booking.customer?.emergency_name || ''
     });
     const [tripNotes, setTripNotes] = useState(booking.notes || '');
     const [vehicleNumber, setVehicleNumber] = useState('');
     const [termsAccepted, setTermsAccepted] = useState(false);
-    const [checklist, setChecklist] = useState({
-        identityVerified: false,
-        documentsVerified: false,
-        paymentConfirmed: false,
-        vehicleChecked: false,
-        customerBriefed: false,
-        fuelLevelChecked: false,
-        odometerRecorded: false,
-        damageInspection: false,
-        cleanlinessCheck: false,
-        lightsIndicators: false,
-        brakesFunctional: false,
-        tiresPressure: false
-    });
-
     const [operationalData, setOperationalData] = useState({
         fuelLevel: '',
         odometerReading: '',
@@ -128,6 +140,17 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
         cleanlinessNotes: '',
         inspectionPhotos: [] as string[]
     });
+
+    const [checklist, setChecklist] = useState({
+        fuelVerified: false,
+        odometerRecorded: false,
+        damageInspected: false,
+        cleanlinessChecked: false,
+        lightsWorking: false,
+        brakesFunctional: false,
+        tiresChecked: false
+    });
+
 
     const [documentFiles, setDocumentFiles] = useState<DocumentFiles>({
         dlFront: null,
@@ -163,11 +186,6 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
         setCustomerInfo(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleChecklistChange = (item: keyof typeof checklist) => {
-        setChecklist(prev => ({ ...prev, [item]: !prev[item] }));
-    };
-
-    const allChecklistItemsComplete = () => Object.values(checklist).every(item => item === true);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: keyof DocumentFiles) => {
         if (e.target.files && e.target.files[0]) {
@@ -224,15 +242,6 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
                 return;
             }
 
-            // Validate checklist
-            if (!allChecklistItemsComplete()) {
-                toast.warning("Incomplete Checklist", {
-                    description: "Please complete all checklist items before initiating the trip",
-                });
-                setLoading(false);
-                return;
-            }
-
             // Create FormData for file uploads
             const formData = new FormData();
 
@@ -241,7 +250,6 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
             formData.append('tripNotes', tripNotes);
             formData.append('vehicleNumber', vehicleNumber);
             formData.append('termsAccepted', String(termsAccepted));
-            formData.append('checklist', JSON.stringify(checklist));
 
             // Append operational data
             formData.append('fuelLevel', operationalData.fuelLevel);
@@ -258,20 +266,6 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
 
             // Append signature if it exists
             if (signatureData) {
-                // Convert base64 to blob manually to avoid CSP issues with fetch('data:...')
-                const dataURLtoBlob = (dataurl: string) => {
-                    const arr = dataurl.split(',');
-                    const mimeMatch = arr[0].match(/:(.*?);/);
-                    const mime = mimeMatch ? mimeMatch[1] : 'image/png';
-                    const bstr = atob(arr[1]);
-                    let n = bstr.length;
-                    const u8arr = new Uint8Array(n);
-                    while (n--) {
-                        u8arr[n] = bstr.charCodeAt(n);
-                    }
-                    return new Blob([u8arr], { type: mime });
-                };
-
                 const signatureBlob = dataURLtoBlob(signatureData);
                 formData.append('signature', signatureBlob, 'signature.png');
             }
@@ -302,6 +296,7 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
             setLoading(false);
         }
     };
+    const isChecklistComplete = Object.values(checklist).every(Boolean);
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -317,7 +312,7 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
                         className="w-full flex-1 flex flex-col overflow-hidden"
                     >
                         <div className="px-4 md:px-6 pt-2 bg-background z-10 border-b">
-                            <TabsList className="flex w-full md:grid md:grid-cols-5 mb-2 overflow-x-auto scrollbar-hide justify-start md:justify-center p-1 h-auto gap-2">
+                            <TabsList className="flex w-full md:grid md:grid-cols-4 mb-2 overflow-x-auto scrollbar-hide justify-start md:justify-center p-1 h-auto gap-2">
                                 <TabsTrigger value="customer" className="flex items-center gap-1 flex-shrink-0 min-w-[90px] md:min-w-0 text-xs">
                                     <UserCircle className="h-3.5 w-3.5" />
                                     Customer
@@ -334,15 +329,10 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
                                     <FileText className="h-3.5 w-3.5" />
                                     Documents
                                 </TabsTrigger>
-                                <TabsTrigger value="checklist" className="flex items-center gap-1 flex-shrink-0 min-w-[90px] md:min-w-0 text-xs">
-                                    <PlayCircle className="h-3.5 w-3.5" />
-                                    Checklist
-                                </TabsTrigger>
                             </TabsList>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
-                            {/* Customer Information Tab */}
                             <TabsContent value="customer" className="mt-0 h-full">
                                 <div className="space-y-4 pb-2">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -552,23 +542,26 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-3 md:gap-4">
                                             {[
-                                                { key: 'fuelLevelChecked', label: 'Fuel level verified' },
-                                                { key: 'odometerRecorded', label: 'Odometer reading recorded' },
-                                                { key: 'damageInspection', label: 'Damage inspection completed' },
-                                                { key: 'cleanlinessCheck', label: 'Cleanliness check completed' },
-                                                { key: 'lightsIndicators', label: 'Lights and indicators working' },
-                                                { key: 'brakesFunctional', label: 'Brakes functional' },
-                                                { key: 'tiresPressure', label: 'Tires pressure checked' }
+                                                { id: 'fuelVerified', label: 'Fuel level verified' },
+                                                { id: 'odometerRecorded', label: 'Odometer reading recorded' },
+                                                { id: 'damageInspected', label: 'Damage inspection completed' },
+                                                { id: 'cleanlinessChecked', label: 'Cleanliness check completed' },
+                                                { id: 'lightsWorking', label: 'Lights and indicators working' },
+                                                { id: 'brakesFunctional', label: 'Brakes functional' },
+                                                { id: 'tiresChecked', label: 'Tires pressure checked' }
                                             ].map((item) => (
-                                                <div key={item.key} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md md:bg-transparent md:p-0 md:space-x-2 border md:border-none">
-                                                    <input
-                                                        type="checkbox"
-                                                        id={item.key}
-                                                        checked={checklist[item.key as keyof typeof checklist]}
-                                                        onChange={() => handleChecklistChange(item.key as keyof typeof checklist)}
-                                                        className="h-5 w-5 md:h-4 md:w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                <div key={item.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md md:bg-transparent md:p-0 md:space-x-2 border md:border-none">
+                                                    <Checkbox
+                                                        id={item.id}
+                                                        checked={checklist[item.id as keyof typeof checklist]}
+                                                        onCheckedChange={(checked) =>
+                                                            setChecklist(prev => ({ ...prev, [item.id]: !!checked }))
+                                                        }
                                                     />
-                                                    <label htmlFor={item.key} className="text-sm text-gray-700 cursor-pointer flex-1">
+                                                    <label
+                                                        htmlFor={item.id}
+                                                        className="text-sm text-gray-700 flex-1 cursor-pointer select-none"
+                                                    >
                                                         {item.label}
                                                     </label>
                                                 </div>
@@ -634,6 +627,7 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
                                                                         size="sm"
                                                                         onClick={() => window.open(documentPreviews[doc.key]!, '_blank')}
                                                                         className="text-blue-600 h-8 px-2"
+                                                                        type="button"
                                                                     >
                                                                         View
                                                                     </Button>
@@ -642,6 +636,7 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
                                                                         size="sm"
                                                                         onClick={() => triggerFileInput(doc.key)}
                                                                         className="h-8 px-3 text-xs"
+                                                                        type="button"
                                                                     >
                                                                         Change
                                                                     </Button>
@@ -652,6 +647,7 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
                                                                     size="sm"
                                                                     onClick={() => triggerFileInput(doc.key)}
                                                                     className="h-8 gap-2 border-dashed border-gray-400 hover:border-orange-500 hover:text-orange-600"
+                                                                    type="button"
                                                                 >
                                                                     <Upload className="h-3.5 w-3.5" />
                                                                     Upload
@@ -715,42 +711,9 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            </TabsContent>
-
-                            {/* Checklist Tab */}
-                            <TabsContent value="checklist" className="mt-0 h-full">
-                                <div className="space-y-6">
-                                    <div className="space-y-4">
-                                        <h3 className="text-lg font-medium">Final Checklist</h3>
-                                        <p className="text-sm text-gray-500">Please verify all items before initiating the trip.</p>
-
-                                        <div className="space-y-3">
-                                            {[
-                                                { key: 'identityVerified', label: 'Customer identity verified (Original ID checked)' },
-                                                { key: 'documentsVerified', label: 'All required documents uploaded and clear' },
-                                                { key: 'paymentConfirmed', label: 'Security deposit and rental payment confirmed' },
-                                                { key: 'vehicleChecked', label: 'Vehicle inspection completed and recorded' },
-                                                { key: 'customerBriefed', label: 'Customer briefed on vehicle controls and rules' }
-                                            ].map((item) => (
-                                                <div key={item.key} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md border">
-                                                    <input
-                                                        type="checkbox"
-                                                        id={item.key}
-                                                        checked={checklist[item.key as keyof typeof checklist]}
-                                                        onChange={() => handleChecklistChange(item.key as keyof typeof checklist)}
-                                                        className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                    />
-                                                    <label htmlFor={item.key} className="text-sm font-medium text-gray-700 cursor-pointer flex-1">
-                                                        {item.label}
-                                                    </label>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
 
                                     <div className="border-t pt-6">
-                                        <h3 className="text-lg font-medium mb-4">Customer Signature</h3>
+                                        <h3 className="text-lg font-medium mb-4">Customer Signature*</h3>
                                         <div className="border rounded-md p-4 bg-gray-50">
                                             <SignatureCanvas
                                                 onChange={handleSignatureChange}
@@ -758,9 +721,6 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
                                             />
                                             <div className="mt-2 text-center text-xs text-gray-500">
                                                 Sign above to acknowledge vehicle condition and terms
-                                            </div>
-                                            <div className="mt-2 flex justify-end">
-                                                <Button variant="outline" size="sm" onClick={() => setSignatureData(null)}>Clear</Button>
                                             </div>
                                         </div>
                                     </div>
@@ -771,25 +731,13 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
                 </div>
 
                 <DialogFooter className="px-6 py-4 border-t bg-gray-50 sm:justify-between flex-row gap-2">
-                    <Button variant="outline" onClick={onClose} disabled={loading} className="flex-1 sm:flex-none">
-                        Cancel
-                    </Button>
+                    <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
                     <Button
                         onClick={handleInitiateTrip}
-                        disabled={loading}
-                        className="bg-orange-600 hover:bg-orange-700 text-white flex-1 sm:flex-none"
+                        disabled={loading || !isChecklistComplete || !termsAccepted}
                     >
-                        {loading ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Initiating Trip...
-                            </>
-                        ) : (
-                            <>
-                                <PlayCircle className="mr-2 h-4 w-4" />
-                                Initiate Trip
-                            </>
-                        )}
+                        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Initiate
                     </Button>
                 </DialogFooter>
             </DialogContent>

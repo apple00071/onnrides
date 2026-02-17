@@ -402,7 +402,7 @@ export default function VehicleReturnsPage() {
                 </div>
               )}
 
-              {activeTab === 'returns' && (
+              {activeTab === 'returns' && totalPages > 1 && (
                 <div className="flex justify-between items-center mt-4">
                   <Button
                     variant="outline"

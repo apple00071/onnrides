@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Calculator, DollarSign, CreditCard, Banknote, FileText } from 'lucide-react';
+import { Calculator, IndianRupee, CreditCard, Banknote, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils/currency';
 
@@ -184,7 +184,7 @@ export default function FinancialReconciliationPage() {
         <Card className="border-gray-100 shadow-sm overflow-hidden">
           <CardHeader className="pb-2 bg-gray-50/50">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-green-600" />
+              <IndianRupee className="w-4 h-4 text-green-600" />
               Opening Balance
             </CardTitle>
           </CardHeader>

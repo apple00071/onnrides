@@ -6,6 +6,8 @@ import { randomUUID } from 'crypto';
 import { generateBookingId } from '@/lib/utils/booking-id';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
 import { uploadFile } from '@/lib/upload';
+import { AdminNotificationService } from '@/lib/notifications/admin-notification';
+import { checkVehicleAvailability } from '@/lib/bookings/availability';
 import logger from '@/lib/logger';
 
 export async function POST(request: Request) {
@@ -57,6 +59,21 @@ export async function POST(request: Request) {
     const aadharScanUrl = await uploadScan('aadharScan');
     const selfieUrl = await uploadScan('selfie');
 
+    // Calculate total hours for the booking
+    const start = new Date(formData.get('startDateTime') as string);
+    const end = new Date(formData.get('endDateTime') as string);
+    const durationMs = end.getTime() - start.getTime();
+    const totalHours = Math.max(1, Math.ceil(durationMs / (1000 * 60 * 60)));
+
+    // Check for vehicle availability (overlap)
+    const isAvailable = await checkVehicleAvailability(vehicleId, start, end);
+    if (!isAvailable) {
+      return NextResponse.json({
+        success: false,
+        error: 'Vehicle is already booked for the selected dates'
+      }, { status: 409 });
+    }
+
     // Create a new booking with readable ID
     const displayBookingId = generateBookingId(vehicleType);
 
@@ -71,6 +88,7 @@ export async function POST(request: Request) {
           start_date,
           end_date,
           total_price,
+          total_hours,
           rental_amount,
           security_deposit_amount,
           total_amount,
@@ -98,11 +116,13 @@ export async function POST(request: Request) {
           aadhar_scan,
           selfie,
           terms_accepted,
+          pickup_location,
+          dropoff_location,
           created_at,
           updated_at
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-          $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34,
+          $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37,
           CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         ) RETURNING *`,
         [
@@ -113,6 +133,7 @@ export async function POST(request: Request) {
           formData.get('startDateTime'),
           formData.get('endDateTime'),
           formData.get('totalAmount'),
+          totalHours,
           formData.get('rentalAmount'),
           formData.get('securityDepositAmount'),
           formData.get('totalAmount'),
@@ -139,7 +160,9 @@ export async function POST(request: Request) {
           dlScanUrl,
           aadharScanUrl,
           selfieUrl,
-          formData.get('termsAccepted') === 'true'
+          formData.get('termsAccepted') === 'true',
+          'Office Location',
+          'Office Location'
         ]
       );
 
@@ -170,6 +193,13 @@ export async function POST(request: Request) {
           ]
         );
       }
+
+      // Update vehicle availability to false
+      await client.query(
+        'UPDATE vehicles SET is_available = false, updated_at = NOW() WHERE id = $1',
+        [vehicleId]
+      );
+
       return newBooking;
     });
 
@@ -188,12 +218,31 @@ export async function POST(request: Request) {
         end_date: new Date(formData.get('endDateTime') as string),
         total_amount: Number(formData.get('totalAmount')),
         pickup_location: 'Office Location',
-        status: 'active'
+        status: 'active',
+        security_deposit: Number(formData.get('securityDepositAmount'))
       });
 
       logger.info('Offline booking WhatsApp notification sent successfully', { bookingId: displayBookingId });
     } catch (waError) {
       logger.error('WhatsApp notification failed:', waError);
+    }
+
+    // Send Admin Notification
+    try {
+      const adminService = AdminNotificationService.getInstance();
+      await adminService.sendBookingNotification({
+        booking_id: displayBookingId,
+        pickup_location: 'Office Location',
+        user_name: (formData.get('customerName') as string),
+        user_phone: (formData.get('phoneNumber') as string),
+        vehicle_name: vehicleName,
+        start_date: new Date(formData.get('startDateTime') as string),
+        end_date: new Date(formData.get('endDateTime') as string),
+        total_price: Number(formData.get('totalAmount'))
+      });
+      logger.info('Admin notification for offline booking sent successfully', { bookingId: displayBookingId });
+    } catch (adminError) {
+      logger.error('Admin notification failed for offline booking:', adminError);
     }
 
     return NextResponse.json({ success: true, booking });

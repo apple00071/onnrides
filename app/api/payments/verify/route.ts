@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         [
           randomUUID(),
           booking.id,
-          booking.total_price,
+          Math.ceil(booking.total_price * 0.05),
           'completed',
           'online',
           razorpay_payment_id
@@ -131,6 +131,29 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Payment verification error:', error);
+
+    // Send failure notification to admins if we have booking info
+    if (booking) {
+      try {
+        const adminNotificationService = AdminNotificationService.getInstance();
+        await adminNotificationService.sendNotification({
+          type: 'payment',
+          title: '⚠️ Payment Verification Failed',
+          message: `Payment verification failed for booking ${booking.booking_id || booking.id}`,
+          data: {
+            booking_id: booking.booking_id || booking.id,
+            user_name: booking.user_name,
+            user_email: booking.user_email,
+            vehicle_name: booking.vehicle_name,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            timestamp: new Date()
+          }
+        });
+      } catch (notifyError) {
+        logger.error('Failed to send payment failure notification to admins:', notifyError);
+      }
+    }
+
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Payment verification failed'

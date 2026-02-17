@@ -192,6 +192,7 @@ export default function VehiclesPage() {
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [vehicleToDelete, setVehicleToDelete] = useState<string | null>(null);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Filter states
   const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'available' | 'unavailable'>('all');
@@ -434,24 +435,6 @@ export default function VehiclesPage() {
 
     content = (
       <div className="space-y-6">
-        {/* Mobile Header (Visible only on mobile) */}
-        <div className="md:hidden mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-xl font-bold">Vehicles</h1>
-              <p className="text-xs font-medium text-gray-500 mt-0.5">
-                {filteredVehicles.length} vehicles found
-              </p>
-            </div>
-            <Button
-              onClick={handleAddClick}
-              className="bg-[#f26e24] hover:bg-[#e05d13] text-white shadow-sm h-9 px-4"
-            >
-              <FaPlus className="w-3.5 h-3.5 mr-2" />
-              Add
-            </Button>
-          </div>
-        </div>
 
         {/* Desktop Header Actions (Hidden on Mobile) */}
         <div className="hidden md:flex justify-end mb-6">
@@ -497,104 +480,139 @@ export default function VehiclesPage() {
 
         {/* Filters & Search */}
         {/* Filters & Search */}
-        <div className="bg-white p-4 md:p-6 rounded-xl border shadow-sm space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search vehicles..."
-              value={searchQuery}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-              className="pl-10 h-11 border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 transition-all"
-            />
-          </div>
+        <div className="bg-white p-3 md:p-6 rounded-xl border shadow-sm">
+          <div className="space-y-3">
+            {/* Main Action Row */}
+            <div className="flex flex-col md:flex-row gap-3 md:items-end">
+              {/* Search - Main focus */}
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search vehicles..."
+                  value={searchQuery}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-10 border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 transition-all w-full"
+                />
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-            <div className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 bg-gray-50/50">
-              <Checkbox
-                id="select-all"
-                checked={selectedVehicles.length === filteredVehicles.length && filteredVehicles.length > 0}
-                onCheckedChange={() => toggleSelectAll(filteredVehicles)}
-                className="border-gray-300"
-              />
-              <Label htmlFor="select-all" className="text-sm font-semibold text-gray-700 cursor-pointer select-none">
-                Select All ({filteredVehicles.length})
-              </Label>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Type</Label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="h-11 border-gray-200 rounded-xl">
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  {vehicleTypes.map(type => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Brand</Label>
-              <Select value={brandFilter} onValueChange={setBrandFilter}>
-                <SelectTrigger className="h-11 border-gray-200 rounded-xl">
-                  <SelectValue placeholder="Brand" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Brands</SelectItem>
-                  {vehicleBrands.map(brand => (
-                    <SelectItem key={brand} value={brand}>{brand}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Location</Label>
-              <Select value={locationFilter} onValueChange={setLocationFilter}>
-                <SelectTrigger className="h-11 border-gray-200 rounded-xl">
-                  <SelectValue placeholder="Location" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Locations</SelectItem>
-                  {allLocations.map(loc => (
-                    <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="sm:col-span-2 lg:col-span-4 flex justify-start pt-2">
-              <div className="grid grid-cols-3 bg-gray-100 p-1 rounded-xl w-full sm:w-auto gap-0.5">
-                <button
-                  onClick={() => setAvailabilityFilter('all')}
+              {/* Mobile Action Row: Toggle & Add */}
+              <div className="flex md:contents gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
                   className={cn(
-                    "px-2 sm:px-6 py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all",
-                    availabilityFilter === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    "flex-1 md:hidden h-10 border-gray-200 text-xs font-bold uppercase tracking-wider rounded-lg",
+                    showFilters && "bg-orange-50 border-orange-200 text-[#f26e24]"
                   )}
                 >
-                  All
-                </button>
-                <button
-                  onClick={() => setAvailabilityFilter('available')}
-                  className={cn(
-                    "px-2 sm:px-6 py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all",
-                    availabilityFilter === 'available' ? "bg-white text-green-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                  )}
+                  <Search className="h-3.5 w-3.5 mr-1.5" />
+                  {showFilters ? 'Hide' : 'Filters'}
+                </Button>
+
+                <Button
+                  onClick={handleAddClick}
+                  className="flex-[2] md:w-auto bg-[#f26e24] hover:bg-[#e05d13] text-white shadow-sm h-10 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2"
                 >
-                  Available
-                </button>
-                <button
-                  onClick={() => setAvailabilityFilter('unavailable')}
-                  className={cn(
-                    "px-2 sm:px-6 py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all",
-                    availabilityFilter === 'unavailable' ? "bg-white text-red-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                  )}
-                >
-                  Unavailable
-                </button>
+                  <FaPlus className="w-3.5 h-3.5" />
+                  <span>Add Vehicle</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Collapsible Filters Section */}
+            <div className={cn(
+              "space-y-4 pt-3 border-t border-gray-50 md:border-0 md:pt-0",
+              !showFilters && "hidden md:block"
+            )}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                <div className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 bg-gray-50/50">
+                  <Checkbox
+                    id="select-all"
+                    checked={selectedVehicles.length === filteredVehicles.length && filteredVehicles.length > 0}
+                    onCheckedChange={() => toggleSelectAll(filteredVehicles)}
+                    className="border-gray-300"
+                  />
+                  <Label htmlFor="select-all" className="text-sm font-semibold text-gray-700 cursor-pointer select-none">
+                    Select All ({filteredVehicles.length})
+                  </Label>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Type</Label>
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="h-10 border-gray-200 rounded-xl">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      {vehicleTypes.map(type => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Brand</Label>
+                  <Select value={brandFilter} onValueChange={setBrandFilter}>
+                    <SelectTrigger className="h-10 border-gray-200 rounded-xl">
+                      <SelectValue placeholder="Brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Brands</SelectItem>
+                      {vehicleBrands.map(brand => (
+                        <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Location</Label>
+                  <Select value={locationFilter} onValueChange={setLocationFilter}>
+                    <SelectTrigger className="h-10 border-gray-200 rounded-xl">
+                      <SelectValue placeholder="Location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Locations</SelectItem>
+                      {allLocations.map(loc => (
+                        <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="sm:col-span-2 lg:col-span-4 flex justify-start pt-2">
+                  <div className="grid grid-cols-3 bg-gray-100 p-1 rounded-xl w-full sm:w-auto gap-0.5">
+                    <button
+                      onClick={() => setAvailabilityFilter('all')}
+                      className={cn(
+                        "px-2 sm:px-6 py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all",
+                        availabilityFilter === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                      )}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setAvailabilityFilter('available')}
+                      className={cn(
+                        "px-2 sm:px-6 py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all",
+                        availabilityFilter === 'available' ? "bg-white text-green-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                      )}
+                    >
+                      Available
+                    </button>
+                    <button
+                      onClick={() => setAvailabilityFilter('unavailable')}
+                      className={cn(
+                        "px-2 sm:px-6 py-2 text-[10px] sm:text-xs font-bold rounded-lg transition-all",
+                        availabilityFilter === 'unavailable' ? "bg-white text-red-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                      )}
+                    >
+                      Unavailable
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

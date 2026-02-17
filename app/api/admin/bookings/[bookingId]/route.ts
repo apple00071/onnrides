@@ -36,16 +36,6 @@ export async function GET(
 
     const resolvedParams = await params;
 
-    // Runtime Migration: Ensure columns exist
-    await query(`
-      ALTER TABLE trip_initiations 
-      ADD COLUMN IF NOT EXISTS fuel_level VARCHAR(50),
-      ADD COLUMN IF NOT EXISTS odometer_reading VARCHAR(50),
-      ADD COLUMN IF NOT EXISTS damage_notes TEXT,
-      ADD COLUMN IF NOT EXISTS cleanliness_notes TEXT,
-      ADD COLUMN IF NOT EXISTS checklist_details JSONB
-    `);
-
     const result = await query(`
       SELECT
         b.*,
@@ -54,6 +44,8 @@ export async function GET(
         u.phone as user_phone,
         v.name as vehicle_name,
         v.type as vehicle_type,
+        v.registration_number as vehicle_registration_number,
+        ti.vehicle_number as trip_vehicle_number,
         TRIM(BOTH '"' FROM b.pickup_location::text) as pickup_location_clean,
         vr.additional_charges,
         vr.condition_notes,
@@ -134,14 +126,18 @@ export async function GET(
         name: booking.vehicle_name,
         type: booking.vehicle_type,
         model: booking.vehicle_model,
-        registration_number: booking.registration_number
+        registration_number: booking.trip_vehicle_number || booking.vehicle_registration_number || booking.registration_number
       },
-      amount: booking.total_price,
-      rental_amount: booking.rental_amount,
-      security_deposit_amount: booking.security_deposit_amount,
-      total_amount: booking.total_amount,
-      paid_amount: booking.paid_amount,
-      pending_amount: booking.pending_amount,
+      amount: booking.booking_type === 'offline'
+        ? (Math.round(parseFloat(booking.rental_amount || '0')) + Math.round(parseFloat(booking.security_deposit_amount || '0')))
+        : (Math.round(parseFloat(booking.total_price)) || 0),
+      rental_amount: Math.round(parseFloat(booking.rental_amount)) || 0,
+      security_deposit_amount: Math.round(parseFloat(booking.security_deposit_amount)) || 0,
+      total_amount: booking.booking_type === 'offline'
+        ? (Math.round(parseFloat(booking.rental_amount || '0')) + Math.round(parseFloat(booking.security_deposit_amount || '0')))
+        : (Math.round(parseFloat(booking.total_amount)) || 0),
+      paid_amount: Math.round(parseFloat(booking.paid_amount)) || 0,
+      pending_amount: Math.round(parseFloat(booking.pending_amount)) || 0,
       payment_method: booking.payment_method,
       payment_reference: booking.payment_reference,
       status: booking.status,
@@ -173,6 +169,19 @@ export async function GET(
         aadhaar_number: booking.ti_aadhaar_number
       } : null
     };
+
+    // Add payment breakdown separately for cleaner syntax
+    const paymentsResult = await query(`
+      SELECT method, SUM(amount) as total_amount
+      FROM payments
+      WHERE booking_id = $1
+      GROUP BY method
+    `, [booking.id]);
+
+    (formattedData as any).payment_breakdown = paymentsResult.rows.map(row => ({
+      method: row.method,
+      amount: parseFloat(row.total_amount)
+    }));
 
     return NextResponse.json({
       success: true,
@@ -217,11 +226,11 @@ export async function PATCH(
     const currentBookingResult = await query(`
       SELECT
         b.*,
-        u.name as user_name,
-        u.phone as user_phone,
+        COALESCE(b.customer_name, u.name) as user_name,
+        COALESCE(b.phone_number, u.phone) as user_phone,
         v.name as vehicle_name
       FROM bookings b
-      JOIN users u ON b.user_id = u.id
+      LEFT JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
       WHERE TRIM(b.booking_id) ILIKE TRIM($1)
     `, [resolvedParams.bookingId]);
@@ -384,13 +393,13 @@ export async function PATCH(
     const bookingDetailsResult = await query(`
       SELECT 
         b.*,
-        u.name as user_name,
-        u.email as user_email,
-        u.phone as user_phone,
+        COALESCE(b.customer_name, u.name) as user_name,
+        COALESCE(b.email, u.email) as user_email,
+        COALESCE(b.phone_number, u.phone) as user_phone,
         v.name as vehicle_name,
         v.id as vehicle_id
       FROM bookings b
-      JOIN users u ON b.user_id = u.id
+      LEFT JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
       WHERE TRIM(b.booking_id) ILIKE TRIM($1)
     `, [resolvedParams.bookingId]);

@@ -19,47 +19,47 @@ interface VehicleReturnsProps {
 
 export function VehicleReturns({ data }: VehicleReturnsProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Vehicle Returns</CardTitle>
+    <Card className="rounded-xl border shadow-sm">
+      <CardHeader className="p-3 md:p-6 pb-2 md:pb-4 border-b md:border-b-0">
+        <CardTitle className="text-sm md:text-xl font-bold text-gray-900">Vehicle Returns</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className="p-2 md:p-6">
+        <div className="space-y-2 md:space-y-4">
           {data.length === 0 ? (
             <p className="text-sm text-muted-foreground">No vehicles to return</p>
           ) : (
             data.map((item, index) => (
-              <div key={`${item.booking_id}-${item.id}-${index}`} className="flex items-center justify-between border-b pb-4 last:border-0">
-                <div className="space-y-1">
+              <div key={`${item.booking_id}-${item.id}-${index}`} className="flex items-center justify-between border-b border-gray-50 pb-2 md:pb-4 last:border-0 last:pb-0">
+                <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">
+                    <p className="text-xs md:text-sm font-bold text-gray-900">
                       {item.vehicle_name}
-                      <span className="text-xs text-muted-foreground ml-1">
+                      <span className="text-[10px] text-gray-400 font-medium ml-1">
                         ({item.vehicle_number})
                       </span>
                     </p>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-[10px] text-gray-400 font-mono">
                       ID: {item.id}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Rented by: {item.user_name}</p>
+                  <p className="text-[10px] md:text-xs text-gray-500 font-medium">Renter: {item.user_name}</p>
                   <div className="flex items-center gap-2">
-                    <p className="text-xs text-muted-foreground">
-                      Return Date: {formatDateTime(item.return_date)}
+                    <p className="text-[10px] md:text-xs text-gray-500">
+                      Return: {formatDateTime(item.return_date)}
                     </p>
                     {item.is_overdue && (
-                      <span className="text-xs font-medium text-red-600">
+                      <span className="text-[9px] font-black text-red-600 uppercase tracking-widest">
                         OVERDUE
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Link 
+                  <Link
                     href={`/admin/bookings?id=${item.id}`}
-                    className="text-xs text-blue-600 hover:text-blue-800"
+                    className="text-[10px] md:text-xs font-bold text-blue-600 hover:text-blue-800"
                   >
-                    View Details →
+                    View →
                   </Link>
                 </div>
               </div>

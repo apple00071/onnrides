@@ -138,7 +138,7 @@ export async function GET(request: Request) {
           ELSE u.name
         END as effective_user_name,
         CASE 
-          WHEN b.booking_type = 'offline' THEN b.customer_phone
+          WHEN b.booking_type = 'offline' THEN b.phone_number
           ELSE u.phone
         END as effective_user_phone,
         CASE 
@@ -180,7 +180,9 @@ export async function GET(request: Request) {
           vehicle_id: booking.vehicle_id,
           start_date: booking.start_date,
           end_date: booking.end_date,
-          total_price: parseFloat(String(booking.total_price)) || 0,
+          total_price: booking.booking_type === 'offline'
+            ? (Math.round(parseFloat(booking.rental_amount || '0')) + Math.round(parseFloat(booking.security_deposit_amount || '0')))
+            : (Math.round(parseFloat(String(booking.total_price))) || 0),
           status: status,
           payment_status: booking.payment_status || 'pending',
           payment_method: booking.payment_method || (booking.payment_details?.razorpay_payment_id ? 'Online' : null),
@@ -314,13 +316,13 @@ export async function PATCH(request: Request) {
     const bookingDetailsResult = await query(`
       SELECT 
         b.*,
-        u.name as user_name,
-        u.email as user_email,
-        u.phone as user_phone,
+        COALESCE(b.customer_name, u.name) as user_name,
+        COALESCE(b.email, u.email) as user_email,
+        COALESCE(b.phone_number, u.phone) as user_phone,
         v.name as vehicle_name,
         v.id as vehicle_id
       FROM bookings b
-      JOIN users u ON b.user_id = u.id
+      LEFT JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
       WHERE b.id = $1
     `, [bookingId]);

@@ -174,7 +174,7 @@ export default function AdminDashboardClient({ children }: { children: React.Rea
           "flex-1 transition-all duration-300",
           isMobile ? "ml-0" : (isCollapsed ? "md:ml-16" : "md:ml-64")
         )}>
-          <main className="min-h-screen bg-gray-50 p-4 md:p-8">
+          <main className="min-h-screen bg-gray-50 p-2 md:p-8">
             {children}
           </main>
         </div>

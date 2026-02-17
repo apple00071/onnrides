@@ -41,9 +41,9 @@ export async function POST(
     }
 
     const booking = bookingResult.rows[0];
-    const pendingAmount = parseFloat(booking.pending_amount) || 0;
-    const paidAmount = parseFloat(booking.paid_amount) || 0;
-    const collectAmount = amount ? parseFloat(amount) : pendingAmount;
+    const pendingAmount = Math.round(parseFloat(booking.pending_amount) || 0);
+    const paidAmount = Math.round(parseFloat(booking.paid_amount) || 0);
+    const collectAmount = amount ? Math.round(parseFloat(amount)) : pendingAmount;
 
     if (pendingAmount <= 0) {
       return NextResponse.json(

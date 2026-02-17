@@ -91,9 +91,8 @@ export async function POST(
           vehicle_model: bookingWithDetails.vehicle_name || undefined,
           start_date: new Date(bookingWithDetails.start_date),
           end_date: new Date(bookingWithDetails.end_date),
-          cancellation_reason: 'Cancelled by customer',
-          refund_amount: bookingWithDetails.total_price || undefined,
-          refund_status: 'Processing'
+          cancellation_reason: 'Cancelled by customer'
+          // Removed refund_amount and refund_status as refund logic is not implemented
         });
 
         logger.info('Booking cancellation WhatsApp notification sent successfully', { bookingId });

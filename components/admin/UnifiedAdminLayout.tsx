@@ -30,9 +30,26 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
     // Get current page name from path
     const getPageName = () => {
+        // Static mapping for specific paths
+        const path = pathname;
+        if (path.includes('/vehicle-returns/new')) return 'Vehicle Return';
+        if (path.includes('/vehicle-returns')) return 'Vehicle Returns';
+        if (path.includes('/bookings') && path.split('/').length > 3) return 'Booking Details'; // /admin/bookings/[id]
+        if (path.includes('/bookings')) return 'Bookings';
+        if (path.includes('/users')) return 'Users';
+        if (path.includes('/verify/')) return 'Verify Document';
+
         const parts = pathname.split('/').filter(Boolean);
         if (parts.length <= 1) return 'Dashboard';
+
+        // Fallback to last segment title-cased
         const lastPart = parts[parts.length - 1];
+        // If last part is an ID (UUID or short code), use the part before it
+        if ((lastPart.length > 20 || lastPart.match(/^[A-Z0-9]{5,}$/)) && parts.length > 2) {
+            const parentPart = parts[parts.length - 2];
+            return parentPart.charAt(0).toUpperCase() + parentPart.slice(1).replace(/-/g, ' ').replace(/s$/, '') + ' Details';
+        }
+
         return lastPart.charAt(0).toUpperCase() + lastPart.slice(1).replace(/-/g, ' ');
     };
 

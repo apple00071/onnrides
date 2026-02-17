@@ -28,6 +28,7 @@ export interface BookingData {
   total_amount: number;
   pickup_location?: string;
   status: string;
+  security_deposit?: number;
 }
 
 export interface PaymentData {
@@ -45,6 +46,7 @@ export interface TripInitiationData {
   vehicle_number?: string;
   emergency_contact?: string;
   emergency_name?: string;
+  security_deposit_amount?: number;
 }
 
 export interface BookingCancellationData {
@@ -92,6 +94,8 @@ export interface VehicleReturnData {
   condition_notes?: string;
   additional_charges?: number;
   final_amount?: number;
+  security_deposit_refund_amount?: number;
+  security_deposit_refund_method?: string;
 }
 
 export interface PaymentReminderData {
@@ -152,6 +156,7 @@ Your booking has been confirmed successfully!
 • Pickup Date: ${formatIST(bookingData.start_date)}
 • Return Date: ${formatIST(bookingData.end_date)}
 • Total Amount: ₹${bookingData.total_amount}
+${bookingData.security_deposit !== undefined ? `• Security Deposit: ₹${bookingData.security_deposit}` : ''}
 ${bookingData.pickup_location ? `• Pickup Location: ${bookingData.pickup_location}` : ''}
 
 📋 *Documents Required:*
@@ -300,6 +305,7 @@ Your vehicle has been successfully handed over!
 • Booking ID: ${tripData.booking_id}
 ${tripData.vehicle_number ? `• Vehicle Number: ${tripData.vehicle_number}` : ''}
 • Trip Start Time: ${formatIST(new Date())}
+${tripData.security_deposit_amount !== undefined ? `• Security Deposit: ₹${tripData.security_deposit_amount}` : ''}
 
 🆘 *Emergency Contact:*
 ${tripData.emergency_name ? `• Name: ${tripData.emergency_name}` : ''}
@@ -409,6 +415,7 @@ Your offline booking has been successfully created!
 • Start Date: ${formatIST(bookingData.start_date)}
 • End Date: ${formatIST(bookingData.end_date)}
 • Total Amount: ₹${bookingData.total_amount}
+${bookingData.security_deposit !== undefined ? `• Security Deposit: ₹${bookingData.security_deposit}` : ''}
 • Status: ${bookingData.status}
 
 ✅ *Next Steps:*
@@ -605,12 +612,17 @@ Drive safe and see you again soon! 🛣️`;
         return false;
       }
 
+
       const additionalChargesInfo = returnData.additional_charges && returnData.additional_charges > 0
         ? `\n💰 *Additional Charges:*\n• Amount: ₹${returnData.additional_charges}\n• Final Total: ₹${returnData.final_amount || 'TBD'}`
         : '';
 
       const conditionInfo = returnData.condition_notes
         ? `\n📝 *Vehicle Condition:*\n${returnData.condition_notes}`
+        : '';
+
+      const securityDepositRefundInfo = returnData.security_deposit_refund_amount && returnData.security_deposit_refund_amount > 0
+        ? `\n\n💸 *Security Deposit Refund:*\n• Refund Amount: ₹${returnData.security_deposit_refund_amount}\n• Refund Method: ${returnData.security_deposit_refund_method || 'Cash'}\n• Status: Processed ✅`
         : '';
 
       const message = `🔄 *Vehicle Returned Successfully!*
@@ -622,7 +634,7 @@ Your vehicle has been returned and inspected successfully!
 📋 *Return Details:*
 • Booking ID: ${returnData.booking_id}
 • Vehicle: ${returnData.vehicle_model}${returnData.vehicle_number ? ` (${returnData.vehicle_number})` : ''}
-• Return Date: ${formatIST(returnData.return_date)}${conditionInfo}${additionalChargesInfo}
+• Return Date: ${formatIST(returnData.return_date)}${conditionInfo}${additionalChargesInfo}${securityDepositRefundInfo}
 
 ✅ *Return Complete:*
 Thank you for returning the vehicle in good condition. Your booking is now officially completed.

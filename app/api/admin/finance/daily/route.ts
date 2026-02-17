@@ -91,7 +91,7 @@ export async function GET(request: Request) {
         const collectionsResultList = await query(
             `SELECT 
                 p.id,
-                p.booking_id,
+                b.booking_id,
                 COALESCE(b.customer_name, u.name, 'Customer') as customer_name,
                 p.amount,
                 p.method as payment_method,

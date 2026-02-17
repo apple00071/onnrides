@@ -197,7 +197,7 @@ export const columns: ColumnDef<Booking>[] = [
         cell: ({ row }) => {
             const paymentStatus = row.getValue("payment_status") as string;
             const bookingType = row.original.booking_type;
-            const isCollectedOffline = bookingType === 'online' && paymentStatus === 'completed';
+            const isCollectedOffline = bookingType === 'online' && paymentStatus === 'partially_paid';
 
             const label = isCollectedOffline
                 ? '5% Online'

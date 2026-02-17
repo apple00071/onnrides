@@ -287,15 +287,23 @@ function BookingCard({ booking, formatDate, parseLocation }: {
     return { label: s.charAt(0).toUpperCase() + s.slice(1), variant: 'secondary' };
   };
 
-  const getPaymentDisplay = (paymentStatus: string) => {
-    const s = paymentStatus?.toLowerCase();
-    if (s === 'completed' || s === 'fully_paid' || s === 'paid') return { label: 'Payment Completed', variant: 'default' };
-    if (s === 'failed') return { label: 'Payment Failed', variant: 'destructive' };
+  const getPaymentDisplay = (paymentStatus: string, bookingStatus: string) => {
+    const ps = paymentStatus?.toLowerCase();
+    const bs = bookingStatus?.toLowerCase();
+
+    if (ps === 'completed' || ps === 'fully_paid' || ps === 'paid') return { label: 'Payment Completed', variant: 'default' };
+    if (ps === 'failed') return { label: 'Payment Failed', variant: 'destructive' };
+
+    // If booking is confirmed but total payment isn't complete, it means 5% advance is paid
+    if (bs === 'confirmed' || bs === 'active' || bs === 'initiated') {
+      return { label: '5% Advance Paid', variant: 'default' };
+    }
+
     return { label: 'Payment Pending', variant: 'secondary' };
   };
 
   const statusInfo = getStatusDisplay(booking.status);
-  const paymentInfo = getPaymentDisplay(booking.payment_status);
+  const paymentInfo = getPaymentDisplay(booking.payment_status, booking.status);
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 mb-4">

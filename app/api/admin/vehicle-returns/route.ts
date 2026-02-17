@@ -109,6 +109,8 @@ export async function POST(request: Request) {
 
     // Start transaction using withTransaction helper
     await withTransaction(async (client: any) => {
+      logger.info('Starting vehicle return transaction', { booking_id });
+
       // Lock the booking row to prevent race conditions
       const bookingCheck = await client.query(
         `SELECT
@@ -117,12 +119,14 @@ export async function POST(request: Request) {
           b.status,
           b.vehicle_id,
           b.total_price,
+          b.pending_amount,
           b.registration_number as vehicle_number,
-          u.name as customer_name,
-          u.phone as customer_phone,
+          b.security_deposit_amount,
+          COALESCE(b.customer_name, u.name) as customer_name,
+          COALESCE(b.phone_number, u.phone) as customer_phone,
           v.name as vehicle_name
         FROM bookings b
-        JOIN users u ON b.user_id = u.id
+        LEFT JOIN users u ON b.user_id = u.id
         JOIN vehicles v ON b.vehicle_id = v.id
         WHERE b.id = $1
         FOR UPDATE OF b`,
@@ -130,14 +134,38 @@ export async function POST(request: Request) {
       );
 
       if (bookingCheck.rows.length === 0) {
+        logger.error('Booking not found during vehicle return', { booking_id });
         throw new Error('Booking not found');
       }
 
       const bookingDetails = bookingCheck.rows[0];
 
       if (bookingDetails.status === 'completed') {
+        logger.warn('Attempted duplicate vehicle return', { booking_id });
         throw new Error('Vehicle already returned for this booking');
       }
+
+      // Calculate Settlement Amounts
+      const pendingAmount = Number(bookingDetails.pending_amount || 0);
+      const addCharges = Number(additional_charges || 0);
+      const deductions = Number(security_deposit_deductions || 0);
+      const securityDeposit = Number(bookingDetails.security_deposit_amount || 0);
+
+      // Net Refund = Available Deposit - (Pending Balance + Add Charges)
+      // If positive, we refund. If negative, we collect.
+      const availableDeposit = Math.max(0, securityDeposit - deductions);
+      const grossDue = pendingAmount + addCharges;
+      const netAmount = availableDeposit - grossDue;
+
+      logger.info('Settlement calculation', {
+        booking_id,
+        pendingAmount,
+        addCharges,
+        deductions,
+        securityDeposit,
+        netAmount
+      });
+
       // Generate a new UUID for the vehicle return
       const returnId = randomUUID();
 
@@ -163,48 +191,38 @@ export async function POST(request: Request) {
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
           CURRENT_TIMESTAMP,
           CURRENT_TIMESTAMP
-        )
-        RETURNING *`,
+        )`,
         [
           returnId,
           booking_id,
           condition_notes || '',
-          JSON.stringify(damages || []), // Convert array to JSON string
-          additional_charges || 0,
+          JSON.stringify(damages || []),
+          addCharges,
           odometer_reading || 0,
           fuel_level || 100,
           'completed',
           session.user.id,
-          security_deposit_deductions || 0,
-          security_deposit_refund_amount || 0,
-          security_deposit_refund_method || null,
+          deductions,
+          Math.max(0, netAmount < 0 ? 0 : netAmount), // Refund amount
+          remaining_payment_method || 'cash',
           deduction_reasons || null
         ]
       );
 
-      // Update booking status to completed
+      // Update booking status to completed and clear balance
       await client.query(
         `UPDATE bookings 
-        SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
+        SET status = 'completed', 
+            payment_status = 'fully_paid',
+            pending_amount = 0,
+            paid_amount = total_price,
+            updated_at = CURRENT_TIMESTAMP 
         WHERE id = $1`,
         [booking_id]
       );
 
-      // If remaining payment was collected, update payment status and create payment record
-      if (remaining_payment_collected) {
-        await client.query(
-          `UPDATE bookings 
-          SET payment_status = 'fully_paid', 
-              payment_method = COALESCE(payment_method, $1),
-              updated_at = CURRENT_TIMESTAMP 
-          WHERE id = $2`,
-          [remaining_payment_method || 'cash', booking_id]
-        );
-
-        // Calculate remaining 95% amount for online bookings
-        const remainingAmount = Math.round(bookingDetails.total_price * 0.95);
-
-        // Create payment record for remaining balance collection
+      // Record the Settlement Transaction in Payments table
+      if (netAmount !== 0) {
         await client.query(
           `INSERT INTO payments (
             id,
@@ -215,92 +233,36 @@ export async function POST(request: Request) {
             reference,
             created_at,
             updated_at
-          ) VALUES ($1, $2, $3, 'completed', $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
           [
             randomUUID(),
             booking_id,
-            remainingAmount,
+            -netAmount, // If netAmount is -500 (Collect 500), payment amount is +500. If netAmount is +500 (Refund 500), payment amount is -500.
+            netAmount > 0 ? 'refunded' : 'completed',
             remaining_payment_method || 'cash',
-            `balance_${bookingDetails.booking_id}_${Date.now()}`
+            `settlement_${bookingDetails.booking_id}_${Date.now()}`
           ]
         );
 
-        logger.info('Remaining payment collected and recorded', {
+        logger.info('Settlement payment recorded', {
           bookingId: booking_id,
-          amount: remainingAmount,
+          netAmount,
           method: remaining_payment_method
         });
       }
 
-      // Create payment record for additional charges if any
-      if (additional_charges && additional_charges > 0) {
-        await client.query(
-          `INSERT INTO payments (
-            id,
-            booking_id,
-            amount,
-            status,
-            method,
-            reference,
-            created_at,
-            updated_at
-          ) VALUES ($1, $2, $3, 'completed', $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          [
-            randomUUID(),
-            booking_id,
-            additional_charges,
-            remaining_payment_method || 'cash',
-            `additional_${bookingDetails.booking_id}_${Date.now()}`
-          ]
-        );
-
-        logger.info('Additional charges recorded', {
-          bookingId: booking_id,
-          amount: additional_charges,
-          method: remaining_payment_method || 'cash'
-        });
-      }
-
-      // Create payment record for security deposit refund if applicable
-      if (security_deposit_refund_amount && security_deposit_refund_amount > 0) {
-        // Record refund as a negative payment (outgoing cash)
-        await client.query(
-          `INSERT INTO payments (
-            id,
-            booking_id,
-            amount,
-            status,
-            method,
-            reference,
-            created_at,
-            updated_at
-          ) VALUES ($1, $2, $3, 'refunded', $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          [
-            randomUUID(),
-            booking_id,
-            -security_deposit_refund_amount, // Negative amount for refund
-            security_deposit_refund_method || 'cash',
-            `deposit_refund_${bookingDetails.booking_id}_${Date.now()}`
-          ]
-        );
-
-        logger.info('Security deposit refund recorded', {
-          bookingId: booking_id,
-          amount: security_deposit_refund_amount,
-          method: security_deposit_refund_method
-        });
-      }
-
-      // Update vehicle availability (only if vehicle still exists)
+      // Release Vehicle
       await client.query(
         `UPDATE vehicles
         SET is_available = true, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1 AND EXISTS (SELECT 1 FROM vehicles WHERE id = $1)`,
+        WHERE id = $1`,
         [bookingDetails.vehicle_id]
       );
 
       // Store booking details for notification outside transaction
       Object.assign(bookingDetailsForNotification, bookingDetails);
+      bookingDetailsForNotification.additional_charges = addCharges;
+      bookingDetailsForNotification.net_settlement = netAmount;
     });
 
     // Send WhatsApp vehicle return confirmation
@@ -317,13 +279,23 @@ export async function POST(request: Request) {
         return_date: new Date(),
         condition_notes: condition_notes || undefined,
         additional_charges: additional_charges || 0,
-        final_amount: finalAmount
+        final_amount: bookingDetailsForNotification.total_price,
+        security_deposit_refund_amount: bookingDetailsForNotification.net_settlement > 0 ? bookingDetailsForNotification.net_settlement : undefined,
+        security_deposit_refund_method: remaining_payment_method || undefined
       });
 
       logger.info('Vehicle return WhatsApp notification sent successfully', { bookingId: booking_id });
     } catch (whatsappError) {
       logger.error('Failed to send vehicle return WhatsApp notification:', whatsappError);
     }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Vehicle return processed successfully',
+      data: {
+        bookingId: booking_id
+      }
+    });
 
   } catch (error) {
     logger.error('Error creating vehicle return:', error);

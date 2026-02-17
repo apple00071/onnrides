@@ -87,7 +87,7 @@ export class WaSenderService {
     try {
       // Format phone number - ensure it starts with country code
       const formattedPhone = this.formatPhoneNumber(to);
-      
+
       const textPayload: TextOnlyMessage = {
         messageType: "text",
         to: formattedPhone,
@@ -95,7 +95,7 @@ export class WaSenderService {
       };
 
       const result = await this.wasender.send(textPayload);
-      
+
       logger.info('WhatsApp message sent successfully via WaSender:', {
         to: formattedPhone,
         messageId: result.response?.message?.id,
@@ -131,18 +131,24 @@ export class WaSenderService {
   private formatPhoneNumber(phone: string): string {
     // Remove all non-digit characters
     const cleaned = phone.replace(/\D/g, '');
-    
-    // If it starts with 91 (India country code), keep as is
-    if (cleaned.startsWith('91')) {
-      return cleaned;
-    }
-    
-    // If it's a 10-digit number, assume it's Indian and add country code
+
+    // If it's a 10-digit number, always add 91 (India country code)
+    // This handles numbers starting with '91' that are exactly 10 digits
     if (cleaned.length === 10) {
       return '91' + cleaned;
     }
-    
-    // Return as is for other formats
+
+    // If it's 12 digits and starts with 91, keep as is
+    if (cleaned.length === 12 && cleaned.startsWith('91')) {
+      return cleaned;
+    }
+
+    // For any other length, if it starts with 91, assume it's okay
+    if (cleaned.startsWith('91')) {
+      return cleaned;
+    }
+
+    // Default fallback: if it's not 10 or 12 digits, return as is
     return cleaned;
   }
 
