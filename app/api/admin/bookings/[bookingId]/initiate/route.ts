@@ -211,6 +211,34 @@ export async function POST(
           updated_at = NOW()
         WHERE id = (SELECT vehicle_id FROM bookings WHERE id = $1)
       `, [bookingId]);
+
+      // Sync documents to user profile
+      const bookingUserResult = await client.query('SELECT user_id FROM bookings WHERE id = $1', [bookingId]);
+      if (bookingUserResult.rows.length > 0 && bookingUserResult.rows[0].user_id) {
+        const userId = bookingUserResult.rows[0].user_id;
+
+        // Map trip document keys to user profile document types
+        const docTypeMap: Record<string, string> = {
+          'dlFront': 'dl_front',
+          'dlBack': 'dl_back',
+          'aadhaarFront': 'aadhaar_front',
+          'aadhaarBack': 'aadhaar_back',
+          'customerPhoto': 'customer_photo'
+        };
+
+        for (const [key, url] of Object.entries(documentUrls)) {
+          const profileDocType = docTypeMap[key];
+          if (profileDocType) {
+            // Upsert document to user profile
+            await client.query(`
+              INSERT INTO documents (id, user_id, type, file_url, status, created_at, updated_at)
+              VALUES (gen_random_uuid(), $1, $2, $3, 'approved', NOW(), NOW())
+              ON CONFLICT (user_id, type) DO UPDATE
+              SET file_url = $3, status = 'approved', updated_at = NOW()
+            `, [userId, profileDocType, url]);
+          }
+        }
+      }
     });
 
     // Send WhatsApp trip start confirmation

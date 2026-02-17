@@ -6,7 +6,7 @@ import logger from '@/lib/logger';
 import { uploadFile } from '@/lib/upload';
 import { randomUUID } from 'crypto';
 
-const VALID_DOCUMENT_TYPES = ['license', 'id_proof', 'address_proof'] as const;
+const VALID_DOCUMENT_TYPES = ['license', 'id_proof', 'address_proof', 'dl_front', 'dl_back', 'aadhaar_front', 'aadhaar_back', 'customer_photo'] as const;
 type DocumentType = typeof VALID_DOCUMENT_TYPES[number];
 
 const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "application/pdf"] as const;

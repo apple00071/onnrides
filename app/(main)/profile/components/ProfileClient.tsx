@@ -22,7 +22,7 @@ interface Profile {
 
 interface Document {
   id: string;
-  type: 'license' | 'id_proof' | 'address_proof';
+  type: string;
   status: 'pending' | 'approved' | 'rejected';
   url: string;
   created_at: Date;
@@ -30,7 +30,7 @@ interface Document {
   document_type?: string;
 }
 
-const DOCUMENT_TYPES = ['license', 'id_proof', 'address_proof'] as const;
+const DOCUMENT_TYPES = ['dl_front', 'dl_back', 'aadhaar_front', 'aadhaar_back', 'customer_photo'] as const;
 
 export default function ProfileClient() {
   const { data: session, status } = useSession();
@@ -178,22 +178,23 @@ export default function ProfileClient() {
   // Add helper function to calculate progress
   const calculateProgress = (documents: Document[]) => {
     let progress = 0;
-    
-    // Profile photo is worth 25%
-    progress += 25;
-    
-    // Check for DL documents (front and back) - each worth 25%
-    const dlFront = documents.find(doc => doc.document_type === 'dl_front');
-    const dlBack = documents.find(doc => doc.document_type === 'dl_back');
-    if (dlFront && dlFront.status !== 'rejected') progress += 25;
-    if (dlBack && dlBack.status !== 'rejected') progress += 25;
-    
-    // Check for ID documents (front and back) - each worth 12.5%
-    const idFront = documents.find(doc => doc.document_type === 'id_front');
-    const idBack = documents.find(doc => doc.document_type === 'id_back');
-    if (idFront && idFront.status !== 'rejected') progress += 12.5;
-    if (idBack && idBack.status !== 'rejected') progress += 12.5;
-    
+
+    // Profile photo is worth 20%
+    const photo = documents.find(doc => doc.type === 'customer_photo');
+    if (photo && photo.status !== 'rejected') progress += 20;
+
+    // Check for DL documents (front and back) - each worth 20%
+    const dlFront = documents.find(doc => doc.type === 'dl_front');
+    const dlBack = documents.find(doc => doc.type === 'dl_back');
+    if (dlFront && dlFront.status !== 'rejected') progress += 20;
+    if (dlBack && dlBack.status !== 'rejected') progress += 20;
+
+    // Check for ID documents (front and back) - each worth 20%
+    const idFront = documents.find(doc => doc.type === 'aadhaar_front');
+    const idBack = documents.find(doc => doc.type === 'aadhaar_back');
+    if (idFront && idFront.status !== 'rejected') progress += 10;
+    if (idBack && idBack.status !== 'rejected') progress += 10;
+
     return Math.min(Math.round(progress), 100);
   };
 
@@ -213,8 +214,8 @@ export default function ProfileClient() {
       case 'id': {
         const idFront = documents.find(d => d.document_type === 'id_front');
         const idBack = documents.find(d => d.document_type === 'id_back');
-        return (idFront || idBack) ? 
-          ((idFront?.status === 'rejected' && idBack?.status === 'rejected') ? 'pending' : 'completed') 
+        return (idFront || idBack) ?
+          ((idFront?.status === 'rejected' && idBack?.status === 'rejected') ? 'pending' : 'completed')
           : 'pending';
       }
       default:
@@ -286,16 +287,16 @@ export default function ProfileClient() {
                 ) :
                   <>
                     <span className="text-gray-700 text-xs sm:text-sm break-all">{profile?.email || 'No email'}</span>
-                    <button 
+                    <button
                       onClick={() => setIsEditingEmail(true)}
                       className="focus:outline-none ml-1"
                     >
-                      <svg 
-                        xmlns="http://www.w3.org/2000/svg" 
-                        fill="none" 
-                        viewBox="0 0 24 24" 
-                        strokeWidth={1.5} 
-                        stroke="currentColor" 
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={1.5}
+                        stroke="currentColor"
                         className="w-4 h-4 text-gray-400 hover:text-gray-600"
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
@@ -319,7 +320,7 @@ export default function ProfileClient() {
                 <li>Identification Proof</li>
               </ul>
             </div>
-            
+
             <div>
               <p className="text-sm sm:text-base text-gray-700">Accepted forms of ID that can be uploaded are:</p>
               <p className="text-xs sm:text-sm text-gray-600 mt-1">Aadhaar Card, Passport. For international users, a passport along with a valid visa.</p>
@@ -338,19 +339,18 @@ export default function ProfileClient() {
             <div className="mt-6 sm:mt-8">
               <div className="relative">
                 <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-[2px] bg-gray-200">
-                  <div 
-                    className="absolute left-0 top-0 h-full bg-[#f26e24] transition-all duration-300" 
+                  <div
+                    className="absolute left-0 top-0 h-full bg-[#f26e24] transition-all duration-300"
                     style={{ width: `${calculateProgress(documents)}%` }}
                   ></div>
                 </div>
                 <div className="relative flex justify-between">
                   {/* Profile Photo Step */}
                   <div className="flex flex-col items-center">
-                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center ${
-                      getStepStatus(documents, 'profile') === 'completed'
-                        ? 'bg-[#f26e24] text-white'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}>
+                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center ${getStepStatus(documents, 'profile') === 'completed'
+                      ? 'bg-[#f26e24] text-white'
+                      : 'bg-gray-200 text-gray-600'
+                      }`}>
                       {getStepStatus(documents, 'profile') === 'completed' ? (
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3 sm:w-4 sm:h-4">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -364,11 +364,10 @@ export default function ProfileClient() {
 
                   {/* DL Front Step */}
                   <div className="flex flex-col items-center">
-                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center ${
-                      getStepStatus(documents, 'dl_front') === 'completed'
-                        ? 'bg-[#f26e24] text-white'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}>
+                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center ${getStepStatus(documents, 'dl_front') === 'completed'
+                      ? 'bg-[#f26e24] text-white'
+                      : 'bg-gray-200 text-gray-600'
+                      }`}>
                       {getStepStatus(documents, 'dl_front') === 'completed' ? (
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3 sm:w-4 sm:h-4">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -382,11 +381,10 @@ export default function ProfileClient() {
 
                   {/* DL Back Step */}
                   <div className="flex flex-col items-center">
-                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center ${
-                      getStepStatus(documents, 'dl_back') === 'completed'
-                        ? 'bg-[#f26e24] text-white'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}>
+                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center ${getStepStatus(documents, 'dl_back') === 'completed'
+                      ? 'bg-[#f26e24] text-white'
+                      : 'bg-gray-200 text-gray-600'
+                      }`}>
                       {getStepStatus(documents, 'dl_back') === 'completed' ? (
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3 sm:w-4 sm:h-4">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -400,11 +398,10 @@ export default function ProfileClient() {
 
                   {/* ID Step */}
                   <div className="flex flex-col items-center">
-                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center ${
-                      getStepStatus(documents, 'id') === 'completed'
-                        ? 'bg-[#f26e24] text-white'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}>
+                    <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center ${getStepStatus(documents, 'id') === 'completed'
+                      ? 'bg-[#f26e24] text-white'
+                      : 'bg-gray-200 text-gray-600'
+                      }`}>
                       {getStepStatus(documents, 'id') === 'completed' ? (
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3 sm:w-4 sm:h-4">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />

@@ -18,9 +18,10 @@ interface DocumentVerificationProps {
 }
 
 const documentTypes = [
-  { key: 'drivers_license', label: 'Driver\'s License' },
-  { key: 'national_id', label: 'National ID' },
-  { key: 'proof_of_address', label: 'Proof of Address' }
+  { key: 'dl_front', label: 'Driving License (Front)' },
+  { key: 'dl_back', label: 'Driving License (Back)' },
+  { key: 'aadhaar_front', label: 'Aadhaar (Front)' },
+  { key: 'aadhaar_back', label: 'Aadhaar (Back)' },
 ];
 
 const DocumentVerification = ({
@@ -48,7 +49,8 @@ const DocumentVerification = ({
   };
 
   const getDocumentStatus = (type: string) => {
-    const doc = documents.find(d => d.document_type === type);
+    // Check both 'type' (from DB) and 'document_type' (legacy/fallback)
+    const doc = documents.find(d => d.document_type === type || (d as any).type === type);
     return doc?.status || 'not_uploaded';
   };
 
@@ -124,8 +126,8 @@ const DocumentVerification = ({
           onClick={onSubmit}
           disabled={!allDocumentsUploaded || uploading}
           className={`mt-6 w-full py-2 px-4 rounded-md ${allDocumentsUploaded && !uploading
-              ? 'bg-[#f26e24] text-white hover:bg-[#e05d13]'
-              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            ? 'bg-[#f26e24] text-white hover:bg-[#e05d13]'
+            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}
         >
           Submit Documents for Verification
