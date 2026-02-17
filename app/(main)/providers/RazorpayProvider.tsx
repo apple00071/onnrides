@@ -62,7 +62,7 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
       description: `Advance Payment (5%) for Booking ID: ${options.bookingId}`,
       image: '/logo.png',
       prefill: options.prefill,
-      notes: { 
+      notes: {
         booking_id: options.bookingId,
         payment_type: 'advance_payment',
         payment_percentage: '5'
@@ -71,7 +71,7 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
         color: '#f26e24'
       },
       modal: options.modal || {
-        ondismiss: function() {
+        ondismiss: function () {
           logger.debug('Payment modal dismissed');
         },
         escape: true,
@@ -81,7 +81,10 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
       handler: async function (response: any) {
         try {
           logger.debug('Payment successful, verifying...', response);
-          
+
+          // Use toast as a simple immediate loading indicator
+          const loadingToast = toast.loading('Verifying your payment... Please do not close this window.');
+
           const verificationResponse = await fetch('/api/payments/verify', {
             method: 'POST',
             headers: {
@@ -96,24 +99,26 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
           });
 
           const result = await verificationResponse.json();
-          
+          toast.dismiss(loadingToast);
+
           if (result.success) {
             logger.debug('Payment verified successfully');
-            window.location.href = '/bookings';
+            toast.success('Payment verified! Redirecting...');
+            window.location.href = `/payment-status?status=success&booking_id=${options.bookingId}`;
           } else {
             logger.error('Payment verification failed:', result);
-            window.location.href = `/payment-status?status=failed&bookingId=${options.bookingId}`;
+            window.location.href = `/payment-status?status=failed&booking_id=${options.bookingId}&error=verification_failed`;
           }
         } catch (error) {
           logger.error('Error during payment verification:', error);
-          window.location.href = `/payment-status?status=failed&bookingId=${options.bookingId}`;
+          window.location.href = `/payment-status?status=failed&booking_id=${options.bookingId}&error=system_error`;
         }
       },
     });
 
     rzp.on('payment.failed', function (response: any) {
       logger.error('Payment failed:', response.error);
-      window.location.href = `/payment-status?status=failed&bookingId=${options.bookingId}`;
+      window.location.href = `/payment-status?status=failed&booking_id=${options.bookingId}&error=${response.error.code}`;
     });
 
     logger.debug('Opening Razorpay modal');

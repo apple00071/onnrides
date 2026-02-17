@@ -19,9 +19,9 @@ export default function PaymentStatusPage() {
 
   // Get parameters from URL using useSearchParams hook
   const status = searchParams.get('status');
-  const bookingId = searchParams.get('booking_id');
+  const bookingId = searchParams.get('booking_id') || searchParams.get('bookingId');
   const errorType = searchParams.get('error');
-  const paymentId = searchParams.get('payment_id');
+  const paymentId = searchParams.get('payment_id') || searchParams.get('paymentId');
 
   useEffect(() => {
     if (sessionStatus === 'loading') return;

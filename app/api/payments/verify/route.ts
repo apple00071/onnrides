@@ -109,9 +109,26 @@ export async function POST(request: NextRequest) {
       );
     });
 
-    // Send admin notification
+    // Send notifications
     try {
       const adminNotificationService = AdminNotificationService.getInstance();
+      const whatsappService = WhatsAppNotificationService.getInstance();
+
+      // Notify Customer
+      try {
+        await whatsappService.sendPaymentConfirmation({
+          booking_id: booking.booking_id || booking.id,
+          payment_id: razorpay_payment_id,
+          amount: Math.ceil(booking.total_price * 0.05),
+          customer_name: booking.user_name,
+          phone_number: booking.phone_number || booking.user_phone || session.user.image // Fallback if phone is in unexpected field
+        });
+        logger.info('Customer payment confirmation sent', { bookingId: booking.id });
+      } catch (waError) {
+        logger.error('Failed to send customer WhatsApp notification:', waError);
+      }
+
+      // Notify Admin
       await adminNotificationService.sendPaymentNotification({
         booking_id: booking.booking_id || booking.id,
         payment_id: razorpay_payment_id,
@@ -121,8 +138,10 @@ export async function POST(request: NextRequest) {
         status: 'success',
         transaction_time: new Date()
       });
-    } catch (adminNotifyError) {
-      logger.error('Failed to send admin payment notification:', adminNotifyError);
+      logger.info('Admin payment confirmation sent', { bookingId: booking.id });
+
+    } catch (notifyError) {
+      logger.error('Error in notification chain:', notifyError);
     }
 
     return NextResponse.json({
