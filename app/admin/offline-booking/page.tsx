@@ -713,7 +713,7 @@ export default function OfflineBookingPage() {
                       name="dlScan"
                       className="hidden"
                       onChange={(e) => handleFileUpload(e, 'dlScan')}
-                      accept="image/*,.pdf"
+                      accept="image/*,.pdf" capture="environment"
                       required
                     />
                   </label>
@@ -754,7 +754,7 @@ export default function OfflineBookingPage() {
                       name="aadharScan"
                       className="hidden"
                       onChange={(e) => handleFileUpload(e, 'aadharScan')}
-                      accept="image/*,.pdf"
+                      accept="image/*,.pdf" capture="environment"
                       required
                     />
                   </label>
@@ -795,7 +795,7 @@ export default function OfflineBookingPage() {
                       name="selfie"
                       className="hidden"
                       onChange={(e) => handleFileUpload(e, 'selfie')}
-                      accept="image/*"
+                      accept="image/*" capture="environment"
                       required
                     />
                   </label>

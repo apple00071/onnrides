@@ -59,7 +59,7 @@ const DocumentVerification = ({
   return (
     <div className="bg-white rounded-lg shadow p-6 mt-6">
       <h2 className="text-2xl font-semibold mb-4">Document Verification</h2>
-      
+
       {isVerified ? (
         <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-4">
           <p className="text-green-700">Your documents have been verified! You can now rent vehicles.</p>
@@ -95,19 +95,19 @@ const DocumentVerification = ({
                     {status === 'rejected' && 'Rejected - Please upload again'}
                   </p>
                 </div>
-                
+
                 {!documentsSubmitted && (
                   <label className="cursor-pointer">
                     <input
                       type="file"
                       className="hidden"
                       accept="image/jpeg,image/png,application/pdf"
+                      capture="environment"
                       onChange={(e) => handleFileChange(e, key)}
                       disabled={uploading}
                     />
-                    <div className={`flex items-center gap-2 px-4 py-2 rounded-md ${
-                      isUploaded ? 'bg-gray-100 text-gray-600' : 'bg-blue-50 text-blue-600'
-                    }`}>
+                    <div className={`flex items-center gap-2 px-4 py-2 rounded-md ${isUploaded ? 'bg-gray-100 text-gray-600' : 'bg-blue-50 text-blue-600'
+                      }`}>
                       <Upload className="w-4 h-4" />
                       <span>{isUploaded ? 'Replace' : 'Upload'}</span>
                     </div>
@@ -123,11 +123,10 @@ const DocumentVerification = ({
         <button
           onClick={onSubmit}
           disabled={!allDocumentsUploaded || uploading}
-          className={`mt-6 w-full py-2 px-4 rounded-md ${
-            allDocumentsUploaded && !uploading
+          className={`mt-6 w-full py-2 px-4 rounded-md ${allDocumentsUploaded && !uploading
               ? 'bg-[#f26e24] text-white hover:bg-[#e05d13]'
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-          }`}
+            }`}
         >
           Submit Documents for Verification
         </button>
@@ -136,4 +135,4 @@ const DocumentVerification = ({
   );
 };
 
-export default DocumentVerification; 
+export default DocumentVerification;

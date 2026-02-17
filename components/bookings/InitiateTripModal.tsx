@@ -136,6 +136,7 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
     const [operationalData, setOperationalData] = useState({
         fuelLevel: '',
         odometerReading: '',
+        securityDepositAmount: (booking as any).security_deposit_amount || 0,
         damageNotes: '',
         cleanlinessNotes: '',
         inspectionPhotos: [] as string[]
@@ -256,6 +257,7 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
             formData.append('odometerReading', operationalData.odometerReading);
             formData.append('damageNotes', operationalData.damageNotes);
             formData.append('cleanlinessNotes', operationalData.cleanlinessNotes);
+            formData.append('securityDepositAmount', String((operationalData as any).securityDepositAmount || 0));
 
             // Append new document files if they exist
             (Object.entries(documentFiles) as [keyof DocumentFiles, File | null][]).forEach(([key, file]) => {
@@ -460,9 +462,8 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
 
                                     <div className="space-y-4">
                                         <div className="space-y-2">
-                                            <label className="text-sm font-medium">Vehicle Number</label>
                                             <Input
-                                                value={vehicleNumber}
+                                                value={vehicleNumber || (booking.vehicle as any)?.registration_number || ''}
                                                 onChange={(e) => setVehicleNumber(e.target.value)}
                                                 placeholder="Enter vehicle registration number"
                                             />
@@ -508,6 +509,17 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
                                                     onChange={(e) => setOperationalData(prev => ({ ...prev, odometerReading: e.target.value }))}
                                                     placeholder="Enter current mileage"
                                                     min={0}
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-medium">Security Deposit (Refundable)</label>
+                                                <Input
+                                                    type="number"
+                                                    value={operationalData.securityDepositAmount}
+                                                    onChange={(e) => setOperationalData(prev => ({ ...prev, securityDepositAmount: e.target.value }))}
+                                                    placeholder="Enter deposit amount"
+                                                    className="font-bold text-orange-600"
                                                 />
                                             </div>
                                         </div>
@@ -616,7 +628,7 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
                                                                 type="file"
                                                                 ref={fileInputRefs[doc.key]}
                                                                 onChange={(e) => handleFileChange(e, doc.key)}
-                                                                accept="image/*"
+                                                                accept="image/*" capture="environment"
                                                                 className="hidden"
                                                             />
 

@@ -125,11 +125,18 @@ export class AdminNotificationService {
         try {
           if (!email || !email.trim()) return;
 
-          const emailResult = await this.emailService.sendEmail(
+          // Send with timeout to prevent hanging the whole flow
+          const emailPromise = this.emailService.sendEmail(
             email.trim(),
             data.title,
             htmlContent
           );
+
+          // Add a 10s timeout
+          const emailResult = await Promise.race([
+            emailPromise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Email timeout after 10s')), 10000))
+          ]) as any;
 
           emailsSent.push(email);
           logger.info(`Admin email sent to ${email}`, {
@@ -195,12 +202,16 @@ export class AdminNotificationService {
           if (!phone || !phone.trim()) return;
 
           // Send a generic text message through the WhatsApp service
-          // Use the sendTestMessage method which is public instead of the private sendMessage method
-          await this.waSenderService.sendTextMessage(phone.trim(), textContent);
+          // Add a 10s timeout
+          const whatsappPromise = this.waSenderService.sendTextMessage(phone.trim(), textContent);
+
+          await Promise.race([
+            whatsappPromise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('WhatsApp timeout after 10s')), 10000))
+          ]);
 
           whatsappSent.push(phone);
           logger.info(`Admin WhatsApp sent to ${phone}`);
-
           // Save a DB record for the WhatsApp notification using direct SQL
           try {
             await query(`

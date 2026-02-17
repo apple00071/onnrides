@@ -108,6 +108,7 @@ export default function DocumentsPage() {
                   <input
                     type="file"
                     accept="image/*,.pdf"
+                    capture="environment"
                     onChange={handleFileChange(key as keyof typeof documents)}
                     className="hidden"
                   />
@@ -128,14 +129,13 @@ export default function DocumentsPage() {
               )}
               <div className="flex items-center space-x-2">
                 <span className="text-sm">Status:</span>
-                <span 
-                  className={`text-sm font-medium ${
-                    doc.status === 'approved' 
-                      ? 'text-green-600' 
+                <span
+                  className={`text-sm font-medium ${doc.status === 'approved'
+                      ? 'text-green-600'
                       : doc.status === 'rejected'
                         ? 'text-red-600'
                         : 'text-yellow-600'
-                  }`}
+                    }`}
                 >
                   {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
                 </span>
@@ -146,4 +146,4 @@ export default function DocumentsPage() {
       </div>
     </div>
   );
-} 
+}

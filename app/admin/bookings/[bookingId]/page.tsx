@@ -77,6 +77,8 @@ interface BookingDetails {
     customer_email?: string;
     dl_number?: string;
     aadhaar_number?: string;
+    emergency_name?: string;
+    emergency_contact?: string;
   } | null;
   payment_breakdown?: { method: string; amount: number }[];
 }
@@ -588,7 +590,7 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-8">
               <div className="bg-white p-4 md:p-5 rounded-xl border shadow-sm border-gray-100">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 leading-none">Fuel Level</p>
-                <p className={`font-bold text-3xl tabular-nums ${getFuelColor(parseInt(booking.trip_initiation.fuel_level || '0')).replace('bg-', 'text-')}`}>
+                <p className={`font-bold text-xl tabular-nums ${getFuelColor(parseInt(booking.trip_initiation.fuel_level || '0')).replace('bg-', 'text-')}`}>
                   {booking.trip_initiation.fuel_level}%
                 </p>
               </div>
@@ -596,7 +598,7 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
               <div className="bg-white p-4 md:p-5 rounded-xl border shadow-sm border-gray-100">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 leading-none">Odometer</p>
                 <div className="flex items-baseline gap-1.5">
-                  <p className="font-bold text-3xl text-gray-900 tabular-nums">{booking.trip_initiation.odometer_reading}</p>
+                  <p className="font-bold text-xl text-gray-900 tabular-nums">{booking.trip_initiation.odometer_reading}</p>
                   <span className="text-xs font-bold text-gray-400 uppercase">km</span>
                 </div>
               </div>
@@ -605,9 +607,15 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                 onClick={() => booking.trip_initiation?.documents?.signature && window.open(booking.trip_initiation.documents.signature, '_blank')}>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 leading-none">Signature</p>
                 {booking.trip_initiation.documents?.signature ? (
-                  <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase h-8">
-                    <Edit3 className="h-5 w-5" />
-                    <span>View Signature</span>
+                  <div className="relative h-16 w-full bg-white rounded border border-gray-100 mt-2 p-1">
+                    <img
+                      src={booking.trip_initiation.documents.signature}
+                      alt="Customer Signature"
+                      className="h-full w-full object-contain"
+                    />
+                    <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <Eye className="h-4 w-4 text-primary" />
+                    </div>
                   </div>
                 ) : (
                   <span className="text-[10px] font-bold text-gray-300 italic h-8 flex items-center uppercase">Not recorded</span>
@@ -645,6 +653,14 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                           <div>
                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">DL Number</p>
                             <p className="font-bold text-gray-700 font-mono text-sm">{booking.trip_initiation.dl_number}</p>
+                          </div>
+                        )}
+                        {(booking.trip_initiation.emergency_name || booking.trip_initiation.emergency_contact) && (
+                          <div className="pt-2 border-t border-gray-50">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Emergency Contact</p>
+                            <p className="font-bold text-gray-900 text-xs">
+                              {booking.trip_initiation.emergency_name} {booking.trip_initiation.emergency_contact && `(${booking.trip_initiation.emergency_contact})`}
+                            </p>
                           </div>
                         )}
                       </div>

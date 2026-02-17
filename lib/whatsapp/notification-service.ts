@@ -307,10 +307,6 @@ ${tripData.vehicle_number ? `• Vehicle Number: ${tripData.vehicle_number}` : '
 • Trip Start Time: ${formatIST(new Date())}
 ${tripData.security_deposit_amount !== undefined ? `• Security Deposit: ₹${tripData.security_deposit_amount}` : ''}
 
-🆘 *Emergency Contact:*
-${tripData.emergency_name ? `• Name: ${tripData.emergency_name}` : ''}
-${tripData.emergency_contact ? `• Phone: ${tripData.emergency_contact}` : ''}
-
 ⚠️ *Important Reminders:*
 • Drive safely and follow traffic rules
 • Return the vehicle on time

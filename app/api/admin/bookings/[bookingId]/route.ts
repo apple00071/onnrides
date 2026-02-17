@@ -170,6 +170,35 @@ export async function GET(
       } : null
     };
 
+    // If trip initiation hasn't happened, try to fetch verified documents from user profile
+    if (!formattedData.trip_initiation && booking.user_id) {
+      const userDocsResult = await query(
+        'SELECT type, file_url FROM documents WHERE user_id = $1 AND status = $2',
+        [booking.user_id, 'approved']
+      );
+
+      if (userDocsResult.rows.length > 0) {
+        const persistedDocs: Record<string, string> = {};
+        userDocsResult.rows.forEach(doc => {
+          if (doc.type === 'license') persistedDocs.dlFront = doc.file_url;
+          if (doc.type === 'id_proof') persistedDocs.aadhaarFront = doc.file_url;
+          if (doc.type === 'address_proof') persistedDocs.dlBack = doc.file_url;
+        });
+
+        if (Object.keys(persistedDocs).length > 0) {
+          // Initialize a skeletal trip_initiation with persisted documents
+          formattedData.trip_initiation = {
+            documents: persistedDocs,
+            customer_name: formattedData.customer.name,
+            customer_phone: formattedData.customer.phone,
+            customer_email: formattedData.customer.email,
+            dl_number: formattedData.customer.dl_number,
+            aadhaar_number: formattedData.customer.aadhar_number
+          } as any;
+        }
+      }
+    }
+
     // Add payment breakdown separately for cleaner syntax
     const paymentsResult = await query(`
       SELECT method, SUM(amount) as total_amount
@@ -555,4 +584,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-} 
+}

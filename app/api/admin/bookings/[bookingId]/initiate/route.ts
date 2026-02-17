@@ -199,9 +199,10 @@ export async function POST(
       await client.query(`
         UPDATE bookings SET
           status = 'initiated',
+          security_deposit_amount = $1,
           updated_at = NOW()
-        WHERE id = $1
-      `, [bookingId]);
+        WHERE id = $2
+      `, [securityDepositAmount, bookingId]);
 
       // Update vehicle status
       await client.query(`
