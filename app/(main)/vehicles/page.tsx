@@ -161,24 +161,32 @@ export default function VehiclesPage() {
       return 'Invalid date/time';
     }
 
-    const diffInHours = Math.ceil((dropoff.getTime() - pickup.getTime()) / (1000 * 60 * 60));
+    const diffInHours = (dropoff.getTime() - pickup.getTime()) / (1000 * 60 * 60);
 
     if (diffInHours < 0) {
       return 'Invalid duration';
     }
 
     if (diffInHours < 24) {
-      return `${diffInHours} hour${diffInHours === 1 ? '' : 's'}`;
+      const hours = Math.floor(diffInHours);
+      const mins = Math.round((diffInHours - hours) * 60);
+
+      if (hours === 0) return `${mins} min${mins === 1 ? '' : 's'}`;
+      if (mins === 0) return `${hours} hour${hours === 1 ? '' : 's'}`;
+      return `${hours} hour${hours === 1 ? '' : 's'} ${mins} min${mins === 1 ? '' : 's'}`;
     }
 
     const days = Math.floor(diffInHours / 24);
-    const remainingHours = diffInHours % 24;
+    const hours = Math.floor(diffInHours % 24);
+    const mins = Math.round(((diffInHours % 24) - hours) * 60);
 
-    if (remainingHours === 0) {
-      return `${days} day${days === 1 ? '' : 's'}`;
+    let result = `${days} day${days === 1 ? '' : 's'}`;
+    if (hours > 0 || mins > 0) {
+      result += ' ';
+      if (hours > 0) result += `${hours} hr${hours === 1 ? '' : 's'}`;
+      if (mins > 0) result += `${hours > 0 ? ' ' : ''}${mins} min${mins === 1 ? '' : 's'}`;
     }
-
-    return `${days} day${days === 1 ? '' : 's'} ${remainingHours} hour${remainingHours === 1 ? '' : 's'}`;
+    return result;
   };
 
   const getDurationPrice = (vehicle: Vehicle) => {
@@ -188,7 +196,7 @@ export default function VehiclesPage() {
     const pickup = new Date(`${urlParams.pickupDate}T${urlParams.pickupTime}`);
     const dropoff = new Date(`${urlParams.dropoffDate}T${urlParams.dropoffTime}`);
     const diffMs = dropoff.getTime() - pickup.getTime();
-    const totalHours = Math.ceil(diffMs / (1000 * 60 * 60));
+    const totalHours = diffMs / (1000 * 60 * 60);
 
     // Check if weekend
     const isWeekend = pickup.getDay() === 0 || pickup.getDay() === 6;

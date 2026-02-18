@@ -148,7 +148,7 @@ export function VehicleCard({
 
     const start = new Date(pickupDateTime);
     const end = new Date(dropoffDateTime);
-    const durationInHours = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+    const diffInHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
     const isWeekend = isWeekendIST(start);
     const minimumHours = isWeekend ? 24 : 12;
 
@@ -157,13 +157,20 @@ export function VehicleCard({
       price_7_days: vehicle.price_7_days ? parseFloat(String(vehicle.price_7_days)) : null,
       price_15_days: vehicle.price_15_days ? parseFloat(String(vehicle.price_15_days)) : null,
       price_30_days: vehicle.price_30_days ? parseFloat(String(vehicle.price_30_days)) : null
-    }, durationInHours, isWeekend);
+    }, diffInHours, isWeekend);
+
+    const h = Math.floor(diffInHours);
+    const m = Math.round((diffInHours - h) * 60);
+    let durationStr = '';
+    if (h === 0) durationStr = `${m} mins`;
+    else if (m === 0) durationStr = `${h} hour${h === 1 ? '' : 's'}`;
+    else durationStr = `${h} hr${h === 1 ? '' : 's'} ${m} mins`;
 
     return {
       totalAmount: result,
-      duration: `${durationInHours} hours`,
+      duration: durationStr,
       isWeekend,
-      actualHours: durationInHours,
+      actualHours: diffInHours,
       minimumHours
     };
   }, [pickupDateTime, dropoffDateTime, vehicle]);

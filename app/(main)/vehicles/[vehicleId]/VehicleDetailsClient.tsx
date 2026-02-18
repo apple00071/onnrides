@@ -32,8 +32,64 @@ export default function VehicleDetailsClient({ params }: Props) {
 
   const [pickupDate, setPickupDate] = useState<Date | undefined>(new Date());
   const [dropoffDate, setDropoffDate] = useState<Date | undefined>(new Date());
-  const [pickupTime, setPickupTime] = useState<string>('12:00');
-  const [dropoffTime, setDropoffTime] = useState<string>('12:00');
+  const [pickupTime, setPickupTime] = useState<string>('');
+  const [dropoffTime, setDropoffTime] = useState<string>('');
+
+  // Generate time options logic (matches HeroSection)
+  const getTimeOptions = (isPickup: boolean) => {
+    const now = new Date();
+    const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+
+    const selectedDate = isPickup ? pickupDate : dropoffDate;
+    if (!selectedDate) return [];
+
+    const todayIST = new Date(istTime);
+    todayIST.setHours(0, 0, 0, 0);
+    const compareDate = new Date(selectedDate);
+    compareDate.setHours(0, 0, 0, 0);
+
+    const isToday = compareDate.getTime() === todayIST.getTime();
+
+    let startHour = 0;
+    let startMinute = 0;
+    if (isToday) {
+      const currentHour = istTime.getHours();
+      const currentMinutes = istTime.getMinutes();
+      const totalMinutes = (currentHour * 60) + currentMinutes;
+      const nextSlotInMinutes = (Math.floor(totalMinutes / 30) + 1) * 30;
+      startHour = Math.floor(nextSlotInMinutes / 60);
+      startMinute = nextSlotInMinutes % 60;
+      if (startHour >= 24) return [];
+    }
+
+    const options = [];
+    for (let i = startHour * 2 + (startMinute === 30 ? 1 : 0); i < 48; i++) {
+      const h = Math.floor(i / 2);
+      const m = (i % 2) * 30;
+
+      if (!isPickup && pickupDate && compareDate.toDateString() === pickupDate.toDateString() && pickupTime) {
+        const [pickupHour, pickupMin] = pickupTime.split(':').map(Number);
+        if (h * 60 + m <= pickupHour * 60 + pickupMin) continue;
+      }
+
+      const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const period = h >= 12 ? 'PM' : 'AM';
+      const value = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      const label = `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
+      options.push({ value, label });
+    }
+    return options;
+  };
+
+  // Set initial pickup time if today
+  useEffect(() => {
+    if (pickupDate) {
+      const options = getTimeOptions(true);
+      if (options.length > 0 && !pickupTime) {
+        setPickupTime(options[0].value);
+      }
+    }
+  }, [pickupDate]);
 
   useEffect(() => {
     const fetchVehicle = async () => {
@@ -172,7 +228,7 @@ export default function VehicleDetailsClient({ params }: Props) {
     dropoff.setHours(parseInt(dropoffTime.split(':')[0]), parseInt(dropoffTime.split(':')[1]), 0);
 
     const diffMs = dropoff.getTime() - pickup.getTime();
-    const hours = Math.max(Math.ceil(diffMs / (1000 * 60 * 60)), vehicle.min_booking_hours);
+    const hours = Math.max(diffMs / (1000 * 60 * 60), vehicle.min_booking_hours);
     return hours;
   };
 
@@ -297,15 +353,14 @@ export default function VehicleDetailsClient({ params }: Props) {
 
                 {/* Pickup Time */}
                 <div className="space-y-2">
-                  <Label htmlFor="pickupTime">Pickup Time</Label>
                   <Select value={pickupTime} onValueChange={setPickupTime}>
                     <SelectTrigger id="pickupTime">
                       <SelectValue placeholder="Select time" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from({ length: 24 }).map((_, i) => (
-                        <SelectItem key={i} value={`${i.toString().padStart(2, '0')}:00`}>
-                          {`${i.toString().padStart(2, '0')}:00`}
+                      {getTimeOptions(true).map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -349,9 +404,9 @@ export default function VehicleDetailsClient({ params }: Props) {
                       <SelectValue placeholder="Select time" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from({ length: 24 }).map((_, i) => (
-                        <SelectItem key={i} value={`${i.toString().padStart(2, '0')}:00`}>
-                          {`${i.toString().padStart(2, '0')}:00`}
+                      {getTimeOptions(false).map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -363,7 +418,13 @@ export default function VehicleDetailsClient({ params }: Props) {
               <div className="mt-4 border-t pt-4">
                 <div className="flex justify-between mb-2">
                   <span>Duration:</span>
-                  <span>{totalHours} hours</span>
+                  <span>{(() => {
+                    const h = Math.floor(totalHours);
+                    const m = Math.round((totalHours - h) * 60);
+                    if (h === 0) return `${m} mins`;
+                    if (m === 0) return `${h} hour${h === 1 ? '' : 's'}`;
+                    return `${h} hour${h === 1 ? '' : 's'} ${m} mins`;
+                  })()}</span>
                 </div>
                 <div className="flex justify-between mb-2">
                   <span>Rate:</span>

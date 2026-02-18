@@ -44,7 +44,7 @@ export interface BookingDates {
  */
 export function validateBookingDates(booking: BookingDates): BookingValidationResult {
   const errors = [];
-  
+
   // Check if required fields are present
   if (!booking.pickupDate || !booking.dropoffDate) {
     errors.push({
@@ -53,17 +53,17 @@ export function validateBookingDates(booking: BookingDates): BookingValidationRe
     });
     return { isValid: false, errors };
   }
-  
+
   try {
     // Convert dates to Date objects if they're strings
-    const pickupDate = typeof booking.pickupDate === 'string' 
-      ? new Date(booking.pickupDate) 
+    const pickupDate = typeof booking.pickupDate === 'string'
+      ? new Date(booking.pickupDate)
       : booking.pickupDate;
-    
-    const dropoffDate = typeof booking.dropoffDate === 'string' 
-      ? new Date(booking.dropoffDate) 
+
+    const dropoffDate = typeof booking.dropoffDate === 'string'
+      ? new Date(booking.dropoffDate)
       : booking.dropoffDate;
-    
+
     // Check if dates are valid
     if (isNaN(pickupDate.getTime()) || isNaN(dropoffDate.getTime())) {
       errors.push({
@@ -72,12 +72,12 @@ export function validateBookingDates(booking: BookingDates): BookingValidationRe
       });
       return { isValid: false, errors };
     }
-    
+
     // Convert dates to Date objects if they're strings
     const pickup = typeof pickupDate === 'string' ? new Date(pickupDate) : pickupDate;
     const dropoff = typeof dropoffDate === 'string' ? new Date(dropoffDate) : dropoffDate;
     const now = new Date();
-    
+
     // Log the dates for debugging
     logger.info('Validating booking dates', {
       pickup: { raw: pickupDate, parsed: pickup, ist: toIST(pickup) },
@@ -86,13 +86,14 @@ export function validateBookingDates(booking: BookingDates): BookingValidationRe
     });
 
     // Check if pickup date is in the future (in IST)
-    if (toIST(pickup) <= toIST(now)) {
+    const nowIST = toIST(now);
+    if (toIST(pickup) < nowIST) {
       errors.push({
         code: BookingValidationError.PAST_PICKUP_TIME,
-        message: `Pickup time must be in the future. Selected: ${formatIST(pickup)}, Current time: ${formatIST(now)}`
+        message: `Pickup time must be in the future. Selected: ${formatIST(pickup)}, Current: ${formatIST(nowIST)}`
       });
     }
-    
+
     // Check if dropoff date is after pickup (in IST)
     if (toIST(dropoff) <= toIST(pickup)) {
       errors.push({
@@ -100,18 +101,18 @@ export function validateBookingDates(booking: BookingDates): BookingValidationRe
         message: `Dropoff time must be after pickup time. Pickup: ${formatIST(pickup)}, Dropoff: ${formatIST(dropoff)}`
       });
     }
-    
-    // Check if duration is valid (at least 1 hour)
+
+    // Check if duration is valid (at least 15 mins)
     const durationMs = dropoffDate.getTime() - pickupDate.getTime();
     const durationHours = durationMs / (1000 * 60 * 60);
-    
-    if (durationHours < 1) {
+
+    if (durationHours < 0.25) {
       errors.push({
         code: BookingValidationError.INVALID_DURATION,
-        message: 'Booking duration must be at least 1 hour'
+        message: 'Booking duration must be at least 15 minutes'
       });
     }
-    
+
   } catch (error) {
     logger.error('Error validating booking dates:', error);
     errors.push({
@@ -119,7 +120,7 @@ export function validateBookingDates(booking: BookingDates): BookingValidationRe
       message: 'Error validating dates'
     });
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors
@@ -134,19 +135,19 @@ export function validateBookingDates(booking: BookingDates): BookingValidationRe
 export function calculateBookingDuration(booking: BookingDates): number | null {
   try {
     // Convert dates to Date objects if they're strings
-    const pickupDate = typeof booking.pickupDate === 'string' 
-      ? new Date(booking.pickupDate) 
+    const pickupDate = typeof booking.pickupDate === 'string'
+      ? new Date(booking.pickupDate)
       : booking.pickupDate;
-    
-    const dropoffDate = typeof booking.dropoffDate === 'string' 
-      ? new Date(booking.dropoffDate) 
+
+    const dropoffDate = typeof booking.dropoffDate === 'string'
+      ? new Date(booking.dropoffDate)
       : booking.dropoffDate;
-    
+
     // Check if dates are valid
     if (isNaN(pickupDate.getTime()) || isNaN(dropoffDate.getTime())) {
       return null;
     }
-    
+
     // Calculate duration in hours
     const durationMs = dropoffDate.getTime() - pickupDate.getTime();
     return durationMs / (1000 * 60 * 60);

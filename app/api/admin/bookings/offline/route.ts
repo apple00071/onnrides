@@ -62,8 +62,19 @@ export async function POST(request: Request) {
     // Calculate total hours for the booking
     const start = new Date(formData.get('startDateTime') as string);
     const end = new Date(formData.get('endDateTime') as string);
+
+    // Validate that pickup time is in the future
+    const now = new Date();
+    if (start.getTime() < now.getTime()) {
+      return NextResponse.json({
+        success: false,
+        error: 'Pickup time must be in the future'
+      }, { status: 400 });
+    }
+
     const durationMs = end.getTime() - start.getTime();
-    const totalHours = Math.max(1, Math.ceil(durationMs / (1000 * 60 * 60)));
+    const durationHours = durationMs / (1000 * 60 * 60);
+    const totalHours = Math.max(0.5, durationHours);
 
     // Check for vehicle availability (overlap)
     const isAvailable = await checkVehicleAvailability(vehicleId, start, end);

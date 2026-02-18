@@ -308,9 +308,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const dropoffDateTime = new Date(dropoffDate);
 
     // Calculate duration in hours
-    const durationInHours = Math.ceil(
-      (dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60)
-    );
+    const durationInHours = (dropoffDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60);
 
     // Create booking in database with our reusable booking ID generator
     const bookingId = generateBookingId();

@@ -132,7 +132,6 @@ export default function OfflineBookingPage() {
 
     if (date && time) {
       try {
-        // Calculate end time (24 hours later)
         const [hours, minutes] = time.split(':').map(Number);
         const startDateTime = new Date(date);
         startDateTime.setHours(hours, minutes);
@@ -144,6 +143,52 @@ export default function OfflineBookingPage() {
         console.error('Error calculating end time:', error);
       }
     }
+  };
+
+  const getTimeOptions = (isPickup: boolean) => {
+    const now = new Date();
+    const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+
+    const selectedDateStr = isPickup ? startDate : endDate;
+    if (!selectedDateStr) return [];
+
+    const selectedDate = new Date(selectedDateStr);
+    const todayIST = new Date(istTime);
+    todayIST.setHours(0, 0, 0, 0);
+    const compareDate = new Date(selectedDate);
+    compareDate.setHours(0, 0, 0, 0);
+
+    const isToday = compareDate.getTime() === todayIST.getTime();
+
+    let startHour = 0;
+    let startMinute = 0;
+    if (isToday) {
+      const currentHour = istTime.getHours();
+      const currentMinutes = istTime.getMinutes();
+      const totalMinutes = (currentHour * 60) + currentMinutes;
+      const nextSlotInMinutes = (Math.floor(totalMinutes / 30) + 1) * 30;
+      startHour = Math.floor(nextSlotInMinutes / 60);
+      startMinute = nextSlotInMinutes % 60;
+      if (startHour >= 24) return [];
+    }
+
+    const options = [];
+    for (let i = startHour * 2 + (startMinute === 30 ? 1 : 0); i < 48; i++) {
+      const h = Math.floor(i / 2);
+      const m = (i % 2) * 30;
+
+      if (!isPickup && startDate && compareDate.toDateString() === new Date(startDate).toDateString() && startTime) {
+        const [pickupHour, pickupMin] = startTime.split(':').map(Number);
+        if (h * 60 + m <= pickupHour * 60 + pickupMin) continue;
+      }
+
+      const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const period = h >= 12 ? 'PM' : 'AM';
+      const value = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      const label = `${h12.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${period}`;
+      options.push({ value, label });
+    }
+    return options;
   };
 
   // Fetch available vehicles
@@ -493,14 +538,17 @@ export default function OfflineBookingPage() {
                   className="flex-1 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
                   required
                 />
-                <input
-                  type="time"
+                <select
                   value={startTime}
                   onChange={(e) => handleStartTimeChange(startDate, e.target.value)}
-                  step="3600"
                   className="w-40 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                   required
-                />
+                >
+                  <option value="">Time</option>
+                  {getTimeOptions(true).map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
               </div>
             </div>
             <div>
@@ -516,14 +564,17 @@ export default function OfflineBookingPage() {
                   className="flex-1 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
                   required
                 />
-                <input
-                  type="time"
+                <select
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  step="3600"
                   className="w-40 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
                   required
-                />
+                >
+                  <option value="">Time</option>
+                  {getTimeOptions(false).map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

@@ -321,35 +321,49 @@ function SearchFormContent({
     // Check if the selected date is today
     const isToday = compareDate.getTime() === todayIST.getTime();
 
-    // For today, start from current hour + 2 hours (or 3 if past half hour)
+    // For today, calculate the first available slot (currentTime + 10min grace, rounded up to next 30min)
     let startHour = 0;
+    let startMinute = 0;
     if (isToday) {
       const currentHour = istTime.getHours();
       const currentMinutes = istTime.getMinutes();
 
-      // If we're past half hour, start from next hour + 2
-      startHour = currentMinutes >= 30 ? currentHour + 3 : currentHour + 2;
+      // Round up to the immediate next 30-minute slot
+      const totalMinutes = (currentHour * 60) + currentMinutes;
+      const nextSlotInMinutes = (Math.floor(totalMinutes / 30) + 1) * 30;
 
-      // If we're too late in the day, return no options
+      startHour = Math.floor(nextSlotInMinutes / 60);
+      startMinute = nextSlotInMinutes % 60;
+
+      // If it's too late in the day, return no options
       if (startHour >= 24) {
         return options;
       }
     }
 
-    // Generate time slots
-    for (let i = startHour; i < 24; i++) {
+    // Generate time slots (every 30 minutes)
+    for (let i = startHour * 2 + (startMinute === 30 ? 1 : 0); i < 48; i++) {
+      const h = Math.floor(i / 2);
+      const m = (i % 2) * 30;
+
       // For dropoff, skip times before or equal to pickup time on the same day
       if (!isPickup &&
-        selectedDateIST.toDateString() === pickupDate?.toDateString() &&
+        pickupDate &&
+        selectedDateIST.toDateString() === pickupDate.toDateString() &&
         pickupTime) {
-        const [pickupHour] = pickupTime.split(':').map(Number);
-        if (i <= pickupHour) continue;
+        const [pickupHour, pickupMin] = pickupTime.split(':').map(Number);
+        const pickupTotal = pickupHour * 60 + pickupMin;
+        const currentTotal = h * 60 + m;
+        // Dropoff must be at least 1 hour after pickup according to some other logics? 
+        // Actually, user site usually has a min booking hours. 
+        // For simplicity here, just ensure it's after.
+        if (currentTotal <= pickupTotal) continue;
       }
 
-      const hour12 = i === 0 ? 12 : i > 12 ? i - 12 : i;
-      const period = i >= 12 ? 'PM' : 'AM';
-      const timeValue = `${i.toString().padStart(2, '0')}:00`;
-      const label = `${hour12}:00 ${period}`;
+      const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const period = h >= 12 ? 'PM' : 'AM';
+      const timeValue = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      const label = `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
 
       options.push({ value: timeValue, label });
     }
