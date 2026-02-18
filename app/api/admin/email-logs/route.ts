@@ -21,16 +21,54 @@ export async function GET(req: Request) {
     await query(`
       CREATE TABLE IF NOT EXISTS email_logs (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        recipient TEXT NOT NULL,
-        subject TEXT NOT NULL,
-        "messageContent" TEXT NOT NULL,
-        "bookingId" TEXT,
-        status TEXT NOT NULL,
+        recipient TEXT,
+        subject TEXT,
+        message_content TEXT,
+        booking_id TEXT,
+        status TEXT,
         error TEXT,
-        "messageId" TEXT,
-        "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        message_id TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      -- Safe migration to snake_case
+      DO $$ 
+      BEGIN
+        -- Add missing snake_case columns if they don't exist
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_logs' AND column_name = 'message_content') THEN
+          ALTER TABLE email_logs ADD COLUMN message_content TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_logs' AND column_name = 'booking_id') THEN
+          ALTER TABLE email_logs ADD COLUMN booking_id TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_logs' AND column_name = 'message_id') THEN
+          ALTER TABLE email_logs ADD COLUMN message_id TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_logs' AND column_name = 'created_at') THEN
+          ALTER TABLE email_logs ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_logs' AND column_name = 'updated_at') THEN
+          ALTER TABLE email_logs ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+        END IF;
+
+        -- Migrating data from camelCase columns if they exist
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_logs' AND column_name = 'messageContent') THEN
+          UPDATE email_logs SET message_content = "messageContent" WHERE message_content IS NULL;
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_logs' AND column_name = 'bookingId') THEN
+          UPDATE email_logs SET booking_id = "bookingId" WHERE booking_id IS NULL;
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_logs' AND column_name = 'messageId') THEN
+          UPDATE email_logs SET message_id = "messageId" WHERE message_id IS NULL;
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_logs' AND column_name = 'createdAt') THEN
+          UPDATE email_logs SET created_at = "createdAt" WHERE created_at IS NULL;
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_logs' AND column_name = 'updatedAt') THEN
+          UPDATE email_logs SET updated_at = "updatedAt" WHERE updated_at IS NULL;
+        END IF;
+      END $$;
 
       -- Create indexes if they don't exist
       DO $$ 
@@ -43,12 +81,12 @@ export async function GET(req: Request) {
           CREATE INDEX idx_email_logs_recipient ON email_logs(recipient);
         END IF;
         
-        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_email_logs_booking_id') THEN
-          CREATE INDEX idx_email_logs_booking_id ON email_logs("bookingId");
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_email_logs_booking_id_snake') THEN
+          CREATE INDEX idx_email_logs_booking_id_snake ON email_logs(booking_id);
         END IF;
         
-        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_email_logs_created_at') THEN
-          CREATE INDEX idx_email_logs_created_at ON email_logs("createdAt");
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_email_logs_created_at_snake') THEN
+          CREATE INDEX idx_email_logs_created_at_snake ON email_logs(created_at);
         END IF;
       END $$;
 
@@ -56,7 +94,7 @@ export async function GET(req: Request) {
       CREATE OR REPLACE FUNCTION update_updated_at_column()
       RETURNS TRIGGER AS $$
       BEGIN
-          NEW."updatedAt" = CURRENT_TIMESTAMP;
+          NEW.updated_at = CURRENT_TIMESTAMP;
           RETURN NEW;
       END;
       $$ language 'plpgsql';
@@ -77,20 +115,20 @@ export async function GET(req: Request) {
     // Get total count
     const countResult = await query('SELECT COUNT(*) FROM email_logs');
     const totalCount = parseInt(countResult.rows[0].count);
-    
+
     logger.debug('Checking bookings table structure');
-    // Check for the existence of bookingId column in the bookings table
+    // Check for the existence of booking_id column in the bookings table
     const checkBookingIdColumnResult = await query(`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'bookings' 
-        AND column_name = 'bookingId'
+        AND column_name = 'booking_id'
     `);
-    
+
     const hasBookingIdColumn = checkBookingIdColumnResult.rows.length > 0;
-    logger.debug('Bookings table structure check result', { 
-      hasBookingIdColumn, 
-      columns: checkBookingIdColumnResult.rows 
+    logger.debug('Bookings table structure check result', {
+      hasBookingIdColumn,
+      columns: checkBookingIdColumnResult.rows
     });
 
     // Get email logs with pagination - modify the join based on the bookings table structure
@@ -98,32 +136,32 @@ export async function GET(req: Request) {
       WITH email_data AS (
         SELECT 
           el.*,
-          el."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_created_at
+          el.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata' as ist_created_at
         FROM email_logs el
       )
       SELECT 
         ed.id,
         ed.recipient,
         ed.subject,
-        ed."messageContent",
-        ed."bookingId",
+        ed.message_content,
+        ed.booking_id,
         ed.status,
         ed.error,
-        ed."messageId",
+        ed.message_id,
         ed.ist_created_at,
         v.name as vehicle_name 
       FROM email_data ed
-      LEFT JOIN bookings b ON ${hasBookingIdColumn ? 
-        'b."bookingId" = ed."bookingId"' : 
-        'b.id::text = ed."bookingId"'
+      LEFT JOIN bookings b ON ${hasBookingIdColumn ?
+        'b.booking_id = ed.booking_id' :
+        'b.id::text = ed.booking_id'
       }
-      LEFT JOIN vehicles v ON v.id = b."vehicleId" 
-      ORDER BY ed."createdAt" DESC 
+      LEFT JOIN vehicles v ON v.id = b.vehicle_id 
+      ORDER BY ed.created_at DESC 
       LIMIT $1 OFFSET $2
     `;
-    
+
     logger.debug('Executing email logs query', { query: sqlQuery });
-    
+
     const result = await query(sqlQuery, [limit, offset]);
 
     // Format the response data
@@ -131,22 +169,22 @@ export async function GET(req: Request) {
       id: string;
       recipient: string;
       subject: string;
-      messageContent: string;
-      bookingId: string | null;
+      message_content: string;
+      booking_id: string | null;
       status: string;
       error: string | null;
-      messageId: string | null;
+      message_id: string | null;
       ist_created_at: string;
       vehicle_name: string | null;
     }) => ({
       id: row.id,
       recipient: row.recipient,
       subject: row.subject,
-      messageContent: row.messageContent,
-      bookingId: row.bookingId,
+      messageContent: row.message_content,
+      bookingId: row.booking_id,
       status: row.status,
       error: row.error,
-      messageId: row.messageId,
+      messageId: row.message_id,
       createdAt: row.ist_created_at,
       vehicleName: row.vehicle_name
     }));

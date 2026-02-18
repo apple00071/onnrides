@@ -10,6 +10,7 @@ export const STATUS_BADGE_COLORS = {
     cancelled: 'bg-red-100 text-red-800 border-red-200',
     failed: 'bg-red-100 text-red-800 border-red-200',
     confirmed: 'bg-blue-100 text-blue-800 border-blue-200',
+    active: 'bg-indigo-100 text-indigo-800 border-indigo-200',
 
     // Payment & Booking Types
     partially_paid: 'bg-orange-100 text-orange-800 border-orange-200',

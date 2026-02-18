@@ -408,7 +408,7 @@ export async function PATCH(
             );
           }
         }
-      } else if (status === 'confirmed' || status === 'initiated') {
+      } else if (status === 'confirmed' || status === 'initiated' || status === 'active') {
         const vehicleId = vehicle_id || currentBooking.vehicle_id;
         await client.query(`
           UPDATE vehicles

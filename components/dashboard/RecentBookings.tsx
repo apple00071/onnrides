@@ -34,16 +34,16 @@ interface RecentBookingsProps {
 export function RecentBookings({ data }: RecentBookingsProps) {
   return (
     <Card className="rounded-xl border shadow-sm">
-      <CardHeader className="p-3 md:p-6 pb-2 md:pb-4 border-b md:border-b-0">
-        <CardTitle className="text-sm md:text-xl font-bold text-gray-900">Recent Bookings</CardTitle>
+      <CardHeader className="p-3 md:p-4 pb-1.5 md:pb-2 border-b md:border-b-0">
+        <CardTitle className="text-sm md:text-lg font-bold text-gray-900">Recent Bookings</CardTitle>
       </CardHeader>
-      <CardContent className="p-2 md:p-6">
-        <div className="space-y-3 md:space-y-8">
+      <CardContent className="p-2 md:p-4">
+        <div className="space-y-3 md:space-y-4">
           {data.map((booking, index) => (
             <div key={`${booking.booking_id || booking.id}-${index}`} className="flex items-center">
-              <div className="ml-4 space-y-1 w-full">
+              <div className="ml-0 space-y-1 w-full">
                 <div className="flex justify-between items-center">
-                  <p className="text-xs md:text-sm font-bold leading-none text-gray-900">
+                  <p className="text-xs md:text-sm font-semibold leading-none text-gray-900">
                     {booking.user_name || 'Anonymous'}
                   </p>
                   <span className="text-[10px] text-gray-400 font-mono">

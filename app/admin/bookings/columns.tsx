@@ -58,7 +58,7 @@ export const columns: ColumnDef<Booking>[] = [
         accessorKey: "booking_id",
         header: "Order ID",
         cell: ({ row }) => (
-            <span className="text-[15px] font-black text-gray-900 tracking-tight">
+            <span className="text-sm font-medium text-gray-900">
                 {row.getValue("booking_id")}
             </span>
         )
@@ -71,8 +71,8 @@ export const columns: ColumnDef<Booking>[] = [
             const regNo = row.original.registration_number;
             return (
                 <div className="flex flex-col min-w-[140px]">
-                    <span className="font-semibold text-gray-900 leading-tight">{vehicle.name}</span>
-                    <span className="text-[10px] font-mono tracking-wider text-primary bg-primary/5 px-1.5 py-0.5 rounded mt-1 w-fit uppercase border border-primary/10">
+                    <span className="font-medium text-gray-900 leading-tight">{vehicle.name}</span>
+                    <span className="text-xs text-muted-foreground mt-0.5">
                         {regNo || 'No Reg No'}
                     </span>
                 </div>
@@ -98,15 +98,14 @@ export const columns: ColumnDef<Booking>[] = [
             const user = row.original.user;
             return (
                 <div className="flex flex-col min-w-[140px]">
-                    <span className="text-sm font-semibold text-gray-900">{user.name || 'Unknown'}</span>
-                    <span className="text-[13px] font-bold text-[#f26e24] tabular-nums mt-0.5 flex items-center gap-1">
+                    <span className="text-sm font-medium text-gray-900">{user.name || 'Unknown'}</span>
+                    <span className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                         {user.phone ? (
                             <>
-                                <span className="text-[10px] text-gray-400 font-normal">PH:</span>
                                 {user.phone}
                             </>
                         ) : (
-                            <span className="text-gray-300 font-normal italic text-xs">No Phone</span>
+                            <span className="text-gray-400 italic">No Phone</span>
                         )}
                     </span>
                 </div>
@@ -133,20 +132,20 @@ export const columns: ColumnDef<Booking>[] = [
             return (
                 <div className="flex flex-col space-y-2 py-1 min-w-[180px]">
                     <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
                         <div className="flex flex-col leading-none">
-                            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-tight">Pick-up</span>
-                            <span className="text-xs text-gray-700 font-medium">
-                                {startParts.date} <span className="text-gray-400 font-normal">at</span> {startParts.time}
+                            <span className="text-[10px] uppercase font-medium text-gray-500">Pick-up</span>
+                            <span className="text-xs text-gray-700">
+                                {startParts.date} <span className="text-gray-400">at</span> {startParts.time}
                             </span>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
                         <div className="flex flex-col leading-none">
-                            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-tight">Return</span>
-                            <span className="text-xs text-gray-700 font-medium">
-                                {endParts.date} <span className="text-gray-400 font-normal">at</span> {endParts.time}
+                            <span className="text-[10px] uppercase font-medium text-gray-500">Return</span>
+                            <span className="text-xs text-gray-700">
+                                {endParts.date} <span className="text-gray-400">at</span> {endParts.time}
                             </span>
                         </div>
                     </div>
@@ -161,8 +160,7 @@ export const columns: ColumnDef<Booking>[] = [
             const amount = parseFloat(row.getValue("total_price"));
             return (
                 <div className="flex flex-col items-start gap-1">
-                    <span className="font-bold text-gray-900">{formatCurrency(amount)}</span>
-                    <span className="text-[10px] text-gray-400 font-medium">Total Price</span>
+                    <span className="font-medium text-gray-900">{formatCurrency(amount)}</span>
                 </div>
             );
         },
@@ -185,7 +183,7 @@ export const columns: ColumnDef<Booking>[] = [
         cell: ({ row }) => {
             const status = row.getValue("status") as string;
             return (
-                <Badge className={`${getBadgeColor(status)} shadow-sm font-semibold border px-2.5 py-0.5`}>
+                <Badge className={`${getBadgeColor(status)} px-2.5 py-0.5`}>
                     {status.charAt(0).toUpperCase() + status.slice(1)}
                 </Badge>
             );
@@ -206,7 +204,7 @@ export const columns: ColumnDef<Booking>[] = [
             return (
                 <Badge
                     variant="outline"
-                    className={`${getBadgeColor(paymentStatus)} ${isCollectedOffline ? 'ring-1 ring-inset ring-yellow-400/20' : ''} font-semibold`}
+                    className={`${getBadgeColor(paymentStatus)} ${isCollectedOffline ? 'bg-yellow-50' : ''}`}
                 >
                     {label}
                 </Badge>

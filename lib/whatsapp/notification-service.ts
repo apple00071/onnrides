@@ -71,6 +71,8 @@ export interface BookingExtensionData {
   additional_hours: number;
   additional_amount: number;
   total_amount: number;
+  payment_method?: string;
+  payment_reference?: string;
 }
 
 export interface BookingCompletionData {
@@ -513,10 +515,12 @@ Your booking has been successfully extended!
 • Vehicle: ${extensionData.vehicle_model}
 • Original Return: ${formatIST(extensionData.original_end_date)}
 • New Return Date: ${formatIST(extensionData.new_end_date)}
-• Additional Hours: ${extensionData.additional_hours}
+• Extension Duration: ${extensionData.additional_hours} Hours
 
 💰 *Payment Information:*
 • Additional Amount: ₹${extensionData.additional_amount}
+${extensionData.payment_method ? `• Payment Method: ${extensionData.payment_method.toUpperCase()}` : ''}
+${extensionData.payment_reference ? `• Reference: ${extensionData.payment_reference}` : ''}
 • New Total Amount: ₹${extensionData.total_amount}
 
 ⚠️ *Important:*

@@ -145,7 +145,7 @@ export default function EmailLogsPage() {
                 <div>
                     <div className="hidden md:block">
                         <table className="w-full table-auto">
-                            <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-bold tracking-wider">
+                            <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-semibold tracking-wider">
                                 <tr>
                                     <th className="px-6 py-4 text-left">To</th>
                                     <th className="px-6 py-4 text-left">Subject</th>
@@ -157,7 +157,7 @@ export default function EmailLogsPage() {
                             <tbody className="bg-white divide-y divide-gray-100">
                                 {logs.map((log) => (
                                     <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="py-3 px-6 font-bold text-gray-900 text-sm">{log.recipient}</td>
+                                        <td className="py-3 px-6 font-semibold text-gray-900 text-sm">{log.recipient}</td>
                                         <td className="py-3 px-6 text-xs text-gray-500 max-w-xs truncate font-medium">
                                             {log.subject}
                                         </td>
@@ -173,7 +173,7 @@ export default function EmailLogsPage() {
                                                 size="sm"
                                                 onClick={() => handleResendEmail(log.id)}
                                                 disabled={resending === log.id}
-                                                className="h-8 border-gray-200 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg text-xs font-bold"
+                                                className="h-8 border-gray-200 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg text-xs font-semibold"
                                             >
                                                 {resending === log.id ? (
                                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -197,25 +197,25 @@ export default function EmailLogsPage() {
                             <div key={log.id} className="p-4 bg-white">
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex-1">
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Recipient</span>
-                                        <p className="text-sm font-bold text-gray-900 leading-none mt-0.5">{log.recipient}</p>
+                                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-tighter">Recipient</span>
+                                        <p className="text-sm font-semibold text-gray-900 leading-none mt-0.5">{log.recipient}</p>
                                     </div>
                                     <div className="text-right">
                                         {getStatusBadge(log.status)}
                                     </div>
                                 </div>
                                 <div className="mb-4">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Subject</span>
-                                    <p className="text-xs text-gray-800 font-bold leading-snug mt-1">{log.subject}</p>
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-tighter">Subject</span>
+                                    <p className="text-xs text-gray-800 font-semibold leading-snug mt-1">{log.subject}</p>
                                 </div>
                                 <div className="flex justify-between items-center gap-4">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase">{formatDateTime(log.created_at)}</span>
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase">{formatDateTime(log.created_at)}</span>
                                     <Button
                                         variant="outline"
                                         size="sm"
                                         onClick={() => handleResendEmail(log.id)}
                                         disabled={resending === log.id}
-                                        className="h-8 flex-1 sm:flex-none border-gray-200 text-orange-600 font-bold text-[10px] rounded-lg"
+                                        className="h-8 flex-1 sm:flex-none border-gray-200 text-orange-600 font-semibold text-[10px] rounded-lg"
                                     >
                                         {resending === log.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Send className="h-3 w-3 mr-1.5" /> Resend</>}
                                     </Button>

@@ -262,12 +262,12 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
         </Button>
       </div>
 
-      <div className="bg-white md:bg-transparent rounded-xl md:rounded-none border md:border-0 shadow-sm md:shadow-none p-3 md:p-0 mb-4 md:mb-8">
-        <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-4 md:mb-8 pb-4 md:pb-8 border-b md:border-0">
+      <div className="bg-white md:bg-transparent rounded-xl md:rounded-none border md:border-0 shadow-sm md:shadow-none p-3 md:p-0 mb-4">
+        <div className="flex flex-col md:flex-row justify-between items-start gap-3 mb-4 md:mb-6 pb-4 md:pb-6 border-b md:border-0">
           <div className="space-y-1">
-            <h1 className="text-xl md:text-3xl font-bold text-gray-900 tracking-tight">Booking Details</h1>
-            <div className="flex items-center gap-3 text-xs md:text-sm text-gray-500">
-              <span className="font-bold text-primary px-2 py-0.5 bg-primary/5 rounded">ID: {booking.booking_id}</span>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Booking Details</h1>
+            <div className="flex items-center gap-3 text-xs text-gray-500">
+              <span className="font-medium text-primary px-2 py-0.5 bg-primary/5 rounded">ID: {booking.booking_id}</span>
               <span className="w-1 h-1 rounded-full bg-gray-300"></span>
               <span>{formatDateTime(booking.created_at)}</span>
             </div>
@@ -312,24 +312,24 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
           {/* Main Content Column */}
           <div className="lg:col-span-2 space-y-4 md:space-y-6">
             {/* Unified Card for Mobile, Separate for Desktop */}
-            <div className="bg-white md:bg-transparent border md:border-0 rounded-xl md:rounded-none overflow-hidden md:overflow-visible shadow-sm md:shadow-none space-y-0 md:space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-6">
+            <div className="bg-white md:bg-transparent border md:border-0 rounded-xl md:rounded-none overflow-hidden md:overflow-visible shadow-sm md:shadow-none space-y-0 md:space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-4">
                 {/* Vehicle Card */}
-                <div className="bg-transparent md:bg-white p-3 md:p-6 border-b md:border md:rounded-xl md:shadow-sm">
-                  <h3 className="hidden md:flex text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-6 items-center gap-2">
+                <div className="bg-transparent md:bg-white p-3 md:p-4 border-b md:border md:rounded-xl md:shadow-sm">
+                  <h3 className="hidden md:flex text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 items-center gap-2">
                     <Car className="h-4 w-4" /> Vehicle Information
                   </h3>
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-base md:text-xl font-bold text-gray-900 tracking-tight">{booking.vehicle.name}</p>
-                      <Badge variant="outline" className={`${getBadgeColor(booking.vehicle.type)} mt-1 capitalize font-bold text-[10px]`}>
+                      <p className="text-base md:text-lg font-semibold text-gray-900 tracking-tight">{booking.vehicle.name}</p>
+                      <Badge variant="outline" className={`${getBadgeColor(booking.vehicle.type)} mt-1 capitalize font-medium text-[10px]`}>
                         {booking.vehicle.type}
                       </Badge>
                     </div>
                     <div className="text-right">
-                      {booking.vehicle.model && <p className="text-sm font-bold text-gray-700">{booking.vehicle.model}</p>}
+                      {booking.vehicle.model && <p className="text-sm font-medium text-gray-700">{booking.vehicle.model}</p>}
                       {booking.vehicle.registration_number && (
-                        <span className="text-[10px] md:text-xs font-mono tracking-wider text-primary bg-primary/5 px-2 py-1 rounded mt-2 block w-fit ml-auto uppercase border border-primary/10 font-bold">
+                        <span className="text-[10px] md:text-xs text-muted-foreground mt-1 block">
                           {booking.vehicle.registration_number}
                         </span>
                       )}
@@ -338,14 +338,14 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                 </div>
 
                 {/* Customer Card */}
-                <div className="bg-white p-3 md:p-6 border-b md:border md:rounded-xl md:shadow-sm">
-                  <h3 className="hidden md:flex text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-6 items-center gap-2">
+                <div className="bg-white p-3 md:p-4 border-b md:border md:rounded-xl md:shadow-sm">
+                  <h3 className="hidden md:flex text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 items-center gap-2">
                     <UserCircle className="h-4 w-4" /> Customer Details
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-bold text-gray-900 tracking-tight text-base">
+                        <p className="font-semibold text-gray-900 tracking-tight text-base">
                           {booking.trip_initiation?.customer_name || booking.customer.name}
                         </p>
                         {booking.customer.name === 'Admin' && !booking.trip_initiation?.customer_name && (
@@ -378,19 +378,19 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
               </div>
 
               {/* Trip Schedule Card */}
-              <div className="bg-gray-50/50 md:bg-white p-3 md:p-6 md:border md:rounded-xl md:shadow-sm">
-                <h3 className="hidden md:flex text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-8 items-center gap-2">
+              <div className="bg-gray-50/50 md:bg-white p-3 md:p-4 md:border md:rounded-xl md:shadow-sm">
+                <h3 className="hidden md:flex text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 items-center gap-2">
                   <PlayCircle className="h-4 w-4" /> Trip Schedule
                 </h3>
 
-                <div className="relative pl-8 border-l-2 border-orange-100 space-y-6">
+                <div className="relative pl-8 border-l-2 border-orange-100 space-y-4">
                   <div className="relative">
                     <div className="absolute -left-[33px] top-1.5 h-4 w-4 rounded-full bg-green-500 border-2 border-white shadow-[0_0_10px_rgba(34,197,94,0.4)]"></div>
                     <div className="flex justify-between items-baseline">
-                      <p className="font-bold text-gray-900 text-sm md:text-base">{formatDateTime(booking.duration.from)}</p>
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Pickup</span>
+                      <p className="font-semibold text-gray-900 text-sm">{formatDateTime(booking.duration.from)}</p>
+                      <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Pickup</span>
                     </div>
-                    <p className="text-xs font-bold text-gray-500 mt-1">
+                    <p className="text-xs font-medium text-gray-500 mt-0.5">
                       <span className="text-[10px] text-gray-300 font-normal uppercase">Location:</span> {getCleanLocation(booking.pickup_location)}
                     </p>
                   </div>
@@ -398,16 +398,16 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                   <div className="relative">
                     <div className="absolute -left-[33px] top-1.5 h-4 w-4 rounded-full bg-orange-500 border-2 border-white shadow-[0_0_10px_rgba(249,115,22,0.4)]"></div>
                     <div className="flex justify-between items-baseline">
-                      <p className="font-bold text-gray-900 text-sm md:text-base">{formatDateTime(booking.duration.to)}</p>
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Dropoff</span>
+                      <p className="font-semibold text-gray-900 text-sm">{formatDateTime(booking.duration.to)}</p>
+                      <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Dropoff</span>
                     </div>
                     {booking.vehicle_return ? (
-                      <div className="mt-3 text-[10px] font-bold uppercase bg-green-100 text-green-700 px-2 py-1 rounded w-fit inline-flex items-center gap-2">
+                      <div className="mt-2 text-[10px] font-bold uppercase bg-green-100 text-green-700 px-2 py-0.5 rounded w-fit inline-flex items-center gap-2">
                         <CheckCircle className="h-3 w-3" />
                         Returned: {formatDateTime(booking.vehicle_return.return_date)}
                       </div>
                     ) : (
-                      <p className="text-xs font-medium text-gray-400 mt-1 italic">Return to same location</p>
+                      <p className="text-xs font-medium text-gray-400 mt-0.5 italic">Return to same location</p>
                     )}
                   </div>
                 </div>
@@ -417,16 +417,16 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
 
           {/* Col 3: Payment Details */}
           <div className="space-y-4">
-            <div className="bg-white border rounded-xl p-4 md:p-6 shadow-sm flex flex-col">
-              <h3 className="hidden md:flex text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-6 items-center gap-2">
+            <div className="bg-white border rounded-xl p-4 shadow-sm flex flex-col">
+              <h3 className="hidden md:flex text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 items-center gap-2">
                 <FileText className="h-4 w-4" /> Payment Summary
               </h3>
 
               <div className="space-y-3">
                 {/* Price Header */}
-                <div className="flex items-baseline justify-between border-b border-gray-50 pb-3 md:pb-5">
-                  <span className="text-[10px] md:text-[11px] font-bold text-gray-400 uppercase tracking-wider">Total Amount</span>
-                  <span className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tighter tabular-nums">₹{(booking.amount || booking.total_amount)?.toLocaleString()}</span>
+                <div className="flex items-baseline justify-between border-b border-gray-50 pb-3">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Amount</span>
+                  <span className="text-2xl font-bold text-gray-900 tracking-tighter tabular-nums">₹{(booking.amount || booking.total_amount)?.toLocaleString()}</span>
                 </div>
 
                 {/* Processing individual blocks */}
@@ -575,6 +575,7 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
       <BookingActions
         bookingId={booking.booking_id}
         currentStatus={booking.status}
+        booking={booking}
       />
 
       {/* Trip Initiation Details Section */}

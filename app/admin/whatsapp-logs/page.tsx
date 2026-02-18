@@ -60,8 +60,13 @@ export default function WhatsAppLogsPage() {
             const data = await response.json();
 
             if (data.success) {
-                setLogs(data.data.logs);
-                setPagination(data.data.pagination);
+                setLogs(data.data);
+                setPagination({
+                    currentPage: data.pagination.page,
+                    totalPages: data.pagination.totalPages,
+                    totalItems: data.pagination.total,
+                    itemsPerPage: data.pagination.limit
+                });
             } else {
                 toast.error('Failed to fetch WhatsApp logs');
             }
@@ -106,7 +111,7 @@ export default function WhatsAppLogsPage() {
                 <div className="w-full">
                     <div className="hidden md:block">
                         <table className="w-full table-auto">
-                            <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-bold tracking-wider">
+                            <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-semibold tracking-wider">
                                 <tr>
                                     <th className="px-6 py-4 text-left">Time</th>
                                     <th className="px-6 py-4 text-left">Phone</th>
@@ -121,14 +126,14 @@ export default function WhatsAppLogsPage() {
                                         <td className="py-3 px-6 text-xs font-medium text-gray-600">
                                             {formatDateTime(log.created_at)}
                                         </td>
-                                        <td className="py-3 px-6 text-sm font-bold text-gray-800">{log.recipient}</td>
+                                        <td className="py-3 px-6 text-sm font-semibold text-gray-800">{log.recipient}</td>
                                         <td className="py-3 px-6 text-xs text-gray-500 max-w-xs truncate font-medium">
                                             {log.message}
                                         </td>
                                         <td className="py-3 px-6 text-center">
                                             {getStatusBadge(log.status)}
                                         </td>
-                                        <td className="py-3 px-6 text-right text-[10px] font-bold text-red-500 uppercase">
+                                        <td className="py-3 px-6 text-right text-[10px] font-semibold text-red-500 uppercase">
                                             {log.error || '-'}
                                         </td>
                                     </tr>
@@ -143,25 +148,25 @@ export default function WhatsAppLogsPage() {
                             <div key={log.id} className="p-4 bg-white">
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex-1">
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Recipient</span>
-                                        <p className="text-sm font-bold text-gray-900 leading-none mt-0.5">{log.recipient}</p>
+                                        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-tighter">Recipient</span>
+                                        <p className="text-sm font-semibold text-gray-900 leading-none mt-0.5">{log.recipient}</p>
                                     </div>
                                     <div className="text-right">
                                         {getStatusBadge(log.status)}
                                     </div>
                                 </div>
                                 <div className="mb-3">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Message</span>
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-tighter">Message</span>
                                     <p className="text-xs text-gray-600 font-medium leading-relaxed mt-1 line-clamp-2">{log.message}</p>
                                 </div>
                                 <div className="flex justify-between items-center pt-2 border-t border-gray-50">
-                                    <span className="text-[9px] font-bold text-gray-400 uppercase">{formatDateTime(log.created_at)}</span>
-                                    {log.error && <span className="text-[9px] font-black text-red-500 uppercase tracking-tight">Error: {log.error}</span>}
+                                    <span className="text-[9px] font-semibold text-gray-400 uppercase">{formatDateTime(log.created_at)}</span>
+                                    {log.error && <span className="text-[9px] font-bold text-red-500 uppercase tracking-tight">Error: {log.error}</span>}
                                 </div>
                             </div>
                         ))}
                         {logs.length === 0 && (
-                            <div className="p-12 text-center text-gray-500 font-bold text-sm bg-gray-50/50">No logs found</div>
+                            <div className="p-12 text-center text-gray-500 font-semibold text-sm bg-gray-50/50">No logs found</div>
                         )}
                     </div>
                 </div>

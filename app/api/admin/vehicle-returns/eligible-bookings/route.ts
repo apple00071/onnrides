@@ -35,7 +35,7 @@ export async function GET(request: Request) {
       FROM bookings b
       JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.status IN ('confirmed', 'initiated')
+      WHERE b.status IN ('confirmed', 'active', 'initiated')
       AND NOT EXISTS (
         SELECT 1 FROM vehicle_returns vr WHERE vr.booking_id = b.id
       )

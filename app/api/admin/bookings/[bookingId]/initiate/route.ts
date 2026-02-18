@@ -198,7 +198,7 @@ export async function POST(
 
       await client.query(`
         UPDATE bookings SET
-          status = 'initiated',
+          status = 'active',
           security_deposit_amount = $1,
           updated_at = NOW()
         WHERE id = $2

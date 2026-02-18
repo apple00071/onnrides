@@ -23,7 +23,7 @@ export async function DELETE(req: NextRequest) {
     // S3: Implement Safety Guard (Check for users with active bookings)
     const activeBookingsCount = await query(
       `SELECT COUNT(*) FROM bookings 
-       WHERE status IN ('pending', 'confirmed', 'initiated') 
+       WHERE status IN ('pending', 'confirmed', 'initiated', 'active') 
        AND user_id IN (SELECT id FROM users WHERE LOWER(role) != 'admin')`
     );
 

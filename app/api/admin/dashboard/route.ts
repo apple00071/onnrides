@@ -106,7 +106,7 @@ export async function GET() {
     const activeRentalsResult = await query(`
       SELECT COUNT(*) as active_rentals
       FROM bookings
-      WHERE status = 'active'
+      WHERE status IN ('active', 'initiated')
       AND start_date <= $2
       AND end_date >= $1
     `, [today, tomorrow]);
@@ -134,7 +134,7 @@ export async function GET() {
     const overdueReturnsResult = await query(`
       SELECT COUNT(*) as overdue_returns
       FROM bookings
-      WHERE status = 'active'
+      WHERE status IN ('active', 'initiated')
       AND end_date < $1
     `, [today]);
 
@@ -165,7 +165,7 @@ export async function GET() {
       SELECT COUNT(*) as today_returns
       FROM bookings
       WHERE DATE(end_date) = DATE($1)
-      AND status = 'active'
+      AND status IN ('active', 'initiated')
     `, [today]);
 
     const todayReturns = parseInt(todayReturnsResult.rows[0].today_returns);

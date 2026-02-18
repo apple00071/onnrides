@@ -264,6 +264,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       customerName,
       customerEmail,
       customerPhone,
+      couponCode, // Added couponCode
       // We explicitly IGNORE client-provided pricing fields to prevent manipulation
       // totalAmount, pricePerHour, advancePayment etc. are ignored
     } = data;
@@ -397,7 +398,53 @@ export async function POST(request: NextRequest): Promise<Response> {
     const serviceFee = Math.round(basePrice * (serviceFeePercentage / 100));
     // Apply 5% Special Discount
     const specialDiscount = Math.round(basePrice * 0.05);
-    const totalAmount = basePrice + gst + serviceFee - specialDiscount;
+    const subtotal = basePrice + gst + serviceFee - specialDiscount;
+
+    // 4. Handle Coupon Application
+    let couponDiscount = 0;
+    let appliedCoupon = null;
+
+    if (couponCode) {
+      const couponResult = await query(
+        'SELECT * FROM coupons WHERE UPPER(code) = $1 AND is_active = true',
+        [couponCode.toUpperCase()]
+      );
+
+      const coupon = couponResult.rows[0];
+      const now = new Date();
+
+      if (coupon &&
+        (!coupon.start_date || new Date(coupon.start_date) <= now) &&
+        (!coupon.end_date || new Date(coupon.end_date) >= now) &&
+        (!coupon.usage_limit || coupon.times_used < coupon.usage_limit) &&
+        (!coupon.min_booking_amount || subtotal >= Number(coupon.min_booking_amount))) {
+
+        if (coupon.discount_type === 'percentage') {
+          couponDiscount = Math.round(subtotal * (Number(coupon.discount_value) / 100));
+          if (coupon.max_discount_amount && couponDiscount > Number(coupon.max_discount_amount)) {
+            couponDiscount = Number(coupon.max_discount_amount);
+          }
+        } else {
+          couponDiscount = Number(coupon.discount_value);
+        }
+
+        appliedCoupon = {
+          id: coupon.id,
+          code: coupon.code,
+          type: coupon.discount_type,
+          value: Number(coupon.discount_value),
+          discountAmount: couponDiscount
+        };
+      } else {
+        logger.warn('Invalid or inapplicable coupon ignored during booking', {
+          couponCode,
+          subtotal,
+          reason: !coupon ? 'not_found' : 'not_applicable'
+        });
+      }
+    }
+
+    const totalAmount = subtotal - couponDiscount;
     const advancePayment = Math.round(totalAmount * (advancePaymentPercentage / 100));
 
     logger.info('Server-side pricing calculated:', {
@@ -405,7 +452,8 @@ export async function POST(request: NextRequest): Promise<Response> {
       basePrice,
       totalAmount,
       advancePayment,
-      durationInHours
+      durationInHours,
+      couponApplied: !!appliedCoupon
     });
 
     try {
@@ -468,7 +516,8 @@ export async function POST(request: NextRequest): Promise<Response> {
           endDate: formatDate(dropoffDate),
           customerName,
           customerEmail,
-          customerPhone
+          customerPhone,
+          couponCode: appliedCoupon?.code || null
         },
       }) as RazorpayOrder;
 
@@ -489,11 +538,22 @@ export async function POST(request: NextRequest): Promise<Response> {
             gst,
             gstPercentage: gstEnabled ? gstPercentage : 0,
             serviceFee,
+            specialDiscount,
+            subtotal,
+            couponApplied: appliedCoupon,
             totalAmount
           }
         }),
         createdBookingId
       ]);
+
+      // If coupon was applied, increment usage count
+      if (appliedCoupon) {
+        await query(
+          'UPDATE coupons SET times_used = times_used + 1 WHERE id = $1',
+          [appliedCoupon.id]
+        );
+      }
 
       return NextResponse.json({
         success: true,

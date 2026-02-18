@@ -67,8 +67,9 @@ export default function BookingSummaryPage() {
   const [isLoadingVehicle, setIsLoadingVehicle] = useState(false);
   const [vehicleError, setVehicleError] = useState<string | null>(null);
   const [bookingDetails, setBookingDetails] = useState<BookingSummaryDetails | null>(null);
-  const [vehicleImageUrl, setVehicleImageUrl] = useState<string>('');
+  const [imageUrl, setVehicleImageUrl] = useState<string>('');
   const [pendingPayment, setPendingPayment] = useState<{ order_id: string, timestamp: string } | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string, discountAmount: number } | null>(null);
 
   // Consolidated data loading
   useEffect(() => {
@@ -158,6 +159,51 @@ export default function BookingSummaryPage() {
     }
   }, []);
 
+  const totalAmount = useMemo(() => {
+    if (!bookingDetails) return 0;
+    const start = new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`);
+    const end = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`);
+    const duration = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+    const isWeekend = isWeekendIST(start);
+
+    return calculateRentalPrice({
+      price_per_hour: bookingDetails.pricePerHour,
+      price_7_days: bookingDetails.price7Days,
+      price_15_days: bookingDetails.price15Days,
+      price_30_days: bookingDetails.price30Days
+    }, duration, isWeekend);
+  }, [bookingDetails]);
+
+  const handleApplyCoupon = async (code: string) => {
+    try {
+      const response = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          totalAmount // subtotal before coupon
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast.error(result.error || 'Invalid coupon code');
+        setAppliedCoupon(null);
+        return;
+      }
+
+      setAppliedCoupon({
+        code: result.coupon.code,
+        discountAmount: result.coupon.discountAmount
+      });
+      toast.success('Coupon applied successfully!');
+    } catch (error) {
+      logger.error('Error validating coupon:', error);
+      toast.error('Failed to validate coupon');
+    }
+  };
+
   const handleProceedToPayment = async () => {
     setIsLoading(true);
     try {
@@ -185,6 +231,7 @@ export default function BookingSummaryPage() {
           customerName: session.user.name,
           customerEmail: session.user.email,
           customerPhone: (session.user as any)?.phone || '',
+          couponCode: appliedCoupon?.code || null // Added couponCode
         }),
       });
 
@@ -218,21 +265,6 @@ export default function BookingSummaryPage() {
     }
   };
 
-  const totalAmount = useMemo(() => {
-    if (!bookingDetails) return 0;
-    const start = new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`);
-    const end = new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`);
-    const duration = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
-    const isWeekend = isWeekendIST(start);
-
-    return calculateRentalPrice({
-      price_per_hour: bookingDetails.pricePerHour,
-      price_7_days: bookingDetails.price7Days,
-      price_15_days: bookingDetails.price15Days,
-      price_30_days: bookingDetails.price30Days
-    }, duration, isWeekend);
-  }, [bookingDetails]);
-
   if (isLoading && !bookingDetails) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -259,11 +291,14 @@ export default function BookingSummaryPage() {
           <BookingSummary
             vehicle={vehicleDetails || {
               ...bookingDetails.vehicle,
-              images: [vehicleImageUrl]
+              images: [imageUrl]
             }}
             startDate={new Date(`${bookingDetails.pickupDate}T${bookingDetails.pickupTime}`).toISOString()}
             endDate={new Date(`${bookingDetails.dropoffDate}T${bookingDetails.dropoffTime}`).toISOString()}
             totalAmount={totalAmount}
+            couponCode={appliedCoupon?.code}
+            couponDiscount={appliedCoupon?.discountAmount}
+            onCouponApply={handleApplyCoupon}
             onPaymentClick={handleProceedToPayment}
             isLoading={isLoading}
           />

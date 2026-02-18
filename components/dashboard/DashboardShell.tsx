@@ -4,7 +4,7 @@ interface DashboardShellProps {
 
 export function DashboardShell({ children }: DashboardShellProps) {
   return (
-    <div className="grid items-start gap-8">
+    <div className="grid items-start gap-4">
       {children}
     </div>
   );

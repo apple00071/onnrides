@@ -173,7 +173,7 @@ export async function DELETE(
     // S2: Implement Vehicle Deletion Guard (Check active bookings)
     const activeBookings = await query(
       `SELECT COUNT(*) FROM bookings 
-       WHERE vehicle_id = $1 AND status IN ('pending', 'confirmed', 'initiated')`,
+       WHERE vehicle_id = $1 AND status IN ('pending', 'confirmed', 'initiated', 'active')`,
       [vehicleId]
     );
 

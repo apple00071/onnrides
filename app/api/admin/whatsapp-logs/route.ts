@@ -25,16 +25,45 @@ export async function GET(req: Request) {
         await query(`
             CREATE TABLE IF NOT EXISTS whatsapp_logs (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                recipient TEXT NOT NULL,
-                message TEXT NOT NULL,
+                recipient TEXT,
+                message TEXT,
                 booking_id TEXT,
-                status TEXT NOT NULL,
+                status TEXT,
                 error TEXT,
                 message_id TEXT,
                 template_name TEXT,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
+
+            -- Ensure snake_case consistency and migration
+            DO $$ 
+            BEGIN
+                -- Add missing columns if they don't exist
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'whatsapp_logs' AND column_name = 'recipient') THEN
+                  ALTER TABLE whatsapp_logs ADD COLUMN recipient TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'whatsapp_logs' AND column_name = 'message') THEN
+                  ALTER TABLE whatsapp_logs ADD COLUMN message TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'whatsapp_logs' AND column_name = 'booking_id') THEN
+                  ALTER TABLE whatsapp_logs ADD COLUMN booking_id TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'whatsapp_logs' AND column_name = 'created_at') THEN
+                  ALTER TABLE whatsapp_logs ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'whatsapp_logs' AND column_name = 'updated_at') THEN
+                  ALTER TABLE whatsapp_logs ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+                END IF;
+
+                -- Move data from inconsistently named columns if they exist
+                IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'whatsapp_logs' AND column_name = 'recipientPhone') THEN
+                  UPDATE whatsapp_logs SET recipient = "recipientPhone" WHERE recipient IS NULL;
+                END IF;
+                IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'whatsapp_logs' AND column_name = 'messageContent') THEN
+                  UPDATE whatsapp_logs SET message = "messageContent" WHERE message IS NULL;
+                END IF;
+            END $$;
 
             -- Create indexes if they don't exist
             DO $$ 
@@ -47,12 +76,12 @@ export async function GET(req: Request) {
                     CREATE INDEX idx_whatsapp_logs_recipient ON whatsapp_logs(recipient);
                 END IF;
                 
-                IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_whatsapp_logs_booking_id') THEN
-                    CREATE INDEX idx_whatsapp_logs_booking_id ON whatsapp_logs(booking_id);
+                IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_whatsapp_logs_booking_id_snake') THEN
+                    CREATE INDEX idx_whatsapp_logs_booking_id_snake ON whatsapp_logs(booking_id);
                 END IF;
                 
-                IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_whatsapp_logs_created_at') THEN
-                    CREATE INDEX idx_whatsapp_logs_created_at ON whatsapp_logs(created_at);
+                IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_whatsapp_logs_created_at_snake') THEN
+                    CREATE INDEX idx_whatsapp_logs_created_at_snake ON whatsapp_logs(created_at);
                 END IF;
             END $$;
 
@@ -82,6 +111,16 @@ export async function GET(req: Request) {
         const countResult = await query('SELECT COUNT(*) as count FROM whatsapp_logs');
         const totalCount = parseInt(countResult.rows[0].count);
 
+        // Check for the appearance of booking_id column in the bookings table
+        const checkBookingIdColumnResult = await query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'bookings' 
+              AND column_name = 'booking_id'
+        `);
+
+        const hasBookingIdColumn = checkBookingIdColumnResult.rows.length > 0;
+
         // Get WhatsApp logs with pagination
         const sqlQuery = `
             WITH whatsapp_data AS (
@@ -102,14 +141,17 @@ export async function GET(req: Request) {
                 wd.ist_created_at,
                 v.name as vehicle_name 
             FROM whatsapp_data wd
-            LEFT JOIN bookings b ON b.id::text = wd.booking_id
-            LEFT JOIN vehicles v ON v.id = b."vehicleId" 
+            LEFT JOIN bookings b ON ${hasBookingIdColumn ?
+                'b.booking_id = wd.booking_id' :
+                'b.id::text = wd.booking_id'
+            }
+            LEFT JOIN vehicles v ON v.id = b.vehicle_id 
             ORDER BY wd.created_at DESC 
             LIMIT $1 OFFSET $2
         `;
-        
+
         logger.debug('Executing WhatsApp logs query', { query: sqlQuery });
-        
+
         const result = await query(sqlQuery, [limit, offset]);
 
         // Format the response data
