@@ -29,9 +29,12 @@ export default async function AdminLayout({
     }
 
     // Check if user is not an admin (case insensitive check)
+    // Check if user is not an admin or staff (case insensitive check)
     const userRole = session.user.role?.toLowerCase();
-    if (userRole !== 'admin') {
-      logger.warn('Non-admin user attempted to access admin area:', {
+    const allowedRoles = ['admin', 'staff'];
+
+    if (!userRole || !allowedRoles.includes(userRole)) {
+      logger.warn('Unauthorized user attempted to access admin area:', {
         email: session.user.email,
         role: session.user.role
       });

@@ -13,7 +13,7 @@ interface CollectionRow extends QueryResultRow {
 export async function GET(request: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+        if (!session?.user || (session.user.role?.toLowerCase() !== 'admin' && !session.user.permissions?.manage_finance)) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 

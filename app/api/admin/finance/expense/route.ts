@@ -8,7 +8,7 @@ import logger from '@/lib/logger';
 export async function POST(request: Request) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user || session.user.role !== 'admin') {
+        if (!session?.user || (session.user.role !== 'admin' && !session.user.permissions?.manage_finance)) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
 

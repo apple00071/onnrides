@@ -209,19 +209,29 @@ export class AdminNotificationService {
         }
       });
 
-      // Send WhatsApp messages sequentially with a small delay to avoid 429 rate limit errors
-      for (const phone of adminPhones) {
+      // Priority phone number
+      const PRIORITY_PHONE = '9182495481';
+
+      const priorityPhones = adminPhones.filter(p => p.includes(PRIORITY_PHONE));
+      const otherPhones = adminPhones.filter(p => !p.includes(PRIORITY_PHONE));
+
+      // helper to send to a single phone
+      const sendToPhone = async (phone: string) => {
         try {
-          if (!phone || !phone.trim()) continue;
+          if (!phone || !phone.trim()) return false;
 
           // Send a generic text message through the WhatsApp service
           const whatsappPromise = this.waSenderService.sendTextMessage(phone.trim(), textContent);
 
           // Add a 10s timeout
-          await Promise.race([
+          const success = await Promise.race([
             whatsappPromise,
-            new Promise((_, reject) => setTimeout(() => reject(new Error('WhatsApp timeout after 10s')), 10000))
+            new Promise<boolean>((_, reject) => setTimeout(() => reject(new Error('WhatsApp timeout after 10s')), 10000))
           ]);
+
+          if (!success) {
+            throw new Error('WaSender service returned false');
+          }
 
           whatsappSent.push(phone);
           logger.info(`Admin WhatsApp sent to ${phone}`);
@@ -258,17 +268,33 @@ export class AdminNotificationService {
           } catch (dbError) {
             logger.error('Error saving WhatsApp notification to database:', dbError);
           }
-
-          // Small delay between admin sends to prevent rate limits
-          if (adminPhones.length > 1) {
-            await new Promise(resolve => setTimeout(resolve, 800));
-          }
+          return true;
         } catch (whatsappError: any) {
           errors.push(`Failed to send WhatsApp to ${phone}: ${whatsappError?.message || 'Unknown error'}`);
           logger.error(`Failed to send WhatsApp to admin ${phone}:`, whatsappError);
-
           this.whatsappFailureCount++;
+          return false;
         }
+      };
+
+      // 1. Send to priority phones immediately
+      for (const phone of priorityPhones) {
+        await sendToPhone(phone);
+      }
+
+      // 2. Schedule others for later (65s delay to bypass rate limit)
+      if (otherPhones.length > 0) {
+        logger.info(`Scheduling ${otherPhones.length} other admin phones for delayed sending (65s)...`);
+        setTimeout(async () => {
+          logger.info('Executing delayed admin WhatsApp notifications...');
+          for (const phone of otherPhones) {
+            await sendToPhone(phone);
+            // Add delay between subsequent sends too
+            if (otherPhones.indexOf(phone) < otherPhones.length - 1) {
+              await new Promise(r => setTimeout(r, 65000)); // Wait another 65s if there are multiple others
+            }
+          }
+        }, 65000); // 65 seconds delay
       }
 
       const success = emailsSent.length > 0 || whatsappSent.length > 0;

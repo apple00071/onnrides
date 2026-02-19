@@ -85,8 +85,14 @@ const normalizeImages = (images: any): string[] => {
 // GET /api/admin/vehicles - List all vehicles
 export const GET = withErrorHandler(async (request: NextRequest) => {
   // Check if user is admin
+  // Check if user is admin or has manage_vehicles permission
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== 'admin') {
+  const user = session?.user;
+  const isAuthorized =
+    user?.role === 'admin' ||
+    user?.permissions?.manage_vehicles;
+
+  if (!user || !isAuthorized) {
     throw new AuthorizationError('Unauthorized access');
   }
 
@@ -142,8 +148,14 @@ export const GET = withErrorHandler(async (request: NextRequest) => {
 // POST /api/admin/vehicles - Create vehicle
 export const POST = withErrorHandler(async (request: NextRequest) => {
   // Check if user is admin
+  // Check if user is admin or has manage_vehicles permission
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== 'admin') {
+  const user = session?.user;
+  const isAuthorized =
+    user?.role === 'admin' ||
+    user?.permissions?.manage_vehicles;
+
+  if (!user || !isAuthorized) {
     throw new AuthorizationError('Unauthorized access');
   }
 
@@ -255,7 +267,12 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
 export const PUT = withErrorHandler(async (request: NextRequest) => {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
+    const user = session?.user;
+    const isAuthorized =
+      user?.role === 'admin' ||
+      user?.permissions?.manage_vehicles;
+
+    if (!user || !isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

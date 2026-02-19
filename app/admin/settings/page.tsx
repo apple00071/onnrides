@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { ChevronRight } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -16,6 +18,7 @@ import { SETTINGS } from '@/lib/settings';
 import { redirectToLogin } from '@/lib/auth-utils';
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { data: session, status } = useSession();
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [gstEnabled, setGstEnabled] = useState(false);
@@ -174,6 +177,29 @@ export default function SettingsPage() {
               onCheckedChange={handleGSTChange}
               className="data-[state=checked]:bg-orange-500 data-[state=unchecked]:bg-gray-200"
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-none sm:border shadow-none sm:shadow-sm">
+        <CardHeader className="px-4 py-6 sm:px-6 hidden md:block">
+          <CardTitle className="text-2xl">Access Control</CardTitle>
+          <CardDescription>
+            Manage team access and permissions
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div
+            onClick={() => router.push('/admin/settings/staff')}
+            className="flex items-center justify-between py-4 px-6 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+          >
+            <div className="space-y-1">
+              <Label className="text-base font-medium cursor-pointer">Staff Management</Label>
+              <p className="text-sm text-muted-foreground">
+                Add staff members and configure their permissions
+              </p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-gray-400" />
           </div>
         </CardContent>
       </Card>

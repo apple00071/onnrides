@@ -81,8 +81,10 @@ export async function middleware(request: NextRequest) {
         }
 
         const userRole = token.role?.toLowerCase();
-        if (userRole !== 'admin') {
-          logger.warn('Non-admin access attempt:', {
+        const allowedRoles = ['admin', 'staff'];
+
+        if (!userRole || !allowedRoles.includes(userRole)) {
+          logger.warn('Unauthorized access attempt:', {
             path: pathname,
             role: userRole,
             email: token.email

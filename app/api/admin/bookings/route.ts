@@ -109,7 +109,12 @@ export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+    const user = session?.user;
+    const isAuthorized =
+      user?.role?.toLowerCase() === 'admin' ||
+      user?.permissions?.manage_bookings;
+
+    if (!isAuthorized) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -239,8 +244,12 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const session = await getServerSession(authOptions);
+    const user = session?.user;
+    const isAuthorized =
+      user?.role?.toLowerCase() === 'admin' ||
+      user?.permissions?.manage_bookings;
 
-    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+    if (!isAuthorized) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -354,8 +363,12 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions);
+    const user = session?.user;
+    const isAuthorized =
+      user?.role?.toLowerCase() === 'admin' ||
+      user?.permissions?.manage_bookings;
 
-    if (!session?.user || session.user.role?.toLowerCase() !== 'admin') {
+    if (!isAuthorized) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }

@@ -36,8 +36,8 @@ export async function GET(request: NextRequest) {
   try {
     // Auth check: admin only
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    if (!session?.user || (session.user.role !== 'admin' && !session.user.permissions?.view_reports)) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     // Get URL parameters for pagination (optional but good practice)

@@ -11,11 +11,17 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     // Verify admin access
+    // Verify admin access or manage_users permission
     const session = await getServerSession(authOptions);
-    if (!session || session.user?.role !== 'admin') {
+    const user = session?.user;
+    const isAuthorized =
+      user?.role === 'admin' ||
+      user?.permissions?.manage_users;
+
+    if (!user || !isAuthorized) {
       logger.warn('Unauthorized attempt to access admin users API', {
         session: !!session,
-        userRole: session?.user?.role
+        userRole: user?.role
       });
       return NextResponse.json(
         { error: 'Unauthorized access' },

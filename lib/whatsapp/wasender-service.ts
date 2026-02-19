@@ -65,8 +65,8 @@ export class WaSenderService {
         undefined, // Use default base URL
         undefined, // Use default fetch implementation
         {
-          enabled: true,
-          maxRetries: 3
+          enabled: false,
+          maxRetries: 0
         },
         webhookSecret
       );
@@ -130,24 +130,22 @@ export class WaSenderService {
 
   private formatPhoneNumber(phone: string): string {
     // Remove all non-digit characters
-    const cleaned = phone.replace(/\D/g, '');
+    let cleaned = phone.replace(/\D/g, '');
 
-    // If it's a 10-digit number, only add 91 if it's NOT already starting with 91
+    // Remove leading zeros
+    cleaned = cleaned.replace(/^0+/, '');
+
+    // If it's a 10-digit number, prefix with 91
     if (cleaned.length === 10) {
-      return cleaned.startsWith('91') ? cleaned : '91' + cleaned;
+      return '91' + cleaned;
     }
 
-    // If it's 12 digits and starts with 91, keep as is
+    // If it's 12 digits and starts with 91, return as is
     if (cleaned.length === 12 && cleaned.startsWith('91')) {
       return cleaned;
     }
 
-    // For any other length, if it starts with 91, assume it's okay
-    if (cleaned.startsWith('91')) {
-      return cleaned;
-    }
-
-    // Default fallback: if it's not 10 or 12 digits, return as is
+    // For other cases, return as is (assuming valid format)
     return cleaned;
   }
 

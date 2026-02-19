@@ -28,6 +28,8 @@ import {
   BarChart3,
   RotateCcw
 } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { Permission } from '@/lib/database/schema';
 
 interface SidebarLink {
   href: string;
@@ -102,6 +104,44 @@ const sidebarLinks: SidebarLink[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const { isOpen, toggle, isMobile, isHovered, setIsHovered } = useSidebar();
+  const { data: session } = useSession();
+
+  const user = session?.user;
+  const isAdmin = user?.role === 'admin';
+  const permissions = user?.permissions || {};
+
+  const filteredLinks = sidebarLinks.filter(link => {
+    if (isAdmin) return true;
+
+    // Staff Permission Checks
+    switch (link.href) {
+      case '/admin/dashboard':
+        return true; // Everyone sees dashboard
+      case '/admin/bookings':
+      case '/admin/vehicle-returns':
+        return permissions.manage_bookings;
+      case '/admin/vehicles':
+        return permissions.manage_vehicles;
+      case '/admin/users':
+        return permissions.manage_users;
+      case '/admin/finance':
+        return permissions.manage_finance;
+      case '/admin/reports':
+        return permissions.view_reports;
+      case '/admin/settings':
+        return permissions.manage_settings;
+
+      // Default Blocked for Staff if not Admin
+      case '/admin/email-logs':
+      case '/admin/whatsapp-logs':
+      case '/admin/cleanup':
+      case '/admin/coupons':
+        return false;
+
+      default:
+        return false;
+    }
+  });
 
   return (
     <>
@@ -138,7 +178,7 @@ export function Sidebar() {
 
         <ScrollArea className="flex-1 overflow-hidden">
           <nav className="grid gap-1 px-2">
-            {sidebarLinks.map((link) => (
+            {filteredLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -234,7 +274,7 @@ export function Sidebar() {
               </div>
               <ScrollArea className="flex-1 overflow-hidden">
                 <nav className="grid gap-1 p-2">
-                  {sidebarLinks.map((link) => (
+                  {filteredLinks.map((link) => (
                     <Link
                       key={link.href}
                       href={link.href}

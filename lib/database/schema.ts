@@ -59,9 +59,18 @@ export type User = {
   reset_token: string | null;
   reset_token_expiry: Date | null;
   is_blocked: boolean;
+  permissions: Record<string, boolean>; // Dynamic permissions
   created_at: Date;
   updated_at: Date;
 };
+
+export type Permission =
+  | 'manage_bookings'
+  | 'manage_vehicles'
+  | 'view_reports'
+  | 'manage_finance'
+  | 'manage_settings'
+  | 'manage_users';
 
 export type Vehicle = {
   id: string;

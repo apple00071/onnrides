@@ -11,6 +11,7 @@ declare module "next-auth" {
   interface User extends DefaultUser {
     role: string;
     id: string;
+    permissions?: Record<string, boolean>;
   }
 
   interface Session {
@@ -22,6 +23,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     role: string;
     id: string;
+    permissions?: Record<string, boolean>;
   }
 }
 
@@ -46,7 +48,8 @@ export const authOptions: AuthOptions = {
               email,
               password_hash,
               name,
-              role
+              role,
+              permissions
             FROM users 
             WHERE LOWER(email) = LOWER($1)
           `, [credentials.email]);
@@ -68,7 +71,8 @@ export const authOptions: AuthOptions = {
             id: user.id,
             email: user.email || '',
             name: user.name || '',
-            role: user.role?.toLowerCase() || 'user'
+            role: user.role?.toLowerCase() || 'user',
+            permissions: user.permissions || {}
           };
         } catch (error) {
           logger.error('Error in authorize:', error);
@@ -83,6 +87,7 @@ export const authOptions: AuthOptions = {
         // Ensure role is lowercase for consistency
         token.role = user.role.toLowerCase();
         token.id = user.id;
+        token.permissions = user.permissions;
       }
       return token;
     },
@@ -91,6 +96,7 @@ export const authOptions: AuthOptions = {
         // Ensure role is lowercase for consistency
         session.user.role = token.role.toLowerCase();
         session.user.id = token.id;
+        session.user.permissions = token.permissions;
       }
       return session;
     },
