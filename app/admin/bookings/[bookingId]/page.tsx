@@ -80,7 +80,14 @@ interface BookingDetails {
     emergency_name?: string;
     emergency_contact?: string;
   } | null;
-  payment_breakdown?: { method: string; amount: number }[];
+  payment_breakdown?: {
+    id: string;
+    amount: number;
+    method: string;
+    status: string;
+    reference: string;
+    created_at: string;
+  }[];
 }
 
 export default function BookingDetailsPage({ params }: { params: { bookingId: string } }) {
@@ -401,6 +408,15 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                       <p className="font-semibold text-gray-900 text-sm">{formatDateTime(booking.duration.to)}</p>
                       <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Dropoff</span>
                     </div>
+
+                    {/* Visual indicator for extension if multiple payments exist (implying extension) or if duration seems long */}
+                    {booking.payment_breakdown && booking.payment_breakdown.length > 1 && (
+                      <div className="mt-2 text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-1 rounded w-fit inline-flex items-center gap-2 border border-blue-100">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                        Extended Trip
+                      </div>
+                    )}
+
                     {booking.vehicle_return ? (
                       <div className="mt-2 text-[10px] font-bold uppercase bg-green-100 text-green-700 px-2 py-0.5 rounded w-fit inline-flex items-center gap-2">
                         <CheckCircle className="h-3 w-3" />
@@ -455,27 +471,47 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl space-y-3">
-                        {booking.payment_breakdown && booking.payment_breakdown.length > 0 ? (
-                          booking.payment_breakdown.map((item, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-[11px]">
-                              <span className="font-bold text-gray-400 uppercase">Paid ({item.method})</span>
-                              <span className="font-bold text-green-700 tabular-nums">₹{item.amount.toLocaleString()}</span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="flex justify-between items-center text-[11px]">
-                            <span className="font-bold text-gray-400 uppercase">Paid Amount</span>
-                            <span className="font-bold text-green-700 tabular-nums">₹{booking.paid_amount?.toLocaleString() || '0'}</span>
+                      {booking.payment_breakdown && booking.payment_breakdown.length > 0 ? (
+                        <div className="bg-gray-50/50 border border-gray-100 rounded-xl overflow-hidden">
+                          <div className="px-4 py-2 bg-gray-100/50 border-b border-gray-100 flex justify-between items-center">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Payment History</span>
+                            <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                              Total Paid: ₹{booking.paid_amount?.toLocaleString()}
+                            </span>
                           </div>
-                        )}
-                        {booking.pending_amount && booking.pending_amount > 0 && (
-                          <div className="flex justify-between items-center border-t border-gray-200/50 pt-2.5">
-                            <span className="text-[11px] font-bold text-orange-400 uppercase">Balance Due</span>
-                            <span className="font-bold text-orange-700 tabular-nums text-lg">₹{booking.pending_amount.toLocaleString()}</span>
+                          <div className="divide-y divide-gray-100">
+                            {booking.payment_breakdown.map((payment) => (
+                              <div key={payment.id} className="p-3 hover:bg-white transition-colors">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-xs font-bold text-gray-700 uppercase">{payment.method}</span>
+                                  <span className="text-sm font-bold text-green-700 tabular-nums">₹{payment.amount.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between items-end">
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-[10px] text-gray-400 font-medium">{formatDateTime(payment.created_at)}</span>
+                                    {payment.reference && (
+                                      <span className="text-[9px] text-gray-300 font-mono tracking-wide">Ref: {payment.reference}</span>
+                                    )}
+                                  </div>
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase bg-gray-100 px-1.5 py-0.5 rounded tracking-wider">{payment.status}</span>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl flex justify-between items-center text-[11px]">
+                          <span className="font-bold text-gray-400 uppercase">Paid Amount</span>
+                          <span className="font-bold text-green-700 tabular-nums">₹{booking.paid_amount?.toLocaleString() || '0'}</span>
+                        </div>
+                      )}
+
+                      {booking.pending_amount && booking.pending_amount > 0 && (
+                        <div className="p-4 bg-orange-50/50 border border-orange-100/50 rounded-xl flex justify-between items-center">
+                          <span className="text-[11px] font-bold text-orange-400 uppercase">Balance Due</span>
+                          <span className="font-bold text-orange-700 tabular-nums text-lg">₹{booking.pending_amount.toLocaleString()}</span>
+                        </div>
+                      )}
                     </div>
                   )}
 

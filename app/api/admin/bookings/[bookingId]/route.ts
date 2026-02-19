@@ -199,17 +199,21 @@ export async function GET(
       }
     }
 
-    // Add payment breakdown separately for cleaner syntax
+    // Add payment breakdown with full details
     const paymentsResult = await query(`
-      SELECT method, SUM(amount) as total_amount
+      SELECT id, amount, method, status, reference, created_at
       FROM payments
       WHERE booking_id = $1
-      GROUP BY method
+      ORDER BY created_at ASC
     `, [booking.id]);
 
     (formattedData as any).payment_breakdown = paymentsResult.rows.map(row => ({
+      id: row.id,
+      amount: parseFloat(row.amount),
       method: row.method,
-      amount: parseFloat(row.total_amount)
+      status: row.status,
+      reference: row.reference,
+      created_at: row.created_at
     }));
 
     return NextResponse.json({

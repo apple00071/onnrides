@@ -22,7 +22,7 @@ export async function POST(
 
     const resolvedParams = await params;
     const body = await request.json();
-    const { newEndDate, additionalAmount, paymentMethod, paymentReference } = body;
+    const { newEndDate, additionalAmount, paymentMethod, paymentReference, paymentStatus } = body;
 
     if (!newEndDate) {
       return NextResponse.json(
@@ -36,7 +36,7 @@ export async function POST(
       SELECT
         b.*,
         COALESCE(b.customer_name, u.name) as user_name,
-        COALESCE(b.phone_number, u.phone) as user_phone,
+        COALESCE(b.customer_phone, b.phone_number, u.phone) as user_phone,
         v.name as vehicle_name,
         v.id as vehicle_id
       FROM bookings b
@@ -80,8 +80,8 @@ export async function POST(
         WHERE booking_id = $3
       `, [updatedEndDate, newTotalPrice, resolvedParams.bookingId]);
 
-      // Insert payment record if there's an additional amount
-      if (additionalPrice > 0) {
+      // Insert payment record only if there's an additional amount AND status is 'paid'
+      if (additionalPrice > 0 && paymentStatus === 'paid') {
         const { v4: uuidv4 } = require('uuid');
         await query(`
           INSERT INTO payments (
@@ -115,6 +115,12 @@ export async function POST(
       const whatsappService = WhatsAppNotificationService.getInstance();
       const diffInHours = Math.ceil((updatedEndDate.getTime() - originalEndDate.getTime()) / (1000 * 60 * 60));
 
+      logger.info('Preparing to send extension notification', {
+        bookingId: resolvedParams.bookingId,
+        customerPhone: booking.user_phone,
+        paymentStatus
+      });
+
       await whatsappService.sendBookingExtension({
         booking_id: booking.booking_id,
         customer_name: booking.user_name,
@@ -125,8 +131,8 @@ export async function POST(
         additional_hours: diffInHours,
         additional_amount: additionalPrice,
         total_amount: newTotalPrice,
-        payment_method: paymentMethod,
-        payment_reference: paymentReference
+        payment_method: paymentStatus === 'paid' ? paymentMethod : 'Unpaid (Added to Due)',
+        payment_reference: paymentStatus === 'paid' ? paymentReference : undefined
       });
 
       logger.info('Booking extension WhatsApp notification sent successfully', { bookingId: resolvedParams.bookingId });

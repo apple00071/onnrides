@@ -30,10 +30,9 @@ export async function POST(
       );
     }
 
-    // Get internal booking ID (UUID)
-    // Support both internal UUID and the user-friendly booking_id
+    // Get booking details for calculation and update
     const bookingResult = await query(
-      'SELECT id, security_deposit_amount FROM bookings WHERE id::text = $1 OR TRIM(booking_id) ILIKE TRIM($1)',
+      'SELECT id, security_deposit_amount, rental_amount, paid_amount, booking_type FROM bookings WHERE id::text = $1 OR TRIM(booking_id) ILIKE TRIM($1)',
       [bookingIdParam]
     );
 
@@ -45,7 +44,10 @@ export async function POST(
     }
     const bookingRow = bookingResult.rows[0];
     const bookingId = bookingRow.id;
-    const securityDepositAmount = parseFloat(bookingRow.security_deposit_amount) || 0;
+    const oldSecurityDepositAmount = parseFloat(bookingRow.security_deposit_amount) || 0;
+    const rentalAmount = parseFloat(bookingRow.rental_amount) || 0;
+    const paidAmount = parseFloat(bookingRow.paid_amount) || 0;
+    const bookingType = bookingRow.booking_type;
 
     const formData = await request.formData();
 
@@ -62,11 +64,11 @@ export async function POST(
     const vehicleNumber = formData.get('vehicleNumber') as string;
     const termsAccepted = formData.get('termsAccepted') === 'true';
 
-    // Operational Data
     const fuelLevel = formData.get('fuelLevel') as string;
     const odometerReading = formData.get('odometerReading') as string;
     const damageNotes = formData.get('damageNotes') as string;
     const cleanlinessNotes = formData.get('cleanlinessNotes') as string;
+    const securityDepositAmount = parseFloat(formData.get('securityDepositAmount') as string) || oldSecurityDepositAmount;
 
     // Handle file uploads
     const documentUrls: Record<string, string> = {};
@@ -196,13 +198,30 @@ export async function POST(
         ]);
       }
 
-      await client.query(`
-        UPDATE bookings SET
-          status = 'active',
-          security_deposit_amount = $1,
-          updated_at = NOW()
-        WHERE id = $2
-      `, [securityDepositAmount, bookingId]);
+      // Handle security deposit update and recalculate totals for offline bookings
+      if (bookingType === 'offline' && securityDepositAmount !== oldSecurityDepositAmount) {
+        const newTotalPrice = Math.round(rentalAmount + securityDepositAmount);
+        const newPendingAmount = Math.round(newTotalPrice - paidAmount);
+
+        await client.query(`
+          UPDATE bookings SET
+            status = 'active',
+            security_deposit_amount = $1,
+            total_price = $2,
+            total_amount = $2,
+            pending_amount = $3,
+            updated_at = NOW()
+          WHERE id = $4
+        `, [securityDepositAmount, newTotalPrice, newPendingAmount, bookingId]);
+      } else {
+        await client.query(`
+          UPDATE bookings SET
+            status = 'active',
+            security_deposit_amount = $1,
+            updated_at = NOW()
+          WHERE id = $2
+        `, [securityDepositAmount, bookingId]);
+      }
 
       // Update vehicle status
       await client.query(`

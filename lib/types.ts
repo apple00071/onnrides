@@ -103,7 +103,7 @@ export interface Document {
   updated_at: string;
 }
 
-export type DocumentType = 'license' | 'id_proof' | 'address_proof';
+export type DocumentType = 'license' | 'id_proof' | 'address_proof' | 'dl_front' | 'dl_back' | 'aadhaar_front' | 'aadhaar_back' | 'customer_photo' | 'driving_license';
 export type DocumentStatus = 'pending' | 'approved' | 'rejected';
 
 export interface DocumentCounts {
