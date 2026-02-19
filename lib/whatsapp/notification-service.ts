@@ -189,7 +189,59 @@ Thank you for choosing OnnRides! 🚗`;
   }
 
   /**
-   * Send payment success confirmation
+   * Send consolidated booking & payment success notification
+   */
+  async sendBookingSuccessNotification(data: BookingData & PaymentData): Promise<boolean> {
+    try {
+      if (!data.phone_number) {
+        logger.warn('No phone number for booking success notification', { bookingId: data.booking_id });
+        return false;
+      }
+
+      const message = `🎉 *Booking & Payment Successful!*
+
+Dear ${data.customer_name || 'Customer'},
+
+Your booking has been confirmed successfully!
+
+📋 *Booking Details:*
+• Booking ID: ${data.booking_id}
+• Vehicle: ${data.vehicle_model}
+• Pickup: ${formatIST(data.start_date)}
+• Return: ${formatIST(data.end_date)}
+${data.pickup_location ? `• Location: ${data.pickup_location}` : ''}
+
+💰 *Payment Details:*
+• Amount Paid: ₹${data.amount}
+• Payment ID: ${data.payment_id}
+• Status: Confirmed ✅
+
+You will receive the pickup location and further details shortly.
+
+📞 *Contact Us:*
+For any queries: +91 8309031203
+Email: contact@onnrides.com
+
+Thank you for choosing OnnRides! 🚗`;
+
+      const result = await this.wasenderService.sendTextMessage(data.phone_number, message);
+
+      if (result) {
+        await this.logWhatsAppMessage(data.phone_number, message, 'booking_success', 'delivered');
+        logger.info('Consolidated booking success WhatsApp sent', { bookingId: data.booking_id });
+      } else {
+        await this.logWhatsAppMessage(data.phone_number, message, 'booking_success', 'failed');
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error sending consolidated booking success WhatsApp:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send payment success confirmation (Legacy/Single)
    */
   async sendPaymentConfirmation(paymentData: PaymentData): Promise<boolean> {
     try {

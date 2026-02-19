@@ -144,16 +144,34 @@ export async function POST(request: NextRequest) {
       const adminNotificationService = AdminNotificationService.getInstance();
       const whatsappService = WhatsAppNotificationService.getInstance();
 
-      // Notify Customer
+      // Notify Customer (Consolidated Message)
       try {
-        await whatsappService.sendPaymentConfirmation({
+        // Calculate the amount paid (5% of total)
+        // Ensure this matches the logic used in create-order
+        const amountPaid = Math.ceil(Number(booking.total_price) * 0.05);
+
+        // Log amounts to debug mismatch
+        logger.info('Notification Amount Debug:', {
+          totalPrice: booking.total_price,
+          calculatedAmount: amountPaid,
+          razorpayAmount: razorpay_payment_id ? 'Wait for webhook verification' : 'N/A'
+        });
+
+        await whatsappService.sendBookingSuccessNotification({
+          id: booking.id,
           booking_id: booking.booking_id || booking.id,
           payment_id: razorpay_payment_id,
-          amount: Math.ceil(booking.total_price * 0.05),
+          amount: amountPaid,
           customer_name: booking.user_name,
-          phone_number: booking.phone_number || booking.user_phone || session.user.image // Fallback if phone is in unexpected field
+          phone_number: booking.phone_number || booking.user_phone || session.user.image,
+          vehicle_model: booking.vehicle_name,
+          start_date: booking.start_date,
+          end_date: booking.end_date,
+          total_amount: booking.total_price,
+          status: 'confirmed',
+          pickup_location: booking.pickup_location
         });
-        logger.info('Customer payment confirmation sent', { bookingId: booking.id });
+        logger.info('Customer consolidated booking success notification sent', { bookingId: booking.id });
       } catch (waError) {
         logger.error('Failed to send customer WhatsApp notification:', waError);
       }
@@ -200,7 +218,12 @@ export async function POST(request: NextRequest) {
       message: 'Payment verified successfully'
     });
   } catch (error) {
-    logger.error('Payment verification error:', error);
+    logger.error('Payment verification error object:', error);
+    if (error instanceof Error) {
+      logger.error('Stack trace:', error.stack);
+      logger.error('Error message:', error.message);
+      logger.error('Error name:', error.name);
+    }
 
     // Send failure notification to admins if we have booking info
     if (booking) {
@@ -216,6 +239,7 @@ export async function POST(request: NextRequest) {
             user_email: booking.user_email,
             vehicle_name: booking.vehicle_name,
             error: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined,
             timestamp: new Date()
           }
         });
@@ -226,7 +250,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Payment verification failed'
+      error: error instanceof Error ? error.message : 'Payment verification failed',
+      stack: error instanceof Error ? error.stack : undefined
     }, { status: 400 });
   }
 }
