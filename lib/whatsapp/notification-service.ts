@@ -198,11 +198,14 @@ Thank you for choosing OnnRides! 🚗`;
         return false;
       }
 
-      const message = `🎉 *Booking & Payment Successful!*
+      // Calculate balance to pay
+      const balanceAmount = Math.max(0, data.total_amount - data.amount);
+
+      const message = `🎉 *Booking Confirmed*
 
 Dear ${data.customer_name || 'Customer'},
 
-Your booking has been confirmed successfully!
+Your booking has been confirmed!
 
 📋 *Booking Details:*
 • Booking ID: ${data.booking_id}
@@ -210,11 +213,15 @@ Your booking has been confirmed successfully!
 • Pickup: ${formatIST(data.start_date)}
 • Return: ${formatIST(data.end_date)}
 ${data.pickup_location ? `• Location: ${data.pickup_location}` : ''}
+• Total Booking Amount: ₹${data.total_amount}
+• Advance Paid: ₹${data.amount}
+• *Balance to Pay at Pickup: ₹${balanceAmount}*
 
-💰 *Payment Details:*
-• Amount Paid: ₹${data.amount}
-• Payment ID: ${data.payment_id}
-• Status: Confirmed ✅
+📝 *Terms & Conditions:*
+• Original Driving License & Aadhar Card required at pickup.
+• Security deposit (if applicable) to be paid at pickup.
+• Late returns will attract additional charges.
+• Fuel level should be returned as received.
 
 You will receive the pickup location and further details shortly.
 
@@ -222,7 +229,7 @@ You will receive the pickup location and further details shortly.
 For any queries: +91 8309031203
 Email: contact@onnrides.com
 
-Thank you for choosing OnnRides! 🚗`;
+Thank you for choosing OnnRides! 🏍️ 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(data.phone_number, message);
 

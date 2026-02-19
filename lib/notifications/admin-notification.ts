@@ -437,6 +437,7 @@ export class AdminNotificationService {
     start_date: Date;
     end_date: Date;
     total_price: number;
+    advance_paid: number;
   }): Promise<{
     success: boolean;
     emailsSent: string[];
@@ -447,7 +448,19 @@ export class AdminNotificationService {
       type: 'booking',
       title: 'New Booking Received!',
       message: 'Hurray! You have received a booking from OnnRides.',
-      data: bookingData
+      data: {
+        ...bookingData,
+        // Override keys for better display labels
+        'Booking Id': bookingData.booking_id,
+        'Pickup Location': bookingData.pickup_location,
+        'User Name': bookingData.user_name,
+        'User Phone': bookingData.user_phone,
+        'Vehicle Name': bookingData.vehicle_name,
+        'Start Date': bookingData.start_date,
+        'End Date': bookingData.end_date,
+        'Total Booking Value': bookingData.total_price,
+        'Advance Received (Online)': bookingData.advance_paid
+      }
     });
   }
 

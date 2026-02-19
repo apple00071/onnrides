@@ -186,7 +186,8 @@ export async function POST(request: NextRequest) {
           vehicle_name: booking.vehicle_name,
           start_date: booking.start_date,
           end_date: booking.end_date,
-          total_price: booking.total_price
+          total_price: booking.total_price,
+          advance_paid: Math.ceil(Number(booking.total_price) * 0.05)
         });
         logger.info('Admin new booking notification sent', { bookingId: booking.id });
       } catch (adminError) {
