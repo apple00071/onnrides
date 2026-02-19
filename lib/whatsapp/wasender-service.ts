@@ -132,10 +132,9 @@ export class WaSenderService {
     // Remove all non-digit characters
     const cleaned = phone.replace(/\D/g, '');
 
-    // If it's a 10-digit number, always add 91 (India country code)
-    // This handles numbers starting with '91' that are exactly 10 digits
+    // If it's a 10-digit number, only add 91 if it's NOT already starting with 91
     if (cleaned.length === 10) {
-      return '91' + cleaned;
+      return cleaned.startsWith('91') ? cleaned : '91' + cleaned;
     }
 
     // If it's 12 digits and starts with 91, keep as is

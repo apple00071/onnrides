@@ -423,19 +423,18 @@ function SearchFormContent({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Label htmlFor="delivery-partner" className="text-sm font-medium text-gray-700">
+        <Label htmlFor="delivery-partner" className="text-sm font-semibold text-gray-900">
           Delivery Partner Mode
         </Label>
         <Switch
           id="delivery-partner"
           checked={isDeliveryPartner}
           onCheckedChange={setIsDeliveryPartner}
-          className="data-[state=checked]:bg-[#f26e24]"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-semibold text-gray-900 mb-2">
           {isDeliveryPartner ? 'Start Date' : 'Pickup Date'}
         </label>
         <div className="grid grid-cols-2 gap-2">
@@ -446,7 +445,7 @@ function SearchFormContent({
               dateFormat="dd/MM/yyyy"
               minDate={minDate}
               placeholderText="Select date"
-              className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] cursor-pointer outline-none transition-colors"
+              className="block w-full p-2.5 text-sm border border-gray-200 rounded-xl text-gray-500 bg-gray-50/50 focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] cursor-pointer outline-none transition-colors"
               showPopperArrow={false}
               popperClassName="date-picker-popper"
               calendarClassName="shadow-lg border border-gray-200 rounded-lg"
@@ -459,7 +458,7 @@ function SearchFormContent({
             <select
               value={pickupTime}
               onChange={(e) => setPickupTime(e.target.value)}
-              className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] appearance-none cursor-pointer outline-none transition-colors"
+              className="block w-full p-2.5 text-sm border border-gray-200 rounded-xl text-gray-500 bg-gray-50/50 focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] appearance-none cursor-pointer outline-none transition-colors"
             >
               <option value="">Select time</option>
               {getTimeOptions(true).map(({ value, label }) => (
@@ -472,13 +471,13 @@ function SearchFormContent({
 
       {isDeliveryPartner ? (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-semibold text-gray-900 mb-2">
             Rental Duration
           </label>
           <select
             value={selectedDuration}
             onChange={(e) => setSelectedDuration(e.target.value as '7' | '15' | '30')}
-            className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] appearance-none cursor-pointer outline-none transition-colors"
+            className="block w-full p-2.5 text-sm border border-gray-200 rounded-xl text-gray-500 bg-gray-50/50 focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] appearance-none cursor-pointer outline-none transition-colors"
           >
             <option value="7">7 Days</option>
             <option value="15">15 Days</option>
@@ -487,7 +486,7 @@ function SearchFormContent({
         </div>
       ) : (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-semibold text-gray-900 mb-2">
             {isDeliveryPartner ? 'End Date' : 'Return Date'}
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -498,7 +497,7 @@ function SearchFormContent({
                 dateFormat="dd/MM/yyyy"
                 minDate={pickupDate || minDate}
                 placeholderText="Select date"
-                className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] cursor-pointer outline-none transition-colors"
+                className="block w-full p-2.5 text-sm border border-gray-200 rounded-xl text-gray-500 bg-gray-50/50 focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] cursor-pointer outline-none transition-colors"
                 showPopperArrow={false}
                 popperClassName="date-picker-popper"
                 calendarClassName="shadow-lg border border-gray-200 rounded-lg"
@@ -511,7 +510,7 @@ function SearchFormContent({
               <select
                 value={dropoffTime}
                 onChange={(e) => setDropoffTime(e.target.value)}
-                className="block w-full p-2.5 text-sm border border-gray-300 rounded-xl text-gray-500 bg-white focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] appearance-none cursor-pointer outline-none transition-colors"
+                className="block w-full p-2.5 text-sm border border-gray-200 rounded-xl text-gray-500 bg-gray-50/50 focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] appearance-none cursor-pointer outline-none transition-colors"
               >
                 <option value="">Select time</option>
                 {getTimeOptions(false).map(({ value, label }) => (
@@ -526,11 +525,10 @@ function SearchFormContent({
       <button
         onClick={handleSearch}
         disabled={isLoading}
-        className="w-full mt-4 bg-[#f26e24] text-white py-3 rounded-full text-base font-medium hover:bg-[#e05d13] transition-colors disabled:opacity-50 disabled:cursor-not-allowed search-button"
-        style={{ color: 'white !important' }}
+        className="w-full mt-4 bg-[#f26e24] text-white py-3 rounded-full text-base font-semibold hover:bg-[#e05d13] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
       >
         {isLoading ? 'Searching...' : isDeliveryPartner ? 'Find Available Bikes' : 'Search Bikes'}
       </button>
     </div>
   );
-} 
+}

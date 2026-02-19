@@ -44,11 +44,40 @@ export async function POST(request: NextRequest) {
     }
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(booking_id);
+
+    // Check if payment already exists (Idempotency check) outside transaction first to avoid locking if not needed
+    const existingPayment = await query(
+      'SELECT id, booking_id FROM payments WHERE reference = $1',
+      [razorpay_payment_id]
+    );
+
+    if (existingPayment.rowCount && existingPayment.rowCount > 0) {
+      const payment = existingPayment.rows[0];
+      logger.info('Payment already processed (idempotency hit):', {
+        razorpay_payment_id,
+        booking_id: payment.booking_id
+      });
+      return NextResponse.json({
+        success: true,
+        message: 'Payment already verified'
+      });
+    }
+
     // Use withTransaction helper from @/lib/db to ensure all queries run on the same client
     await withTransaction(async (client: any) => {
+      // Re-verify inside transaction with lock to be absolutely safe
+      const doubleCheckPayment = await client.query(
+        'SELECT id FROM payments WHERE reference = $1 FOR UPDATE',
+        [razorpay_payment_id]
+      );
+
+      if (doubleCheckPayment.rowCount && doubleCheckPayment.rowCount > 0) {
+        return; // Idempotency within transaction
+      }
+
       // Find and lock the booking row
       const queryText = `
-         SELECT b.*, v.name as vehicle_name, u.email as user_email, u.name as user_name
+         SELECT b.*, v.name as vehicle_name, u.email as user_email, u.name as user_name, u.phone as user_phone
          FROM bookings b
          INNER JOIN vehicles v ON b.vehicle_id = v.id
          INNER JOIN users u ON b.user_id = u.id
@@ -129,17 +158,38 @@ export async function POST(request: NextRequest) {
         logger.error('Failed to send customer WhatsApp notification:', waError);
       }
 
-      // Notify Admin
-      await adminNotificationService.sendPaymentNotification({
-        booking_id: booking.booking_id || booking.id,
-        payment_id: razorpay_payment_id,
-        user_name: booking.user_name,
-        amount: booking.total_price,
-        payment_method: 'Online',
-        status: 'success',
-        transaction_time: new Date()
-      });
-      logger.info('Admin payment confirmation sent', { bookingId: booking.id });
+      // Notify Admin - New Booking
+      try {
+        await adminNotificationService.sendBookingNotification({
+          booking_id: booking.booking_id || booking.id,
+          pickup_location: booking.pickup_location,
+          user_name: booking.user_name,
+          user_phone: booking.customer_phone || booking.user_phone || '',
+          vehicle_name: booking.vehicle_name,
+          start_date: booking.start_date,
+          end_date: booking.end_date,
+          total_price: booking.total_price
+        });
+        logger.info('Admin new booking notification sent', { bookingId: booking.id });
+      } catch (adminError) {
+        logger.error('Failed to send admin booking notification:', adminError);
+      }
+
+      // Notify Admin - Partial Payment Received
+      try {
+        await adminNotificationService.sendPaymentNotification({
+          booking_id: booking.booking_id || booking.id,
+          payment_id: razorpay_payment_id,
+          user_name: booking.user_name,
+          amount: Math.ceil(booking.total_price * 0.05),
+          payment_method: 'Online',
+          status: 'success',
+          transaction_time: new Date()
+        });
+        logger.info('Admin payment confirmation sent', { bookingId: booking.id });
+      } catch (adminError) {
+        logger.error('Failed to send admin payment notification:', adminError);
+      }
 
     } catch (notifyError) {
       logger.error('Error in notification chain:', notifyError);

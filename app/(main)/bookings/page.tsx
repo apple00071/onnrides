@@ -144,23 +144,29 @@ export default function BookingsPage() {
     );
   }
 
-  const currentBookings = bookings.filter(booking =>
-    (booking.status === 'confirmed' || booking.status === 'active' || booking.status === 'initiated') &&
-    new Date(booking.end_date) > new Date()
-  );
+  // 1. Current Bookings: Active or Confirmed bookings that haven't ended yet
+  const currentBookings = bookings.filter(booking => {
+    const status = booking.status?.toLowerCase();
+    const isFuture = new Date(booking.end_date) > new Date();
+    return (status === 'confirmed' || status === 'active' || status === 'initiated') && isFuture;
+  });
 
-  const pendingBookings = bookings.filter(booking =>
-    booking.status === 'pending' ||
-    booking.status === 'failed' ||
-    ((booking.status === 'confirmed' || booking.status === 'active') &&
-      new Date(booking.end_date) > new Date() &&
-      !['completed', 'fully_paid'].includes(booking.payment_status))
-  );
+  // 2. Pending Bookings: Only truly pending or failed attempts (excluding confirmed ones)
+  const pendingBookings = bookings.filter(booking => {
+    const status = booking.status?.toLowerCase();
+    const isFuture = new Date(booking.end_date) > new Date();
 
-  const pastBookings = bookings.filter(booking =>
-    (booking.status === 'completed' || booking.status === 'finished' || new Date(booking.end_date) <= new Date()) ||
-    booking.status === 'cancelled'
-  );
+    // It's pending if status is pending/failed OR if it's initiated but NOT yet confirmed
+    // (Confirmed bookings move to Current even if only 5% is paid)
+    return (status === 'pending' || status === 'failed') && isFuture;
+  });
+
+  // 3. Past Bookings: Completed, cancelled, or expired
+  const pastBookings = bookings.filter(booking => {
+    const status = booking.status?.toLowerCase();
+    const isExpired = new Date(booking.end_date) <= new Date();
+    return status === 'completed' || status === 'finished' || status === 'cancelled' || isExpired;
+  });
 
   const formatDate = (dateString: string) => {
     try {

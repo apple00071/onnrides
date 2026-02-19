@@ -12,7 +12,7 @@ const MAX_FAILURE_THRESHOLD = 5;
 export const ADMIN_EMAILS = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
 export const ADMIN_PHONES = process.env.ADMIN_PHONES ? process.env.ADMIN_PHONES.split(',') : [];
 export const DEFAULT_ADMIN_EMAILS = ['contact@onnrides.com', 'onnrides@gmail.com'];
-export const DEFAULT_ADMIN_PHONES = ['8247494622', '9182495481'];
+export const DEFAULT_ADMIN_PHONES = ['8247494622', '9182495481', '8309031203'];
 
 // Helper function to format date in IST
 export function formatDateIST(date: Date | string): string {
@@ -38,6 +38,7 @@ export class AdminNotificationService {
   private isProcessing = false;
   private emailFailureCount = 0;
   private whatsappFailureCount = 0;
+  private static tableExists: boolean | null = null;
 
   private constructor() {
     this.emailService = EmailService.getInstance();
@@ -144,23 +145,35 @@ export class AdminNotificationService {
             logId: emailResult.logId
           });
 
-          // Save a DB record for the admin notification using direct SQL
+          // Save a DB record for the admin notification using direct SQL if table exists
           try {
-            await query(`
-              INSERT INTO "AdminNotification" (
-                id, type, title, message, recipient, channel, status, data, created_at, updated_at
-              ) VALUES (
-                uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
-              )
-            `, [
-              data.type,
-              data.title,
-              data.message,
-              email,
-              'email',
-              'success',
-              data.data ? JSON.stringify(data.data) : null
-            ]);
+            if (AdminNotificationService.tableExists === null) {
+              const tableCheck = await query(`
+                SELECT EXISTS (
+                  SELECT FROM information_schema.tables 
+                  WHERE table_name = 'AdminNotification'
+                );
+              `);
+              AdminNotificationService.tableExists = tableCheck.rows[0].exists;
+            }
+
+            if (AdminNotificationService.tableExists) {
+              await query(`
+                INSERT INTO "AdminNotification" (
+                  id, type, title, message, recipient, channel, status, data, created_at, updated_at
+                ) VALUES (
+                  gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
+                )
+              `, [
+                data.type,
+                data.title,
+                data.message,
+                email,
+                'email',
+                'success',
+                data.data ? JSON.stringify(data.data) : null
+              ]);
+            }
           } catch (dbError) {
             logger.error('Failed to save admin notification to database:', dbError);
           }
@@ -196,15 +209,15 @@ export class AdminNotificationService {
         }
       });
 
-      // Send WhatsApp messages with individual try/catch
-      const whatsappPromises = adminPhones.map(async (phone) => {
+      // Send WhatsApp messages sequentially with a small delay to avoid 429 rate limit errors
+      for (const phone of adminPhones) {
         try {
-          if (!phone || !phone.trim()) return;
+          if (!phone || !phone.trim()) continue;
 
           // Send a generic text message through the WhatsApp service
-          // Add a 10s timeout
           const whatsappPromise = this.waSenderService.sendTextMessage(phone.trim(), textContent);
 
+          // Add a 10s timeout
           await Promise.race([
             whatsappPromise,
             new Promise((_, reject) => setTimeout(() => reject(new Error('WhatsApp timeout after 10s')), 10000))
@@ -212,39 +225,51 @@ export class AdminNotificationService {
 
           whatsappSent.push(phone);
           logger.info(`Admin WhatsApp sent to ${phone}`);
-          // Save a DB record for the WhatsApp notification using direct SQL
+
+          // Save a DB record for the WhatsApp notification using direct SQL if table exists
           try {
-            await query(`
-              INSERT INTO "AdminNotification" (
-                id, type, title, message, recipient, channel, status, data, created_at, updated_at
-              ) VALUES (
-                uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
-              )
-            `, [
-              data.type,
-              data.title,
-              textContent,
-              phone,
-              'whatsapp',
-              'sent',
-              JSON.stringify(data.data || {})
-            ]);
+            if (AdminNotificationService.tableExists === null) {
+              const tableCheck = await query(`
+                SELECT EXISTS (
+                  SELECT FROM information_schema.tables 
+                  WHERE table_name = 'AdminNotification'
+                );
+              `);
+              AdminNotificationService.tableExists = tableCheck.rows[0].exists;
+            }
+
+            if (AdminNotificationService.tableExists) {
+              await query(`
+                INSERT INTO "AdminNotification" (
+                  id, type, title, message, recipient, channel, status, data, created_at, updated_at
+                ) VALUES (
+                  gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
+                )
+              `, [
+                data.type,
+                data.title,
+                textContent,
+                phone,
+                'whatsapp',
+                'sent',
+                JSON.stringify(data.data || {})
+              ]);
+            }
           } catch (dbError) {
             logger.error('Error saving WhatsApp notification to database:', dbError);
+          }
+
+          // Small delay between admin sends to prevent rate limits
+          if (adminPhones.length > 1) {
+            await new Promise(resolve => setTimeout(resolve, 800));
           }
         } catch (whatsappError: any) {
           errors.push(`Failed to send WhatsApp to ${phone}: ${whatsappError?.message || 'Unknown error'}`);
           logger.error(`Failed to send WhatsApp to admin ${phone}:`, whatsappError);
 
           this.whatsappFailureCount++;
-          if (this.whatsappFailureCount > MAX_FAILURE_THRESHOLD) {
-            logger.warn(`WhatsApp failure threshold exceeded (${this.whatsappFailureCount}/${MAX_FAILURE_THRESHOLD})`);
-          }
         }
-      });
-
-      // Wait for all notifications to complete
-      await Promise.all([...emailPromises, ...whatsappPromises]);
+      }
 
       const success = emailsSent.length > 0 || whatsappSent.length > 0;
 
@@ -401,6 +426,45 @@ export class AdminNotificationService {
   }
 
   /**
+   * Send consolidated booking & payment success notification
+   */
+  public async sendBookingSuccessNotification(bookingData: {
+    booking_id: string;
+    pickup_location: string;
+    user_name: string;
+    user_phone: string;
+    vehicle_name: string;
+    start_date: Date;
+    end_date: Date;
+    total_price: number;
+    advance_paid: number;
+    payment_id: string;
+  }): Promise<{
+    success: boolean;
+    emailsSent: string[];
+    whatsappSent: string[];
+    errors?: string[];
+  }> {
+    return this.sendNotification({
+      type: 'booking',
+      title: '🎉 New Booking & Payment Received!',
+      message: `Hurray! A new booking ${bookingData.booking_id} has been confirmed with a payment of ${formatCurrency(bookingData.advance_paid)}.`,
+      data: {
+        booking_id: bookingData.booking_id,
+        vehicle: bookingData.vehicle_name,
+        customer: bookingData.user_name,
+        phone: bookingData.user_phone,
+        pickup: bookingData.pickup_location,
+        start: bookingData.start_date,
+        end: bookingData.end_date,
+        total_price: bookingData.total_price,
+        advance_paid: bookingData.advance_paid,
+        payment_id: bookingData.payment_id
+      }
+    });
+  }
+
+  /**
    * Send payment confirmation notification
    */
   public async sendPaymentNotification(paymentData: {
@@ -424,4 +488,4 @@ export class AdminNotificationService {
       data: paymentData
     });
   }
-} 
+}

@@ -80,37 +80,19 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
       },
       handler: async function (response: any) {
         try {
-          logger.debug('Payment successful, verifying...', response);
+          logger.debug('Payment successful in modal, redirecting for full-page verification...', response);
 
-          // Use toast as a simple immediate loading indicator
-          const loadingToast = toast.loading('Verifying your payment... Please do not close this window.');
+          // Construct URL for full-page verification
+          const verifyUrl = new URL(window.location.origin + '/payment-status');
+          verifyUrl.searchParams.set('status', 'verifying');
+          verifyUrl.searchParams.set('razorpay_payment_id', response.razorpay_payment_id);
+          verifyUrl.searchParams.set('razorpay_order_id', response.razorpay_order_id);
+          verifyUrl.searchParams.set('razorpay_signature', response.razorpay_signature);
+          verifyUrl.searchParams.set('booking_id', options.bookingId);
 
-          const verificationResponse = await fetch('/api/payments/verify', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_signature: response.razorpay_signature,
-              booking_id: options.bookingId,
-            }),
-          });
-
-          const result = await verificationResponse.json();
-          toast.dismiss(loadingToast);
-
-          if (result.success) {
-            logger.debug('Payment verified successfully');
-            toast.success('Payment verified! Redirecting...');
-            window.location.href = `/payment-status?status=success&booking_id=${options.bookingId}`;
-          } else {
-            logger.error('Payment verification failed:', result);
-            window.location.href = `/payment-status?status=failed&booking_id=${options.bookingId}&error=verification_failed`;
-          }
+          window.location.href = verifyUrl.toString();
         } catch (error) {
-          logger.error('Error during payment verification:', error);
+          logger.error('Error during payment redirection:', error);
           window.location.href = `/payment-status?status=failed&booking_id=${options.bookingId}&error=system_error`;
         }
       },

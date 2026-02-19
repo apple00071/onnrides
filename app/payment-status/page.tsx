@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
@@ -9,19 +9,26 @@ import logger from '@/lib/logger';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-type PaymentStatus = 'loading' | 'success' | 'failed' | 'cancelled';
+type PaymentStatus = 'loading' | 'verifying' | 'success' | 'failed' | 'cancelled';
 
 export default function PaymentStatusPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession();
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('loading');
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const verificationStarted = useRef(false);
 
-  // Get parameters from URL using useSearchParams hook
+  // Get parameters from URL
   const status = searchParams.get('status');
   const bookingId = searchParams.get('booking_id') || searchParams.get('bookingId');
   const errorType = searchParams.get('error');
   const paymentId = searchParams.get('payment_id') || searchParams.get('paymentId');
+
+  // Razorpay response tokens for verification
+  const razorpay_payment_id = searchParams.get('razorpay_payment_id');
+  const razorpay_order_id = searchParams.get('razorpay_order_id');
+  const razorpay_signature = searchParams.get('razorpay_signature');
 
   useEffect(() => {
     if (sessionStatus === 'loading') return;
@@ -32,11 +39,58 @@ export default function PaymentStatusPage() {
       return;
     }
 
-    // Set payment status from URL parameter
+    // 1. Handle Verification logic
+    if (status === 'verifying' && !verificationStarted.current) {
+      verificationStarted.current = true;
+      setPaymentStatus('verifying');
+
+      const verifyPayment = async () => {
+        try {
+          if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature || !bookingId) {
+            throw new Error('Missing verification details');
+          }
+
+          logger.info('Starting full-page verification for booking:', bookingId);
+
+          const response = await fetch('/api/payments/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_payment_id,
+              razorpay_order_id,
+              razorpay_signature,
+              booking_id: bookingId,
+            }),
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            logger.info('Full-page verification successful');
+            setPaymentStatus('success');
+            // Redirect after delay
+            setTimeout(() => {
+              router.push(`/bookings?success=true&booking_id=${bookingId}`);
+            }, 3000);
+          } else {
+            logger.error('Full-page verification failed:', result);
+            setPaymentStatus('failed');
+            setVerificationError(result.error || 'Verification failed');
+          }
+        } catch (error) {
+          logger.error('System error during verification:', error);
+          setPaymentStatus('failed');
+          setVerificationError(error instanceof Error ? error.message : 'System error');
+        }
+      };
+
+      verifyPayment();
+      return;
+    }
+
+    // 2. Handle simple status states (from redirects or manual entry)
     if (status === 'success') {
       setPaymentStatus('success');
-
-      // Redirect to booking details after a short delay
       setTimeout(() => {
         router.push(`/bookings?success=true&booking_id=${bookingId}`);
       }, 3000);
@@ -46,176 +100,142 @@ export default function PaymentStatusPage() {
     }
     else if (status === 'failed') {
       setPaymentStatus('failed');
-
-      // Log the error details for debugging
-      logger.error('Payment failed:', {
-        bookingId,
-        errorType,
-        paymentId
-      });
+    }
+    else if (status === 'verifying') {
+      // Already handled by the verification block or should stay in verifying state
+      if (paymentStatus === 'loading') {
+        setPaymentStatus('verifying');
+      }
     }
     else {
       setPaymentStatus('loading');
     }
-  }, [status, bookingId, errorType, paymentId, sessionStatus, router]);
+  }, [status, bookingId, sessionStatus, router, razorpay_payment_id, razorpay_order_id, razorpay_signature]);
 
-  // Loading state
-  if (sessionStatus === 'loading' || paymentStatus === 'loading') {
+  // UI - Professional Verification Screen
+  if (paymentStatus === 'verifying') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <h1 className="text-2xl font-semibold">Processing Payment</h1>
-        <p className="text-gray-600 mt-2">Please wait while we verify your payment...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-white">
+        <div className="relative mb-8">
+          <div className="h-24 w-24 rounded-full border-4 border-gray-50 border-t-primary animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <CheckCircle className="h-8 w-8 text-gray-100" />
+          </div>
+        </div>
+        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Verifying Payment</h1>
+        <p className="text-gray-500 mt-3 text-lg max-w-sm text-center">
+          Securely validating your transaction with Razorpay. Please do not refresh or close this page.
+        </p>
+        <div className="mt-8 flex gap-2 items-center text-xs text-gray-400">
+          <div className="h-1.5 w-1.5 rounded-full bg-orange-200 animate-pulse"></div>
+          <span>OnnRides Secure Checkout</span>
+        </div>
       </div>
     );
   }
 
-  // Success state
+  // UI - Professional Success Screen
   if (paymentStatus === 'success') {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-md mx-auto">
-          <div className="bg-white rounded-lg shadow-lg p-6 text-center">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-green-600 mb-2">Payment Successful</h1>
-            <p className="text-gray-600 mb-6">
-              Your payment was processed successfully. Your booking is now confirmed.
-            </p>
-          </div>
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-white">
+        <div className="bg-green-50 rounded-full p-6 mb-8 animate-in zoom-in duration-300">
+          <CheckCircle className="w-16 h-16 text-green-500" />
+        </div>
+        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Booking Confirmed!</h1>
+        <p className="text-gray-600 mt-3 text-lg text-center max-w-md">
+          Your payment has been successfully verified. You will be redirected to your bookings page in a moment.
+        </p>
+
+        <div className="mt-10 grid grid-cols-2 gap-4 w-full max-w-sm">
+          <Button
+            onClick={() => router.push('/bookings')}
+            className="w-full bg-primary hover:bg-primary/90 text-white font-medium h-12 shadow-sm rounded-lg"
+          >
+            View Bookings
+          </Button>
+          <Button
+            onClick={() => router.push('/')}
+            variant="outline"
+            className="w-full border-gray-200 text-gray-600 font-medium h-12 rounded-lg"
+          >
+            Back to Home
+          </Button>
         </div>
       </div>
     );
   }
 
-  // Cancelled state
+  // UI - Professional Cancelled Screen
   if (paymentStatus === 'cancelled') {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-md mx-auto">
-          <div className="bg-white rounded-lg shadow-lg p-6 text-center">
-            <AlertCircle className="w-16 h-16 text-orange-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-orange-600 mb-2">Payment Cancelled</h1>
-            <p className="text-gray-600 mb-6">
-              You cancelled the payment process.
-            </p>
-            <Button onClick={() => router.push('/')} variant="default" className="w-full">
-              Back to Home
-            </Button>
-          </div>
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-white">
+        <div className="bg-orange-50 rounded-full p-6 mb-8">
+          <AlertCircle className="w-16 h-16 text-orange-500" />
+        </div>
+        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Payment Cancelled</h1>
+        <p className="text-gray-600 mt-3 text-lg text-center max-w-md">
+          The payment process was interrupted. No money was deducted from your account.
+        </p>
+        <div className="mt-10 w-full max-w-xs">
+          <Button
+            onClick={() => router.push('/')}
+            className="w-full bg-gray-900 hover:bg-gray-800 text-white font-medium h-12 rounded-lg"
+          >
+            Return to Store
+          </Button>
         </div>
       </div>
     );
   }
 
-  // Failed state
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-md mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6 text-center">
-          <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Payment Failed</h1>
-          <p className="text-gray-600 mb-6">
-            {errorType === 'signature_verification_failed' ? (
-              'The payment signature could not be verified. This could be due to a technical issue.'
-            ) : errorType === 'payment_not_captured' ? (
-              'Your payment was initiated but could not be captured successfully.'
-            ) : errorType === 'verification_failed' ? (
-              'We could not verify your payment with our payment provider.'
-            ) : errorType === 'booking_not_found' ? (
-              'We could not find your booking in our system. This might be because the booking has expired or was cancelled.'
-            ) : (
-              'Your payment could not be processed successfully.'
-            )}
-          </p>
+  // UI - Professional Failed Screen
+  if (paymentStatus === 'failed') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-white">
+        <div className="bg-red-50 rounded-full p-6 mb-8">
+          <XCircle className="w-16 h-16 text-red-500" />
+        </div>
+        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Payment Failed</h1>
+        <p className="text-gray-600 mt-3 text-lg text-center max-w-md">
+          {verificationError || 'Something went wrong during the transaction. Please try again or contact support if the amount was deducted.'}
+        </p>
 
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h2 className="text-lg font-semibold mb-2">Payment Details:</h2>
-            <div className="space-y-2 text-left">
-              {bookingId && (
-                <p className="text-sm">
-                  <span className="font-medium">Booking ID:</span> {bookingId}
-                </p>
-              )}
-              {paymentId && (
-                <p className="text-sm">
-                  <span className="font-medium">Payment ID:</span> {paymentId}
-                </p>
-              )}
-              <p className="text-sm">
-                <span className="font-medium">Status:</span>{' '}
-                <span className="text-red-600 font-medium">Failed</span>
-              </p>
-              {errorType && (
-                <p className="text-sm">
-                  <span className="font-medium">Error Type:</span>{' '}
-                  {errorType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </p>
-              )}
+        <div className="mt-10 bg-gray-50 rounded-xl p-6 w-full max-w-md border border-gray-100">
+          <div className="flex flex-col gap-4 text-sm">
+            <div className="flex justify-between items-center border-b border-gray-200/50 pb-2">
+              <span className="text-gray-500">Booking ID</span>
+              <span className="font-mono font-medium text-gray-900">{bookingId || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">Reason</span>
+              <span className="text-red-600 font-medium">{errorType?.replace(/_/g, ' ') || 'Process Failure'}</span>
             </div>
           </div>
+        </div>
 
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-            <h2 className="text-lg font-semibold text-yellow-800 mb-2">What should you do?</h2>
-            <ul className="text-left text-sm space-y-2 text-yellow-800">
-              {errorType === 'booking_not_found' ? (
-                <>
-                  <li>1. Check if you have an active booking in your account.</li>
-                  <li>2. If you believe this is an error, please contact our support team.</li>
-                  <li>3. You can try making a new booking if your previous one has expired.</li>
-                </>
-              ) : (
-                <>
-                  <li>1. Don't worry - no money has been deducted from your account.</li>
-                  <li>2. You can try the payment again after a few minutes.</li>
-                  <li>3. If money was deducted, it will be refunded within 5-7 working days.</li>
-                  <li>4. Contact our support team if you need immediate assistance.</li>
-                </>
-              )}
-            </ul>
-          </div>
-
-          <div className="text-left mb-6">
-            <h2 className="text-lg font-semibold mb-2">Contact Support:</h2>
-            <p className="text-sm mb-1">
-              <span className="font-medium">Email:</span>{' '}
-              <a href="mailto:support@onnrides.com" className="text-primary hover:underline">
-                support@onnrides.com
-              </a>
-            </p>
-            <p className="text-sm">
-              <span className="font-medium">Phone:</span>{' '}
-              <a href="tel:+918247494622" className="text-primary hover:underline">
-                +91 8247494622
-              </a>
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            {errorType === 'booking_not_found' ? (
-              <>
-                <Button onClick={() => router.push('/bookings')} variant="default" className="w-full mb-2">
-                  View Your Bookings
-                </Button>
-                <Button onClick={() => router.push('/')} variant="outline" className="w-full">
-                  Back to Home
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button onClick={() => router.push(`/bookings/${bookingId}/retry-payment`)} variant="default" className="w-full mb-2">
-                  Try Payment Again
-                </Button>
-                <Button onClick={() => router.push('/bookings')} variant="outline" className="w-full mb-2">
-                  View Your Bookings
-                </Button>
-                <Button onClick={() => router.push('/')} variant="outline" className="w-full">
-                  Back to Home
-                </Button>
-              </>
-            )}
-          </div>
+        <div className="mt-8 flex flex-col gap-3 w-full max-w-sm">
+          <Button
+            onClick={() => router.push(`/vehicles`)}
+            className="w-full bg-primary hover:bg-primary/90 text-white font-medium h-12 rounded-lg"
+          >
+            Try Another Booking
+          </Button>
+          <Button
+            onClick={() => router.push('/contact-us')}
+            variant="outline"
+            className="w-full h-12 rounded-lg"
+          >
+            Contact Support
+          </Button>
         </div>
       </div>
+    );
+  }
+
+  // Fallback Loading
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-white">
+      <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
     </div>
   );
-} 
+}
