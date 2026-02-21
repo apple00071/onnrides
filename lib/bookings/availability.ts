@@ -20,11 +20,23 @@ export async function checkVehicleAvailability(
         const start = new Date(startDate);
         const end = new Date(endDate);
 
+        // First get the vehicle's total quantity
+        const vehicleResult = await query(
+            'SELECT quantity FROM vehicles WHERE id = $1',
+            [vehicleId]
+        );
+
+        if (vehicleResult.rows.length === 0) {
+            throw new Error('Vehicle not found');
+        }
+
+        const totalQuantity = parseInt(vehicleResult.rows[0].quantity) || 1;
+
         let sql = `
       SELECT COUNT(*) 
       FROM bookings 
       WHERE vehicle_id = $1 
-      AND status NOT IN ('cancelled', 'failed')
+      AND status NOT IN ('cancelled', 'failed', 'completed')
       AND (
         (start_date <= $2 AND end_date > $2) OR -- Starts during this booking
         (start_date < $3 AND end_date >= $3) OR -- Ends during this booking
@@ -40,9 +52,10 @@ export async function checkVehicleAvailability(
         }
 
         const { rows } = await query(sql, params);
-        const count = parseInt(rows[0].count);
+        const bookedCount = parseInt(rows[0].count);
 
-        return count === 0;
+        // Available if bookedCount is less than totalQuantity
+        return bookedCount < totalQuantity;
     } catch (error) {
         logger.error('Error checking vehicle availability:', error);
         // Erring on the side of caution: if check fails, assume unavailable

@@ -224,12 +224,7 @@ export async function POST(
       }
 
       // Update vehicle status
-      await client.query(`
-        UPDATE vehicles SET
-          is_available = false,
-          updated_at = NOW()
-        WHERE id = (SELECT vehicle_id FROM bookings WHERE id = $1)
-      `, [bookingId]);
+      // Removed automatic flip: is_available should be a manual admin control only
 
       // Sync documents to user profile
       const bookingUserResult = await client.query('SELECT user_id FROM bookings WHERE id = $1', [bookingId]);

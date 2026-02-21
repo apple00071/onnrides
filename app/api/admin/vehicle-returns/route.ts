@@ -262,12 +262,7 @@ export async function POST(request: Request) {
       }
 
       // Release Vehicle
-      await client.query(
-        `UPDATE vehicles
-        SET is_available = true, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1`,
-        [bookingDetails.vehicle_id]
-      );
+      // Removed automatic flip: is_available should be a manual admin control only
 
       // Store booking details for notification outside transaction
       Object.assign(bookingDetailsForNotification, bookingDetails);

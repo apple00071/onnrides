@@ -172,8 +172,8 @@ export async function POST(request: Request) {
           aadharScanUrl,
           selfieUrl,
           formData.get('termsAccepted') === 'true',
-          'Office Location',
-          'Office Location'
+          formData.get('pickupLocation') || 'Office Location',
+          formData.get('pickupLocation') || 'Office Location'
         ]
       );
 
@@ -204,12 +204,6 @@ export async function POST(request: Request) {
           ]
         );
       }
-
-      // Update vehicle availability to false
-      await client.query(
-        'UPDATE vehicles SET is_available = false, updated_at = NOW() WHERE id = $1',
-        [vehicleId]
-      );
 
       return newBooking;
     });

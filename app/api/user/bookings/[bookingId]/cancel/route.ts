@@ -75,10 +75,7 @@ export async function POST(
     const updatedBooking = updateResult.rows[0];
 
     // Update the vehicle availability
-    await query(
-      `UPDATE vehicles SET is_available = true WHERE id = $1`,
-      [booking.vehicle_id]
-    );
+    // Removed automatic flip: is_available should be a manual admin control only
 
     // Send WhatsApp cancellation notification
     if (bookingWithDetails) {

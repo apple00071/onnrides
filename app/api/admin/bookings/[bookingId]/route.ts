@@ -355,21 +355,15 @@ export async function PATCH(
       updatedBooking = result.rows[0];
 
       // Handle vehicle availability atomically based on status
-      if (status === 'completed' || status === 'cancelled') {
-        const vehicleId = vehicle_id || currentBooking.vehicle_id;
-        await client.query(`
-          UPDATE vehicles
-          SET is_available = true, updated_at = NOW()
-          WHERE id = $1
-        `, [vehicleId]);
+      // Removed automatic flip: is_available should be a manual admin control only
 
-        // If status is completed, ensure we log the payment in the 'payments' table 
-        // if there was a pending balance that is now implicitly cleared or paid
-        if (status === 'completed' && currentBooking.status !== 'completed') {
-          const pendingAmount = parseFloat(currentBooking.pending_amount || '0');
-          if (pendingAmount > 0) {
-            await client.query(
-              `INSERT INTO payments (
+      // If status is completed, ensure we log the payment in the 'payments' table 
+      // if there was a pending balance that is now implicitly cleared or paid
+      if (status === 'completed' && currentBooking.status !== 'completed') {
+        const pendingAmount = parseFloat(currentBooking.pending_amount || '0');
+        if (pendingAmount > 0) {
+          await client.query(
+            `INSERT INTO payments (
                 id,
                 booking_id,
                 amount,
@@ -379,49 +373,43 @@ export async function PATCH(
                 created_at,
                 updated_at
               ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-              [
-                randomUUID(),
-                currentBooking.id,
-                pendingAmount,
-                'completed',
-                currentBooking.payment_method || 'cash',
-                'Manual completion'
-              ]
-            );
+            [
+              randomUUID(),
+              currentBooking.id,
+              pendingAmount,
+              'completed',
+              currentBooking.payment_method || 'cash',
+              'Manual completion'
+            ]
+          );
 
-            // Also update the booking's paid_amount and pending_amount to maintain integrity
-            await client.query(
-              `UPDATE bookings SET 
+          // Also update the booking's paid_amount and pending_amount to maintain integrity
+          await client.query(
+            `UPDATE bookings SET 
                 paid_amount = total_price,
                 pending_amount = 0,
                 payment_status = 'completed',
                 updated_at = NOW()
                WHERE id = $1`,
-              [currentBooking.id]
-            );
+            [currentBooking.id]
+          );
 
-            logger.info('Auto-resolved balance during manual completion', {
-              bookingId: currentBooking.id,
-              clearedAmount: pendingAmount
-            });
-          } else {
-            // Even if pendingAmount is 0, ensure payment_status is 'completed'
-            await client.query(
-              `UPDATE bookings SET 
+          logger.info('Auto-resolved balance during manual completion', {
+            bookingId: currentBooking.id,
+            clearedAmount: pendingAmount
+          });
+        } else {
+          // Even if pendingAmount is 0, ensure payment_status is 'completed'
+          await client.query(
+            `UPDATE bookings SET 
                 payment_status = 'completed',
                 updated_at = NOW()
                WHERE id = $1`,
-              [currentBooking.id]
-            );
-          }
+            [currentBooking.id]
+          );
         }
       } else if (status === 'confirmed' || status === 'initiated' || status === 'active') {
-        const vehicleId = vehicle_id || currentBooking.vehicle_id;
-        await client.query(`
-          UPDATE vehicles
-          SET is_available = false, updated_at = NOW()
-          WHERE id = $1
-        `, [vehicleId]);
+        // Removed automatic flip: is_available should be a manual admin control only
       }
     });
 
@@ -466,7 +454,7 @@ export async function PATCH(
             logger.info('Admin booking cancellation WhatsApp notification sent', { bookingId: resolvedParams.bookingId });
           } else if (statusChange.includes('→ completed')) {
             // Logic Guard: Check if a vehicle return already exists to prevent duplicate (Trip Completed vs Booking Completed) messages
-            const returnCheck = await client.query(
+            const returnCheck = await query(
               `SELECT id FROM vehicle_returns WHERE booking_id = $1 LIMIT 1`,
               [currentBooking.id]
             );
@@ -495,9 +483,9 @@ export async function PATCH(
             booking_id: currentBooking.booking_id,
             customer_name: currentBooking.user_name,
             customer_phone: currentBooking.user_phone,
-            start_date: new Date(updatedBooking?.start_date || currentBooking.start_date),
-            end_date: new Date(updatedBooking?.end_date || currentBooking.end_date),
-            total_amount: parseFloat(updatedBooking?.total_price || currentBooking.total_price),
+            start_date: new Date((updatedBooking as any)?.start_date || currentBooking.start_date),
+            end_date: new Date((updatedBooking as any)?.end_date || currentBooking.end_date),
+            total_amount: parseFloat((updatedBooking as any)?.total_price || currentBooking.total_price),
             modification_reason: modification_reason
           });
 

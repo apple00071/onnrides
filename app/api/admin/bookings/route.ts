@@ -339,13 +339,7 @@ export async function PATCH(request: Request) {
     const bookingDetails = bookingDetailsResult.rows[0];
 
     // Handle vehicle availability based on status
-    if (status === 'completed' || status === 'cancelled') {
-      await query(`
-        UPDATE vehicles 
-        SET is_available = true, updated_at = NOW() 
-        WHERE id = $1
-      `, [bookingDetails.vehicle_id]);
-    }
+    // Removed automatic flip: is_available should be a manual admin control only
 
     return NextResponse.json({
       success: true,

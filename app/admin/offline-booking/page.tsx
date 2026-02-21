@@ -109,6 +109,7 @@ export default function OfflineBookingPage() {
     paymentMethod: '',
     paymentStatus: '',
     paymentReference: '',
+    pickupLocation: '',
     termsAccepted: false,
   });
 
@@ -194,7 +195,10 @@ export default function OfflineBookingPage() {
   // Fetch available vehicles
   useEffect(() => {
     const fetchAvailableVehicles = async () => {
-      if (!startDate || !startTime || !endDate || !endTime) return;
+      if (!startDate || !startTime || !endDate || !endTime || !formData.pickupLocation) {
+        setVehicles([]);
+        return;
+      }
 
       try {
         const startDateTime = `${startDate}T${startTime}:00`;
@@ -207,7 +211,8 @@ export default function OfflineBookingPage() {
           },
           body: JSON.stringify({
             startDateTime,
-            endDateTime
+            endDateTime,
+            location: formData.pickupLocation
           }),
         });
 
@@ -223,7 +228,7 @@ export default function OfflineBookingPage() {
     };
 
     fetchAvailableVehicles();
-  }, [startDate, startTime, endDate, endTime]);
+  }, [startDate, startTime, endDate, endTime, formData.pickupLocation]);
 
   // Handle file upload
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, field: string) => {
@@ -275,6 +280,10 @@ export default function OfflineBookingPage() {
     }
     if (!newFormData.permanentAddress) {
       alert('Permanent Address is required.');
+      isValid = false;
+    }
+    if (!newFormData.pickupLocation) {
+      alert('Please select a pickup location.');
       isValid = false;
     }
     if (!newFormData.vehicleId) {
@@ -525,6 +534,23 @@ export default function OfflineBookingPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-medium mb-4">Rental Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Pickup Location <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.pickupLocation}
+                onChange={(e) => setFormData(prev => ({ ...prev, pickupLocation: e.target.value }))}
+                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
+                required
+              >
+                <option value="">Select Location</option>
+                <option value="Madhapur">Madhapur</option>
+                <option value="Erragadda">Erragadda</option>
+                <option value="Office Location">Office Location</option>
+              </select>
+            </div>
+            <div className="hidden md:block"></div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Start Date & Time <span className="text-red-500">*</span>
