@@ -116,10 +116,10 @@ export interface BookingModificationData {
   booking_id: string;
   customer_name?: string;
   customer_phone?: string;
-  modification_type: 'dates' | 'vehicle' | 'location' | 'other';
-  old_details: string;
-  new_details: string;
-  modified_by: string;
+  start_date: Date;
+  end_date: Date;
+  total_amount: number;
+  modification_reason?: string;
 }
 
 export class WhatsAppNotificationService {
@@ -783,24 +783,17 @@ Thank you for choosing OnnRides! 🚗`;
         return false;
       }
 
-      const modificationIcon = modificationData.modification_type === 'dates' ? '📅' :
-        modificationData.modification_type === 'vehicle' ? '🚗' :
-          modificationData.modification_type === 'location' ? '📍' : '📝';
-
-      const message = `${modificationIcon} Booking Modified
+      const message = `📝 Booking Updated
 
 Dear ${modificationData.customer_name || 'Customer'},
 
 Your booking has been updated by our admin team.
 
-📋 Modification Details:
+📋 Updated Details:
 * Booking ID: ${modificationData.booking_id}
-* Modified By: ${modificationData.modified_by}
-* Change Type: ${modificationData.modification_type.charAt(0).toUpperCase() + modificationData.modification_type.slice(1)}
-
-🔄 Changes Made:
-* Previous: ${modificationData.old_details}
-* Updated: ${modificationData.new_details}
+* Dates: ${formatIST(modificationData.start_date)} to ${formatIST(modificationData.end_date)}
+* Total Amount: ₹${modificationData.total_amount}
+${modificationData.modification_reason && modificationData.modification_reason.trim() !== '' ? `* Reason: ${modificationData.modification_reason}` : ''}
 
 ✅ Next Steps:
 Please review the changes and contact us if you have any questions or concerns.

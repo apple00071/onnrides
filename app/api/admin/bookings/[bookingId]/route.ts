@@ -488,18 +488,14 @@ export async function PATCH(
         // Send general modification notification for non-status changes
         const nonStatusModifications = modifications.filter(mod => !mod.includes('Status:'));
         if (nonStatusModifications.length > 0) {
-          const modificationType = nonStatusModifications.some(mod => mod.includes('Date')) ? 'dates' :
-            nonStatusModifications.some(mod => mod.includes('Vehicle')) ? 'vehicle' :
-              nonStatusModifications.some(mod => mod.includes('Location')) ? 'location' : 'other';
-
           await whatsappService.sendBookingModification({
             booking_id: currentBooking.booking_id,
             customer_name: currentBooking.user_name,
             customer_phone: currentBooking.user_phone,
-            modification_type: modificationType,
-            old_details: nonStatusModifications.map(mod => mod.split(' → ')[0].split(': ')[1]).join(', '),
-            new_details: nonStatusModifications.map(mod => mod.split(' → ')[1]).join(', '),
-            modified_by: session.user.name || session.user.email || 'Admin'
+            start_date: new Date(updatedBooking?.start_date || currentBooking.start_date),
+            end_date: new Date(updatedBooking?.end_date || currentBooking.end_date),
+            total_amount: parseFloat(updatedBooking?.total_price || currentBooking.total_price),
+            modification_reason: modification_reason
           });
 
           logger.info('Booking modification WhatsApp notification sent', {
