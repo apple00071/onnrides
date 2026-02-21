@@ -133,8 +133,8 @@ export class WhatsAppReminderService {
             v.name as vehicle_name
           FROM bookings b
           LEFT JOIN vehicles v ON b.vehicle_id = v.id
-          WHERE b.end_date >= NOW() + INTERVAL $1
-          AND b.end_date <= NOW() + INTERVAL $2
+          WHERE b.end_date >= NOW() + $1::interval
+          AND b.end_date <= NOW() + $2::interval
           AND b.status IN ('initiated', 'active', 'ongoing')
           AND b.phone_number IS NOT NULL
         `, [window.minTime, window.maxTime]);
