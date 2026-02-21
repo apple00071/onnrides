@@ -142,8 +142,8 @@ export async function GET(req: Request) {
                 v.name as vehicle_name 
             FROM whatsapp_data wd
             LEFT JOIN bookings b ON ${hasBookingIdColumn ?
-                'b.booking_id = wd.booking_id' :
-                'b.id::text = wd.booking_id'
+                'b.booking_id::text = wd.booking_id::text' :
+                'b.id::text = wd.booking_id::text'
             }
             LEFT JOIN vehicles v ON v.id = b.vehicle_id 
             ORDER BY wd.created_at DESC 
