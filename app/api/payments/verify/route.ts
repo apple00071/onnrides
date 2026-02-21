@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
 
         await whatsappService.sendBookingSuccessNotification({
           id: booking.id,
-          booking_id: booking.booking_id || booking.id,
+          booking_id: booking.booking_id,
           payment_id: razorpay_payment_id,
           amount: amountPaid,
           customer_name: booking.user_name,
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
       // Notify Admin - New Booking
       try {
         await adminNotificationService.sendBookingNotification({
-          booking_id: booking.booking_id || booking.id,
+          booking_id: booking.booking_id,
           pickup_location: booking.pickup_location,
           user_name: booking.user_name,
           user_phone: booking.customer_phone || booking.user_phone || '',
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
       // Notify Admin - Partial Payment Received
       try {
         await adminNotificationService.sendPaymentNotification({
-          booking_id: booking.booking_id || booking.id,
+          booking_id: booking.booking_id,
           payment_id: razorpay_payment_id,
           user_name: booking.user_name,
           amount: Math.ceil(booking.total_price * 0.05),
@@ -233,9 +233,9 @@ export async function POST(request: NextRequest) {
         await adminNotificationService.sendNotification({
           type: 'payment',
           title: '⚠️ Payment Verification Failed',
-          message: `Payment verification failed for booking ${booking.booking_id || booking.id}`,
+          message: `Payment verification failed for booking ${booking.booking_id}`,
           data: {
-            booking_id: booking.booking_id || booking.id,
+            booking_id: booking.booking_id,
             user_name: booking.user_name,
             user_email: booking.user_email,
             vehicle_name: booking.vehicle_name,

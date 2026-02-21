@@ -249,7 +249,8 @@ export async function POST(request: Request) {
         vehicle_name: vehicleName,
         start_date: new Date(formData.get('startDateTime') as string),
         end_date: new Date(formData.get('endDateTime') as string),
-        total_price: Number(formData.get('totalAmount'))
+        total_price: Number(formData.get('totalAmount')),
+        advance_paid: Number(formData.get('paidAmount')) || 0
       });
       logger.info('Admin notification for offline booking sent successfully', { bookingId: displayBookingId });
     } catch (adminError) {

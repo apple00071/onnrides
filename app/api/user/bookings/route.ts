@@ -9,6 +9,7 @@ import { checkVehicleAvailability } from '@/lib/bookings/availability';
 import { AdminNotificationService } from '@/lib/notifications/admin-notification';
 import { toISTSql, selectWithISTDates } from '@/lib/utils/sql-helpers';
 import { withTimezoneProcessing } from '@/middleware/timezone-middleware';
+import { generateBookingId } from '@/lib/utils/booking-id';
 
 interface BookingBody {
   vehicle_id: string;
@@ -194,6 +195,8 @@ export async function POST(request: NextRequest) {
 
     // Log the values we're about to insert
     const bookingId = randomUUID();
+    const displayBookingId = generateBookingId();
+
     const insertValues = [
       bookingId,
       session.user.id,
@@ -203,7 +206,8 @@ export async function POST(request: NextRequest) {
       total_price,
       duration,
       'pending',
-      'pending'
+      'pending',
+      displayBookingId
     ];
 
     logger.info('Attempting to create booking with values:', {
@@ -238,9 +242,10 @@ export async function POST(request: NextRequest) {
           total_hours,
           status,
           payment_status,
+          booking_id,
           created_at,
           updated_at
-        ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+        ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
         RETURNING *
       `, insertValues);
 
@@ -262,7 +267,7 @@ export async function POST(request: NextRequest) {
         const waService = WhatsAppNotificationService.getInstance();
         await waService.sendBookingConfirmation({
           id: booking.id,
-          booking_id: booking.booking_id || booking.id,
+          booking_id: booking.booking_id,
           customer_name: session.user.name || 'Customer',
           phone_number: session.user.phone,
           vehicle_model: vehicleName,
@@ -281,14 +286,15 @@ export async function POST(request: NextRequest) {
       try {
         const adminService = AdminNotificationService.getInstance();
         await adminService.sendBookingNotification({
-          booking_id: booking.booking_id || booking.id,
+          booking_id: booking.booking_id,
           pickup_location: 'Online Booking',
           user_name: session.user.name || 'Customer',
           user_phone: session.user.phone || 'N/A',
           vehicle_name: vehicleName,
           start_date: new Date(start_date),
           end_date: new Date(end_date),
-          total_price: total_price
+          total_price: total_price,
+          advance_paid: 0 // No advance paid at creation for online bookings
         });
       } catch (adminError) {
         logger.error('Failed to send Admin notification:', adminError);
