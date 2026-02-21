@@ -23,7 +23,6 @@ import {
   Ticket,
   Mail,
   MessageSquare,
-  Trash2,
   ReceiptIndianRupee,
   BarChart3,
   RotateCcw,
@@ -96,11 +95,6 @@ const sidebarLinks: SidebarLink[] = [
     icon: MessageSquare
   },
   {
-    href: '/admin/cleanup',
-    label: 'Clean Up Data',
-    icon: Trash2
-  },
-  {
     href: '/admin/settings',
     label: 'Settings',
     icon: Settings
@@ -141,7 +135,6 @@ export function Sidebar() {
       // Default Blocked for Staff if not Admin
       case '/admin/email-logs':
       case '/admin/whatsapp-logs':
-      case '/admin/cleanup':
       case '/admin/coupons':
         return false;
 
