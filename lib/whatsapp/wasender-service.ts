@@ -78,44 +78,62 @@ export class WaSenderService {
     }
   }
 
+  private static lastSendTime: number = 0;
+  private static sendLock: Promise<any> = Promise.resolve();
+  private static readonly MIN_SEND_GAP = 5500; // 5.5 seconds gap
+
   public async sendTextMessage(to: string, text: string): Promise<boolean> {
     if (!this.isInitialized) {
       logger.error('WaSender service not initialized');
       return false;
     }
 
-    try {
-      // Format phone number - ensure it starts with country code
-      const formattedPhone = this.formatPhoneNumber(to);
+    // Use a static lock to ensure messages are sent sequentially across all instances
+    return WaSenderService.sendLock = WaSenderService.sendLock.then(async () => {
+      try {
+        // Calculate delay needed to respect the 5s rate limit
+        const now = Date.now();
+        const timeSinceLastSend = now - WaSenderService.lastSendTime;
+        const delayNeeded = Math.max(0, WaSenderService.MIN_SEND_GAP - timeSinceLastSend);
 
-      const textPayload: TextOnlyMessage = {
-        messageType: "text",
-        to: formattedPhone,
-        text: text,
-      };
+        if (delayNeeded > 0) {
+          logger.info(`Throttling WaSender: waiting ${delayNeeded}ms before next message...`);
+          await new Promise(resolve => setTimeout(resolve, delayNeeded));
+        }
 
-      const result = await this.wasender.send(textPayload);
+        // Format phone number - ensure it starts with country code
+        const formattedPhone = this.formatPhoneNumber(to);
 
-      logger.info('WhatsApp message sent successfully via WaSender:', {
-        to: formattedPhone,
-        messageId: result.response?.message?.id,
-        rateLimit: result.rateLimit
-      });
+        const textPayload: TextOnlyMessage = {
+          messageType: "text",
+          to: formattedPhone,
+          text: text,
+        };
 
-      return true;
-    } catch (error) {
-      if (error instanceof WasenderAPIError) {
-        logger.error('WaSender API Error:', {
-          statusCode: error.statusCode,
-          message: error.apiMessage,
-          details: error.errorDetails,
-          rateLimit: error.rateLimit
+        const result = await this.wasender.send(textPayload);
+        WaSenderService.lastSendTime = Date.now();
+
+        logger.info('WhatsApp message sent successfully via WaSender:', {
+          to: formattedPhone,
+          messageId: result.response?.message?.id,
+          rateLimit: result.rateLimit
         });
-      } else {
-        logger.error('Error sending WhatsApp message via WaSender:', error);
+
+        return true;
+      } catch (error) {
+        if (error instanceof WasenderAPIError) {
+          logger.error('WaSender API Error:', {
+            statusCode: error.statusCode,
+            message: error.apiMessage,
+            details: error.errorDetails,
+            rateLimit: error.rateLimit
+          });
+        } else {
+          logger.error('Error sending WhatsApp message via WaSender:', error);
+        }
+        return false;
       }
-      return false;
-    }
+    });
   }
 
   public async sendBookingConfirmation(data: BookingConfirmationData): Promise<boolean> {

@@ -209,25 +209,14 @@ export class AdminNotificationService {
         }
       });
 
-      // Priority phone number
-      const PRIORITY_PHONE = '9182495481';
-
-      const priorityPhones = adminPhones.filter(p => p.includes(PRIORITY_PHONE));
-      const otherPhones = adminPhones.filter(p => !p.includes(PRIORITY_PHONE));
-
-      // helper to send to a single phone
+      // 1. Define helper to send to a single phone
       const sendToPhone = async (phone: string) => {
         try {
           if (!phone || !phone.trim()) return false;
 
           // Send a generic text message through the WhatsApp service
-          const whatsappPromise = this.waSenderService.sendTextMessage(phone.trim(), textContent);
-
-          // Add a 10s timeout
-          const success = await Promise.race([
-            whatsappPromise,
-            new Promise<boolean>((_, reject) => setTimeout(() => reject(new Error('WhatsApp timeout after 10s')), 10000))
-          ]);
+          // This will be automatically throttled by the WaSenderService
+          const success = await this.waSenderService.sendTextMessage(phone.trim(), textContent);
 
           if (!success) {
             throw new Error('WaSender service returned false');
@@ -236,18 +225,8 @@ export class AdminNotificationService {
           whatsappSent.push(phone);
           logger.info(`Admin WhatsApp sent to ${phone}`);
 
-          // Save a DB record for the WhatsApp notification using direct SQL if table exists
+          // Save a DB record
           try {
-            if (AdminNotificationService.tableExists === null) {
-              const tableCheck = await query(`
-                SELECT EXISTS (
-                  SELECT FROM information_schema.tables 
-                  WHERE table_name = 'AdminNotification'
-                );
-              `);
-              AdminNotificationService.tableExists = tableCheck.rows[0].exists;
-            }
-
             if (AdminNotificationService.tableExists) {
               await query(`
                 INSERT INTO "AdminNotification" (
@@ -277,24 +256,9 @@ export class AdminNotificationService {
         }
       };
 
-      // 1. Send to priority phones immediately
-      for (const phone of priorityPhones) {
+      // 2. Send to all admin phones sequentially
+      for (const phone of adminPhones) {
         await sendToPhone(phone);
-      }
-
-      // 2. Schedule others for later (65s delay to bypass rate limit)
-      if (otherPhones.length > 0) {
-        logger.info(`Scheduling ${otherPhones.length} other admin phones for delayed sending (65s)...`);
-        setTimeout(async () => {
-          logger.info('Executing delayed admin WhatsApp notifications...');
-          for (const phone of otherPhones) {
-            await sendToPhone(phone);
-            // Add delay between subsequent sends too
-            if (otherPhones.indexOf(phone) < otherPhones.length - 1) {
-              await new Promise(r => setTimeout(r, 65000)); // Wait another 65s if there are multiple others
-            }
-          }
-        }, 65000); // 65 seconds delay
       }
 
       const success = emailsSent.length > 0 || whatsappSent.length > 0;
