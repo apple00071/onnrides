@@ -795,9 +795,6 @@ Your booking has been updated by our admin team.
 * Total Amount: ₹${modificationData.total_amount}
 ${modificationData.modification_reason && modificationData.modification_reason.trim() !== '' ? `* Reason: ${modificationData.modification_reason}` : ''}
 
-✅ Next Steps:
-Please review the changes and contact us if you have any questions or concerns.
-
 📞 Contact Us:
 For any queries: +91 8309031203
 Email: contact@onnrides.com
