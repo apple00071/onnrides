@@ -462,17 +462,26 @@ export async function PATCH(
 
             logger.info('Admin booking cancellation WhatsApp notification sent', { bookingId: resolvedParams.bookingId });
           } else if (statusChange.includes('→ completed')) {
-            await whatsappService.sendBookingCompletion({
-              booking_id: currentBooking.booking_id,
-              customer_name: currentBooking.user_name,
-              customer_phone: currentBooking.user_phone,
-              vehicle_model: currentBooking.vehicle_name,
-              start_date: new Date(currentBooking.start_date),
-              end_date: new Date(currentBooking.end_date),
-              total_amount: currentBooking.total_price
-            });
+            // Logic Guard: Check if a vehicle return already exists to prevent duplicate (Trip Completed vs Booking Completed) messages
+            const returnCheck = await client.query(
+              `SELECT id FROM vehicle_returns WHERE booking_id = $1 LIMIT 1`,
+              [currentBooking.id]
+            );
 
-            logger.info('Booking completion WhatsApp notification sent', { bookingId: resolvedParams.bookingId });
+            if (returnCheck.rows.length === 0) {
+              await whatsappService.sendBookingCompletion({
+                booking_id: currentBooking.booking_id,
+                customer_name: currentBooking.user_name,
+                customer_phone: currentBooking.user_phone,
+                vehicle_model: currentBooking.vehicle_name,
+                start_date: new Date(currentBooking.start_date),
+                end_date: new Date(currentBooking.end_date),
+                total_amount: currentBooking.total_price
+              });
+              logger.info('Booking completion WhatsApp notification sent', { bookingId: resolvedParams.bookingId });
+            } else {
+              logger.info('Skipping booking completion WhatsApp - vehicle return already exists', { bookingId: resolvedParams.bookingId });
+            }
           }
         }
 

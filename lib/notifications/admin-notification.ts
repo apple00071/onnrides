@@ -399,7 +399,7 @@ export class AdminNotificationService {
     let detailsText = '';
 
     if (data.data) {
-      detailsText = '\n\nDetails:\n';
+      detailsText = '\n\n';
 
       for (const [key, value] of Object.entries(data.data)) {
         const formattedKey = key.replace(/_/g, ' ').replace(/^\w|\s\w/g, c => c.toUpperCase());
@@ -422,7 +422,7 @@ export class AdminNotificationService {
       }
     }
 
-    return `*${data.title}*\n\n${data.message}${detailsText}\n\nSent at: ${formatDateIST(new Date())}`;
+    return `*${data.title}*\n\n${data.message}${detailsText}`;
   }
 
   /**
@@ -447,14 +447,12 @@ export class AdminNotificationService {
     return this.sendNotification({
       type: 'booking',
       title: 'New Booking Received!',
-      message: 'Hurray! You have received a booking from OnnRides.',
+      message: 'A new booking has been received.',
       data: {
-        ...bookingData,
-        // Override keys for better display labels
         'Booking Id': bookingData.booking_id,
         'Pickup Location': bookingData.pickup_location,
-        'User Name': bookingData.user_name,
-        'User Phone': bookingData.user_phone,
+        'Customer Name': bookingData.user_name,
+        'Customer Phone': bookingData.user_phone,
         'Vehicle Name': bookingData.vehicle_name,
         'Start Date': bookingData.start_date,
         'End Date': bookingData.end_date,
@@ -487,7 +485,7 @@ export class AdminNotificationService {
     return this.sendNotification({
       type: 'booking',
       title: '🎉 New Booking & Payment Received!',
-      message: `Hurray! A new booking ${bookingData.booking_id} has been confirmed with a payment of ${formatCurrency(bookingData.advance_paid)}.`,
+      message: `A new booking ${bookingData.booking_id} has been confirmed with a payment of ${formatCurrency(bookingData.advance_paid)}.`,
       data: {
         booking_id: bookingData.booking_id,
         vehicle: bookingData.vehicle_name,

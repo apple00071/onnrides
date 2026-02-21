@@ -146,27 +146,27 @@ export class WhatsAppNotificationService {
         return false;
       }
 
-      const message = `🎉 *Booking Confirmed!*
+      const message = `🎉 Booking Confirmed!
 
 Dear ${bookingData.customer_name || 'Customer'},
 
 Your booking has been confirmed successfully!
 
-📋 *Booking Details:*
-• Booking ID: ${bookingData.booking_id}
-• Vehicle: ${bookingData.vehicle_model}${bookingData.registration_number ? ` (${bookingData.registration_number})` : ''}
-• Pickup Date: ${formatIST(bookingData.start_date)}
-• Return Date: ${formatIST(bookingData.end_date)}
-• Total Amount: ₹${bookingData.total_amount}
-${bookingData.security_deposit !== undefined ? `• Security Deposit: ₹${bookingData.security_deposit}` : ''}
-${bookingData.pickup_location ? `• Pickup Location: ${bookingData.pickup_location}` : ''}
+📋 Booking Details:
+* Booking ID: ${bookingData.booking_id}
+* Vehicle: ${bookingData.vehicle_model}${bookingData.registration_number ? ` (${bookingData.registration_number})` : ''}
+* Pickup Date: ${formatIST(bookingData.start_date)}
+* Return Date: ${formatIST(bookingData.end_date)}
+* Total Amount: ₹${bookingData.total_amount}
+${bookingData.security_deposit !== undefined ? `* Security Deposit: ₹${bookingData.security_deposit}` : ''}
+${bookingData.pickup_location ? `* Pickup Location: ${bookingData.pickup_location}` : ''}
 
-📋 *Documents Required:*
-• Valid Driving License
-• Aadhar Card
-• Original documents for verification
+📋 Documents Required:
+* Valid Driving License
+* Aadhar Card
+* Original documents for verification
 
-📞 *Contact Us:*
+📞 Contact Us:
 For any queries: +91 8309031203
 Email: contact@onnrides.com
 
@@ -201,31 +201,29 @@ Thank you for choosing OnnRides! 🚗`;
       // Calculate balance to pay
       const balanceAmount = Math.max(0, data.total_amount - data.amount);
 
-      const message = `🎉 *Booking Confirmed*
+      const message = `🎉 Booking Confirmed
 
 Dear ${data.customer_name || 'Customer'},
 
 Your booking has been confirmed!
 
-📋 *Booking Details:*
-• Booking ID: ${data.booking_id}
-• Vehicle: ${data.vehicle_model}
-• Pickup: ${formatIST(data.start_date)}
-• Return: ${formatIST(data.end_date)}
-${data.pickup_location ? `• Location: ${data.pickup_location}` : ''}
-• Total Booking Amount: ₹${data.total_amount}
-• Advance Paid: ₹${data.amount}
-• *Balance to Pay at Pickup: ₹${balanceAmount}*
+📋 Booking Details:
+* Booking ID: ${data.booking_id}
+* Vehicle: ${data.vehicle_model}
+* Pickup Date: ${formatIST(data.start_date)}
+* Return Date: ${formatIST(data.end_date)}
+${data.pickup_location ? `* Location: ${data.pickup_location}` : ''}
+* Total Booking Amount: ₹${data.total_amount}
+* Advance Paid: ₹${data.amount}
+* Balance to Pay at Pickup: ₹${balanceAmount}
 
-📝 *Terms & Conditions:*
-• Original Driving License & Aadhar Card required at pickup.
-• Security deposit (if applicable) to be paid at pickup.
-• Late returns will attract additional charges.
-• Fuel level should be returned as received.
+📝 Terms & Conditions:
+* Original Driving License & Aadhar Card required at pickup.
+* Security deposit (if applicable) to be paid at pickup.
 
 You will receive the pickup location and further details shortly.
 
-📞 *Contact Us:*
+📞 Contact Us:
 For any queries: +91 8309031203
 Email: contact@onnrides.com
 
@@ -257,21 +255,21 @@ Thank you for choosing OnnRides! 🏍️ 🚗`;
         return false;
       }
 
-      const message = `💳 *Payment Successful!*
+      const message = `💳 Payment Successful!
 
 Dear ${paymentData.customer_name || 'Customer'},
 
 Your payment has been processed successfully!
 
-💰 *Payment Details:*
-• Booking ID: ${paymentData.booking_id}
-• Amount Paid: ₹${paymentData.amount}
-• Payment ID: ${paymentData.payment_id}
-• Status: Confirmed ✅
+💰 Payment Details:
+* Booking ID: ${paymentData.booking_id}
+* Amount Paid: ₹${paymentData.amount}
+* Payment ID: ${paymentData.payment_id}
+* Status: Confirmed ✅
 
 Your booking is now confirmed and active. You will receive pickup details shortly.
 
-📞 *Contact Us:*
+📞 Contact Us:
 For any queries: +91 8309031203
 Email: contact@onnrides.com
 
@@ -303,28 +301,28 @@ Thank you for choosing OnnRides! 🚗`;
         return false;
       }
 
-      const message = `⏰ *Pickup Reminder*
+      const message = `⏰ Pickup Reminder
 
 Dear ${bookingData.customer_name || 'Customer'},
 
 This is a reminder for your upcoming vehicle pickup tomorrow!
 
-📋 *Booking Details:*
-• Booking ID: ${bookingData.booking_id}
-• Vehicle: ${bookingData.vehicle_model}
-• Pickup Date: ${formatIST(bookingData.start_date)}
-• Return Date: ${formatIST(bookingData.end_date)}
-${bookingData.pickup_location ? `• Pickup Location: ${bookingData.pickup_location}` : ''}
+📋 Booking Details:
+* Booking ID: ${bookingData.booking_id}
+* Vehicle: ${bookingData.vehicle_model}
+* Pickup Date: ${formatIST(bookingData.start_date)}
+* Return Date: ${formatIST(bookingData.end_date)}
+${bookingData.pickup_location ? `* Pickup Location: ${bookingData.pickup_location}` : ''}
 
 📋 *Please Bring:*
-• Valid Driving License (Original)
-• Aadhar Card (Original)
-• Any additional documents as requested
+* Valid Driving License (Original)
+* Aadhar Card (Original)
+* Any additional documents as requested
 
-⚠️ *Important:*
+⚠️ Important:
 Please arrive 15 minutes before your scheduled pickup time.
 
-📞 *Contact Us:*
+📞 Contact Us:
 For any queries: +91 8309031203
 Email: contact@onnrides.com
 
@@ -356,25 +354,24 @@ See you tomorrow! 🚗`;
         return false;
       }
 
-      const message = `🚗 *Trip Started!*
+      const message = `🚗 Trip Started!
 
 Dear ${tripData.customer_name || 'Customer'},
 
 Your vehicle has been successfully handed over!
 
-📋 *Trip Details:*
-• Booking ID: ${tripData.booking_id}
-${tripData.vehicle_number ? `• Vehicle Number: ${tripData.vehicle_number}` : ''}
-• Trip Start Time: ${formatIST(new Date())}
-${tripData.security_deposit_amount !== undefined ? `• Security Deposit: ₹${tripData.security_deposit_amount}` : ''}
+📋 Trip Details:
+* Booking ID: ${tripData.booking_id}
+${tripData.vehicle_number ? `* Vehicle Number: ${tripData.vehicle_number}` : `* Vehicle Number:`}
+* Trip Start Time: ${formatIST(new Date())}
+${tripData.security_deposit_amount !== undefined ? `* Security Deposit: ₹${tripData.security_deposit_amount}` : ''}
 
-⚠️ *Important Reminders:*
-• Drive safely and follow traffic rules
-• Return the vehicle on time
-• Report any issues immediately
-• Keep all documents with you
+⚠️ Important Reminders:
+* Drive safely and follow traffic rules
+* Return the vehicle on time
+* Report any issues immediately
 
-📞 *24/7 Support:*
+📞 24/7 Support:
 Emergency: +91 8309031203
 Email: contact@onnrides.com
 
@@ -406,29 +403,27 @@ Have a safe journey! 🛣️`;
         return false;
       }
 
-      const message = `🔄 *Return Reminder*
+      const message = `Return Reminder
 
 Dear ${bookingData.customer_name || 'Customer'},
 
 This is a reminder that your vehicle return is due tomorrow!
 
-📋 *Return Details:*
-• Booking ID: ${bookingData.booking_id}
-• Vehicle: ${bookingData.vehicle_model}
-• Return Date: ${formatIST(bookingData.end_date)}
-${bookingData.pickup_location ? `• Return Location: ${bookingData.pickup_location}` : ''}
+📋 Return Details:
+* Booking ID: ${bookingData.booking_id}
+* Vehicle: ${bookingData.vehicle_model}
+* Return Date: ${formatIST(bookingData.end_date)}
+${bookingData.pickup_location ? `* Return Location: ${bookingData.pickup_location}` : ''}
 
-✅ *Before Return Checklist:*
-• Fill fuel tank to the same level as received
-• Clean the vehicle (interior & exterior)
-• Check for any damages and report immediately
-• Bring all documents and keys
-• Remove all personal belongings
+✅ Before Return Checklist:
+* Fill fuel tank to the same level as received
+* Clean the vehicle (interior & exterior)
+* Check for any damages and report immediately
 
-⚠️ *Important:*
+⚠️ Important:
 Late returns may incur additional charges.
 
-📞 *Contact Us:*
+📞 Contact Us:
 For any queries: +91 8309031203
 Email: contact@onnrides.com
 
@@ -460,27 +455,27 @@ Thank you for choosing OnnRides! 🚗`;
         return false;
       }
 
-      const message = `📝 *Offline Booking Confirmed!*
+      const message = `📝 Offline Booking Confirmed!
 
 Dear ${bookingData.customer_name || 'Customer'},
 
 Your offline booking has been successfully created!
 
-📋 *Booking Details:*
-• Booking ID: ${bookingData.booking_id}
-• Vehicle: ${bookingData.vehicle_model}${bookingData.registration_number ? ` (${bookingData.registration_number})` : ''}
-• Start Date: ${formatIST(bookingData.start_date)}
-• End Date: ${formatIST(bookingData.end_date)}
-• Total Amount: ₹${bookingData.total_amount}
-${bookingData.security_deposit !== undefined ? `• Security Deposit: ₹${bookingData.security_deposit}` : ''}
-• Status: ${bookingData.status}
+📋 Booking Details:
+* Booking ID: ${bookingData.booking_id}
+* Vehicle: ${bookingData.vehicle_model}${bookingData.registration_number ? ` (${bookingData.registration_number})` : ''}
+* Start Date: ${formatIST(bookingData.start_date)}
+* End Date: ${formatIST(bookingData.end_date)}
+* Total Amount: ₹${bookingData.total_amount}
+${bookingData.security_deposit !== undefined ? `* Security Deposit: ₹${bookingData.security_deposit}` : ''}
+* Status: ${bookingData.status}
 
 ✅ *Next Steps:*
-• Complete any pending documentation
-• Ensure all payments are settled
-• Be ready for vehicle handover
+* Complete any pending documentation
+* Ensure all payments are settled
+* Be ready for vehicle handover
 
-📞 *Contact Us:*
+📞 Contact Us:
 For any queries: +91 8309031203
 Email: contact@onnrides.com
 
@@ -513,25 +508,25 @@ Thank you for choosing OnnRides! 🚗`;
       }
 
       const refundInfo = cancellationData.refund_amount
-        ? `\n💰 *Refund Information:*\n• Refund Amount: ₹${cancellationData.refund_amount}\n• Status: ${cancellationData.refund_status || 'Processing'}\n• Refund will be processed within 5-7 business days`
+        ? `\n💰 Refund Information:\n* Refund Amount: ₹${cancellationData.refund_amount}\n* Status: ${cancellationData.refund_status || 'Processing'}\n* Refund will be processed within 5-7 business days`
         : '';
 
-      const message = `❌ *Booking Cancelled*
+      const message = `❌ Booking Cancelled
 
 Dear ${cancellationData.customer_name || 'Customer'},
 
 Your booking has been cancelled successfully.
 
-📋 *Cancelled Booking Details:*
-• Booking ID: ${cancellationData.booking_id}
-• Vehicle: ${cancellationData.vehicle_model}
-• Original Pickup: ${formatIST(cancellationData.start_date)}
-• Original Return: ${formatIST(cancellationData.end_date)}
-${cancellationData.cancellation_reason ? `• Reason: ${cancellationData.cancellation_reason}` : ''}${refundInfo}
+📋 Cancelled Booking Details:
+* Booking ID: ${cancellationData.booking_id}
+* Vehicle: ${cancellationData.vehicle_model}
+* Original Pickup: ${formatIST(cancellationData.start_date)}
+* Original Return: ${formatIST(cancellationData.end_date)}
+${cancellationData.cancellation_reason ? `* Reason: ${cancellationData.cancellation_reason}` : ''}${refundInfo}
 
 We're sorry to see you go! If you need to book again in the future, we'll be here to help.
 
-📞 *Contact Us:*
+📞 Contact Us:
 For any queries: +91 8309031203
 Email: contact@onnrides.com
 
@@ -563,29 +558,29 @@ Thank you for considering OnnRides! 🚗`;
         return false;
       }
 
-      const message = `⏰ *Booking Extended!*
+      const message = `⏰ Booking Extended!
 
 Dear ${extensionData.customer_name || 'Customer'},
 
 Your booking has been successfully extended!
 
-📋 *Extension Details:*
-• Booking ID: ${extensionData.booking_id}
-• Vehicle: ${extensionData.vehicle_model}
-• Original Return: ${formatIST(extensionData.original_end_date)}
-• New Return Date: ${formatIST(extensionData.new_end_date)}
-• Extension Duration: ${extensionData.additional_hours} Hours
+📋 Extension Details:
+* Booking ID: ${extensionData.booking_id}
+* Vehicle: ${extensionData.vehicle_model}
+* Original Return: ${formatIST(extensionData.original_end_date)}
+* New Return Date: ${formatIST(extensionData.new_end_date)}
+* Extension Duration: ${extensionData.additional_hours} Hours
 
-💰 *Payment Information:*
-• Additional Amount: ₹${extensionData.additional_amount}
-${extensionData.payment_method ? `• Payment Method: ${extensionData.payment_method.toUpperCase()}` : ''}
-${extensionData.payment_reference ? `• Reference: ${extensionData.payment_reference}` : ''}
-• New Total Amount: ₹${extensionData.total_amount}
+💰 Payment Information:
+* Additional Amount: ₹${extensionData.additional_amount}
+${extensionData.payment_method ? `* Payment Method: ${extensionData.payment_method.toUpperCase()}` : ''}
+${extensionData.payment_reference ? `* Reference: ${extensionData.payment_reference}` : ''}
+* New Total Amount: ₹${extensionData.total_amount}
 
-⚠️ *Important:*
+⚠️ Important:
 Please ensure you return the vehicle by the new return date to avoid additional charges.
 
-📞 *Contact Us:*
+📞 Contact Us:
 For any queries: +91 8309031203
 Email: contact@onnrides.com
 
@@ -618,28 +613,28 @@ Thank you for choosing OnnRides! 🚗`;
       }
 
       const feedbackSection = completionData.feedback_link
-        ? `\n⭐ *Share Your Experience:*\nWe'd love to hear about your experience! Please share your feedback: ${completionData.feedback_link}`
-        : '\n⭐ *Share Your Experience:*\nWe\'d love to hear about your experience! Please contact us with your feedback.';
+        ? `\n⭐ Share Your Experience:\nWe'd love to hear about your experience! Please share your feedback: ${completionData.feedback_link}`
+        : '\n⭐ Share Your Experience:\nWe\'d love to hear about your experience! Please contact us with your feedback.';
 
-      const message = `✅ *Trip Completed!*
+      const message = `✅ Booking Completed!
 
 Dear ${completionData.customer_name || 'Customer'},
 
 Thank you for choosing OnnRides! Your trip has been completed successfully.
 
-📋 *Completed Trip Details:*
-• Booking ID: ${completionData.booking_id}
-• Vehicle: ${completionData.vehicle_model}
-• Trip Duration: ${formatIST(completionData.start_date)} to ${formatIST(completionData.end_date)}
-• Total Amount: ₹${completionData.total_amount}
+📋 Completed Trip Details:
+* Booking ID: ${completionData.booking_id}
+* Vehicle: ${completionData.vehicle_model}
+* Trip Duration: ${formatIST(completionData.start_date)} to ${formatIST(completionData.end_date)}
+* Total Amount: ₹${completionData.total_amount}
 
-🎉 *Thank You!*
+🎉 Thank You!
 We hope you had a wonderful experience with our vehicle. Your safety and satisfaction are our top priorities.${feedbackSection}
 
 🚗 *Book Again:*
 Need another ride? Visit our website or contact us anytime!
 
-📞 *Contact Us:*
+📞 Contact Us:
 For any queries: +91 8309031203
 Email: contact@onnrides.com
 
@@ -673,35 +668,30 @@ Drive safe and see you again soon! 🛣️`;
 
 
       const additionalChargesInfo = returnData.additional_charges && returnData.additional_charges > 0
-        ? `\n💰 *Additional Charges:*\n• Amount: ₹${returnData.additional_charges}\n• Final Total: ₹${returnData.final_amount || 'TBD'}`
+        ? `\n💰 Additional Charges:\n* Amount: ₹${returnData.additional_charges}\n* Final Total: ₹${returnData.final_amount || 'TBD'}`
         : '';
 
-      const conditionInfo = returnData.condition_notes
-        ? `\n📝 *Vehicle Condition:*\n${returnData.condition_notes}`
-        : '';
+      const conditionInfo = '';
 
       const securityDepositRefundInfo = returnData.security_deposit_refund_amount && returnData.security_deposit_refund_amount > 0
-        ? `\n\n💸 *Security Deposit Refund:*\n• Refund Amount: ₹${returnData.security_deposit_refund_amount}\n• Refund Method: ${returnData.security_deposit_refund_method || 'Cash'}\n• Status: Processed ✅`
+        ? `\n\n💸 Security Deposit Refund:\n* Refund Amount: ₹${returnData.security_deposit_refund_amount}\n* Status: Processed ✅`
         : '';
 
-      const message = `🔄 *Vehicle Returned Successfully!*
+      const message = `✅ Trip Completed!
 
 Dear ${returnData.customer_name || 'Customer'},
 
-Your vehicle has been returned and inspected successfully!
+Your trip has been completed.
 
-📋 *Return Details:*
-• Booking ID: ${returnData.booking_id}
-• Vehicle: ${returnData.vehicle_model}${returnData.vehicle_number ? ` (${returnData.vehicle_number})` : ''}
-• Return Date: ${formatIST(returnData.return_date)}${conditionInfo}${additionalChargesInfo}${securityDepositRefundInfo}
+📋 Return Details:
+* Booking ID: ${returnData.booking_id}
+* Vehicle: ${returnData.vehicle_model}${returnData.vehicle_number ? ` (${returnData.vehicle_number})` : ''}
+* Return Date: ${formatIST(returnData.return_date)}${additionalChargesInfo}${securityDepositRefundInfo}
 
-✅ *Return Complete:*
-Thank you for returning the vehicle in good condition. Your booking is now officially completed.
-
-🎉 *Thank You!*
+🎉 Thank You!
 We appreciate your business and hope you had a great experience with OnnRides!
 
-📞 *Contact Us:*
+📞 Contact Us:
 For any queries: +91 8309031203
 Email: contact@onnrides.com
 
@@ -737,30 +727,30 @@ See you again soon! 🚗`;
         reminderData.reminder_type === 'second' ? '⚠️ REMINDER' : '💳 PAYMENT DUE';
 
       const dueDateInfo = reminderData.due_date
-        ? `\n⏰ *Due Date:* ${formatIST(reminderData.due_date)}`
+        ? `\n⏰ Due Date: ${formatIST(reminderData.due_date)}`
         : '';
 
       const paymentLinkInfo = reminderData.payment_link
-        ? `\n💳 *Pay Now:* ${reminderData.payment_link}`
-        : '\n💳 *Payment:* Please contact us to complete your payment.';
+        ? `\n💳 Pay Now: ${reminderData.payment_link}`
+        : '\n💳 Payment: Please contact us to complete your payment.';
 
-      const message = `${urgencyLevel} *Payment Reminder*
+      const message = `${urgencyLevel} Payment Reminder
 
 Dear ${reminderData.customer_name || 'Customer'},
 
 This is a ${reminderData.reminder_type} reminder for your pending payment.
 
-📋 *Payment Details:*
-• Booking ID: ${reminderData.booking_id}
-• Vehicle: ${reminderData.vehicle_model}
-• Amount Due: ₹${reminderData.amount_due}${dueDateInfo}${paymentLinkInfo}
+📋 Payment Details:
+* Booking ID: ${reminderData.booking_id}
+* Vehicle: ${reminderData.vehicle_model}
+* Amount Due: ₹${reminderData.amount_due}${dueDateInfo}${paymentLinkInfo}
 
-⚠️ *Important:*
+⚠️ Important:
 ${reminderData.reminder_type === 'final'
           ? 'This is your final reminder. Please complete payment immediately to avoid booking cancellation.'
           : 'Please complete your payment to confirm your booking and avoid any delays.'}
 
-📞 *Contact Us:*
+📞 Contact Us:
 For payment assistance: +91 8309031203
 Email: contact@onnrides.com
 
@@ -796,25 +786,25 @@ Thank you for choosing OnnRides! 🚗`;
         modificationData.modification_type === 'vehicle' ? '🚗' :
           modificationData.modification_type === 'location' ? '📍' : '📝';
 
-      const message = `${modificationIcon} *Booking Modified*
+      const message = `${modificationIcon} Booking Modified
 
 Dear ${modificationData.customer_name || 'Customer'},
 
 Your booking has been updated by our admin team.
 
-📋 *Modification Details:*
-• Booking ID: ${modificationData.booking_id}
-• Modified By: ${modificationData.modified_by}
-• Change Type: ${modificationData.modification_type.charAt(0).toUpperCase() + modificationData.modification_type.slice(1)}
+📋 Modification Details:
+* Booking ID: ${modificationData.booking_id}
+* Modified By: ${modificationData.modified_by}
+* Change Type: ${modificationData.modification_type.charAt(0).toUpperCase() + modificationData.modification_type.slice(1)}
 
-🔄 *Changes Made:*
-• Previous: ${modificationData.old_details}
-• Updated: ${modificationData.new_details}
+🔄 Changes Made:
+* Previous: ${modificationData.old_details}
+* Updated: ${modificationData.new_details}
 
-✅ *Next Steps:*
+✅ Next Steps:
 Please review the changes and contact us if you have any questions or concerns.
 
-📞 *Contact Us:*
+📞 Contact Us:
 For any queries: +91 8309031203
 Email: contact@onnrides.com
 
