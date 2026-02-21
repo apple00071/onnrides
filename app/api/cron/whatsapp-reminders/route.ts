@@ -16,12 +16,15 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    const url = new URL(request.url);
+    const queryKey = url.searchParams.get('key');
+    const isAuthorized = (authHeader === `Bearer ${cronSecret}`) || (queryKey === cronSecret);
+
+    if (!isAuthorized) {
       console.warn('Cron Auth Failed:', {
         hasAuthHeader: !!authHeader,
-        authHeaderPrefix: authHeader?.substring(0, 10),
-        cronSecretLength: cronSecret?.length,
-        match: authHeader === `Bearer ${cronSecret}`
+        hasQueryKey: !!queryKey,
+        cronSecretLength: cronSecret?.length
       });
       return NextResponse.json({
         success: false,
