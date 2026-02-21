@@ -117,6 +117,13 @@ export async function GET(
       }
     };
 
+    const totalAmount = booking.booking_type === 'offline'
+      ? (Math.round(parseFloat(booking.rental_amount || '0')) + Math.round(parseFloat(booking.security_deposit_amount || '0')))
+      : (Math.round(parseFloat(booking.total_amount || booking.total_price || '0')));
+
+    const paidAmount = Math.round(parseFloat(booking.paid_amount)) || 0;
+    const pendingAmount = Math.max(0, totalAmount - paidAmount);
+
     const formattedData = {
       id: booking.id,
       booking_id: booking.booking_id,
@@ -128,16 +135,12 @@ export async function GET(
         model: booking.vehicle_model,
         registration_number: booking.trip_vehicle_number || booking.vehicle_registration_number || booking.registration_number
       },
-      amount: booking.booking_type === 'offline'
-        ? (Math.round(parseFloat(booking.rental_amount || '0')) + Math.round(parseFloat(booking.security_deposit_amount || '0')))
-        : (Math.round(parseFloat(booking.total_price)) || 0),
+      amount: totalAmount,
       rental_amount: Math.round(parseFloat(booking.rental_amount)) || 0,
       security_deposit_amount: Math.round(parseFloat(booking.security_deposit_amount)) || 0,
-      total_amount: booking.booking_type === 'offline'
-        ? (Math.round(parseFloat(booking.rental_amount || '0')) + Math.round(parseFloat(booking.security_deposit_amount || '0')))
-        : (Math.round(parseFloat(booking.total_amount)) || 0),
-      paid_amount: Math.round(parseFloat(booking.paid_amount)) || 0,
-      pending_amount: Math.round(parseFloat(booking.pending_amount)) || 0,
+      total_amount: totalAmount,
+      paid_amount: paidAmount,
+      pending_amount: pendingAmount,
       payment_method: booking.payment_method,
       payment_reference: booking.payment_reference,
       status: booking.status,

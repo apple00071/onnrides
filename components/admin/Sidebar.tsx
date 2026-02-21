@@ -26,7 +26,8 @@ import {
   Trash2,
   ReceiptIndianRupee,
   BarChart3,
-  RotateCcw
+  RotateCcw,
+  BellRing
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { Permission } from '@/lib/database/schema';
@@ -57,6 +58,11 @@ const sidebarLinks: SidebarLink[] = [
     href: '/admin/bookings',
     label: 'Bookings',
     icon: CalendarDays
+  },
+  {
+    href: '/admin/payment-reminders',
+    label: 'Payment Reminders',
+    icon: BellRing
   },
 
   {
@@ -118,6 +124,7 @@ export function Sidebar() {
       case '/admin/dashboard':
         return true; // Everyone sees dashboard
       case '/admin/bookings':
+      case '/admin/payment-reminders':
       case '/admin/vehicle-returns':
         return permissions.manage_bookings;
       case '/admin/vehicles':

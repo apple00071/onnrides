@@ -75,6 +75,15 @@ export function EditBookingModal({ isOpen, onClose, booking, onUpdate }: EditBoo
             return;
         }
 
+        // Validate date range
+        const startDate = new Date(formData.start_date);
+        const endDate = new Date(formData.end_date);
+
+        if (endDate < startDate) {
+            toast.error('Drop-off date cannot be before Pickup date');
+            return;
+        }
+
         setIsLoading(true);
         try {
             const response = await fetch(`/api/admin/bookings/${booking.booking_id}`, {
@@ -119,7 +128,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onUpdate }: EditBoo
                 <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="start_date">Start Date & Time</Label>
+                            <Label htmlFor="start_date">Pickup Date & Time</Label>
                             <Input
                                 id="start_date"
                                 name="start_date"
@@ -130,7 +139,7 @@ export function EditBookingModal({ isOpen, onClose, booking, onUpdate }: EditBoo
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="end_date">End Date & Time</Label>
+                            <Label htmlFor="end_date">Drop-off Date & Time</Label>
                             <Input
                                 id="end_date"
                                 name="end_date"

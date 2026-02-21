@@ -31,6 +31,12 @@ export async function POST(request: NextRequest) {
       SELECT 
         b.booking_id,
         b.total_price,
+        b.total_amount,
+        b.paid_amount,
+        b.pending_amount,
+        b.rental_amount,
+        b.security_deposit_amount,
+        b.booking_type,
         b.status,
         b.start_date,
         u.name as customer_name,
@@ -51,10 +57,26 @@ export async function POST(request: NextRequest) {
 
     const booking = bookingResult.rows[0];
 
-    // Only send reminders for pending bookings
-    if (booking.status !== 'pending') {
+    // Only send reminders for bookings that are not completed or cancelled
+    const allowedStatuses = ['pending', 'confirmed', 'active'];
+    if (!allowedStatuses.includes(booking.status.toLowerCase())) {
       return NextResponse.json(
-        { success: false, error: 'Payment reminders can only be sent for pending bookings' },
+        { success: false, error: `Payment reminders cannot be sent for ${booking.status} bookings` },
+        { status: 400 }
+      );
+    }
+
+    // Recalculate balance due
+    const totalAmount = booking.booking_type === 'offline'
+      ? (Math.round(parseFloat(booking.rental_amount || '0')) + Math.round(parseFloat(booking.security_deposit_amount || '0')))
+      : (Math.round(parseFloat(booking.total_amount || booking.total_price || '0')));
+
+    const paidAmount = Math.round(parseFloat(booking.paid_amount || '0'));
+    const balanceDue = Math.max(0, totalAmount - paidAmount);
+
+    if (balanceDue <= 0 && booking.status !== 'pending') {
+      return NextResponse.json(
+        { success: false, error: 'No balance due for this booking' },
         { status: 400 }
       );
     }
@@ -66,7 +88,7 @@ export async function POST(request: NextRequest) {
       customer_name: booking.customer_name,
       customer_phone: booking.customer_phone,
       vehicle_model: booking.vehicle_name,
-      amount_due: booking.total_price,
+      amount_due: balanceDue,
       due_date: new Date(booking.start_date), // Use start date as due date
       payment_link: payment_link || undefined,
       reminder_type: reminder_type as 'first' | 'second' | 'final'
@@ -111,13 +133,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Get pending bookings that might need payment reminders
-    const pendingBookings = await query(`
+    const result = await query(`
       SELECT 
         b.id,
         b.booking_id,
         b.total_price,
+        b.total_amount,
+        b.paid_amount,
+        b.pending_amount,
+        b.rental_amount,
+        b.security_deposit_amount,
+        b.booking_type,
         b.start_date,
         b.created_at,
+        b.status,
         u.name as customer_name,
         u.phone as customer_phone,
         u.email as customer_email,
@@ -125,14 +154,29 @@ export async function GET(request: NextRequest) {
       FROM bookings b
       JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
-      WHERE b.status = 'pending'
-      AND b.start_date > NOW()
+      WHERE (b.status = 'pending' OR b.status = 'confirmed' OR b.status = 'active')
       ORDER BY b.created_at DESC
     `);
 
+    const processedBookings = result.rows.map(booking => {
+      const totalAmount = booking.booking_type === 'offline'
+        ? (Math.round(parseFloat(booking.rental_amount || '0')) + Math.round(parseFloat(booking.security_deposit_amount || '0')))
+        : (Math.round(parseFloat(booking.total_amount || booking.total_price || '0')));
+
+      const paidAmount = Math.round(parseFloat(booking.paid_amount || '0'));
+      const pendingAmount = Math.max(0, totalAmount - paidAmount);
+
+      return {
+        ...booking,
+        total_price: totalAmount,
+        paid_amount: paidAmount,
+        pending_amount: pendingAmount
+      };
+    }).filter(b => b.pending_amount > 0 || b.status === 'pending');
+
     return NextResponse.json({
       success: true,
-      data: pendingBookings.rows
+      data: processedBookings
     });
 
   } catch (error) {
