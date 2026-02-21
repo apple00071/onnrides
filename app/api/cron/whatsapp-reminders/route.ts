@@ -16,14 +16,10 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
-    const url = new URL(request.url);
-    const queryKey = url.searchParams.get('key');
-    const isAuthorized = (authHeader === `Bearer ${cronSecret}`) || (queryKey === cronSecret);
-
-    if (!isAuthorized) {
+    if (authHeader !== `Bearer ${cronSecret}`) {
       console.warn('Cron Auth Failed:', {
         hasAuthHeader: !!authHeader,
-        hasQueryKey: !!queryKey,
+        authHeaderPrefix: authHeader?.substring(0, 15),
         cronSecretLength: cronSecret?.length
       });
       return NextResponse.json({
