@@ -29,6 +29,7 @@ export interface BookingData {
   pickup_location?: string;
   status: string;
   security_deposit?: number;
+  reminder_type?: string;
 }
 
 export interface PaymentData {
@@ -305,7 +306,7 @@ Thank you for choosing OnnRides! 🚗`;
 
 Dear ${bookingData.customer_name || 'Customer'},
 
-This is a reminder for your upcoming vehicle pickup tomorrow!
+This is a reminder for your upcoming vehicle pickup soon!
 
 📋 Booking Details:
 * Booking ID: ${bookingData.booking_id}
@@ -326,15 +327,15 @@ Please arrive 15 minutes before your scheduled pickup time.
 For any queries: +91 8309031203
 Email: contact@onnrides.com
 
-See you tomorrow! 🚗`;
+See you soon! 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(bookingData.phone_number, message);
 
       if (result) {
-        await this.logWhatsAppMessage(bookingData.phone_number, message, 'pickup_reminder', 'delivered');
+        await this.logWhatsAppMessage(bookingData.phone_number, message, bookingData.reminder_type || 'pickup_reminder', 'delivered');
         logger.info('Pickup reminder WhatsApp sent', { bookingId: bookingData.booking_id });
       } else {
-        await this.logWhatsAppMessage(bookingData.phone_number, message, 'pickup_reminder', 'failed');
+        await this.logWhatsAppMessage(bookingData.phone_number, message, bookingData.reminder_type || 'pickup_reminder', 'failed');
       }
 
       return result;
@@ -407,7 +408,7 @@ Have a safe journey! 🛣️`;
 
 Dear ${bookingData.customer_name || 'Customer'},
 
-This is a reminder that your vehicle return is due tomorrow!
+This is a reminder that your vehicle return is due soon!
 
 📋 Return Details:
 * Booking ID: ${bookingData.booking_id}
@@ -432,10 +433,10 @@ Thank you for choosing OnnRides! 🚗`;
       const result = await this.wasenderService.sendTextMessage(bookingData.phone_number, message);
 
       if (result) {
-        await this.logWhatsAppMessage(bookingData.phone_number, message, 'return_reminder', 'delivered');
+        await this.logWhatsAppMessage(bookingData.phone_number, message, bookingData.reminder_type || 'return_reminder', 'delivered');
         logger.info('Return reminder WhatsApp sent', { bookingId: bookingData.booking_id });
       } else {
-        await this.logWhatsAppMessage(bookingData.phone_number, message, 'return_reminder', 'failed');
+        await this.logWhatsAppMessage(bookingData.phone_number, message, bookingData.reminder_type || 'return_reminder', 'failed');
       }
 
       return result;
