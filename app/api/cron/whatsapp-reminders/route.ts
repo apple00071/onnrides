@@ -17,6 +17,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (authHeader !== `Bearer ${cronSecret}`) {
+      console.warn('Cron Auth Failed:', {
+        hasAuthHeader: !!authHeader,
+        authHeaderPrefix: authHeader?.substring(0, 10),
+        cronSecretLength: cronSecret?.length,
+        match: authHeader === `Bearer ${cronSecret}`
+      });
       return NextResponse.json({
         success: false,
         error: 'Unauthorized'
