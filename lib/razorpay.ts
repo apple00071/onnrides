@@ -265,7 +265,7 @@ export async function createPaymentLink(params: CreatePaymentLinkParams): Promis
     const payload = {
       amount: amountInPaise,
       currency: params.currency || 'INR',
-      accept_partial: false,
+      accept_partial: true,
       reference_id: params.reference_id,
       description: params.description,
       customer: {
