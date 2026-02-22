@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Increase timeout to 60s to allow sequential WhatsApp notifications
 
 // CORS preflight
 export async function OPTIONS() {
@@ -139,18 +140,17 @@ export async function POST(request: NextRequest) {
       );
     });
 
-    // Send notifications
+    // Send notifications sequentially
+    // maxDuration is set to 60s at the top of the file to allow these to complete
+    // because WaSenderService introduces a 5.5s delay between messages.
     try {
       const adminNotificationService = AdminNotificationService.getInstance();
       const whatsappService = WhatsAppNotificationService.getInstance();
 
       // Notify Customer (Consolidated Message)
       try {
-        // Calculate the amount paid (5% of total)
-        // Ensure this matches the logic used in create-order
         const amountPaid = Math.ceil(Number(booking.total_price) * 0.05);
 
-        // Log amounts to debug mismatch
         logger.info('Notification Amount Debug:', {
           totalPrice: booking.total_price,
           calculatedAmount: amountPaid,

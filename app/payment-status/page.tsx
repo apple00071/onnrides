@@ -63,7 +63,14 @@ export default function PaymentStatusPage() {
             }),
           });
 
-          const result = await response.json();
+          const rawText = await response.text();
+          let result;
+          try {
+            result = JSON.parse(rawText);
+          } catch (e) {
+            logger.error('Failed to parse response as JSON. Raw text:', rawText);
+            throw new Error(`Server Error (${response.status}): ${rawText.substring(0, 150)}...`);
+          }
 
           if (result.success) {
             logger.info('Full-page verification successful');
