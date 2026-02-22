@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { format, addHours, isBefore, isAfter, startOfToday, parse } from 'date-fns';
 import Link from 'next/link';
 import { Upload } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Vehicle {
   id: string;
@@ -38,6 +39,13 @@ export default function OfflineBookingPage() {
     aadharScan: null,
     selfie: null,
   });
+  const [isReturningCustomer, setIsReturningCustomer] = useState(false);
+  const [reusingDocs, setReusingDocs] = useState({
+    dlScan: false,
+    aadharScan: false,
+    selfie: false,
+  });
+  const [existingDocUrls, setExistingDocUrls] = useState<Record<string, string>>({});
 
   // Validate Aadhar number
   const validateAadhar = (aadhar: string) => {
@@ -61,9 +69,73 @@ export default function OfflineBookingPage() {
   };
 
   // Handle 10-digit phone input
-  const handlePhoneChange = (field: string, value: string) => {
+  const handlePhoneChange = async (field: string, value: string) => {
     const cleaned = value.replace(/\D/g, '').slice(0, 10);
     setFormData(prev => ({ ...prev, [field]: cleaned }));
+
+    // Trigger lookup if it's the main phone number and reached 10 digits
+    if (field === 'phoneNumber' && cleaned.length === 10) {
+      try {
+        const response = await fetch(`/api/admin/customers/lookup?phone=${cleaned}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          const customer = result.data;
+          setIsReturningCustomer(true);
+
+          // Auto-fill form
+          setFormData(prev => ({
+            ...prev,
+            customerName: customer.name || prev.customerName,
+            email: customer.email || prev.email,
+            alternatePhone: customer.alternate_phone || prev.alternatePhone,
+            aadharNumber: customer.aadhar_number || prev.aadharNumber,
+            fatherNumber: customer.father_number || prev.fatherNumber,
+            motherNumber: customer.mother_number || prev.motherNumber,
+            dateOfBirth: customer.date_of_birth ? format(new Date(customer.date_of_birth), 'yyyy-MM-dd') : prev.dateOfBirth,
+            dlNumber: customer.dl_number || prev.dlNumber,
+            dlExpiryDate: customer.dl_expiry_date ? format(new Date(customer.dl_expiry_date), 'yyyy-MM-dd') : prev.dlExpiryDate,
+            permanentAddress: customer.address || prev.permanentAddress,
+          }));
+
+          // Handle documents
+          const docs: Record<string, string> = {};
+          if (customer.dl_scan) docs.dlScan = customer.dl_scan;
+          if (customer.aadhar_scan) docs.aadharScan = customer.aadhar_scan;
+          if (customer.selfie) docs.selfie = customer.selfie;
+
+          // If user profile has documents, prioritize them
+          if (customer.profile_documents) {
+            if (customer.profile_documents.dl_front) docs.dlScan = customer.profile_documents.dl_front;
+            if (customer.profile_documents.aadhaar_front) docs.aadharScan = customer.profile_documents.aadhaar_front;
+            if (customer.profile_documents.customer_photo) docs.selfie = customer.profile_documents.customer_photo;
+          }
+
+          setExistingDocUrls(docs);
+          setReusingDocs({
+            dlScan: !!docs.dlScan,
+            aadharScan: !!docs.aadharScan,
+            selfie: !!docs.selfie,
+          });
+
+          // Set previews for existing docs
+          setFilePreviews(prev => ({
+            ...prev,
+            dlScan: docs.dlScan || prev.dlScan,
+            aadharScan: docs.aadharScan || prev.aadharScan,
+            selfie: docs.selfie || prev.selfie,
+          }));
+
+          toast.success('Returning customer found! Details auto-filled.');
+        } else {
+          setIsReturningCustomer(false);
+          setExistingDocUrls({});
+          setReusingDocs({ dlScan: false, aadharScan: false, selfie: false });
+        }
+      } catch (error) {
+        console.error('Lookup failed:', error);
+      }
+    }
   };
 
   // Calculate total and pending amounts
@@ -329,8 +401,10 @@ export default function OfflineBookingPage() {
       return;
     }
 
-    // Validate required file uploads
-    if (!fileUploads.dlScan || !fileUploads.aadharScan || !fileUploads.selfie) {
+    // Validate required file uploads (accounting for reused docs)
+    if ((!fileUploads.dlScan && !reusingDocs.dlScan) ||
+      (!fileUploads.aadharScan && !reusingDocs.aadharScan) ||
+      (!fileUploads.selfie && !reusingDocs.selfie)) {
       alert('Please upload all required documents (DL Scan, Aadhar Scan, and Selfie)');
       return;
     }
@@ -350,15 +424,23 @@ export default function OfflineBookingPage() {
       formDataToSend.append('startDateTime', `${startDate}T${startTime}:00`);
       formDataToSend.append('endDateTime', `${endDate}T${endTime}:00`);
 
-      // Add files with proper field names
-      if (fileUploads.dlScan) {
+      // Add files with proper field names (only if not reusing)
+      if (fileUploads.dlScan && !reusingDocs.dlScan) {
         formDataToSend.append('dlScan', fileUploads.dlScan);
+      } else if (reusingDocs.dlScan && existingDocUrls.dlScan) {
+        formDataToSend.append('dlScanUrl', existingDocUrls.dlScan);
       }
-      if (fileUploads.aadharScan) {
+
+      if (fileUploads.aadharScan && !reusingDocs.aadharScan) {
         formDataToSend.append('aadharScan', fileUploads.aadharScan);
+      } else if (reusingDocs.aadharScan && existingDocUrls.aadharScan) {
+        formDataToSend.append('aadharScanUrl', existingDocUrls.aadharScan);
       }
-      if (fileUploads.selfie) {
+
+      if (fileUploads.selfie && !reusingDocs.selfie) {
         formDataToSend.append('selfie', fileUploads.selfie);
+      } else if (reusingDocs.selfie && existingDocUrls.selfie) {
+        formDataToSend.append('selfieUrl', existingDocUrls.selfie);
       }
 
       const response = await fetch('/api/admin/bookings/offline', {
@@ -771,14 +853,19 @@ export default function OfflineBookingPage() {
                       className="w-full h-full object-contain rounded-lg"
                     />
                     <button
+                      type="button"
                       onClick={() => {
                         setFileUploads(prev => ({ ...prev, dlScan: null }));
                         setFilePreviews(prev => ({ ...prev, dlScan: null }));
+                        setReusingDocs(prev => ({ ...prev, dlScan: false }));
                       }}
-                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1"
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1 w-6 h-6 flex items-center justify-center leading-none"
                     >
                       ×
                     </button>
+                    {reusingDocs.dlScan && (
+                      <span className="absolute bottom-0 left-0 right-0 bg-green-500/80 text-white text-[10px] py-0.5 text-center font-bold">REUSED</span>
+                    )}
                   </div>
                 ) : (
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
@@ -812,14 +899,19 @@ export default function OfflineBookingPage() {
                       className="w-full h-full object-contain rounded-lg"
                     />
                     <button
+                      type="button"
                       onClick={() => {
                         setFileUploads(prev => ({ ...prev, aadharScan: null }));
                         setFilePreviews(prev => ({ ...prev, aadharScan: null }));
+                        setReusingDocs(prev => ({ ...prev, aadharScan: false }));
                       }}
-                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1"
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1 w-6 h-6 flex items-center justify-center leading-none"
                     >
                       ×
                     </button>
+                    {reusingDocs.aadharScan && (
+                      <span className="absolute bottom-0 left-0 right-0 bg-green-500/80 text-white text-[10px] py-0.5 text-center font-bold">REUSED</span>
+                    )}
                   </div>
                 ) : (
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
@@ -853,14 +945,19 @@ export default function OfflineBookingPage() {
                       className="w-full h-full object-contain rounded-lg"
                     />
                     <button
+                      type="button"
                       onClick={() => {
                         setFileUploads(prev => ({ ...prev, selfie: null }));
                         setFilePreviews(prev => ({ ...prev, selfie: null }));
+                        setReusingDocs(prev => ({ ...prev, selfie: false }));
                       }}
-                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1"
+                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1 w-6 h-6 flex items-center justify-center leading-none"
                     >
                       ×
                     </button>
+                    {reusingDocs.selfie && (
+                      <span className="absolute bottom-0 left-0 right-0 bg-green-500/80 text-white text-[10px] py-0.5 text-center font-bold">REUSED</span>
+                    )}
                   </div>
                 ) : (
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">

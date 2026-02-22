@@ -77,6 +77,12 @@ export async function POST(
     const fileTypes = ['dlFront', 'dlBack', 'aadhaarFront', 'aadhaarBack', 'customerPhoto'];
 
     const uploadPromises = fileTypes.map(async (type) => {
+      // Check if we are reusing this document
+      const reusedUrl = formData.get(`${type}Url`) as string;
+      if (reusedUrl) {
+        return { type, url: reusedUrl };
+      }
+
       const file = formData.get(type) as File;
       if (file) {
         const url = await uploadFile(file, `trip-initiations/${bookingId}/${type}`);

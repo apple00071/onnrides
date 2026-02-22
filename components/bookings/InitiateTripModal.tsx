@@ -180,7 +180,18 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
 
 
     const [signatureData, setSignatureData] = useState<string | null>(booking.documents?.signature || null);
-    const [activeTab, setActiveTab] = useState('customer');
+
+    // Auto-select tab: If customer info is mostly complete, start on Vehicle tab
+    const isReturning = !!(booking.customer?.dl_number || booking.documents?.dlFront);
+    const [activeTab, setActiveTab] = useState(isReturning ? 'vehicle' : 'customer');
+
+    const [reusingDocs, setReusingDocs] = useState({
+        dlFront: !!booking.documents?.dlFront,
+        dlBack: !!booking.documents?.dlBack,
+        aadhaarFront: !!booking.documents?.aadhaarFront,
+        aadhaarBack: !!booking.documents?.aadhaarBack,
+        customerPhoto: !!booking.documents?.customerPhoto
+    });
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -199,6 +210,7 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
             const previewUrl = URL.createObjectURL(file);
             setDocumentFiles(prev => ({ ...prev, [type]: file }));
             setDocumentPreviews(prev => ({ ...prev, [type]: previewUrl }));
+            setReusingDocs(prev => ({ ...prev, [type]: false }));
         }
     };
 
@@ -264,10 +276,17 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
             formData.append('cleanlinessNotes', operationalData.cleanlinessNotes);
             formData.append('securityDepositAmount', String((operationalData as any).securityDepositAmount || 0));
 
-            // Append new document files if they exist
+            // Append new document files if they exist (only if NOT reusing)
             (Object.entries(documentFiles) as [keyof DocumentFiles, File | null][]).forEach(([key, file]) => {
-                if (file) {
+                if (file && !reusingDocs[key]) {
                     formData.append(key, file);
+                }
+            });
+
+            // Append reused document URLs if they exist
+            Object.entries(reusingDocs).forEach(([key, isReusing]) => {
+                if (isReusing && documentPreviews[key as keyof DocumentPreviews]) {
+                    formData.append(`${key}Url`, documentPreviews[key as keyof DocumentPreviews]!);
                 }
             });
 
@@ -622,8 +641,8 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
                                                             </div>
                                                             <div className="flex flex-col">
                                                                 <span className="text-sm font-medium text-gray-900">{doc.label}</span>
-                                                                <span className={cn("text-xs", isUploaded ? "text-green-600" : "text-gray-500")}>
-                                                                    {isUploaded ? 'Ready' : 'Required'}
+                                                                <span className={cn("text-xs font-bold", isUploaded ? "text-green-600" : "text-gray-500")}>
+                                                                    {isUploaded ? (reusingDocs[doc.key] ? 'REUSED' : 'Ready') : 'Required'}
                                                                 </span>
                                                             </div>
                                                         </div>

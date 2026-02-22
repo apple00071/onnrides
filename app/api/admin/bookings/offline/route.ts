@@ -59,9 +59,9 @@ export async function POST(request: Request) {
 
     // Handle file uploads in parallel
     const [dlScanUrl, aadharScanUrl, selfieUrl] = await Promise.all([
-      uploadScan('dlScan'),
-      uploadScan('aadharScan'),
-      uploadScan('selfie')
+      formData.get('dlScanUrl') as string || uploadScan('dlScan'),
+      formData.get('aadharScanUrl') as string || uploadScan('aadharScan'),
+      formData.get('selfieUrl') as string || uploadScan('selfie')
     ]);
 
     // Calculate total hours for the booking
