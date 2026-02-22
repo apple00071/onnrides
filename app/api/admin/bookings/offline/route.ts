@@ -213,14 +213,15 @@ export async function POST(request: Request) {
       return newBooking;
     });
 
-    // Send notifications in parallel outside transaction to prevent timeout
+    // Send notifications in parallel and wait for completion to ensure Vercel doesn't kill the process
     try {
       const whatsappService = WhatsAppNotificationService.getInstance();
       const adminService = AdminNotificationService.getInstance();
 
-      // Parallelize user and admin notifications without awaiting
-      // This allows the response to be sent immediately after DB write
-      Promise.allSettled([
+      logger.info('Starting parallel notification delivery for offline booking', { bookingId: displayBookingId });
+
+      // Parallelize user and admin notifications and AWAIT them
+      const results = await Promise.allSettled([
         whatsappService.sendOfflineBookingConfirmation({
           id: booking.id,
           booking_id: displayBookingId,
@@ -247,18 +248,18 @@ export async function POST(request: Request) {
           total_price: Number(formData.get('totalAmount')),
           advance_paid: Number(formData.get('paidAmount')) || 0
         })
-      ]).then((results) => {
-        results.forEach((result, index) => {
-          const serviceName = index === 0 ? 'User WhatsApp' : 'Admin Notification';
-          if (result.status === 'fulfilled') {
-            logger.info(`${serviceName} sent successfully for offline booking`, { bookingId: displayBookingId });
-          } else {
-            logger.error(`${serviceName} failed for offline booking:`, { error: result.reason, bookingId: displayBookingId });
-          }
-        });
+      ]);
+
+      results.forEach((result, index) => {
+        const serviceName = index === 0 ? 'User WhatsApp' : 'Admin Notification';
+        if (result.status === 'fulfilled') {
+          logger.info(`${serviceName} sent successfully for offline booking`, { bookingId: displayBookingId });
+        } else {
+          logger.error(`${serviceName} failed for offline booking:`, { error: result.reason, bookingId: displayBookingId });
+        }
       });
     } catch (notifError) {
-      logger.error('Error in parallel notification block:', notifError);
+      logger.error('Error in notification delivery block:', notifError);
     }
 
     return NextResponse.json({ success: true, booking });

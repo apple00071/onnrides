@@ -264,21 +264,22 @@ export async function POST(
       }
     });
 
-    // Send WhatsApp trip start confirmation without awaiting
-    const whatsappService = WhatsAppNotificationService.getInstance();
-    whatsappService.sendTripStartConfirmation({
-      booking_id: bookingId,
-      customer_name: customerInfo.name,
-      customer_phone: customerInfo.phone,
-      vehicle_number: vehicleNumber,
-      emergency_contact: customerInfo.emergencyContact,
-      emergency_name: customerInfo.emergencyName,
-      security_deposit_amount: securityDepositAmount
-    }).then(() => {
+    // Send WhatsApp trip start confirmation and await it to ensure delivery on Vercel
+    try {
+      const whatsappService = WhatsAppNotificationService.getInstance();
+      await whatsappService.sendTripStartConfirmation({
+        booking_id: bookingId,
+        customer_name: customerInfo.name,
+        customer_phone: customerInfo.phone,
+        vehicle_number: vehicleNumber,
+        emergency_contact: customerInfo.emergencyContact,
+        emergency_name: customerInfo.emergencyName,
+        security_deposit_amount: securityDepositAmount
+      });
       logger.info('Trip start WhatsApp notification sent successfully', { bookingId });
-    }).catch((whatsappError) => {
+    } catch (whatsappError) {
       logger.error('Failed to send trip start WhatsApp notification:', whatsappError);
-    });
+    }
 
     return NextResponse.json({
       success: true,
