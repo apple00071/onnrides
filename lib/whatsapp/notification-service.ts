@@ -460,7 +460,7 @@ Thank you for choosing OnnRides! 🚗`;
 
 Dear ${bookingData.customer_name || 'Customer'},
 
-Your offline booking has been successfully created!
+Your booking has been Confirmed!
 
 📋 Booking Details:
 * Booking ID: ${bookingData.booking_id}
@@ -470,11 +470,6 @@ Your offline booking has been successfully created!
 * Total Amount: ₹${bookingData.total_amount}
 ${bookingData.security_deposit !== undefined ? `* Security Deposit: ₹${bookingData.security_deposit}` : ''}
 * Status: ${bookingData.status}
-
-✅ *Next Steps:*
-* Complete any pending documentation
-* Ensure all payments are settled
-* Be ready for vehicle handover
 
 📞 Contact Us:
 For any queries: +91 8309031203
@@ -727,10 +722,6 @@ See you again soon! 🚗`;
       const urgencyLevel = reminderData.reminder_type === 'final' ? '🚨 URGENT' :
         reminderData.reminder_type === 'second' ? '⚠️ REMINDER' : '💳 PAYMENT DUE';
 
-      const dueDateInfo = reminderData.due_date
-        ? `\n⏰ Due Date: ${formatIST(reminderData.due_date)}`
-        : '';
-
       const paymentLinkInfo = reminderData.payment_link
         ? `\n💳 Pay Now: ${reminderData.payment_link}`
         : '\n💳 Payment: Please contact us to complete your payment.';
@@ -744,12 +735,10 @@ This is a ${reminderData.reminder_type} reminder for your pending payment.
 📋 Payment Details:
 * Booking ID: ${reminderData.booking_id}
 * Vehicle: ${reminderData.vehicle_model}
-* Amount Due: ₹${reminderData.amount_due}${dueDateInfo}${paymentLinkInfo}
+* Amount Due: ₹${reminderData.amount_due}${paymentLinkInfo}
 
 ⚠️ Important:
-${reminderData.reminder_type === 'final'
-          ? 'This is your final reminder. Please complete payment immediately to avoid booking cancellation.'
-          : 'Please complete your payment to confirm your booking and avoid any delays.'}
+Please complete your payment to avoid any late charges.
 
 📞 Contact Us:
 For payment assistance: +91 8309031203
