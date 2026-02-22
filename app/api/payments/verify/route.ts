@@ -176,40 +176,6 @@ export async function POST(request: NextRequest) {
         logger.error('Failed to send customer WhatsApp notification:', waError);
       }
 
-      // Notify Admin - New Booking
-      try {
-        await adminNotificationService.sendBookingNotification({
-          booking_id: booking.booking_id,
-          pickup_location: booking.pickup_location,
-          user_name: booking.user_name,
-          user_phone: booking.customer_phone || booking.user_phone || '',
-          vehicle_name: booking.vehicle_name,
-          start_date: booking.start_date,
-          end_date: booking.end_date,
-          total_price: booking.total_price,
-          advance_paid: Math.ceil(Number(booking.total_price) * 0.05)
-        });
-        logger.info('Admin new booking notification sent', { bookingId: booking.id });
-      } catch (adminError) {
-        logger.error('Failed to send admin booking notification:', adminError);
-      }
-
-      // Notify Admin - Partial Payment Received
-      try {
-        await adminNotificationService.sendPaymentNotification({
-          booking_id: booking.booking_id,
-          payment_id: razorpay_payment_id,
-          user_name: booking.user_name,
-          amount: Math.ceil(booking.total_price * 0.05),
-          payment_method: 'Online',
-          status: 'success',
-          transaction_time: new Date()
-        });
-        logger.info('Admin payment confirmation sent', { bookingId: booking.id });
-      } catch (adminError) {
-        logger.error('Failed to send admin payment notification:', adminError);
-      }
-
     } catch (notifyError) {
       logger.error('Error in notification chain:', notifyError);
     }
