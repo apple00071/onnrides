@@ -255,7 +255,14 @@ export async function createPaymentLink(params: CreatePaymentLinkParams): Promis
       amountInPaise
     });
 
-    const link = await razorpay.paymentLink.create({
+    // Format phone number for Razorpay (requires digits, preferably with country code)
+    // We'll clean it and ensure it has 91 prefix if it's 10 digits
+    let formattedContact = params.customer.contact ? params.customer.contact.replace(/\D/g, '') : undefined;
+    if (formattedContact && formattedContact.length === 10) {
+      formattedContact = '91' + formattedContact;
+    }
+
+    const payload = {
       amount: amountInPaise,
       currency: params.currency || 'INR',
       accept_partial: false,
@@ -263,14 +270,18 @@ export async function createPaymentLink(params: CreatePaymentLinkParams): Promis
       description: params.description,
       customer: {
         name: params.customer.name,
-        contact: params.customer.contact || undefined,
+        contact: formattedContact || undefined,
         email: params.customer.email || undefined
       },
       notify: {
         sms: false, // We use our own WhatsApp notification
         email: false
       }
-    });
+    };
+
+    logger.debug('Razorpay Payment Link Payload:', payload);
+
+    const link = await razorpay.paymentLink.create(payload);
 
     logger.info('Created Razorpay Payment Link:', {
       linkId: link.id,

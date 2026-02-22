@@ -87,9 +87,17 @@ export async function POST(request: NextRequest) {
     let finalPaymentLink = payment_link;
     if (!finalPaymentLink && balanceDue > 0) {
       try {
+        logger.info('Attempting to generate Razorpay link for reminder:', {
+          booking_id: booking.booking_id,
+          amount: balanceDue,
+          customer_phone: booking.customer_phone
+        });
+
+        const uniqueReferenceId = `${booking.booking_id}_${Date.now()}`;
+
         finalPaymentLink = await createPaymentLink({
           amount: balanceDue,
-          reference_id: booking.booking_id,
+          reference_id: uniqueReferenceId,
           description: `Payment for booking ${booking.booking_id}`,
           customer: {
             name: booking.customer_name,
@@ -97,9 +105,19 @@ export async function POST(request: NextRequest) {
             email: booking.customer_email
           }
         });
-      } catch (linkError) {
-        logger.error('Failed to auto-generate payment link:', linkError);
-        // Continue without link
+
+        logger.info('Successfully generated Razorpay link:', {
+          booking_id: booking.booking_id,
+          link: finalPaymentLink
+        });
+      } catch (linkError: any) {
+        logger.error('Failed to auto-generate payment link:', {
+          booking_id: booking.booking_id,
+          error: linkError.message,
+          description: linkError.description,
+          code: linkError.code
+        });
+        // Continue without link - the template handles this
       }
     }
 

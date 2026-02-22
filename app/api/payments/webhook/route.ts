@@ -57,7 +57,9 @@ export async function POST(request: NextRequest) {
 }
 
 async function handlePaymentLinkPaid(linkEntity: any, paymentEntity: any) {
-    const booking_id = linkEntity.reference_id; // This is the booking_id (e.g. OR5NU)
+    // Handle unique reference_id (e.g. OR5NU_1740201234)
+    const rawReferenceId = linkEntity.reference_id;
+    const booking_id = rawReferenceId.includes('_') ? rawReferenceId.split('_')[0] : rawReferenceId;
     const amountPaidInPaise = paymentEntity.amount;
     const amountPaid = amountPaidInPaise / 100;
     const razorpay_payment_id = paymentEntity.id;
