@@ -148,13 +148,18 @@ export class AdminNotificationService {
           // Save a DB record for the admin notification using direct SQL if table exists
           try {
             if (AdminNotificationService.tableExists === null) {
-              const tableCheck = await query(`
-                SELECT EXISTS (
-                  SELECT FROM information_schema.tables 
-                  WHERE table_name = 'AdminNotification'
-                );
-              `);
-              AdminNotificationService.tableExists = tableCheck.rows[0].exists;
+              try {
+                const tableCheck = await query(`
+                  SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'AdminNotification'
+                  );
+                `);
+                AdminNotificationService.tableExists = tableCheck.rows[0].exists;
+              } catch (e) {
+                AdminNotificationService.tableExists = false;
+                logger.warn('AdminNotification table check failed, assuming false');
+              }
             }
 
             if (AdminNotificationService.tableExists) {
@@ -187,24 +192,30 @@ export class AdminNotificationService {
 
           // Save failed notification record using direct SQL
           try {
-            await query(`
-              INSERT INTO "AdminNotification" (
-                id, type, title, message, recipient, channel, status, error, data, created_at, updated_at
-              ) VALUES (
-                uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
-              )
-            `, [
-              data.type,
-              data.title,
-              data.message,
-              email,
-              'email',
-              'failed',
-              error instanceof Error ? error.message : String(error),
-              data.data ? JSON.stringify(data.data) : null
-            ]);
-          } catch (logError) {
-            logger.error('Failed to log email notification failure:', logError);
+            if (AdminNotificationService.tableExists !== false) {
+              await query(`
+                INSERT INTO "AdminNotification" (
+                  id, type, title, message, recipient, channel, status, error, data, created_at, updated_at
+                ) VALUES (
+                  gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
+                )
+              `, [
+                data.type,
+                data.title,
+                data.message,
+                email,
+                'email',
+                'failed',
+                error instanceof Error ? error.message : String(error),
+                data.data ? JSON.stringify(data.data) : null
+              ]);
+            }
+          } catch (logError: any) {
+            if (logError?.code === '42P01') {
+              AdminNotificationService.tableExists = false;
+            } else {
+              logger.error('Failed to log email notification failure:', logError);
+            }
           }
         }
       });
@@ -227,7 +238,7 @@ export class AdminNotificationService {
 
           // Save a DB record
           try {
-            if (AdminNotificationService.tableExists) {
+            if (AdminNotificationService.tableExists !== false) {
               await query(`
                 INSERT INTO "AdminNotification" (
                   id, type, title, message, recipient, channel, status, data, created_at, updated_at
@@ -244,8 +255,12 @@ export class AdminNotificationService {
                 JSON.stringify(data.data || {})
               ]);
             }
-          } catch (dbError) {
-            logger.error('Error saving WhatsApp notification to database:', dbError);
+          } catch (dbError: any) {
+            if (dbError?.code === '42P01') {
+              AdminNotificationService.tableExists = false;
+            } else {
+              logger.error('Error saving WhatsApp notification to database:', dbError);
+            }
           }
           return true;
         } catch (whatsappError: any) {

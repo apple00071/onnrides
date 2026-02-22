@@ -52,14 +52,19 @@ export class EmailService {
   private async initialize() {
     try {
       // Validate required environment variables
-      const requiredVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'EMAIL_FROM'];
+      const requiredVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD'];
       const missingVars = requiredVars.filter(varName => !process.env[varName]);
 
       if (missingVars.length > 0) {
-        const errorMsg = `Missing required environment variables: ${missingVars.join(', ')}`;
+        const errorMsg = `Missing required environment variables: ${missingVars.join(', ')}. Emails will not be sent.`;
         logger.error(errorMsg);
         this.initializationError = new Error(errorMsg);
         throw this.initializationError;
+      }
+
+      if (!process.env.EMAIL_FROM) {
+        logger.warn('EMAIL_FROM is missing, defaulting to contact@onnrides.com');
+        process.env.EMAIL_FROM = 'contact@onnrides.com';
       }
 
       // Create transporter with secure configuration
