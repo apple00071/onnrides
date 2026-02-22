@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDateTime } from '@/lib/utils/time-formatter';
 import { toast } from 'sonner';
-import { ArrowLeft, Eye, Pencil, PlayCircle, CheckCircle, Car, FileText, UserCircle, Edit3 } from 'lucide-react';
+import { ArrowLeft, Eye, Pencil, PlayCircle, CheckCircle, Car, FileText, UserCircle, Edit3, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BookingActions } from '@/components/bookings/BookingActions';
 import { DocumentViewerModal } from '@/components/ui/DocumentViewerModal';
@@ -98,6 +98,7 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isInitiateModalOpen, setIsInitiateModalOpen] = useState(false);
   const [selectedDocumentIndex, setSelectedDocumentIndex] = useState(0);
+  const [showPaymentHistory, setShowPaymentHistory] = useState(false);
   const router = useRouter();
 
   const getCleanLocation = (location?: string | null) => {
@@ -473,31 +474,39 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                     <div className="space-y-4">
                       {booking.payment_breakdown && booking.payment_breakdown.length > 0 ? (
                         <div className="bg-gray-50/50 border border-gray-100 rounded-xl overflow-hidden">
-                          <div className="px-4 py-2 bg-gray-100/50 border-b border-gray-100 flex justify-between items-center">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Payment History</span>
+                          <button
+                            onClick={() => setShowPaymentHistory(!showPaymentHistory)}
+                            className="w-full px-4 py-3 bg-gray-100/50 border-b border-gray-100 flex justify-between items-center hover:bg-gray-100 transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              {showPaymentHistory ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Payment History</span>
+                            </div>
                             <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
                               Total Paid: ₹{booking.paid_amount?.toLocaleString()}
                             </span>
-                          </div>
-                          <div className="divide-y divide-gray-100">
-                            {booking.payment_breakdown.map((payment) => (
-                              <div key={payment.id} className="p-3 hover:bg-white transition-colors">
-                                <div className="flex justify-between items-start mb-1">
-                                  <span className="text-xs font-bold text-gray-700 uppercase">{payment.method}</span>
-                                  <span className="text-sm font-bold text-green-700 tabular-nums">₹{payment.amount.toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between items-end">
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="text-[10px] text-gray-400 font-medium">{formatDateTime(payment.created_at)}</span>
-                                    {payment.reference && (
-                                      <span className="text-[9px] text-gray-300 font-mono tracking-wide">Ref: {payment.reference}</span>
-                                    )}
+                          </button>
+                          {showPaymentHistory && (
+                            <div className="divide-y divide-gray-100 bg-white">
+                              {booking.payment_breakdown.map((payment) => (
+                                <div key={payment.id} className="p-3 hover:bg-gray-50/50 transition-colors">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className="text-xs font-bold text-gray-700 uppercase">{payment.method}</span>
+                                    <span className="text-sm font-bold text-green-700 tabular-nums">₹{payment.amount.toLocaleString()}</span>
                                   </div>
-                                  <span className="text-[9px] font-bold text-gray-400 uppercase bg-gray-100 px-1.5 py-0.5 rounded tracking-wider">{payment.status}</span>
+                                  <div className="flex justify-between items-end">
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="text-[10px] text-gray-400 font-medium">{formatDateTime(payment.created_at)}</span>
+                                      {payment.reference && (
+                                        <span className="text-[9px] text-gray-300 font-mono tracking-wide">Ref: {payment.reference}</span>
+                                      )}
+                                    </div>
+                                    <span className="text-[9px] font-bold text-gray-400 uppercase bg-gray-100 px-1.5 py-0.5 rounded tracking-wider">{payment.status}</span>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl flex justify-between items-center text-[11px]">
