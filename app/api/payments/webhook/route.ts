@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
             event: event
         });
 
-        if (event === 'payment_link.paid') {
+        if (event === 'payment_link.paid' || event === 'payment_link.partially_paid') {
             await handlePaymentLinkPaid(payload.payload.payment_link.entity, payload.payload.payment.entity);
         } else if (event === 'order.paid') {
             // We can also handle standard order payments here as a backup to the frontend verification
