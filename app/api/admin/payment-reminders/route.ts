@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get booking details with customer information
+    // Get booking details with combined customer information (from users or custom booking fields)
     const bookingResult = await query(`
       SELECT 
         b.booking_id,
@@ -40,12 +40,12 @@ export async function POST(request: NextRequest) {
         b.booking_type,
         b.status,
         b.start_date,
-        u.name as customer_name,
-        u.phone as customer_phone,
-        u.email as customer_email,
+        COALESCE(b.customer_name, u.name) as customer_name,
+        COALESCE(b.phone_number, u.phone) as customer_phone,
+        COALESCE(b.email, u.email) as customer_email,
         v.name as vehicle_name
       FROM bookings b
-      JOIN users u ON b.user_id = u.id
+      LEFT JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
       WHERE b.id = $1
     `, [booking_id]);
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get pending bookings that might need payment reminders
+    // Get pending bookings with combined customer info
     const result = await query(`
       SELECT 
         b.id,
@@ -170,12 +170,12 @@ export async function GET(request: NextRequest) {
         b.start_date,
         b.created_at,
         b.status,
-        u.name as customer_name,
-        u.phone as customer_phone,
-        u.email as customer_email,
+        COALESCE(b.customer_name, u.name) as customer_name,
+        COALESCE(b.phone_number, u.phone) as customer_phone,
+        COALESCE(b.email, u.email) as customer_email,
         v.name as vehicle_name
       FROM bookings b
-      JOIN users u ON b.user_id = u.id
+      LEFT JOIN users u ON b.user_id = u.id
       JOIN vehicles v ON b.vehicle_id = v.id
       WHERE (b.status = 'pending' OR b.status = 'confirmed' OR b.status = 'active')
       ORDER BY b.created_at DESC
