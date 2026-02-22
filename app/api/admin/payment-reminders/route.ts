@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 import logger from '@/lib/logger';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
+import { createPaymentLink } from '@/lib/razorpay';
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
         b.start_date,
         u.name as customer_name,
         u.phone as customer_phone,
+        u.email as customer_email,
         v.name as vehicle_name
       FROM bookings b
       JOIN users u ON b.user_id = u.id
@@ -81,6 +83,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Auto-generate payment link if not provided
+    let finalPaymentLink = payment_link;
+    if (!finalPaymentLink && balanceDue > 0) {
+      try {
+        finalPaymentLink = await createPaymentLink({
+          amount: balanceDue,
+          reference_id: booking.booking_id,
+          description: `Payment for booking ${booking.booking_id}`,
+          customer: {
+            name: booking.customer_name,
+            contact: booking.customer_phone,
+            email: booking.customer_email
+          }
+        });
+      } catch (linkError) {
+        logger.error('Failed to auto-generate payment link:', linkError);
+        // Continue without link
+      }
+    }
+
+
     // Send WhatsApp payment reminder
     const whatsappService = WhatsAppNotificationService.getInstance();
     const result = await whatsappService.sendPaymentReminder({
@@ -90,7 +113,7 @@ export async function POST(request: NextRequest) {
       vehicle_model: booking.vehicle_name,
       amount_due: balanceDue,
       due_date: new Date(booking.start_date), // Use start date as due date
-      payment_link: payment_link || undefined,
+      payment_link: finalPaymentLink || undefined,
       reminder_type: reminder_type as 'first' | 'second' | 'final'
     });
 

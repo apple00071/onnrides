@@ -61,7 +61,7 @@ export async function createOrder({
   notes = {},
 }: CreateOrderParams): Promise<RazorpayOrder> {
   try {
-    logger.info('Creating Razorpay order:', { 
+    logger.info('Creating Razorpay order:', {
       amount,
       currency,
       receipt,
@@ -77,32 +77,32 @@ export async function createOrder({
       logger.error('Invalid amount type provided:', { amount, type: typeof amount });
       throw new Error('Invalid amount. Amount must be a number.');
     }
-    
+
     // ALWAYS convert to paise (1 INR = 100 paise)
     // We assume all incoming amounts are in INR (₹) and convert to paise
     const amountInPaise = Math.round(amount * 100);
-    
+
     logger.info('Amount conversion to paise:', {
       originalAmountINR: amount,
       convertedAmountPaise: amountInPaise
     });
-    
+
     // Handle minimum payment requirements for Razorpay
     let paymentAmount = amountInPaise;
-    
+
     // Check if we should skip minimum amount enforcement
     const skipMinimumCheck = notes?.skipMinimumCheck === 'true';
-    
+
     // Only apply minimum amount logic for very small amounts (< 1 INR / 100 paise)
     // AND when not explicitly skipped
     if (amountInPaise < 100 && !skipMinimumCheck) {
-      logger.warn('Amount too small for Razorpay minimum:', { 
+      logger.warn('Amount too small for Razorpay minimum:', {
         originalAmountINR: amount,
         amountInPaise: amountInPaise,
         minimum: 100,
         skipMinimumCheck
       });
-      
+
       // Record the original amount in the payment metadata
       notes = {
         ...notes,
@@ -111,10 +111,10 @@ export async function createOrder({
         is_minimum_payment: 'true',
         amount_adjustment: 'Used minimum payment of ₹1 instead of original amount'
       };
-      
+
       // Use minimum amount required by Razorpay
       paymentAmount = 100; // 1 INR = 100 paise
-      
+
       logger.info('Adjusted payment amount to meet Razorpay minimum:', {
         fromINR: amount,
         fromPaise: amountInPaise,
@@ -155,12 +155,12 @@ export async function createOrder({
         created_at: Number(order.created_at),
       };
 
-      logger.info('Created Razorpay order:', { 
-        orderId: processedOrder.id, 
-        amount: processedOrder.amount, 
-        currency: processedOrder.currency 
+      logger.info('Created Razorpay order:', {
+        orderId: processedOrder.id,
+        amount: processedOrder.amount,
+        currency: processedOrder.currency
       });
-      
+
       return processedOrder;
     } catch (razorpayError) {
       // Extract and log the detailed error info from Razorpay
@@ -175,13 +175,13 @@ export async function createOrder({
         metadata: (razorpayError as any)?.metadata,
         originalError: razorpayError
       };
-      
+
       logger.error('Razorpay API error when creating order:', {
         orderData,
         errorInfo,
         errorString: JSON.stringify(errorInfo)
       });
-      
+
       // Re-throw with enhanced context for better debugging
       throw new Error(`Razorpay order creation failed: ${errorInfo.message || 'Unknown error'}`);
     }
@@ -228,4 +228,59 @@ export function validatePaymentVerification({
     logger.error('Payment verification error:', error);
     return false;
   }
-} 
+}
+
+export interface CreatePaymentLinkParams {
+  amount: number;
+  currency?: string;
+  reference_id: string; // The booking_id
+  description: string;
+  customer: {
+    name: string;
+    contact?: string;
+    email?: string;
+  };
+}
+
+export async function createPaymentLink(params: CreatePaymentLinkParams): Promise<string> {
+  try {
+    const razorpay = getRazorpayInstance();
+
+    // Ensure amount is in paise, min 100 paise (Razorpay minimum)
+    const amountInPaise = Math.max(100, Math.round(params.amount * 100));
+
+    logger.info('Creating Razorpay Payment Link:', {
+      reference_id: params.reference_id,
+      amount: params.amount,
+      amountInPaise
+    });
+
+    const link = await razorpay.paymentLink.create({
+      amount: amountInPaise,
+      currency: params.currency || 'INR',
+      accept_partial: false,
+      reference_id: params.reference_id,
+      description: params.description,
+      customer: {
+        name: params.customer.name,
+        contact: params.customer.contact || undefined,
+        email: params.customer.email || undefined
+      },
+      notify: {
+        sms: false, // We use our own WhatsApp notification
+        email: false
+      }
+    });
+
+    logger.info('Created Razorpay Payment Link:', {
+      linkId: link.id,
+      shortUrl: link.short_url,
+      referenceId: params.reference_id
+    });
+
+    return link.short_url;
+  } catch (error) {
+    logger.error('Error creating Razorpay Payment Link:', error);
+    throw error;
+  }
+}
