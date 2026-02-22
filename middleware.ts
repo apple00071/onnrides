@@ -18,6 +18,7 @@ export async function middleware(request: NextRequest) {
       const isPublicApiRoute =
         pathname.startsWith('/api/auth') ||
         pathname.startsWith('/api/webhooks') ||
+        pathname.startsWith('/api/payments/webhook') ||
         pathname.startsWith('/api/maintenance') ||
         pathname.startsWith('/api/health') ||
         pathname.startsWith('/api/cron') ||
@@ -124,6 +125,6 @@ export function setMaintenanceMode(enabled: boolean) {
 export const config = {
   matcher: [
     // Match all routes except static files
-    '/((?!_next/static|_next/image|favicon.ico|.*\\..*|api/auth|api/webhooks|api/maintenance|api/health|api/cron).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\..*|api/auth|api/webhooks|api/payments/webhook|api/maintenance|api/health|api/cron).*)',
   ],
 };
