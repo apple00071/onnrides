@@ -176,6 +176,25 @@ export async function POST(request: NextRequest) {
         logger.error('Failed to send customer WhatsApp notification:', waError);
       }
 
+      // Notify Admin - Consolidated Booking & Payment
+      try {
+        await adminNotificationService.sendBookingSuccessNotification({
+          booking_id: booking.booking_id,
+          pickup_location: booking.pickup_location,
+          user_name: booking.user_name,
+          user_phone: booking.customer_phone || booking.user_phone || '',
+          vehicle_name: booking.vehicle_name,
+          start_date: booking.start_date,
+          end_date: booking.end_date,
+          total_price: booking.total_price,
+          advance_paid: Math.ceil(Number(booking.total_price) * 0.05),
+          payment_id: razorpay_payment_id
+        });
+        logger.info('Admin consolidated booking success notification sent', { bookingId: booking.id });
+      } catch (adminError) {
+        logger.error('Failed to send admin consolidated booking notification:', adminError);
+      }
+
     } catch (notifyError) {
       logger.error('Error in notification chain:', notifyError);
     }
