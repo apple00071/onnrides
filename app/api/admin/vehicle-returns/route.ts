@@ -6,6 +6,8 @@ import { authOptions } from '@/lib/auth';
 import { randomUUID } from 'crypto';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
 
+export const maxDuration = 60;
+
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);

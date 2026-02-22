@@ -20,11 +20,20 @@ export default function ContactPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    if (name === 'phone') {
+      const cleaned = value.replace(/\D/g, '').slice(0, 10);
+      setFormData(prev => ({
+        ...prev,
+        [name]: cleaned
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +44,7 @@ export default function ContactPage() {
   return (
     <div className="py-8 space-y-8">
       <h1 className="h1 text-center">Contact Us</h1>
-      
+
       <Grid cols={1} mdCols={2} gap={8} className="max-w-6xl mx-auto">
         {/* Contact Information */}
         <div className="space-y-8">
@@ -44,7 +53,7 @@ export default function ContactPage() {
             <p className="text-gray-600 mb-6">
               Have questions about our services? We&apos;re here to help!
             </p>
-            
+
             <div className="space-y-4">
               <div>
                 <h3 className="h3">Phone Numbers</h3>

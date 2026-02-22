@@ -115,6 +115,13 @@ export class EmailService {
 
   async sendEmail(to: string, subject: string, html: string, bookingId?: string | null): Promise<{ messageId: string; logId: string }> {
     try {
+      // Return early if emails are globally disabled
+      const isEmailDisabled = process.env.DISABLE_EMAILS === 'true' || true; // Set to true to disable as requested
+      if (isEmailDisabled) {
+        logger.info('Email skipped (DISABLED):', { to, subject, bookingId });
+        return { messageId: 'DISABLED', logId: 'DISABLED' };
+      }
+
       await this.waitForInitialization();
 
       if (!to || !to.includes('@')) {

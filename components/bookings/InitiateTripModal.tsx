@@ -184,7 +184,12 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setCustomerInfo(prev => ({ ...prev, [name]: value }));
+        if (name === 'phone' || name === 'emergencyContact') {
+            const cleaned = value.replace(/\D/g, '').slice(0, 10);
+            setCustomerInfo(prev => ({ ...prev, [name]: cleaned }));
+        } else {
+            setCustomerInfo(prev => ({ ...prev, [name]: value }));
+        }
     };
 
 

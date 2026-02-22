@@ -7,6 +7,8 @@ import { uploadFile } from '@/lib/upload';
 import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service';
 import { randomUUID } from 'crypto';
 
+export const maxDuration = 60;
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ bookingId: string }> }
@@ -70,24 +72,31 @@ export async function POST(
     const cleanlinessNotes = formData.get('cleanlinessNotes') as string;
     const securityDepositAmount = parseFloat(formData.get('securityDepositAmount') as string) || oldSecurityDepositAmount;
 
-    // Handle file uploads
+    // Handle file uploads in parallel
     const documentUrls: Record<string, string> = {};
     const fileTypes = ['dlFront', 'dlBack', 'aadhaarFront', 'aadhaarBack', 'customerPhoto'];
 
-    for (const type of fileTypes) {
+    const uploadPromises = fileTypes.map(async (type) => {
       const file = formData.get(type) as File;
       if (file) {
         const url = await uploadFile(file, `trip-initiations/${bookingId}/${type}`);
-        documentUrls[type] = url;
+        return { type, url };
       }
-    }
+      return null;
+    });
 
-    // Handle signature upload
     const signatureFile = formData.get('signature') as File;
-    if (signatureFile) {
-      const signatureUrl = await uploadFile(signatureFile, `trip-initiations/${bookingId}/signature`);
-      documentUrls.signature = signatureUrl;
-    }
+    const signaturePromise = signatureFile
+      ? uploadFile(signatureFile, `trip-initiations/${bookingId}/signature`).then(url => ({ type: 'signature', url }))
+      : Promise.resolve(null);
+
+    const uploadResults = await Promise.all([...uploadPromises, signaturePromise]);
+
+    uploadResults.forEach((result: any) => {
+      if (result) {
+        documentUrls[result.type] = result.url;
+      }
+    });
 
     // Use a transaction to ensure atomicity
     await withTransaction(async (client: any) => {
@@ -255,23 +264,21 @@ export async function POST(
       }
     });
 
-    // Send WhatsApp trip start confirmation
-    try {
-      const whatsappService = WhatsAppNotificationService.getInstance();
-      await whatsappService.sendTripStartConfirmation({
-        booking_id: bookingId,
-        customer_name: customerInfo.name,
-        customer_phone: customerInfo.phone,
-        vehicle_number: vehicleNumber,
-        emergency_contact: customerInfo.emergencyContact,
-        emergency_name: customerInfo.emergencyName,
-        security_deposit_amount: securityDepositAmount
-      });
-
+    // Send WhatsApp trip start confirmation without awaiting
+    const whatsappService = WhatsAppNotificationService.getInstance();
+    whatsappService.sendTripStartConfirmation({
+      booking_id: bookingId,
+      customer_name: customerInfo.name,
+      customer_phone: customerInfo.phone,
+      vehicle_number: vehicleNumber,
+      emergency_contact: customerInfo.emergencyContact,
+      emergency_name: customerInfo.emergencyName,
+      security_deposit_amount: securityDepositAmount
+    }).then(() => {
       logger.info('Trip start WhatsApp notification sent successfully', { bookingId });
-    } catch (whatsappError) {
+    }).catch((whatsappError) => {
       logger.error('Failed to send trip start WhatsApp notification:', whatsappError);
-    }
+    });
 
     return NextResponse.json({
       success: true,

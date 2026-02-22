@@ -121,7 +121,8 @@ export class AdminNotificationService {
       const emailsSent: string[] = [];
       const whatsappSent: string[] = [];
 
-      // Send emails with individual try/catch to allow partial success
+      // Emails are globally disabled as per user request
+      /* 
       const emailPromises = adminEmails.map(async (email) => {
         try {
           if (!email || !email.trim()) return;
@@ -219,6 +220,8 @@ export class AdminNotificationService {
           }
         }
       });
+      */
+      const emailPromises: Promise<any>[] = [];
 
       // 1. Define helper to send to a single phone
       const sendToPhone = async (phone: string) => {
@@ -271,10 +274,8 @@ export class AdminNotificationService {
         }
       };
 
-      // 2. Send to all admin phones sequentially
-      for (const phone of adminPhones) {
-        await sendToPhone(phone);
-      }
+      // 2. Send to all admin phones in parallel to prevent bottlenecks
+      await Promise.allSettled(adminPhones.map(phone => sendToPhone(phone)));
 
       const success = emailsSent.length > 0 || whatsappSent.length > 0;
 

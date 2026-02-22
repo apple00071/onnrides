@@ -60,6 +60,12 @@ export default function OfflineBookingPage() {
     }
   };
 
+  // Handle 10-digit phone input
+  const handlePhoneChange = (field: string, value: string) => {
+    const cleaned = value.replace(/\D/g, '').slice(0, 10);
+    setFormData(prev => ({ ...prev, [field]: cleaned }));
+  };
+
   // Calculate total and pending amounts
   const calculateAmounts = (rental: string, deposit: string, paid: string) => {
     const rentalAmount = parseFloat(rental) || 0;
@@ -274,10 +280,6 @@ export default function OfflineBookingPage() {
       alert('DL Number is required.');
       isValid = false;
     }
-    if (!newFormData.dlExpiryDate) {
-      alert('DL Expiry Date is required.');
-      isValid = false;
-    }
     if (!newFormData.permanentAddress) {
       alert('Permanent Address is required.');
       isValid = false;
@@ -415,7 +417,7 @@ export default function OfflineBookingPage() {
               <input
                 type="tel"
                 value={formData.phoneNumber}
-                onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                onChange={(e) => handlePhoneChange('phoneNumber', e.target.value)}
                 className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
                 required
               />
@@ -438,7 +440,7 @@ export default function OfflineBookingPage() {
               <input
                 type="tel"
                 value={formData.alternatePhone}
-                onChange={(e) => setFormData(prev => ({ ...prev, alternatePhone: e.target.value }))}
+                onChange={(e) => handlePhoneChange('alternatePhone', e.target.value)}
                 className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
               />
             </div>
@@ -463,7 +465,7 @@ export default function OfflineBookingPage() {
               <input
                 type="tel"
                 value={formData.fatherNumber}
-                onChange={(e) => setFormData(prev => ({ ...prev, fatherNumber: e.target.value }))}
+                onChange={(e) => handlePhoneChange('fatherNumber', e.target.value)}
                 className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
               />
             </div>
@@ -474,7 +476,7 @@ export default function OfflineBookingPage() {
               <input
                 type="tel"
                 value={formData.motherNumber}
-                onChange={(e) => setFormData(prev => ({ ...prev, motherNumber: e.target.value }))}
+                onChange={(e) => handlePhoneChange('motherNumber', e.target.value)}
                 className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
               />
             </div>
@@ -504,7 +506,7 @@ export default function OfflineBookingPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                DL Expiry Date <span className="text-red-500">*</span>
+                DL Expiry Date
               </label>
               <input
                 type="date"
@@ -512,7 +514,6 @@ export default function OfflineBookingPage() {
                 onChange={(e) => setFormData(prev => ({ ...prev, dlExpiryDate: e.target.value }))}
                 min={format(new Date(), 'yyyy-MM-dd')}
                 className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
               />
             </div>
             <div className="md:col-span-2">

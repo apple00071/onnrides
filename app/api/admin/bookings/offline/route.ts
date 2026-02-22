@@ -10,6 +10,8 @@ import { AdminNotificationService } from '@/lib/notifications/admin-notification
 import { checkVehicleAvailability } from '@/lib/bookings/availability';
 import logger from '@/lib/logger';
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   try {
     // Check admin authorization
@@ -55,9 +57,12 @@ export async function POST(request: Request) {
       return null;
     };
 
-    const dlScanUrl = await uploadScan('dlScan');
-    const aadharScanUrl = await uploadScan('aadharScan');
-    const selfieUrl = await uploadScan('selfie');
+    // Handle file uploads in parallel
+    const [dlScanUrl, aadharScanUrl, selfieUrl] = await Promise.all([
+      uploadScan('dlScan'),
+      uploadScan('aadharScan'),
+      uploadScan('selfie')
+    ]);
 
     // Calculate total hours for the booking
     const start = new Date(formData.get('startDateTime') as string);
@@ -159,7 +164,7 @@ export async function POST(request: Request) {
           formData.get('motherNumber'),
           formData.get('dateOfBirth') || null,
           formData.get('dlNumber'),
-          formData.get('dlExpiryDate'),
+          formData.get('dlExpiryDate') || null,
           formData.get('permanentAddress'),
           formData.get('vehicleModel'),
           formData.get('registrationNumber'),
@@ -208,47 +213,52 @@ export async function POST(request: Request) {
       return newBooking;
     });
 
-    // Send WhatsApp notification outside transaction
+    // Send notifications in parallel outside transaction to prevent timeout
     try {
       const whatsappService = WhatsAppNotificationService.getInstance();
-      await whatsappService.sendOfflineBookingConfirmation({
-        id: booking.id,
-        booking_id: displayBookingId,
-        customer_name: (formData.get('customerName') as string),
-        phone_number: (formData.get('phoneNumber') as string),
-        email: (formData.get('email') as string),
-        vehicle_model: (formData.get('vehicleModel') as string),
-        registration_number: (formData.get('registrationNumber') as string),
-        start_date: new Date(formData.get('startDateTime') as string),
-        end_date: new Date(formData.get('endDateTime') as string),
-        total_amount: Number(formData.get('totalAmount')),
-        pickup_location: 'Office Location',
-        status: 'active',
-        security_deposit: Number(formData.get('securityDepositAmount'))
-      });
-
-      logger.info('Offline booking WhatsApp notification sent successfully', { bookingId: displayBookingId });
-    } catch (waError) {
-      logger.error('WhatsApp notification failed:', waError);
-    }
-
-    // Send Admin Notification
-    try {
       const adminService = AdminNotificationService.getInstance();
-      await adminService.sendBookingNotification({
-        booking_id: displayBookingId,
-        pickup_location: 'Office Location',
-        user_name: (formData.get('customerName') as string),
-        user_phone: (formData.get('phoneNumber') as string),
-        vehicle_name: vehicleName,
-        start_date: new Date(formData.get('startDateTime') as string),
-        end_date: new Date(formData.get('endDateTime') as string),
-        total_price: Number(formData.get('totalAmount')),
-        advance_paid: Number(formData.get('paidAmount')) || 0
+
+      // Parallelize user and admin notifications without awaiting
+      // This allows the response to be sent immediately after DB write
+      Promise.allSettled([
+        whatsappService.sendOfflineBookingConfirmation({
+          id: booking.id,
+          booking_id: displayBookingId,
+          customer_name: (formData.get('customerName') as string),
+          phone_number: (formData.get('phoneNumber') as string),
+          email: (formData.get('email') as string),
+          vehicle_model: (formData.get('vehicleModel') as string),
+          registration_number: (formData.get('registrationNumber') as string),
+          start_date: new Date(formData.get('startDateTime') as string),
+          end_date: new Date(formData.get('endDateTime') as string),
+          total_amount: Number(formData.get('totalAmount')),
+          pickup_location: 'Office Location',
+          status: 'active',
+          security_deposit: Number(formData.get('securityDepositAmount'))
+        }),
+        adminService.sendBookingNotification({
+          booking_id: displayBookingId,
+          pickup_location: 'Office Location',
+          user_name: (formData.get('customerName') as string),
+          user_phone: (formData.get('phoneNumber') as string),
+          vehicle_name: vehicleName,
+          start_date: new Date(formData.get('startDateTime') as string),
+          end_date: new Date(formData.get('endDateTime') as string),
+          total_price: Number(formData.get('totalAmount')),
+          advance_paid: Number(formData.get('paidAmount')) || 0
+        })
+      ]).then((results) => {
+        results.forEach((result, index) => {
+          const serviceName = index === 0 ? 'User WhatsApp' : 'Admin Notification';
+          if (result.status === 'fulfilled') {
+            logger.info(`${serviceName} sent successfully for offline booking`, { bookingId: displayBookingId });
+          } else {
+            logger.error(`${serviceName} failed for offline booking:`, { error: result.reason, bookingId: displayBookingId });
+          }
+        });
       });
-      logger.info('Admin notification for offline booking sent successfully', { bookingId: displayBookingId });
-    } catch (adminError) {
-      logger.error('Admin notification failed for offline booking:', adminError);
+    } catch (notifError) {
+      logger.error('Error in parallel notification block:', notifError);
     }
 
     return NextResponse.json({ success: true, booking });
