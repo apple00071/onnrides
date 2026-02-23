@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { WhatsAppNotificationService } from '../../../../lib/whatsapp/notification-service';
 import { WhatsAppReminderService } from '../../../../lib/whatsapp/reminder-service';
 
 // This endpoint can be called by external cron services like Vercel Cron or GitHub Actions
@@ -30,19 +29,6 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('Starting scheduled WhatsApp reminders...');
-
-    // TEMPORARY: One-time test heartbeat for admin
-    const notificationService = WhatsAppNotificationService.getInstance();
-    await notificationService.sendAdminAlert('pickup' as any, {
-      booking_id: 'SYSTEM_CHECK',
-      customer_name: 'Cronjob Verification',
-      vehicle_model: 'Heartbeat Check',
-      start_date: new Date(),
-      end_date: new Date(),
-      total_amount: 0,
-      status: 'testing',
-      pickup_location: 'Cloud Server'
-    } as any);
 
     const reminderService = WhatsAppReminderService.getInstance();
     await reminderService.runAllReminders();
