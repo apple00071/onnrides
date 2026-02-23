@@ -404,7 +404,7 @@ Have a safe journey! 🛣️`;
         return false;
       }
 
-      const message = `Return Reminder
+      const message = `⏰ Return Reminder
 
 Dear ${bookingData.customer_name || 'Customer'},
 
@@ -419,14 +419,14 @@ ${bookingData.pickup_location ? `* Return Location: ${bookingData.pickup_locatio
 ✅ Before Return Checklist:
 * Fill fuel tank to the same level as received
 * Clean the vehicle (interior & exterior)
-* Check for any damages and report immediately
+* Check for any damages
 
 ⚠️ Important:
-Late returns may incur additional charges.
+* Late returns will incur charges of ₹100/- per hour.
+* For extensions, please call our support team for confirmation.
+* Extensions are only valid after receiving a confirmation via WhatsApp.
 
-📞 Contact Us:
-For any queries: +91 8309031203
-Email: contact@onnrides.com
+📞 Support: +91 8309031203
 
 Thank you for choosing OnnRides! 🚗`;
 

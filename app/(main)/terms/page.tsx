@@ -4,7 +4,7 @@ export default function TermsPage() {
   return (
     <main className="container mx-auto px-4 py-8 mt-16 max-w-4xl">
       <h1 className="text-3xl font-bold mb-8">Terms and Conditions</h1>
-      
+
       <div className="space-y-8">
         <section>
           <h2 className="text-xl font-semibold mb-4">1. Rental Requirements</h2>
@@ -62,13 +62,15 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-4">6. Return Policy</h2>
+          <h2 className="text-xl font-semibold mb-4">6. Return Policy & Late Charges</h2>
           <ul className="list-disc pl-6 text-gray-600 space-y-2">
-            <li>Vehicle must be returned at scheduled time</li>
-            <li>Late returns will incur additional charges</li>
-            <li>Vehicle must be returned in original condition</li>
-            <li>Fuel level must match pickup level</li>
-            <li>All provided accessories must be returned</li>
+            <li>Vehicle must be returned at the scheduled time.</li>
+            <li><strong>Late charges:</strong> Late returns will incur a charge of ₹100/- per hour.</li>
+            <li><strong>Extensions:</strong> If you need to extend your booking, you must call our support team for authorization.</li>
+            <li>Extension requests are only considered valid once you receive a confirmation message via WhatsApp.</li>
+            <li>Vehicle must be returned in its original condition.</li>
+            <li>Fuel level must match the level recorded at the time of pickup.</li>
+            <li>All provided accessories (helmets, keys, etc.) must be returned.</li>
           </ul>
         </section>
 
@@ -94,7 +96,7 @@ export default function TermsPage() {
         </section>
 
         <p className="text-gray-600 mt-8">
-          Last updated: March 14, 2024
+          Last updated: February 23, 2026
         </p>
       </div>
     </main>
