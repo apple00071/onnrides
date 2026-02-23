@@ -43,8 +43,8 @@ export class WhatsAppReminderService {
           v.name as vehicle_name
         FROM bookings b
         LEFT JOIN vehicles v ON b.vehicle_id = v.id
-        WHERE b.start_date >= NOW() + INTERVAL '1 hour 45 minutes'
-        AND b.start_date <= NOW() + INTERVAL '2 hours 15 minutes'
+        WHERE b.start_date >= (NOW() AT TIME ZONE 'Asia/Kolkata') + INTERVAL '1 hour 45 minutes'
+        AND b.start_date <= (NOW() AT TIME ZONE 'Asia/Kolkata') + INTERVAL '2 hours 15 minutes'
         AND b.status IN ('confirmed', 'active', 'pending')
         AND b.phone_number IS NOT NULL
       `);
@@ -60,7 +60,7 @@ export class WhatsAppReminderService {
             SELECT id FROM whatsapp_logs
             WHERE recipient = $1
             AND message LIKE '%[PICKUP_REMINDER_2H]%'
-            AND created_at >= NOW() - INTERVAL '24 hours'
+            AND created_at >= (NOW() AT TIME ZONE 'Asia/Kolkata') - INTERVAL '24 hours'
             LIMIT 1
           `, [booking.phone_number]);
 
@@ -133,8 +133,8 @@ export class WhatsAppReminderService {
             v.name as vehicle_name
           FROM bookings b
           LEFT JOIN vehicles v ON b.vehicle_id = v.id
-          WHERE b.end_date >= NOW() + $1::interval
-          AND b.end_date <= NOW() + $2::interval
+          WHERE b.end_date >= (NOW() AT TIME ZONE 'Asia/Kolkata') + $1::interval
+          AND b.end_date <= (NOW() AT TIME ZONE 'Asia/Kolkata') + $2::interval
           AND b.status IN ('initiated', 'active', 'ongoing')
           AND b.phone_number IS NOT NULL
         `, [window.minTime, window.maxTime]);
@@ -148,7 +148,7 @@ export class WhatsAppReminderService {
               SELECT id FROM whatsapp_logs
               WHERE recipient = $1
               AND message LIKE $2
-              AND created_at >= NOW() - INTERVAL '24 hours'
+              AND created_at >= (NOW() AT TIME ZONE 'Asia/Kolkata') - INTERVAL '24 hours'
               LIMIT 1
             `, [booking.phone_number, `%[${window.tag}]%`]);
 
