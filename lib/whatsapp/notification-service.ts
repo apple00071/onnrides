@@ -807,6 +807,49 @@ Thank you for your understanding! 🚗`;
   }
 
   /**
+   * Send alert to admin about upcoming events
+   */
+  async sendAdminAlert(type: 'pickup' | 'return', bookingData: BookingData): Promise<boolean> {
+    try {
+      const adminPhone = process.env.ADMIN_PHONE;
+      if (!adminPhone) {
+        logger.warn('ADMIN_PHONE not configured in environment');
+        return false;
+      }
+
+      const title = type === 'pickup' ? '🔔 Admin Alert: Upcoming Pickup' : '🔔 Admin Alert: Upcoming Return';
+      const timeLabel = type === 'pickup' ? 'Pickup Time' : 'Return Time';
+      const timeValue = type === 'pickup' ? formatIST(bookingData.start_date) : formatIST(bookingData.end_date);
+
+      const message = `${title}
+
+📋 Booking Information:
+* Booking ID: ${bookingData.booking_id}
+* Customer: ${bookingData.customer_name || 'N/A'}
+* Phone: ${bookingData.phone_number || 'N/A'}
+* Vehicle: ${bookingData.vehicle_model}
+* ${timeLabel}: ${timeValue}
+${bookingData.pickup_location ? `* Location: ${bookingData.pickup_location}` : ''}
+
+Please ensure the vehicle and documentation are ready.
+
+Thank you! 🚗`;
+
+      const result = await this.wasenderService.sendTextMessage(adminPhone, message);
+
+      if (result) {
+        await this.logWhatsAppMessage(adminPhone, message, `admin_${type}_alert`, 'delivered');
+        logger.info(`Admin ${type} alert sent`, { bookingId: bookingData.booking_id });
+      }
+
+      return result;
+    } catch (error) {
+      logger.error(`Error sending admin ${type} alert:`, error);
+      return false;
+    }
+  }
+
+  /**
    * Log WhatsApp message to database
    */
   private async logWhatsAppMessage(

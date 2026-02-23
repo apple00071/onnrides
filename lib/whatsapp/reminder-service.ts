@@ -88,6 +88,9 @@ export class WhatsAppReminderService {
 
           await this.notificationService.sendPickupReminder(bookingData);
 
+          // Also notify admin
+          await this.notificationService.sendAdminAlert('pickup', bookingData);
+
           // Add a small delay between messages
           await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -176,6 +179,9 @@ export class WhatsAppReminderService {
             };
 
             await this.notificationService.sendReturnReminder(bookingData);
+
+            // Also notify admin
+            await this.notificationService.sendAdminAlert('return', bookingData);
             await new Promise(resolve => setTimeout(resolve, 1000));
           } catch (error) {
             logger.error(`Error sending ${window.label} return reminder for booking ${booking.booking_id}:`, error);
