@@ -737,7 +737,8 @@ This is a ${reminderData.reminder_type} reminder for your pending payment.
 * Amount Due: ₹${reminderData.amount_due}${paymentLinkInfo}
 
 ⚠️ Important:
-Please complete your payment to avoid any late charges.
+* Please complete your payment to avoid late charges.
+* Late returns will incur charges of ₹100/- per hour.
 
 📞 Contact Us:
 For payment assistance: +91 8309031203

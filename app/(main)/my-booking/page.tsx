@@ -168,6 +168,11 @@ export default function MyBooking() {
                   <p><span className="font-medium">Status:</span> <span className="capitalize">{currentBooking.status}</span></p>
                   <p><span className="font-medium">Payment Status:</span> <span className="capitalize">{currentBooking.payment_status}</span></p>
                   <p><span className="font-medium">Total Amount:</span> ₹{currentBooking.total_amount}</p>
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800 font-medium">
+                      ⚠️ Note: Late returns will incur charges of ₹100/- per hour. Extension requires a call to support.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

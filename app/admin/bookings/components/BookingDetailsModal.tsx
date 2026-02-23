@@ -144,6 +144,11 @@ export default function BookingDetailsModal({
                           </p>
                         </>
                       )}
+                      <div className="mt-2 p-2 bg-orange-50 rounded-md border border-orange-200">
+                        <p className="text-xs text-orange-800 font-medium">
+                          Note: Late returns will incur charges of ₹100/- per hour.
+                        </p>
+                      </div>
                     </div>
                   </div>
 
