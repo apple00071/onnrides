@@ -424,7 +424,6 @@ ${bookingData.pickup_location ? `* Return Location: ${bookingData.pickup_locatio
 ⚠️ Important:
 * Late returns will incur charges of ₹100/- per hour.
 * For extensions, please call our support team for confirmation.
-* Extensions are only valid after receiving a confirmation via WhatsApp.
 
 📞 Support: +91 8309031203
 
