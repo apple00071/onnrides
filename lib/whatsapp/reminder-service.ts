@@ -196,6 +196,78 @@ export class WhatsAppReminderService {
   }
 
   /**
+   * Send feedback requests for trips completed 2 hours ago
+   */
+  async sendFeedbackReminders(): Promise<void> {
+    try {
+      logger.info('Starting feedback reminder check...');
+
+      // Find bookings completed approximately 2 hours ago
+      // We join with vehicle_returns to get the actual return time
+      const result = await query(`
+        SELECT 
+          b.*,
+          v.name as vehicle_name,
+          vr.created_at as return_time
+        FROM bookings b
+        JOIN vehicle_returns vr ON b.id = vr.booking_id
+        LEFT JOIN vehicles v ON b.vehicle_id = v.id
+        WHERE b.status = 'completed'
+        AND vr.created_at >= (NOW() AT TIME ZONE 'Asia/Kolkata') - INTERVAL '2 hours 15 minutes'
+        AND vr.created_at <= (NOW() AT TIME ZONE 'Asia/Kolkata') - INTERVAL '1 hour 45 minutes'
+        AND b.phone_number IS NOT NULL
+      `);
+
+      const bookings = result.rows;
+      logger.info(`Found ${bookings.length} completed bookings for feedback requests`);
+
+      for (const booking of bookings) {
+        try {
+          // Check if feedback request was already sent
+          const logResult = await query(`
+            SELECT id FROM whatsapp_logs
+            WHERE recipient = $1
+            AND message LIKE '%[FEEDBACK_REQUEST]%'
+            AND created_at >= (NOW() AT TIME ZONE 'Asia/Kolkata') - INTERVAL '48 hours'
+            LIMIT 1
+          `, [booking.phone_number]);
+
+          if (logResult.rows.length > 0) {
+            logger.info(`Feedback request already sent for booking ${booking.booking_id}`);
+            continue;
+          }
+
+          const bookingData = {
+            id: booking.id,
+            booking_id: booking.booking_id,
+            customer_name: booking.customer_name,
+            phone_number: booking.phone_number,
+            email: booking.email,
+            vehicle_model: booking.vehicle_name || booking.vehicle_model,
+            registration_number: booking.registration_number,
+            start_date: booking.start_date,
+            end_date: booking.end_date,
+            total_amount: Number(booking.total_price),
+            pickup_location: booking.pickup_location,
+            status: booking.status
+          };
+
+          await this.notificationService.sendFeedbackRequest(bookingData);
+
+          // Add a small delay
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (error) {
+          logger.error(`Error sending feedback request for booking ${booking.booking_id}:`, error);
+        }
+      }
+
+      logger.info('Feedback reminder check completed');
+    } catch (error) {
+      logger.error('Error in sendFeedbackReminders:', error);
+    }
+  }
+
+  /**
    * Run all reminder checks
    */
   async runAllReminders(): Promise<void> {
@@ -204,6 +276,7 @@ export class WhatsAppReminderService {
     try {
       await this.sendPickupReminders();
       await this.sendReturnReminders();
+      await this.sendFeedbackReminders();
       logger.info('All reminder checks completed successfully');
     } catch (error) {
       logger.error('Error running all reminders:', error);

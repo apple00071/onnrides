@@ -859,6 +859,61 @@ Thank you! 🚗`;
   }
 
   /**
+   * Send post-trip feedback request
+   */
+  async sendFeedbackRequest(bookingData: BookingData): Promise<boolean> {
+    try {
+      if (!bookingData.phone_number) {
+        logger.warn('No phone number for feedback request', { bookingId: bookingData.booking_id });
+        return false;
+      }
+
+      // Determine Google Review link based on location
+      const location = bookingData.pickup_location?.toLowerCase() || '';
+      let reviewLink = 'https://g.page/r/CR2AfhUw56VUEAE/review'; // Default to Madhapur
+
+      if (location.includes('erragadda')) {
+        reviewLink = 'https://g.page/r/CYzDbcg5kcDMEAE/review';
+      }
+
+      const message = `🌟 *How was your ride with OnnRides?*
+
+Dear ${bookingData.customer_name || 'Customer'},
+
+Thank you for choosing OnnRides for your recent trip with the ${bookingData.vehicle_model}! We hope you had a smooth and enjoyable journey.
+
+To help us improve, could you please rate your experience?
+⭐⭐⭐⭐⭐ Excellent
+⭐⭐⭐⭐ Good
+⭐⭐⭐ Average
+⭐⭐ Fair
+⭐ Poor
+
+Also, we would love for you to share your feedback with others! 📝
+Please leave us a review here:
+${reviewLink}
+
+If you faced any issues or have suggestions, feel free to call us at +91 8309031203.
+
+Thank you for being a valued customer! 🚗`;
+
+      const result = await this.wasenderService.sendTextMessage(bookingData.phone_number, message);
+
+      if (result) {
+        await this.logWhatsAppMessage(bookingData.phone_number, message, 'feedback_request', 'delivered');
+        logger.info('Feedback request WhatsApp sent', { bookingId: bookingData.booking_id });
+      } else {
+        await this.logWhatsAppMessage(bookingData.phone_number, message, 'feedback_request', 'failed');
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error sending feedback request WhatsApp:', error);
+      return false;
+    }
+  }
+
+  /**
    * Log WhatsApp message to database
    */
   private async logWhatsAppMessage(
