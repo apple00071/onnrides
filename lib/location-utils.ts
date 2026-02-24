@@ -45,7 +45,7 @@ const locationData: LocationData = {
     coordinates: { lat: 17.4489, lng: 78.4312 },
     nearbyAreas: ["SR Nagar", "Sanathnagar", "Ameerpet", "Moosapet"],
     landmarks: ["Erragadda Metro Station", "Gokul Theatre", "ESI Hospital", "Rythu Bazar"],
-    description: "Conveniently situated near the Erragadda Metro (Pillar No. 841), making it a prime spot for commuters from SR Nagar and Ameerpet."
+    description: "Conveniently situated near the Erragadda Metro (Pillar No. 955), making it a prime spot for commuters from SR Nagar and Ameerpet."
   }
 };
 
