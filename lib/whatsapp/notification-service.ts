@@ -308,6 +308,15 @@ Thank you for choosing OnnRides! 🚗`;
         return false;
       }
 
+      // Map links for locations
+      const location = bookingData.pickup_location?.toLowerCase() || '';
+      let mapLink = '';
+      if (location.includes('erragadda')) {
+        mapLink = '\n📍 Location: https://maps.app.goo.gl/APrYoQhXXvCMFWfHA';
+      } else if (location.includes('madhapur')) {
+        mapLink = '\n📍 Location: https://maps.app.goo.gl/nNh8Lg96K9YZJqSx9';
+      }
+
       const message = `⏰ Pickup Reminder
 
 Dear ${bookingData.customer_name || 'Customer'},
@@ -319,7 +328,7 @@ This is a reminder for your upcoming vehicle pickup soon!
 * Vehicle: ${bookingData.vehicle_model}
 * Pickup Date: ${formatIST(bookingData.start_date)}
 * Return Date: ${formatIST(bookingData.end_date)}
-${bookingData.pickup_location ? `* Pickup Location: ${bookingData.pickup_location}` : ''}
+${bookingData.pickup_location ? `* Pickup Location: ${bookingData.pickup_location}${mapLink}` : ''}
 
 📋 *Please Bring:*
 * Valid Driving License (Original)
