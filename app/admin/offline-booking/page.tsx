@@ -989,7 +989,7 @@ export default function OfflineBookingPage() {
               <p>• The vehicle should be returned in the same condition as it was rented.</p>
               <p>• Any damage to the vehicle will be charged to the customer.</p>
               <p>• The security deposit will be refunded after the vehicle is returned and inspected.</p>
-              <p>• Late returns will be charged extra as per the hourly rate.</p>
+              <p>• Late returns will be charged at ₹100/- per hour. Extension requires a call to support.</p>
               <p>• The customer is responsible for any traffic violations during the rental period.</p>
               <p>• The customer must have a valid driving license.</p>
               <p>• The customer must be above 21 years of age.</p>

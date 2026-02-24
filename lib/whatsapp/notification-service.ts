@@ -169,7 +169,10 @@ ${bookingData.pickup_location ? `* Pickup Location: ${bookingData.pickup_locatio
 
 📞 Contact Us:
 For any queries: +91 8309031203
-Email: contact@onnrides.com
+
+⚠️ Important:
+* Late returns will incur charges of ₹100/- per hour.
+* For extensions, please call support for confirmation.
 
 Thank you for choosing OnnRides! 🚗`;
 
@@ -226,7 +229,10 @@ You will receive the pickup location and further details shortly.
 
 📞 Contact Us:
 For any queries: +91 8309031203
-Email: contact@onnrides.com
+
+⚠️ Important:
+* Late returns will incur charges of ₹100/- per hour.
+* For extensions, please call support for confirmation.
 
 Thank you for choosing OnnRides! 🏍️ 🚗`;
 
@@ -472,7 +478,10 @@ ${bookingData.security_deposit !== undefined ? `* Security Deposit: ₹${booking
 
 📞 Contact Us:
 For any queries: +91 8309031203
-Email: contact@onnrides.com
+
+⚠️ Important:
+* Late returns will incur charges of ₹100/- per hour.
+* For extensions, please call support for confirmation.
 
 Thank you for choosing OnnRides! 🚗`;
 
