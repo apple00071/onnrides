@@ -116,8 +116,8 @@ await whatsapp.sendBookingConfirmation({
   customerPhone: "919876543210",
   vehicleType: "Bike",
   vehicleModel: "Honda Activa",
-  startDate: "2024-03-20 10:00 AM",
-  endDate: "2024-03-21 10:00 AM",
+  startDate: "2026-03-20 10:00 AM",
+  endDate: "2026-03-21 10:00 AM",
   bookingId: "OR123",
   totalAmount: "₹500",
   pickupLocation: "Hyderabad"

@@ -142,7 +142,7 @@ export default function EditCouponModal({
                 id="code"
                 value={formData.code}
                 onChange={(e) => handleChange('code', e.target.value.toUpperCase())}
-                placeholder="SUMMER2024"
+                placeholder="SUMMER2026"
                 required
               />
             </div>

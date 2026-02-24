@@ -108,7 +108,7 @@ export default function PrivacyPolicyPage() {
 
           <div className="mt-8 pt-6 border-t border-gray-200">
             <p className="text-sm text-gray-500">
-              Last Updated: March 14, 2024
+              Last Updated: February 24, 2026
             </p>
           </div>
         </div>

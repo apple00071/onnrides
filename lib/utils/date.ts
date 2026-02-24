@@ -1,6 +1,6 @@
 /**
  * Formats a date into a human-readable string in 12-hour format in IST
- * Example: "24/03/2025 5:30 AM"
+ * Example: "24/03/2026 5:30 AM"
  * @param date - Date object or date string to format
  * @returns Formatted date string
  */
@@ -17,7 +17,7 @@ export function formatDateTime(date: Date | string): string {
     timeZone: 'Asia/Kolkata',
     day: '2-digit',   // 24
     month: '2-digit', // 03
-    year: 'numeric',  // 2025
+    year: 'numeric',  // 2026
     hour: 'numeric',  // 5
     minute: '2-digit',// 30
     hour12: true      // AM/PM
@@ -26,7 +26,7 @@ export function formatDateTime(date: Date | string): string {
 
 /**
  * Formats a date into a short date string in IST
- * Example: "24/03/2025"
+ * Example: "24/03/2026"
  * @param date - Date object or date string to format
  * @returns Formatted date string
  */
@@ -43,7 +43,7 @@ export function formatShortDate(date: Date | string): string {
     timeZone: 'Asia/Kolkata',
     day: '2-digit',   // 24
     month: '2-digit', // 03
-    year: 'numeric'   // 2025
+    year: 'numeric'   // 2026
   });
 }
 
@@ -77,7 +77,7 @@ export function formatTime(date: Date | string): string {
  */
 export function isPastDate(date: Date | string): boolean {
   const d = typeof date === 'string' ? new Date(date) : date;
-  
+
   // Handle invalid dates
   if (isNaN(d.getTime())) {
     console.error('Invalid date provided to isPastDate:', date);
@@ -96,7 +96,7 @@ export function isPastDate(date: Date | string): boolean {
 export function getDaysBetween(start: Date | string, end: Date | string): number {
   const startDate = typeof start === 'string' ? new Date(start) : start;
   const endDate = typeof end === 'string' ? new Date(end) : end;
-  
+
   // Handle invalid dates
   if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
     console.error('Invalid date(s) provided to getDaysBetween:', { start, end });
@@ -116,7 +116,7 @@ export function getDaysBetween(start: Date | string, end: Date | string): number
 export function calculateDuration(start: Date | string, end: Date | string): number {
   const startDate = typeof start === 'string' ? new Date(start) : start;
   const endDate = typeof end === 'string' ? new Date(end) : end;
-  
+
   // Handle invalid dates
   if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
     console.error('Invalid date(s) provided to calculateDuration:', { start, end });
