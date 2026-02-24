@@ -4,7 +4,7 @@ import { VehicleCard, Vehicle } from '@/components/ui/VehicleCard';
 import { notFound } from 'next/navigation';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import LocationStructuredData from '@/components/ui/LocationStructuredData';
-import { getLocationAddress, getLocationCoordinates, getLocationPostalCode, getNearbyAreas } from '@/lib/location-utils';
+import { getLocationAddress, getLocationCoordinates, getLocationPostalCode, getNearbyAreas, getLocationLandmarks, getLocationDescription } from '@/lib/location-utils';
 
 interface LocationPageProps {
   params: {
@@ -27,10 +27,11 @@ export async function generateMetadata({ params }: LocationPageProps): Promise<M
   const location = decodeURIComponent(params.location);
   const capitalizedLocation = location.charAt(0).toUpperCase() + location.slice(1);
   const areas = getNearbyAreas(location);
+  const description = getLocationDescription(location);
 
   return {
     title: `Bike Rental in ${capitalizedLocation}, Hyderabad | OnnRides`,
-    description: `Rent bikes in ${capitalizedLocation}, Hyderabad. Choose from Activa, Dio & more. Free delivery, no hidden charges. Book Now & Get 10% Off!`,
+    description: description || `Rent bikes in ${capitalizedLocation}, Hyderabad. Choose from Activa, Dio & more. Free delivery, no hidden charges. Book Now & Get 10% Off!`,
     keywords: [
       `bike rental in ${location}`,
       `activa on rent in ${location}`,
@@ -77,19 +78,21 @@ export default async function LocationPage({ params }: LocationPageProps) {
   }
 
   // Transform the vehicles data to match the Vehicle interface
-  const vehicles: Vehicle[] = result.rows.map((vehicle: VehicleRow) => ({
-    id: vehicle.id,
-    name: vehicle.name,
-    description: vehicle.type || '',
-    image: vehicle.images ? vehicle.images.split(',')[0] : '',
-    price: vehicle.price_per_hour * 24,
-    category: vehicle.type || '',
-    available: vehicle.is_available ?? true
+  const vehicles: Vehicle[] = result.rows.map((row: VehicleRow) => ({
+    id: row.id,
+    name: row.name,
+    description: row.type || '',
+    image: row.images ? row.images.split(',')[0] : '',
+    price: row.price_per_hour * 24,
+    category: row.type || '',
+    available: row.is_available ?? true
   }));
 
   const formattedLocation = location.charAt(0).toUpperCase() + location.slice(1);
   const areas = getNearbyAreas(location);
-  
+  const landmarks = getLocationLandmarks(location);
+  const description = getLocationDescription(location);
+
   // Location data for structured data
   const locationData = {
     name: `OnnRides ${formattedLocation}`,
@@ -126,19 +129,32 @@ export default async function LocationPage({ params }: LocationPageProps) {
 
       <div className="prose max-w-none mb-8">
         <p className="text-lg">
-          Looking for reliable bike rentals in {formattedLocation}, Hyderabad? OnnRides offers a wide selection of 
-          well-maintained bikes including Activa, Dio, and Access at competitive rates. Whether you need a bike 
-          for a few hours or several days, we've got you covered with free delivery to {areas.join(', ')}.
+          {description || `Looking for reliable bike rentals in ${formattedLocation}, Hyderabad? OnnRides offers a wide selection of well-maintained bikes including Activa, Dio, and Access at competitive rates.`}
+          {' '}Whether you need a bike for a few hours or several days, we've got you covered with free delivery to {areas.join(', ')}.
         </p>
+
+        {landmarks.length > 0 && (
+          <div className="mt-4">
+            <h2 className="text-xl font-semibold mb-3">Popular Landmarks Near Our {formattedLocation} Branch</h2>
+            <div className="flex flex-wrap gap-2 mb-6">
+              {landmarks.map((landmark, idx) => (
+                <span key={idx} className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium border border-gray-200">
+                  📍 {landmark}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="mt-4">
           <h2 className="text-xl font-semibold mb-3">Why Rent from OnnRides in {formattedLocation}?</h2>
           <ul className="list-disc pl-6">
             <li>Starting at just ₹199/day</li>
-            <li>Free delivery to your location</li>
-            <li>Well-maintained bikes</li>
-            <li>No hidden charges</li>
-            <li>24/7 roadside assistance</li>
-            <li>Flexible rental duration</li>
+            <li>Free delivery to your location in {formattedLocation}</li>
+            <li>Well-maintained bikes & 24/7 support</li>
+            <li>No hidden charges or high deposits</li>
+            <li>Conveniently located near {landmarks[0] || 'major transport hubs'}</li>
+            <li>Flexible rental duration (Hourly/Daily/Monthly)</li>
           </ul>
         </div>
       </div>
@@ -150,29 +166,33 @@ export default async function LocationPage({ params }: LocationPageProps) {
         ))}
       </div>
 
-      <div className="mt-8 prose max-w-none">
-        <h2 className="text-xl font-semibold mb-4">Popular Areas We Serve in {formattedLocation}</h2>
+      <div className="mt-12 prose max-w-none border-t pt-8">
+        <h2 className="text-xl font-semibold mb-4">Bike Rental Services in {formattedLocation}</h2>
         <p>
-          We provide bike rental services across {formattedLocation} including {areas.join(', ')}. 
-          Our strategic location ensures quick delivery and pickup services across the area.
+          We provide bike rental services across {formattedLocation} including {areas.join(', ')}.
+          Our strategic location near {landmarks.join(', ')} ensures quick delivery and pickup services across the area.
         </p>
-        
+
         <h2 className="text-xl font-semibold mt-6 mb-4">Frequently Asked Questions</h2>
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           <div>
-            <h3 className="font-medium">What documents do I need to rent a bike in {formattedLocation}?</h3>
-            <p>You need a valid government ID (Aadhar/PAN/Passport) and a valid driving license.</p>
+            <h3 className="font-semibold text-gray-900">What documents do I need to rent a bike in {formattedLocation}?</h3>
+            <p className="text-gray-600">You need a valid government ID (Aadhar/PAN/Passport) and a valid driving license for the vehicle category.</p>
           </div>
           <div>
-            <h3 className="font-medium">Do you provide helmets?</h3>
-            <p>Yes, we provide ISI certified helmets with all our bike rentals at no additional cost.</p>
+            <h3 className="font-semibold text-gray-900">Do you provide helmets?</h3>
+            <p className="text-gray-600">Yes, we provide ISI certified helmets with all our bike rentals at no additional cost for your safety.</p>
           </div>
           <div>
-            <h3 className="font-medium">What are your working hours in {formattedLocation}?</h3>
-            <p>We are open from 8 AM to 8 PM, 7 days a week. 24/7 support available for existing rentals.</p>
+            <h3 className="font-semibold text-gray-900">What are your working hours in {formattedLocation}?</h3>
+            <p className="text-gray-600">We are open from 8 AM to 8 PM, 7 days a week. Support is available 24/7 for active bookings.</p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900">Is there a limit on kilometers?</h3>
+            <p className="text-gray-600">Most of our rentals in {formattedLocation} come with a generous daily limit. Please check the specific vehicle details for exact terms.</p>
           </div>
         </div>
       </div>
     </div>
   );
-} 
+}
