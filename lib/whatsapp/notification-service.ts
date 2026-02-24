@@ -312,9 +312,9 @@ Thank you for choosing OnnRides! 🚗`;
       const location = bookingData.pickup_location?.toLowerCase() || '';
       let mapLink = '';
       if (location.includes('erragadda')) {
-        mapLink = '\n📍 Location: https://maps.app.goo.gl/APrYoQhXXvCMFWfHA';
+        mapLink = '\n📍 Location: https://maps.app.goo.gl/TzHybvst9ZiqEs7q6';
       } else if (location.includes('madhapur')) {
-        mapLink = '\n📍 Location: https://maps.app.goo.gl/nNh8Lg96K9YZJqSx9';
+        mapLink = '\n📍 Location: https://maps.app.goo.gl/GcmU7iSwLCxL3gq96';
       }
 
       const message = `⏰ Pickup Reminder
