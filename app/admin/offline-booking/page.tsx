@@ -630,7 +630,6 @@ export default function OfflineBookingPage() {
                 <option value="">Select Location</option>
                 <option value="Madhapur">Madhapur</option>
                 <option value="Erragadda">Erragadda</option>
-                <option value="Office Location">Office Location</option>
               </select>
             </div>
             <div className="hidden md:block"></div>

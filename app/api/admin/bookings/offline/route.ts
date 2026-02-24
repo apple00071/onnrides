@@ -233,13 +233,13 @@ export async function POST(request: Request) {
           start_date: new Date(formData.get('startDateTime') as string),
           end_date: new Date(formData.get('endDateTime') as string),
           total_amount: Number(formData.get('totalAmount')),
-          pickup_location: 'Office Location',
+          pickup_location: (formData.get('pickupLocation') as string) || 'Madhapur',
           status: 'active',
           security_deposit: Number(formData.get('securityDepositAmount'))
         }),
         adminService.sendBookingNotification({
           booking_id: displayBookingId,
-          pickup_location: 'Office Location',
+          pickup_location: (formData.get('pickupLocation') as string) || 'Madhapur',
           user_name: (formData.get('customerName') as string),
           user_phone: (formData.get('phoneNumber') as string),
           vehicle_name: vehicleName,
