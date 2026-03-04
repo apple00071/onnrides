@@ -6,9 +6,13 @@ import { parseISO, format } from 'date-fns';
 
 export async function POST(request: Request) {
   try {
-    // Check admin authorization
+    // Check admin or staff authorization
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
+    const userRole = session?.user?.role?.toLowerCase();
+    const isAuthorized = userRole === 'admin' ||
+      (userRole === 'staff' && (session?.user?.permissions as any)?.manage_bookings);
+
+    if (!session?.user || !isAuthorized) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
