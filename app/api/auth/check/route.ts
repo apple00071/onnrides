@@ -17,10 +17,11 @@ export async function GET() {
       );
     }
 
-    // Check if user has admin role
-    if (session.user.role !== 'admin') {
+    // Check if user has admin or staff role
+    const role = session.user.role?.toLowerCase();
+    if (role !== 'admin' && role !== 'staff') {
       return NextResponse.json(
-        { error: 'Admin access required' },
+        { error: 'Admin or staff access required' },
         { status: 403 }
       );
     }

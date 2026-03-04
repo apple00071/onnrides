@@ -188,8 +188,9 @@ export default async function RootLayout({
     const session = await getServerSession(authOptions);
 
     // Optimized maintenance mode check: skip for admin users to improve performance
-    const isAdmin = session?.user?.role === 'admin';
-    const maintenanceMode = isAdmin ? false : await getBooleanSetting(SETTINGS.MAINTENANCE_MODE, false);
+    const role = session?.user?.role?.toLowerCase();
+    const isInternalUser = role === 'admin' || role === 'staff';
+    const maintenanceMode = isInternalUser ? false : await getBooleanSetting(SETTINGS.MAINTENANCE_MODE, false);
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
 

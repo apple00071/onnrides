@@ -39,8 +39,9 @@ export async function POST(request: Request) {
       });
     }
 
-    const isAdmin = user.role?.toLowerCase() === 'admin';
-    logger.debug('User role check', { role: user.role, isAdmin });
+    const role = user.role?.toLowerCase();
+    const isAdmin = role === 'admin' || role === 'staff';
+    logger.debug('User role check', { role, isAdmin });
 
     return new NextResponse(JSON.stringify({
       isAdmin,

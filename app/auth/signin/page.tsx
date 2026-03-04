@@ -56,7 +56,7 @@ export default function SignIn() {
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
         setResetEmailSent(true);
         toast.success('Password reset instructions sent to your email');
@@ -91,10 +91,11 @@ export default function SignIn() {
         // Get user data to check role
         const userResponse = await fetch('/api/auth/session');
         const userData = await userResponse.json();
-        
-        if (userData?.user?.role === 'admin') {
+
+        const role = userData?.user?.role?.toLowerCase();
+        if (role === 'admin' || role === 'staff') {
           toast.error('Please use the admin login page');
-          router.push('/admin/login');
+          router.push('/admin-login');
         } else {
           router.push('/');
           router.refresh();
@@ -167,9 +168,9 @@ export default function SignIn() {
                 </button>
               </div>
             ) : (
-              <form 
-                className="mt-6 space-y-4 sm:space-y-6" 
-                onSubmit={isForgotPassword ? handleForgotPassword : handleSubmit} 
+              <form
+                className="mt-6 space-y-4 sm:space-y-6"
+                onSubmit={isForgotPassword ? handleForgotPassword : handleSubmit}
                 noValidate
               >
                 <div className="space-y-4">
@@ -247,8 +248,8 @@ export default function SignIn() {
                     disabled={loading}
                     className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-[#f26e24] hover:bg-[#e05d13] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f26e24] disabled:opacity-50 transition-colors"
                   >
-                    {loading 
-                      ? (isForgotPassword ? 'Sending...' : 'Signing in...') 
+                    {loading
+                      ? (isForgotPassword ? 'Sending...' : 'Signing in...')
                       : (isForgotPassword ? 'Send reset instructions' : 'Sign in')}
                   </button>
                 </div>
