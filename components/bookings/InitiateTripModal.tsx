@@ -12,6 +12,7 @@ import { formatCurrency } from '@/lib/utils/currency-formatter';
 import { toast } from 'sonner';
 import logger from '@/lib/logger';
 import { SignatureCanvas } from '@/components/ui/SignatureCanvas';
+import { compressImage } from '@/lib/utils/image-compression';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DrawerDialog } from '@/components/ui/drawer-dialog';
 import { cn } from '@/lib/utils';
@@ -204,13 +205,24 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
     };
 
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: keyof DocumentFiles) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: keyof DocumentFiles) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            const previewUrl = URL.createObjectURL(file);
-            setDocumentFiles(prev => ({ ...prev, [type]: file }));
-            setDocumentPreviews(prev => ({ ...prev, [type]: previewUrl }));
-            setReusingDocs(prev => ({ ...prev, [type]: false }));
+            try {
+                // Compress image
+                const compressedFile = await compressImage(file, {
+                    maxWidthOrHeight: 1280,
+                    initialQuality: 0.7
+                });
+
+                const previewUrl = URL.createObjectURL(compressedFile);
+                setDocumentFiles(prev => ({ ...prev, [type]: compressedFile }));
+                setDocumentPreviews(prev => ({ ...prev, [type]: previewUrl }));
+                setReusingDocs(prev => ({ ...prev, [type]: false }));
+            } catch (error) {
+                console.error('Compression error:', error);
+                toast.error('Failed to process image');
+            }
         }
     };
 

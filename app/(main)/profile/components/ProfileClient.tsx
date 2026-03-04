@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import logger from '@/lib/logger';
 import { useRouter } from 'next/navigation';
 import UploadDocumentModal from './UploadDocumentModal';
+import { compressImage } from '@/lib/utils/image-compression';
 
 interface Profile {
   id: string;
@@ -106,12 +107,18 @@ export default function ProfileClient() {
   const handleFileUpload = async (type: typeof DOCUMENT_TYPES[number], file: File) => {
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('type', type);
-
     setUploading(true);
     try {
+      // Compress image
+      const compressedFile = await compressImage(file, {
+        maxWidthOrHeight: 1280,
+        initialQuality: 0.7
+      });
+
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+      formData.append('type', type);
+
       const response = await fetch('/api/user/documents', {
         method: 'POST',
         body: formData,

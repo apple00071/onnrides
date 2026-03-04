@@ -6,6 +6,7 @@ import { format, addHours, isBefore, isAfter, startOfToday, parse } from 'date-f
 import Link from 'next/link';
 import { Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { compressImage } from '@/lib/utils/image-compression';
 
 interface Vehicle {
   id: string;
@@ -312,21 +313,32 @@ export default function OfflineBookingPage() {
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, field: string) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Update file upload state
-      setFileUploads(prev => ({
-        ...prev,
-        [field]: file
-      }));
+      try {
+        // Compress image before storage
+        const compressedFile = await compressImage(file, {
+          maxWidthOrHeight: 1280,
+          initialQuality: 0.7
+        });
 
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFilePreviews(prev => ({
+        // Update file upload state
+        setFileUploads(prev => ({
           ...prev,
-          [field]: reader.result as string
+          [field]: compressedFile
         }));
-      };
-      reader.readAsDataURL(file);
+
+        // Create preview URL
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFilePreviews(prev => ({
+            ...prev,
+            [field]: reader.result as string
+          }));
+        };
+        reader.readAsDataURL(compressedFile);
+      } catch (error) {
+        console.error('Compression error:', error);
+        toast.error('Failed to process image');
+      }
     }
   };
 
