@@ -8,6 +8,8 @@ import { WhatsAppNotificationService } from '@/lib/whatsapp/notification-service
 import { randomUUID } from 'crypto';
 
 export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 
 export async function POST(
   request: NextRequest,
