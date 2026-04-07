@@ -72,15 +72,17 @@ export default function ContactPage() {
             <h2 className="h2">Our Locations</h2>
             <div className="space-y-4">
               <div>
-                <h3 className="h3">Eragadda Branch</h3>
-                <p className="text-gray-600">1st Branch</p>
-                <p className="text-gray-600">Hyderabad, Telangana</p>
+                <h3 className="h3">Erragadda Branch</h3>
+                <p className="text-gray-600">R S hotel, Metro Station Erragadda,</p>
+                <p className="text-gray-600">Prem Nagar, Erragadda, Hyderabad,</p>
+                <p className="text-gray-600">Telangana 500018</p>
               </div>
 
               <div>
                 <h3 className="h3">Madhapur Branch</h3>
-                <p className="text-gray-600">2nd Branch</p>
-                <p className="text-gray-600">Hyderabad, Telangana</p>
+                <p className="text-gray-600">Plot no, 69, Road No. 57, Mega Hills,</p>
+                <p className="text-gray-600">Madhapur, Hyderabad,</p>
+                <p className="text-gray-600">Telangana 500081</p>
               </div>
             </div>
           </section>

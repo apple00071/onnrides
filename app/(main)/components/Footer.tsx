@@ -34,9 +34,9 @@ export default function Footer() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-700">Madhapur Branch</p>
-                  <p className="text-sm text-gray-600">1173, Ayyappa Society Main Rd,</p>
-                  <p className="text-sm text-gray-600">Ayyappa Society, Mega Hills,</p>
-                  <p className="text-sm text-gray-600">Madhapur, Hyderabad - 500081</p>
+                  <p className="text-sm text-gray-600">Plot no, 69, Road No. 57, Mega Hills,</p>
+                  <p className="text-sm text-gray-600">Madhapur, Hyderabad,</p>
+                  <p className="text-sm text-gray-600">Telangana 500081</p>
                 </div>
               </div>
             </div>
@@ -92,7 +92,7 @@ export default function Footer() {
           {/* Bottom Section */}
           <div className="mt-12 pt-8 border-t border-gray-200">
             <div className="text-sm text-gray-600">
-              © {new Date().getFullYear()} All rights reserved - Mister Rides (Formerly Mister Rides)
+              © {new Date().getFullYear()} All rights reserved - Mister Rides (Formerly Onn Rides)
             </div>
           </div>
         </div>
