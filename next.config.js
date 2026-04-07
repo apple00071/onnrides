@@ -15,7 +15,13 @@ const nextConfig = {
     'fluent-ffmpeg',
     'whatsapp-web.js',
     'puppeteer',
-    'qrcode-terminal'
+    'qrcode-terminal',
+    '@supabase/auth-js',
+    '@supabase/supabase-js',
+    '@supabase/postgrest-js',
+    '@supabase/storage-js',
+    '@supabase/functions-js',
+    '@supabase/realtime-js'
   ],
   webpack: (config, { isServer }) => {
     if (!isServer) {
