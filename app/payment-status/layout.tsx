@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Payment Status | OnnRides',
+  title: 'Payment Status | Mister Rides',
   description: 'Check the status of your payment',
 };
 

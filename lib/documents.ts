@@ -48,7 +48,7 @@ export async function sendDocumentUploadReminder(
           name,
           bookingId,
           uploadUrl: `${process.env.NEXT_PUBLIC_APP_URL}/profile/documents`,
-          supportEmail: process.env.SUPPORT_EMAIL || 'support@onnrides.com',
+          supportEmail: process.env.SUPPORT_EMAIL || 'support@misterrides.com',
           deadline: '24 hours'
         }
       })

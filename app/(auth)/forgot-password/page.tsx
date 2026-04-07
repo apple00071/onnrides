@@ -44,7 +44,7 @@ export default function ForgotPasswordPage() {
         <div className="flex justify-center">
           <Image
             src="/logo.png"
-            alt="OnnRides Logo"
+            alt="Mister Rides Logo"
             width={128}
             height={36}
             className="mb-8"

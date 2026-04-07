@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { BikeRentalFAQ } from '@/components/ui/BikeRentalFAQ';
 
 export const metadata: Metadata = {
-  title: 'Bike Rental in Hyderabad | Activa on Rent | Honda Dio | OnnRides',
+  title: 'Bike Rental in Hyderabad | Activa on Rent | Honda Dio | Mister Rides',
   description: 'Rent bikes in Hyderabad starting ₹199/day. Choose from Activa, Dio, Access & more. Multiple locations, free delivery, no hidden charges. Book Now & Get 10% Off!',
   keywords: [
     'bike rental in hyderabad',
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
         url: '/images/bike-rental-hyderabad.jpg',
         width: 1200,
         height: 630,
-        alt: 'Bike Rental in Hyderabad - OnnRides'
+        alt: 'Bike Rental in Hyderabad - Mister Rides'
       }
     ]
   }
@@ -110,7 +110,7 @@ export default async function BikesPage() {
       {/* Benefits Section */}
       <section className="mb-12">
         <h2 className="text-3xl font-bold mb-8 text-center">
-          Why Choose OnnRides for Bike Rental?
+          Why Choose Mister Rides for Bike Rental?
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <div className="bg-white p-6 rounded-lg shadow-sm">
@@ -205,7 +205,7 @@ export default async function BikesPage() {
       <section className="prose max-w-none mb-12">
         <h2>Bike Rental in Hyderabad - Your Ultimate Guide</h2>
         <p>
-          Looking for reliable bike rental services in Hyderabad? OnnRides offers a wide selection of
+          Looking for reliable bike rental services in Hyderabad? Mister Rides offers a wide selection of
           well-maintained bikes including Honda Activa, Honda Dio, and Suzuki Access at competitive rates.
           Whether you need a bike for a few hours or several months, we've got you covered with convenient
           pickup locations across Hyderabad including Madhapur, Gachibowli, Hitec City, and Erragadda.

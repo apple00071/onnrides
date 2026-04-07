@@ -47,7 +47,7 @@ export default function MaintenanceCheck({ children }: { children: React.ReactNo
           <div className="mb-6">
             <Image
               src="/logo.png"
-              alt="OnnRides Logo"
+              alt="Mister Rides Logo"
               width={140}
               height={40}
               className="mx-auto"
@@ -61,8 +61,8 @@ export default function MaintenanceCheck({ children }: { children: React.ReactNo
           {!session && (
             <p className="mt-4 text-sm text-gray-500">
               For assistance, please contact our support team at{' '}
-              <a href="mailto:support@onnrides.com" className="text-orange-600 hover:text-orange-800">
-                support@onnrides.com
+              <a href="mailto:support@misterrides.com" className="text-orange-600 hover:text-orange-800">
+                support@misterrides.com
               </a>
             </p>
           )}

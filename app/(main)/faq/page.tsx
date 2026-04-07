@@ -2,20 +2,20 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Frequently Asked Questions | OnnRides - Bike Rental in Hyderabad',
-  description: 'Find answers to frequently asked questions about bike and vehicle rentals in Hyderabad with OnnRides. Learn about booking process, documents required, and payment options.',
-  keywords: 'bike rental FAQ, Hyderabad vehicle rental questions, OnnRides help, bike rental requirements, scooter rental documents, vehicle rental payment options',
+  title: 'Frequently Asked Questions | Mister Rides - Bike Rental in Hyderabad',
+  description: 'Find answers to frequently asked questions about bike and vehicle rentals in Hyderabad with Mister Rides. Learn about booking process, documents required, and payment options.',
+  keywords: 'bike rental FAQ, Hyderabad vehicle rental questions, Mister Rides help, bike rental requirements, scooter rental documents, vehicle rental payment options',
 };
 
 // FAQ data structure
 const faqs = [
   {
     question: "What documents do I need to rent a vehicle?",
-    answer: "To rent a vehicle from OnnRides, you need a valid government-issued photo ID (Aadhar Card, Passport, etc.), a valid driving license for the vehicle category you wish to rent, and an original address proof. For certain vehicles, we may require an additional security deposit."
+    answer: "To rent a vehicle from Mister Rides, you need a valid government-issued photo ID (Aadhar Card, Passport, etc.), a valid driving license for the vehicle category you wish to rent, and an original address proof. For certain vehicles, we may require an additional security deposit."
   },
   {
     question: "How do I book a bike or scooter?",
-    answer: "Booking a vehicle with OnnRides is simple. Browse our available vehicles, select your pickup and drop-off dates and times, choose your preferred vehicle, and complete the payment process. You'll receive a confirmation email with your booking details."
+    answer: "Booking a vehicle with Mister Rides is simple. Browse our available vehicles, select your pickup and drop-off dates and times, choose your preferred vehicle, and complete the payment process. You'll receive a confirmation email with your booking details."
   },
   {
     question: "What is the minimum rental duration?",

@@ -12,7 +12,7 @@ interface VehicleRow {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.onnrides.com';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.misterrides.com';
 
   // Get all locations
   const locations = [

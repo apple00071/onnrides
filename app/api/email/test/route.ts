@@ -23,14 +23,14 @@ export async function GET(req: Request) {
             );
         }
 
-        const testEmail = process.env.SUPPORT_EMAIL || 'support@onnrides.com';
+        const testEmail = process.env.SUPPORT_EMAIL || 'support@misterrides.com';
         const emailService = EmailService.getInstance();
         
         // Send a test email with current timestamp and configuration details
         const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
         const emailContent = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h1 style="color: #f26e24;">OnnRides Email Test</h1>
+                <h1 style="color: #f26e24;">Mister Rides Email Test</h1>
                 <p>This is a test email sent at: ${timestamp}</p>
                 
                 <h2>Email Configuration:</h2>
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
 
         const { messageId, logId } = await emailService.sendEmail(
             testEmail,
-            'OnnRides Email Test',
+            'Mister Rides Email Test',
             emailContent
         );
 

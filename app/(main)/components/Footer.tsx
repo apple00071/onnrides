@@ -10,13 +10,13 @@ export default function Footer() {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
             {/* Brand Section */}
             <div className="space-y-4">
-              <h3 className="text-xl font-goodtimes text-[#f26e24]">Onn Rides</h3>
+              <h3 className="text-xl font-goodtimes text-[#f26e24]">Mister Rides</h3>
               <p className="text-sm text-gray-600">Ride With Pleasure</p>
               <div className="flex space-x-4">
-                <a href="https://www.facebook.com/onnridesofficial" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-[#f26e24] transition-colors duration-300">
+                <a href="https://www.facebook.com/Mister Ridesofficial" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-[#f26e24] transition-colors duration-300">
                   <FaFacebookF size={20} />
                 </a>
-                <a href="https://www.instagram.com/onnridesrentals" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-[#f26e24] transition-colors duration-300">
+                <a href="https://www.instagram.com/Mister Ridesrentals" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-[#f26e24] transition-colors duration-300">
                   <FaInstagram size={20} />
                 </a>
               </div>
@@ -82,8 +82,8 @@ export default function Footer() {
               <div className="space-y-2">
                 <p className="text-sm text-gray-600">+91 83090 31203</p>
                 <p className="text-sm text-gray-600">+91 91824 95481</p>
-                <a href="mailto:support@onnrides.com" className="block text-sm text-gray-600 hover:text-[#f26e24]">
-                  support@onnrides.com
+                <a href="mailto:support@misterrides.com" className="block text-sm text-gray-600 hover:text-[#f26e24]">
+                  support@misterrides.com
                 </a>
               </div>
             </div>
@@ -92,7 +92,7 @@ export default function Footer() {
           {/* Bottom Section */}
           <div className="mt-12 pt-8 border-t border-gray-200">
             <div className="text-sm text-gray-600">
-              © {new Date().getFullYear()} All rights reserved - Onn Rides
+              © {new Date().getFullYear()} All rights reserved - Mister Rides (Formerly Mister Rides)
             </div>
           </div>
         </div>
@@ -102,20 +102,20 @@ export default function Footer() {
       <section className="bg-[#f26e24] py-16 text-white">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="prose max-w-none prose-invert">
-            <h1 className="text-3xl font-bold text-white mb-6">Bike Rentals in Hyderabad – Explore the City with Onnrides</h1>
+            <h1 className="text-3xl font-bold text-white mb-6">Bike Rentals in Hyderabad – Explore the City with Mister Rides</h1>
             <h2 className="text-2xl font-semibold text-white mb-4">Unlock the Freedom of Two Wheels in Hyderabad</h2>
 
             <p className="text-white/90 mb-6">
-              Looking for convenient and affordable bike rentals in Hyderabad? Onnrides offers the perfect two-wheeler solution to navigate the city with ease. Whether you're cruising through traffic-packed roads or taking a weekend ride to scenic spots around the city, we've got the right bike for you.
+              Looking for convenient and affordable bike rentals in Hyderabad? Mister Rides offers the perfect two-wheeler solution to navigate the city with ease. Whether you're cruising through traffic-packed roads or taking a weekend ride to scenic spots around the city, we've got the right bike for you.
             </p>
 
             <p className="text-white/90 mb-8">
-              Choose from a wide range of bikes and scooters such as the Honda Activa, Suzuki Access, Yamaha FZ, Bajaj Avenger, Royal Enfield Classic 350, or even a Honda CBR 250. With flexible rental options and easy pickup and drop services, Onnrides is your go-to choice for bike rentals in Hyderabad.
+              Choose from a wide range of bikes and scooters such as the Honda Activa, Suzuki Access, Yamaha FZ, Bajaj Avenger, Royal Enfield Classic 350, or even a Honda CBR 250. With flexible rental options and easy pickup and drop services, Mister Rides is your go-to choice for bike rentals in Hyderabad.
             </p>
 
             <h2 className="text-2xl font-semibold text-white mb-4">Affordable and Hassle-Free Bike Rental in Hyderabad</h2>
             <p className="text-white/90 mb-6">
-              Skip the long-term commitment of buying a bike. With Onnrides, you only pay for the time you ride—no down payments, no EMIs, no maintenance headaches. We offer hourly, daily, weekly, and monthly rental plans to suit every need.
+              Skip the long-term commitment of buying a bike. With Mister Rides, you only pay for the time you ride—no down payments, no EMIs, no maintenance headaches. We offer hourly, daily, weekly, and monthly rental plans to suit every need.
             </p>
 
             <p className="text-white/90 mb-8">
@@ -143,12 +143,12 @@ export default function Footer() {
               <Link href="/" className="text-white hover:text-white/80 transition-colors">SR Nagar</Link>
             </div>
             <p className="text-white/90 mb-8">
-              No matter where you are in the city, there's a nearby Onnrides location ready to serve you.
+              No matter where you are in the city, there's a nearby Mister Rides location ready to serve you.
             </p>
 
             <h2 className="text-2xl font-semibold text-white mb-4">Rent a Bike in Hyderabad Today</h2>
             <p className="text-white/90">
-              Whether you're commuting to work, running errands, or exploring the city, Onnrides is your trusted partner for bike rentals in Hyderabad. Book your ride today and experience the convenience, affordability, and freedom of two-wheel travel.
+              Whether you're commuting to work, running errands, or exploring the city, Mister Rides is your trusted partner for bike rentals in Hyderabad. Book your ride today and experience the convenience, affordability, and freedom of two-wheel travel.
             </p>
           </div>
         </div>

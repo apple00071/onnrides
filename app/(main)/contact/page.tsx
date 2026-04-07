@@ -63,7 +63,7 @@ export default function ContactPage() {
 
               <div>
                 <h3 className="h3">Email</h3>
-                <p className="text-gray-600">support@onnrides.com</p>
+                <p className="text-gray-600">support@misterrides.com</p>
               </div>
             </div>
           </section>

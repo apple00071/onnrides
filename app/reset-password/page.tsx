@@ -94,7 +94,7 @@ export default function ResetPassword() {
         <div className="bg-white rounded-lg shadow-lg p-8">
           <div className="text-center">
             <Link href="/" className="inline-block">
-              <h1 className="text-4xl font-bold text-[#f26e24] font-goodtimes">ONNRIDES</h1>
+              <h1 className="text-4xl font-bold text-[#f26e24] font-goodtimes">Mister Rides</h1>
             </Link>
             <h2 className="mt-6 text-2xl font-bold text-gray-900">
               Reset your password

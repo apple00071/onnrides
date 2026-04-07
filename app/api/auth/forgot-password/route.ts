@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     await emailService.sendPasswordResetEmail(email, {
       name: user.name,
       resetLink,
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@onnrides.com'
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@misterrides.com'
     });
 
     logger.info('Password reset email sent successfully:', { email });

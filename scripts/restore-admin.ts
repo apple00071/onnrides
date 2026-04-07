@@ -12,7 +12,7 @@ async function restoreAdmin() {
       SELECT id, email, role FROM users 
       WHERE email = $1 
       LIMIT 1
-    `, ['admin@onnrides.com']);
+    `, ['admin@misterrides.com']);
 
     const adminExists = result.rows.length > 0;
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
@@ -27,7 +27,7 @@ async function restoreAdmin() {
           role = 'admin',
           updated_at = NOW()
         WHERE email = $2
-      `, [hashedPassword, 'admin@onnrides.com']);
+      `, [hashedPassword, 'admin@misterrides.com']);
 
       logger.info('✅ Admin user updated successfully');
     } else {
@@ -47,7 +47,7 @@ async function restoreAdmin() {
         )
       `, [
         randomUUID(),
-        'admin@onnrides.com',
+        'admin@misterrides.com',
         hashedPassword,
         'Admin',
         'admin',

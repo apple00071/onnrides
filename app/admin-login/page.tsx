@@ -62,7 +62,7 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
           <Link href="/" className="flex items-center">
-            <span className="text-2xl font-bold text-[#f26e24]">ONNRIDES</span>
+            <span className="text-2xl font-bold text-[#f26e24]">Mister Rides</span>
           </Link>
         </div>
         <div className="bg-white p-8 rounded-lg shadow-sm">
@@ -84,7 +84,7 @@ export default function AdminLoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
-                placeholder="admin@onnrides.com"
+                placeholder="admin@misterrides.com"
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[#f26e24] focus:border-[#f26e24]"
               />
             </div>

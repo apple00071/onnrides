@@ -8,7 +8,7 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-xl font-semibold mb-4">Introduction</h2>
             <p className="text-gray-600">
-              At Onn Rides, we take your privacy seriously. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our bike rental services. Please read this privacy policy carefully. If you do not agree with the terms of this privacy policy, please do not access the site.
+              At Mister Rides, we take your privacy seriously. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our bike rental services. Please read this privacy policy carefully. If you do not agree with the terms of this privacy policy, please do not access the site.
             </p>
           </section>
 
@@ -100,7 +100,7 @@ export default function PrivacyPolicyPage() {
               If you have any questions about this Privacy Policy, please contact us at:
             </p>
             <div className="mt-4 text-gray-600">
-              <p>Email: support@onnrides.com</p>
+              <p>Email: support@misterrides.com</p>
               <p>Phone: +91 83090 31203 / +91 91824 95481</p>
               <p>Address: R S hotel, Metro Station Erragadda, Prem Nagar, Erragadda, Hyderabad - 500018</p>
             </div>

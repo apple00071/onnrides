@@ -120,7 +120,7 @@ export default function SignIn() {
           <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8">
             <div>
               <Link href="/" className="flex justify-center">
-                <h1 className="text-3xl sm:text-4xl font-bold text-[#f26e24] font-goodtimes">ONNRIDES</h1>
+                <h1 className="text-3xl sm:text-4xl font-bold text-[#f26e24] font-goodtimes">Mister Rides</h1>
               </Link>
               <h2 className="mt-6 text-center text-xl sm:text-2xl font-bold text-gray-900">
                 {isForgotPassword ? 'Reset your password' : 'Sign in to your account'}

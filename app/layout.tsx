@@ -61,8 +61,8 @@ const securityHeaders = {
 
 // Update metadata with proper favicon configuration
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com'),
-  title: 'Best Bike Rental in Hyderabad | Activa on Rent | Honda Dio Rental | OnnRides',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://misterrides.com'),
+  title: 'Best Bike Rental in Hyderabad | Activa on Rent | Honda Dio Rental | Mister Rides (Formerly Onn Rides)',
   description: 'Top-rated bike rental service in Hyderabad. Rent Activa at ₹199/day, Honda Dio, Access & more. Multiple pickup points in Madhapur, Gachibowli & Erragadda. ✓Hourly Rental ✓Free Delivery ✓No Hidden Charges',
   keywords: [
     'bike rental in hyderabad',
@@ -82,11 +82,11 @@ export const metadata: Metadata = {
     'monthly bike rental hyderabad',
     'cheap bike rental hyderabad',
     'best bike rental in hyderabad',
-    'OnnRides bike rental'
+    'Mister Rides (Formerly Onn Rides) bike rental'
   ],
-  authors: [{ name: 'OnnRides' }],
-  creator: 'OnnRides',
-  publisher: 'OnnRides',
+  authors: [{ name: 'Mister Rides (Formerly Onn Rides)' }],
+  creator: 'Mister Rides',
+  publisher: 'Mister Rides (Formerly Onn Rides)',
   formatDetection: {
     email: false,
     address: false,
@@ -96,15 +96,15 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_IN',
     url: process.env.NEXT_PUBLIC_APP_URL,
-    title: 'Best Bike Rental in Hyderabad | Starting ₹199/day | OnnRides',
+    title: 'Best Bike Rental in Hyderabad | Starting ₹199/day | Mister Rides (Formerly Onn Rides)',
     description: '🏍️ Rent bikes in Hyderabad at best prices. ✓Activa ✓Dio ✓Access ✓Free Delivery ✓No Deposit. Multiple locations in Madhapur & Erragadda. Book Now!',
-    siteName: 'OnnRides Hyderabad',
+    siteName: 'Mister Rides Hyderabad',
     images: [
       {
         url: '/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'OnnRides - Best Bike Rental Service in Hyderabad',
+        alt: 'Mister Rides - Best Bike Rental Service in Hyderabad (Formerly Mister Rides)',
       },
     ],
   },
@@ -113,7 +113,7 @@ export const metadata: Metadata = {
     title: 'Best Bike Rental in Hyderabad | Starting ₹199/day',
     description: '🏍️ Rent Activa, Dio & more in Hyderabad. ✓Hourly/Daily/Monthly Options ✓Multiple Locations ✓Free Delivery. Book Now!',
     images: ['/og-image.jpg'],
-    creator: '@onnrides',
+    creator: '@misterrides',
   },
   robots: {
     index: true,
@@ -130,40 +130,11 @@ export const metadata: Metadata = {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
   },
   alternates: {
-    canonical: 'https://onnrides.com'
+    canonical: 'https://misterrides.com'
   },
-  icons: {
-    icon: [
-      { url: '/favicon/favicon.ico', type: 'image/x-icon' },
-      { url: '/favicon/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/favicon/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/favicon/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
-    ],
-    apple: [
-      { url: '/favicon/apple-touch-icon.png' }
-    ],
-    shortcut: [
-      { url: '/favicon/favicon.ico' }
-    ],
-    other: [
-      {
-        rel: 'manifest',
-        url: '/favicon/site.webmanifest'
-      },
-      {
-        rel: 'mask-icon',
-        url: '/favicon/safari-pinned-tab.svg',
-        color: '#f26e24'
-      },
-      {
-        rel: 'msapplication-config',
-        url: '/favicon/browserconfig.xml'
-      }
-    ]
-  },
+
   appleWebApp: {
-    title: 'OnnRides',
+    title: 'Mister Rides',
     statusBarStyle: 'black-translucent',
   },
   manifest: '/site.webmanifest'
@@ -192,7 +163,7 @@ export default async function RootLayout({
     const isInternalUser = role === 'admin' || role === 'staff';
     const maintenanceMode = isInternalUser ? false : await getBooleanSetting(SETTINGS.MAINTENANCE_MODE, false);
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://onnrides.com';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://misterrides.com';
 
     // Enhanced structured data
     const structuredDataItems = [
@@ -201,7 +172,7 @@ export default async function RootLayout({
         '@context': 'https://schema.org',
         '@type': 'Organization',
         '@id': `${baseUrl}/#organization`,
-        name: 'OnnRides Hyderabad',
+        name: 'Mister Rides Hyderabad (Formerly Onn Rides)',
         url: baseUrl,
         logo: {
           '@type': 'ImageObject',
@@ -217,9 +188,9 @@ export default async function RootLayout({
           }
         ],
         sameAs: [
-          'https://www.facebook.com/onnrides',
-          'https://www.instagram.com/onnrides',
-          'https://twitter.com/onnrides'
+          'https://www.facebook.com/Mister Rides',
+          'https://www.instagram.com/Mister Rides',
+          'https://twitter.com/Mister Rides'
         ]
       },
 
@@ -228,7 +199,7 @@ export default async function RootLayout({
         '@context': 'https://schema.org',
         '@type': 'LocalBusiness',
         '@id': `${baseUrl}/#localbusiness`,
-        name: 'OnnRides Vehicle Rental',
+        name: 'Mister Rides Vehicle Rental (Formerly Onn Rides)',
         image: `${baseUrl}/logo.png`,
         url: baseUrl,
         telephone: '+91-8247494622',
@@ -336,14 +307,7 @@ export default async function RootLayout({
             content="telephone=no, date=no, email=no, address=no"
           />
           <meta httpEquiv="Content-Security-Policy" content={securityHeaders['Content-Security-Policy']} />
-          {/* High priority favicon links */}
-          <link rel="shortcut icon" href="/favicon/favicon.ico" type="image/x-icon" />
-          <link rel="icon" href="/favicon/favicon.ico" type="image/x-icon" />
-          <link rel="icon" href="/favicon/favicon-32x32.png" type="image/png" sizes="32x32" />
-          <link rel="icon" href="/favicon/favicon-16x16.png" type="image/png" sizes="16x16" />
-          <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
-          <link rel="manifest" href="/favicon/site.webmanifest" />
-          <meta name="msapplication-config" content="/favicon/browserconfig.xml" />
+
           {/* Only include Google Analytics in production */}
           {isProduction && GA_MEASUREMENT_ID && <GoogleAnalytics GA_MEASUREMENT_ID={GA_MEASUREMENT_ID} />}
         </head>
@@ -375,7 +339,7 @@ export default async function RootLayout({
         <body className="min-h-screen bg-background font-sans antialiased">
           <div className="flex min-h-screen flex-col items-center justify-center p-24">
             <div className="max-w-5xl w-full">
-              <h1 className="text-4xl font-bold mb-4">OnnRides</h1>
+              <h1 className="text-4xl font-bold mb-4">Mister Rides</h1>
               <div className="bg-white shadow-md rounded-lg p-6">
                 {children}
               </div>

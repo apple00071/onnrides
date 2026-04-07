@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'OnnRides Admin Dashboard',
-  description: 'Admin dashboard for OnnRides vehicle rental service',
+  title: 'Mister Rides Admin Dashboard',
+  description: 'Admin dashboard for Mister Rides vehicle rental service',
   manifest: '/admin/manifest.json',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#f26e24' },
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'OnnRides Admin',
+    title: 'Mister Rides Admin',
   },
   viewport: {
     width: 'device-width',

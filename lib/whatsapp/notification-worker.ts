@@ -91,7 +91,7 @@ export class NotificationWorker {
             `Your booking for ${vehicleName} has been confirmed.\n` +
             `Pickup time: ${startDate}\n` +
             `Booking ID: ${bookingId}\n\n` +
-            `Thank you for choosing OnnRides! Drive safe! 🚗`
+            `Thank you for choosing Mister Rides! Drive safe! 🚗`
         );
 
         await this.markNotificationCompleted(notification.id);

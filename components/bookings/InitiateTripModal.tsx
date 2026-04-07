@@ -725,15 +725,15 @@ export function InitiateTripModal({ booking, isOpen, onClose, onInitiateSuccess 
                                             </div>
 
                                             <div className="bg-gray-50 p-4 rounded-md mb-3 max-h-40 overflow-y-auto text-sm">
-                                                <p className="font-medium mb-2">OnnRides Vehicle Rental Agreement:</p>
+                                                <p className="font-medium mb-2">Mister Rides Vehicle Rental Agreement:</p>
                                                 <ol className="list-decimal pl-5 space-y-2">
                                                     <li>The vehicle must be returned in the same condition as when it was rented.</li>
                                                     <li>Fuel is the responsibility of the renter. The vehicle should be returned with the same fuel level as when rented.</li>
                                                     <li>The vehicle should only be driven by the person named in this agreement.</li>
                                                     <li>Any traffic violations or fines incurred during the rental period are the responsibility of the renter.</li>
                                                     <li>The vehicle should not be taken outside the agreed geographical boundaries without prior consent.</li>
-                                                    <li>In case of any accident or damage, the renter must inform OnnRides immediately.</li>
-                                                    <li>Personal belongings left in the vehicle are the responsibility of the renter. OnnRides is not liable for any loss or damage.</li>
+                                                    <li>In case of any accident or damage, the renter must inform Mister Rides immediately.</li>
+                                                    <li>Personal belongings left in the vehicle are the responsibility of the renter. Mister Rides is not liable for any loss or damage.</li>
                                                     <li>Late returns will incur additional charges as per the hourly/daily rate.</li>
                                                     <li>The security deposit will be refunded after inspection of the vehicle upon return, minus any applicable charges.</li>
                                                     <li>Cancellation policy: Cancellations made less than 24 hours before pickup may be subject to a fee.</li>

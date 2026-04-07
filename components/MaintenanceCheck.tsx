@@ -107,7 +107,7 @@ export function MaintenanceCheck({ children, isMaintenanceMode }: MaintenanceChe
           <div className="mb-6">
             <img
               src="/logo.png"
-              alt="OnnRides Logo"
+              alt="Mister Rides Logo"
               width={140}
               height={40}
               className="mx-auto"
@@ -123,8 +123,8 @@ export function MaintenanceCheck({ children, isMaintenanceMode }: MaintenanceChe
               {!session ? (
                 <>
                   For assistance, please contact our support team at{' '}
-                  <a href="mailto:support@onnrides.com" className="text-orange-600 hover:text-orange-800 font-medium">
-                    support@onnrides.com
+                  <a href="mailto:support@misterrides.com" className="text-orange-600 hover:text-orange-800 font-medium">
+                    support@misterrides.com
                   </a>
                 </>
               ) : (

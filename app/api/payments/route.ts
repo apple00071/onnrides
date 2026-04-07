@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       amount: order.amount,
       currency: order.currency,
-      name: 'OnnRides',
+      name: 'Mister Rides',
       description: `Booking #${bookingId}`,
       order_id: order.id,
       prefill: {

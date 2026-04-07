@@ -102,7 +102,7 @@ export default function TestimonialsSection() {
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold mb-4">What Our Customers Say</h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Don't just take our word for it - hear from our satisfied customers about their experience with OnnRides.
+            Don't just take our word for it - hear from our satisfied customers about their experience with Mister Rides.
           </p>
         </div>
 

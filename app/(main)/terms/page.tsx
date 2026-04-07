@@ -91,7 +91,7 @@ export default function TermsPage() {
           </p>
           <div className="mt-4 text-gray-600">
             <p>Phone: +91 83090 31203 / +91 91824 95481</p>
-            <p>Email: support@onnrides.com</p>
+            <p>Email: support@misterrides.com</p>
           </div>
         </section>
 

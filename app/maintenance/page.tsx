@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Site Under Maintenance - OnnRides',
+  title: 'Site Under Maintenance - Mister Rides',
   description: 'Our site is currently under maintenance. We will be back shortly.',
 };
 
@@ -12,7 +12,7 @@ export default function MaintenancePage() {
         <div className="mb-6">
           <img
             src="/logo.png"
-            alt="OnnRides Logo"
+            alt="Mister Rides Logo"
             width={140}
             height={40}
             className="mx-auto"
@@ -38,10 +38,10 @@ export default function MaintenancePage() {
               <path d="M20 4H4C2.9 4 2.01 4.9 2.01 6L2 18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4ZM20 18H4V8L12 13L20 8V18ZM12 11L4 6H20L12 11Z" />
             </svg>
             <a 
-              href="mailto:support@onnrides.com"
+              href="mailto:support@misterrides.com"
               className="font-medium hover:underline"
             >
-              support@onnrides.com
+              support@misterrides.com
             </a>
           </div>
           <div className="flex items-center justify-center space-x-2 text-orange-600 mt-2">
@@ -61,7 +61,7 @@ export default function MaintenancePage() {
           <div className="pt-4 border-t border-gray-200">
             <div className="flex justify-center space-x-6">
               <a
-                href="https://instagram.com/onnrides"
+                href="https://instagram.com/Mister Rides"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-400 hover:text-pink-500 transition-colors"
@@ -83,7 +83,7 @@ export default function MaintenancePage() {
                 </svg>
               </a>
               <a
-                href="mailto:support@onnrides.com"
+                href="mailto:support@misterrides.com"
                 className="text-gray-400 hover:text-orange-500 transition-colors"
                 aria-label="Email us"
               >

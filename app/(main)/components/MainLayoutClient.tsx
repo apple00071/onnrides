@@ -31,14 +31,14 @@ export default function MainLayoutClient({
           __html: JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'LocalBusiness',
-            'name': 'OnnRides',
+            'name': 'Mister Rides',
             'description': 'Bike and vehicle rental service in Hyderabad with convenient locations in Madhapur and Erragadda.',
-            'url': 'https://www.onnrides.com',
-            'logo': 'https://www.onnrides.com/images/logo.png',
+            'url': 'https://www.misterrides.com',
+            'logo': 'https://www.misterrides.com/images/logo.png',
             'sameAs': [
-              'https://www.facebook.com/onnrides',
-              'https://www.instagram.com/onnrides',
-              'https://twitter.com/onnrides'
+              'https://www.facebook.com/Mister Rides',
+              'https://www.instagram.com/Mister Rides',
+              'https://twitter.com/Mister Rides'
             ],
             'address': [
               {
@@ -62,7 +62,7 @@ export default function MainLayoutClient({
               'longitude': '78.3812'
             },
             'telephone': '+91-8247494622',
-            'email': 'support@onnrides.com',
+            'email': 'support@misterrides.com',
             'openingHoursSpecification': {
               '@type': 'OpeningHoursSpecification',
               'dayOfWeek': [

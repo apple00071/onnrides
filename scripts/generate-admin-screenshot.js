@@ -57,12 +57,12 @@ async function generateAdminScreenshot() {
     </svg>
     `;
 
-    // Add OnnRides branding
+    // Add Mister Rides branding
     const brandSvg = `
       <svg width="${OUTPUT_WIDTH}" height="${OUTPUT_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
         <text x="${OUTPUT_WIDTH - 20}" y="${OUTPUT_HEIGHT - 20}" 
           font-family="Arial" font-size="16" fill="#888888" text-anchor="end">
-          OnnRides Admin Dashboard
+          Mister Rides Admin Dashboard
         </text>
       </svg>
     `;

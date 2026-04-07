@@ -35,7 +35,7 @@ export default function AdminDashboardLayout({ children }: AdminDashboardLayoutP
         {/* Logo */}
         <div className="flex h-16 items-center px-6">
           <Link href="/admin" className="flex items-center space-x-2">
-            <span className="text-xl font-bold text-orange-600">Onn Rides</span>
+            <span className="text-xl font-bold text-orange-600">Mister Rides</span>
             <span className="text-sm text-gray-500">Admin</span>
           </Link>
         </div>

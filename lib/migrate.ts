@@ -12,7 +12,7 @@ const migrationPool = new Pool({
   password: process.env.POSTGRES_PASSWORD,
   host: process.env.POSTGRES_HOST || 'localhost',
   port: parseInt(process.env.POSTGRES_PORT || '5432'),
-  database: process.env.POSTGRES_DB || 'onnrides'
+  database: process.env.POSTGRES_DB || 'Mister Rides'
 });
 
 const __filename = fileURLToPath(import.meta.url);

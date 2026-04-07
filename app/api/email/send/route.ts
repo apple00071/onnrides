@@ -47,11 +47,11 @@ export async function POST(request: NextRequest) {
       case 'welcome':
         await emailService.sendEmail(
           data.email,
-          'Welcome to OnnRides',
+          'Welcome to Mister Rides',
           `
-            <h2>Welcome to OnnRides!</h2>
+            <h2>Welcome to Mister Rides!</h2>
             <p>Hello ${data.name},</p>
-            <p>Thank you for joining OnnRides. We're excited to have you on board!</p>
+            <p>Thank you for joining Mister Rides. We're excited to have you on board!</p>
             <p>You can now start booking vehicles and exploring our services.</p>
           `
         );
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       case 'password_reset':
         await emailService.sendEmail(
           data.email,
-          'Password Reset - OnnRides',
+          'Password Reset - Mister Rides',
           `
             <h2>Password Reset</h2>
             <p>Hello ${data.name},</p>

@@ -4,13 +4,13 @@ export default function AboutPage() {
   return (
     <div className="py-8 space-y-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl xs:text-4xl font-bold mb-8">About OnnRides</h1>
+        <h1 className="text-2xl xs:text-4xl font-bold mb-8">About Mister Rides</h1>
         
         {/* Mission Statement */}
         <section className="mb-12">
           <h2 className="text-xl xs:text-2xl font-semibold mb-4">Our Mission</h2>
           <p className="text-gray-600 leading-relaxed">
-            At OnnRides, we&apos;re on a mission to revolutionize the way people experience two-wheeler mobility. 
+            At Mister Rides, we&apos;re on a mission to revolutionize the way people experience two-wheeler mobility. 
             We believe in providing convenient, affordable, and reliable vehicle rentals that empower people to 
             explore and commute with freedom.
           </p>
@@ -46,7 +46,7 @@ export default function AboutPage() {
           <h2 className="text-xl xs:text-2xl font-semibold mb-4">Our Story</h2>
           <div className="space-y-4">
             <p className="text-gray-600 leading-relaxed">
-              Founded in 2023, OnnRides started with a simple idea: make two-wheeler rentals accessible to everyone. 
+              Founded in 2023, Mister Rides started with a simple idea: make two-wheeler rentals accessible to everyone. 
               What began as a small fleet in Hyderabad has now grown into a trusted mobility partner across multiple cities.
             </p>
             <p className="text-gray-600 leading-relaxed">

@@ -5,7 +5,7 @@ import LocationStructuredData from '@/components/ui/LocationStructuredData';
 import { locationData } from '@/data/locations';
 
 export const metadata: Metadata = {
-  title: 'OnnRides - Bike Rental Service in Hyderabad',
+  title: 'Mister Rides - Bike Rental Service in Hyderabad',
   description: 'Rent bikes and scooters in Hyderabad at affordable hourly & daily rates. Easy booking, multiple locations in Madhapur & Erragadda.',
   keywords: [
     'bike rental Hyderabad',
@@ -20,19 +20,19 @@ export const metadata: Metadata = {
     'affordable bike rental',
     'two wheeler rent Hyderabad',
     'bike hire near me',
-    'OnnRides Hyderabad'
+    'Mister Rides Hyderabad'
   ],
   openGraph: {
-    title: 'OnnRides - Best Bike Rental Service in Hyderabad',
+    title: 'Mister Rides - Best Bike Rental Service in Hyderabad',
     description: 'Rent bikes and scooters in Hyderabad at affordable hourly & daily rates. Multiple locations with easy booking process.',
-    url: 'https://www.onnrides.com',
-    siteName: 'OnnRides',
+    url: 'https://www.misterrides.com',
+    siteName: 'Mister Rides',
     images: [
       {
         url: '/images/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'OnnRides - Bike Rental Service',
+        alt: 'Mister Rides - Bike Rental Service',
       }
     ],
     locale: 'en_IN',
@@ -40,14 +40,14 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'OnnRides - Best Bike Rental Service in Hyderabad',
+    title: 'Mister Rides - Best Bike Rental Service in Hyderabad',
     description: 'Rent bikes, scooters & vehicles in Hyderabad at affordable rates. Multiple locations with doorstep delivery available.',
     images: ['/images/twitter-image.jpg'],
-    creator: '@onnrides',
-    site: '@onnrides'
+    creator: '@misterrides',
+    site: '@misterrides'
   },
   alternates: {
-    canonical: 'https://www.onnrides.com',
+    canonical: 'https://www.misterrides.com',
   },
   robots: {
     index: true,

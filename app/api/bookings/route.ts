@@ -19,7 +19,7 @@ import { validateBookingDates, BookingValidationError } from '@/lib/utils/bookin
 import { toISTSql } from '@/lib/utils/sql-helpers';
 
 // Define standard support contact info
-const SUPPORT_EMAIL = 'contact@onnrides.com';
+const SUPPORT_EMAIL = 'contact@misterrides.com';
 const SUPPORT_PHONE = '8309031203';
 
 const isDevelopment = process.env.NODE_ENV === 'development';

@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
                 status,
                 reason: rejectionReason,
                 uploadUrl: `${process.env.NEXT_PUBLIC_APP_URL}/profile/documents`,
-                supportEmail: process.env.SUPPORT_EMAIL || 'support@onnrides.com'
+                supportEmail: process.env.SUPPORT_EMAIL || 'support@misterrides.com'
             };
 
             const subject = status === 'approved'
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
                     <p>Great news! Your ${emailData.documentType} has been verified and approved.</p>
                     <p>You can now proceed with your bookings.</p>
                     <p>If you have any questions, please contact us at ${emailData.supportEmail}.</p>
-                    <p>Best regards,<br>OnnRides Team</p>
+                    <p>Best regards,<br>Mister Rides Team</p>
                 `
                 : `
                     <h2>Hello ${emailData.name},</h2>
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
                     ${emailData.reason ? `<p>Reason: ${emailData.reason}</p>` : ''}
                     <p>Please upload a new document here: <a href="${emailData.uploadUrl}">${emailData.uploadUrl}</a></p>
                     <p>If you need assistance, please contact us at ${emailData.supportEmail}.</p>
-                    <p>Best regards,<br>OnnRides Team</p>
+                    <p>Best regards,<br>Mister Rides Team</p>
                 `;
 
             await emailService.sendEmail(document.email, subject, template);

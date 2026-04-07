@@ -135,7 +135,7 @@ export default function PaymentStatusPage() {
         </p>
         <div className="mt-8 flex gap-2 items-center text-xs text-gray-400">
           <div className="h-1.5 w-1.5 rounded-full bg-orange-200 animate-pulse"></div>
-          <span>OnnRides Secure Checkout</span>
+          <span>Mister Rides Secure Checkout</span>
         </div>
       </div>
     );

@@ -1,8 +1,8 @@
-# OnnRides - Vehicle Rental Platform
+# Mister Rides (Formerly Mister Rides) - Vehicle Rental Platform
 
 ## Overview
 
-OnnRides is a vehicle rental platform that allows users to rent bikes and other vehicles. The platform includes user authentication, booking management, payment processing via Razorpay, and administrative features.
+Mister Rides (Formerly Mister Rides) is a vehicle rental platform that allows users to rent bikes and other vehicles. The platform includes user authentication, booking management, payment processing via Razorpay, and administrative features.
 
 ## Deployment Instructions
 
@@ -84,7 +84,7 @@ If you encounter database-related errors:
 
 ## Support
 
-For additional support, contact the development team at support@onnrides.com.
+For additional support, contact the development team at support@misterrides.com.
 
 ## Features
 

@@ -1,6 +1,6 @@
 export const locationData = [
   {
-    name: 'OnnRides Erragadda',
+    name: 'Mister Rides Erragadda',
     streetAddress: 'R S hotel, Metro Station Erragadda, Prem Nagar',
     addressLocality: 'Erragadda, Hyderabad',
     postalCode: '500018',
@@ -15,7 +15,7 @@ export const locationData = [
     telephone: '+919182495481'
   },
   {
-    name: 'OnnRides Madhapur',
+    name: 'Mister Rides Madhapur',
     streetAddress: '1173, Ayyappa Society Main Rd, Ayyappa Society, Mega Hills',
     addressLocality: 'Madhapur, Hyderabad',
     postalCode: '500081',

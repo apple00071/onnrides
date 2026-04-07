@@ -32,7 +32,7 @@ export default function WhatsAppAdminPage() {
 
   // Form states
   const [testPhone, setTestPhone] = useState('919182495481');
-  const [customMessage, setCustomMessage] = useState('Hello from OnnRides! This is a test message from the admin panel.');
+  const [customMessage, setCustomMessage] = useState('Hello from Mister Rides! This is a test message from the admin panel.');
   const [bookingData, setBookingData] = useState({
     customerName: 'Test Customer',
     vehicleModel: 'Honda Activa 6G',

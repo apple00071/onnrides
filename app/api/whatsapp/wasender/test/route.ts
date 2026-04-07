@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     try {
       const textResult = await wasenderService.sendTextMessage(
         testPhone, 
-        `🧪 Test message from OnnRides Admin Panel\nTimestamp: ${new Date().toISOString()}\n\nThis is a test to verify WhatsApp integration is working correctly.`
+        `🧪 Test message from Mister Rides Admin Panel\nTimestamp: ${new Date().toISOString()}\n\nThis is a test to verify WhatsApp integration is working correctly.`
       );
       results.textMessage = {
         success: textResult,

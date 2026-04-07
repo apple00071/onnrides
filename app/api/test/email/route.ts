@@ -60,10 +60,10 @@ export async function POST(request: NextRequest) {
     // Send test email
     const messageId = await emailService.sendEmail(
       email,
-      'OnnRides Email System Test',
+      'Mister Rides Email System Test',
       `
         <h2>Email System Test</h2>
-        <p>This is a test email from OnnRides to verify the email system is working correctly.</p>
+        <p>This is a test email from Mister Rides to verify the email system is working correctly.</p>
         <p>If you're receiving this email, it means the email system is functioning properly.</p>
         <p>Test timestamp: ${new Date().toISOString()}</p>
         <p>Sent by admin: ${session.user.email}</p>

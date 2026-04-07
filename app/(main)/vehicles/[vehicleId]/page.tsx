@@ -67,13 +67,13 @@ export async function generateMetadata({ params }: { params: Promise<{ vehicleId
     const vehicle = await response.json();
 
     return {
-      title: `Rent ${vehicle.name} | OnnRides`,
+      title: `Rent ${vehicle.name} | Mister Rides`,
       description: `Rent ${vehicle.name} starting at ₹${vehicle.price_per_hour}/hour. ${vehicle.description}`,
     };
   } catch (error) {
     return {
-      title: 'Vehicle Details | OnnRides',
-      description: 'Find your perfect ride with OnnRides rental services.',
+      title: 'Vehicle Details | Mister Rides',
+      description: 'Find your perfect ride with Mister Rides rental services.',
     };
   }
 }

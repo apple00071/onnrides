@@ -25,7 +25,7 @@ export default function HelpPage() {
             <p className="text-gray-600">Our support team is available 24/7 to assist you.</p>
             <div>
               <p className="font-medium">Email:</p>
-              <p className="text-gray-600">support@onnrides.com</p>
+              <p className="text-gray-600">support@misterrides.com</p>
             </div>
             <div>
               <p className="font-medium">Phone:</p>

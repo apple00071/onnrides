@@ -167,7 +167,7 @@ export function Sidebar() {
           )}>
             <Image
               src="/logo.png"
-              alt="OnnRides Admin"
+              alt="Mister Rides Admin"
               fill
               className="object-contain"
               priority
@@ -223,7 +223,7 @@ export function Sidebar() {
           <div className="relative h-7 w-24">
             <Image
               src="/logo.png"
-              alt="OnnRides Admin"
+              alt="Mister Rides Admin"
               fill
               className="object-contain"
               priority
@@ -256,7 +256,7 @@ export function Sidebar() {
                 <div className="relative h-8 w-28">
                   <Image
                     src="/logo.png"
-                    alt="OnnRides Admin"
+                    alt="Mister Rides Admin"
                     fill
                     className="object-contain"
                     priority

@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: LocationPageProps): Promise<M
   const description = getLocationDescription(location);
 
   return {
-    title: `Bike Rental in ${capitalizedLocation}, Hyderabad | OnnRides`,
+    title: `Bike Rental in ${capitalizedLocation}, Hyderabad | Mister Rides`,
     description: description || `Rent bikes in ${capitalizedLocation}, Hyderabad. Choose from Activa, Dio & more. Free delivery, no hidden charges. Book Now & Get 10% Off!`,
     keywords: [
       `bike rental in ${location}`,
@@ -48,14 +48,14 @@ export async function generateMetadata({ params }: LocationPageProps): Promise<M
       `monthly bike rental ${location}`
     ],
     openGraph: {
-      title: `Best Bike Rental in ${capitalizedLocation} | Starting ₹199/day | OnnRides`,
+      title: `Best Bike Rental in ${capitalizedLocation} | Starting ₹199/day | Mister Rides`,
       description: `🏍️ Rent bikes in ${capitalizedLocation} at best prices. Multiple bikes available. Free delivery to ${areas.join(', ')}. Book Now!`,
       images: [
         {
           url: `/images/locations/${location.toLowerCase()}.jpg`,
           width: 1200,
           height: 630,
-          alt: `Bike Rental in ${capitalizedLocation} - OnnRides`
+          alt: `Bike Rental in ${capitalizedLocation} - Mister Rides`
         }
       ]
     }
@@ -95,7 +95,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
 
   // Location data for structured data
   const locationData = {
-    name: `OnnRides ${formattedLocation}`,
+    name: `Mister Rides ${formattedLocation}`,
     streetAddress: getLocationAddress(location),
     addressLocality: formattedLocation,
     postalCode: getLocationPostalCode(location),
@@ -129,7 +129,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
 
       <div className="prose max-w-none mb-8">
         <p className="text-lg">
-          {description || `Looking for reliable bike rentals in ${formattedLocation}, Hyderabad? OnnRides offers a wide selection of well-maintained bikes including Activa, Dio, and Access at competitive rates.`}
+          {description || `Looking for reliable bike rentals in ${formattedLocation}, Hyderabad? Mister Rides offers a wide selection of well-maintained bikes including Activa, Dio, and Access at competitive rates.`}
           {' '}Whether you need a bike for a few hours or several days, we've got you covered with free delivery to {areas.join(', ')}.
         </p>
 
@@ -147,7 +147,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
         )}
 
         <div className="mt-4">
-          <h2 className="text-xl font-semibold mb-3">Why Rent from OnnRides in {formattedLocation}?</h2>
+          <h2 className="text-xl font-semibold mb-3">Why Rent from Mister Rides in {formattedLocation}?</h2>
           <ul className="list-disc pl-6">
             <li>Starting at just ₹199/day</li>
             <li>Free delivery to your location in {formattedLocation}</li>

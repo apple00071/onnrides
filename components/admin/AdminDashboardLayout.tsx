@@ -73,7 +73,7 @@ export default function AdminDashboardLayout({
             <div className="w-8 h-8 bg-[#f26e24] rounded-full flex items-center justify-center">
               <span className="text-white font-bold text-xl">O</span>
             </div>
-            <span className="text-xl font-semibold text-gray-900">ONNRIDES</span>
+            <span className="text-xl font-semibold text-gray-900">Mister Rides</span>
           </Link>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -96,7 +96,7 @@ export default function AdminDashboardLayout({
               <div className="w-8 h-8 bg-[#f26e24] rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-xl">O</span>
               </div>
-              <span className="text-xl font-semibold text-gray-900">ONNRIDES</span>
+              <span className="text-xl font-semibold text-gray-900">Mister Rides</span>
             </Link>
           </div>
           <nav className="flex-1 mt-6 px-3 space-y-1">
@@ -139,7 +139,7 @@ export default function AdminDashboardLayout({
               <div className="w-8 h-8 bg-[#f26e24] rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-xl">O</span>
               </div>
-              <span className="text-xl font-semibold text-gray-900">ONNRIDES</span>
+              <span className="text-xl font-semibold text-gray-900">Mister Rides</span>
             </Link>
             <button
               onClick={() => setIsMobileMenuOpen(false)}

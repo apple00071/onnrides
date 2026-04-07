@@ -2,8 +2,8 @@ import { Metadata } from 'next';
 import ResetPasswordForm from '@/components/auth/reset-password-form';
 
 export const metadata: Metadata = {
-  title: 'Reset Password - OnnRides',
-  description: 'Reset your password for OnnRides account',
+  title: 'Reset Password - Mister Rides',
+  description: 'Reset your password for Mister Rides account',
 };
 
 export default function ResetPasswordPage() {

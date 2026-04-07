@@ -172,7 +172,7 @@ export class WaSenderService {
 
 Dear ${data.customerName},
 
-Your booking has been confirmed with *OnnRides*.
+Your booking has been confirmed with *Mister Rides*.
 
 📋 *Booking Details:*
 • Booking ID: ${data.bookingId}
@@ -183,9 +183,9 @@ Your booking has been confirmed with *OnnRides*.
 
 Need help? Contact us at:
 📞 +91 9182495481
-📧 support@onnrides.com
+📧 support@misterrides.com
 
-Thank you for choosing OnnRides! 🙏`;
+Thank you for choosing Mister Rides! 🙏`;
   }
 
   private createPaymentConfirmationMessage(data: PaymentConfirmationData): string {
@@ -205,9 +205,9 @@ Your booking is now confirmed and ready!
 
 Need help? Contact us at:
 📞 +91 9182495481
-📧 support@onnrides.com
+📧 support@misterrides.com
 
-Thank you for choosing OnnRides! 🙏`;
+Thank you for choosing Mister Rides! 🙏`;
   }
 
   public async getSessionStatus(): Promise<any> {

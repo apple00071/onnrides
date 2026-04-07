@@ -42,14 +42,14 @@ export function createBookingConfirmationEmail(booking: BookingDetails) {
           <p style="margin-bottom: 0;">
             If you have any questions or need assistance, please contact our support team:
             <br />
-            Email: support@onnrides.com
+            Email: support@misterrides.com
             <br />
             Phone: +91 XXXXXXXXXX
           </p>
         </div>
 
         <div style="text-align: center; margin-top: 30px;">
-          <p>Thank you for choosing ONNRIDES!</p>
+          <p>Thank you for choosing Mister Rides!</p>
           <p style="color: #666; font-size: 12px;">
             This is an automated email. Please do not reply to this message.
           </p>
@@ -61,7 +61,7 @@ export function createBookingConfirmationEmail(booking: BookingDetails) {
 
 export function createPasswordResetEmail(resetUrl: string) {
   return {
-    subject: 'Reset Your Password - ONNRIDES',
+    subject: 'Reset Your Password - Mister Rides',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #f26e24; text-align: center;">Reset Your Password</h1>
@@ -91,14 +91,14 @@ export function createPasswordResetEmail(resetUrl: string) {
 
 export function createWelcomeEmail(name: string) {
   return {
-    subject: 'Welcome to ONNRIDES! 🎉',
+    subject: 'Welcome to Mister Rides! 🎉',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #f26e24; text-align: center;">Welcome to ONNRIDES!</h1>
+        <h1 style="color: #f26e24; text-align: center;">Welcome to Mister Rides!</h1>
         
         <div style="background-color: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <p>Hi ${name},</p>
-          <p>Thank you for joining ONNRIDES! We're excited to have you on board.</p>
+          <p>Thank you for joining Mister Rides! We're excited to have you on board.</p>
           
           <h3 style="color: #333;">What's Next?</h3>
           <ul style="padding-left: 20px;">
@@ -113,7 +113,7 @@ export function createWelcomeEmail(name: string) {
           <p style="margin-bottom: 0;">
             Our support team is always here to help you:
             <br />
-            Email: support@onnrides.com
+            Email: support@misterrides.com
             <br />
             Phone: +91 XXXXXXXXXX
           </p>

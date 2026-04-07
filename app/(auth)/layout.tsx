@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Authentication - OnnRides',
-  description: 'Login or register for OnnRides',
+  title: 'Authentication - Mister Rides',
+  description: 'Login or register for Mister Rides',
 }
 
 export default function AuthLayout({

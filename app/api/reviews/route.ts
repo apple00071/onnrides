@@ -11,27 +11,42 @@ const mockReviews = [
   {
     id: '1',
     name: 'KUNTAPALLY ADARSH',
-    comment: 'My experience with them has always been good enough for me to recommend them to other people, cars are reasonably priced, offers are available. And madhapur branch manager adil is nice man and good way of taking.'
+    rating: 5,
+    comment: 'My experience with them has always been good enough for me to recommend them to other people, cars are reasonably priced, offers are available. And madhapur branch manager adil is nice man and good way of taking.',
+    profilePhotoUrl: '/images/placeholder-user.png',
+    createTime: new Date().toISOString()
   },
   {
     id: '2',
     name: 'Ramu Baghela',
-    comment: 'I highly recommend Bike rental from this shop for anyone looking to explore a new palace on two wheels whether you\'re a seasoned cyclist or just looking for a leisurely ride they have something for everyone the quality of service and overall experience was top notch and I will definitely be returning for more rentals in the future give it a try and see for yourself the joy of discovering a new place.'
+    rating: 5,
+    comment: 'I highly recommend Bike rental from this shop for anyone looking to explore a new palace on two wheels whether you\'re a seasoned cyclist or just looking for a leisurely ride they have something for everyone the quality of service and overall experience was top notch and I will definitely be returning for more rentals in the future give it a try and see for yourself the joy of discovering a new place.',
+    profilePhotoUrl: '/images/placeholder-user.png',
+    createTime: new Date().toISOString()
   },
   {
     id: '3',
     name: 'Shiro Yasha',
-    comment: 'Had a great experience, hassle free rental, range of bikes to be rented is quite a lot with the cheapest of rates. Overall a great experience in renting from here, will be back for more rentals in future.'
+    rating: 5,
+    comment: 'Had a great experience, hassle free rental, range of bikes to be rented is quite a lot with the cheapest of rates. Overall a great experience in renting from here, will be back for more rentals in future.',
+    profilePhotoUrl: '/images/placeholder-user.png',
+    createTime: new Date().toISOString()
   },
   {
     id: '4',
     name: 'Sneha Reddy',
-    comment: 'Best bike rental service in Hyderabad. The vehicles are in great condition and the process is hassle-free. The staff is very helpful and professional.'
+    rating: 5,
+    comment: 'Best bike rental service in Hyderabad. The vehicles are in great condition and the process is hassle-free. The staff is very helpful and professional.',
+    profilePhotoUrl: '/images/placeholder-user.png',
+    createTime: new Date().toISOString()
   },
   {
     id: '5',
     name: 'Arun Singh',
-    comment: 'Excellent service and well-maintained bikes. The booking process was smooth and the staff was very cooperative. Highly recommended!'
+    rating: 5,
+    comment: 'Excellent service and well-maintained bikes. The booking process was smooth and the staff was very cooperative. Highly recommended!',
+    profilePhotoUrl: '/images/placeholder-user.png',
+    createTime: new Date().toISOString()
   }
 ];
 

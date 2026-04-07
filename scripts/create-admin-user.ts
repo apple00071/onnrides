@@ -36,7 +36,7 @@ async function createAdminUser() {
       [
         userId,
         'Admin User',
-        'admin@onnrides.com',
+        'admin@misterrides.com',
         'admin',
         hashedPassword
       ]

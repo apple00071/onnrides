@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
         key: RAZORPAY_KEY_ID,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
-        name: 'OnnRides',
+        name: 'Mister Rides',
         description: `Booking ID: ${bookingId}`,
         prefill: {
           name: session.user.name || '',

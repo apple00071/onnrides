@@ -24,7 +24,7 @@ export function BusinessStructuredData({
   name,
   description,
   url,
-  logo = 'https://www.onnrides.com/images/logo.png',
+  logo = 'https://www.misterrides.com/images/logo.png',
   telephone = '+919182495481',
   address = [
     {
@@ -90,9 +90,9 @@ export function BusinessStructuredData({
     logo,
     telephone,
     sameAs: [
-      'https://www.facebook.com/onnrides',
-      'https://www.instagram.com/onnrides',
-      'https://twitter.com/onnrides',
+      'https://www.facebook.com/Mister Rides',
+      'https://www.instagram.com/Mister Rides',
+      'https://twitter.com/Mister Rides',
     ],
     department: locations,
   };

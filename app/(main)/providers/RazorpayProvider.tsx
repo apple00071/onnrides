@@ -58,7 +58,7 @@ export const initializeRazorpayPayment = async (options: PaymentOptions) => {
       amount: options.amount.toString(),
       currency: options.currency,
       order_id: options.orderId,
-      name: 'OnnRides',
+      name: 'Mister Rides',
       description: `Advance Payment (5%) for Booking ID: ${options.bookingId}`,
       image: '/logo.png',
       prefill: options.prefill,

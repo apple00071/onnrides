@@ -12,7 +12,7 @@ const client = new Client({
 });
 
 async function updateAdminPassword() {
-  const email = 'admin@onnrides.com';
+  const email = 'admin@misterrides.com';
   const password = 'admin123'; // You should change this after first login
 
   try {

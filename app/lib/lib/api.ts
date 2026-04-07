@@ -25,8 +25,8 @@ export interface Vehicle {
 }
 
 // Storage keys
-const BOOKINGS_STORAGE_KEY = 'onnrides_bookings';
-const VEHICLES_STORAGE_KEY = 'onnrides_vehicles';
+const BOOKINGS_STORAGE_KEY = 'Mister Rides_bookings';
+const VEHICLES_STORAGE_KEY = 'Mister Rides_vehicles';
 
 // Generate a unique ID
 function generateId(): string {

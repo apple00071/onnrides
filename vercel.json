@@ -27,7 +27,7 @@
   },
   "outputDirectory": ".next",
   "env": {
-    "NEXTAUTH_URL": "https://www.onnrides.com",
+    "NEXTAUTH_URL": "https://www.misterrides.com",
     "ADMIN_PHONE": "919182495481",
     "RAZORPAY_KEY_ID": "rzp_live_RbFBxqulyXbmUf",
     "RAZORPAY_KEY_SECRET": "043QBexJz7oGp9AM8CA3TWmH",

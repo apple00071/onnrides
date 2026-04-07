@@ -122,7 +122,7 @@ export default function Navbar() {
             <div className="relative h-7 md:h-9 w-24 md:w-32">
               <Image
                 src="/logo.png"
-                alt="OnnRides"
+                alt="Mister Rides"
                 fill
                 className="object-contain"
                 priority
@@ -144,7 +144,7 @@ export default function Navbar() {
               <div className="relative h-8 md:h-9 w-28 md:w-32">
                 <Image
                   src="/logo.png"
-                  alt="OnnRides"
+                  alt="Mister Rides"
                   fill
                   className="object-contain"
                   priority
@@ -250,7 +250,7 @@ export default function Navbar() {
               <div className="relative h-8 w-28">
                 <Image
                   src="/logo.png"
-                  alt="OnnRides"
+                  alt="Mister Rides"
                   fill
                   className="object-contain"
                   priority

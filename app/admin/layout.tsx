@@ -9,8 +9,8 @@ import { ToasterProvider } from '@/components/providers/ToasterProvider';
 
 export function generateMetadata(): Metadata {
   return {
-    title: 'Admin Dashboard - OnnRides',
-    description: 'Admin dashboard for managing OnnRides platform',
+    title: 'Admin Dashboard - Mister Rides',
+    description: 'Admin dashboard for managing Mister Rides platform',
   };
 }
 

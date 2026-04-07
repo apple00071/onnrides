@@ -63,8 +63,8 @@ export class EmailService {
       }
 
       if (!process.env.EMAIL_FROM) {
-        logger.warn('EMAIL_FROM is missing, defaulting to contact@onnrides.com');
-        process.env.EMAIL_FROM = 'contact@onnrides.com';
+        logger.warn('EMAIL_FROM is missing, defaulting to contact@misterrides.com');
+        process.env.EMAIL_FROM = 'contact@misterrides.com';
       }
 
       // Create transporter with secure configuration
@@ -245,7 +245,7 @@ export class EmailService {
           <p><strong>Payment ID:</strong> ${data.paymentId}</p>
         </div>
         <p>Thank you for choosing our service!</p>
-        <p>Best regards,<br>OnnRides Team</p>
+        <p>Best regards,<br>Mister Rides Team</p>
       </div>
     `;
   }
@@ -266,7 +266,7 @@ export class EmailService {
         </div>
         <p>Please try again or contact our support team for assistance:</p>
         <p>Email: ${data.supportEmail}<br>Phone: ${data.supportPhone}</p>
-        <p>Best regards,<br>OnnRides Team</p>
+        <p>Best regards,<br>Mister Rides Team</p>
       </div>
     `;
     await this.sendEmail(to, 'Payment Failed', html, data.bookingId);
@@ -284,7 +284,7 @@ export class EmailService {
         <p>Please upload your documents within ${data.deadline || '24 hours'} to avoid booking cancellation.</p>
         <p><a href="${data.uploadUrl}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Upload Documents</a></p>
         <p>If you need assistance, please contact our support team at ${data.supportEmail}.</p>
-        <p>Best regards,<br>OnnRides Team</p>
+        <p>Best regards,<br>Mister Rides Team</p>
       </div>
     `;
     await this.sendEmail(to, 'Document Upload Reminder', html, data.bookingId);
@@ -301,7 +301,7 @@ export class EmailService {
         <p>You have requested to reset your password. Click the link below to proceed:</p>
         <p><a href="${data.resetLink}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
         <p>If you did not request this, please ignore this email or contact support at ${data.supportEmail}.</p>
-        <p>Best regards,<br>OnnRides Team</p>
+        <p>Best regards,<br>Mister Rides Team</p>
       </div>
     `;
     await this.sendEmail(to, 'Password Reset', html);

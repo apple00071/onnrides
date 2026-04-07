@@ -1,6 +1,6 @@
 {
-  "name": "OnnRides - Bike & Vehicle Rentals",
-  "short_name": "OnnRides",
+  "name": "Mister Rides - Bike & Vehicle Rentals",
+  "short_name": "Mister Rides",
   "description": "Rent bikes and vehicles in Hyderabad",
   "start_url": "/",
   "display": "standalone",

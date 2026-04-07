@@ -120,10 +120,10 @@ export async function POST(req: NextRequest) {
       try {
         const { messageId, logId } = await emailService.sendEmail(
           email,
-          `[ONNRIDES] Test Email ${testId}`,
+          `[Mister Rides] Test Email ${testId}`,
           `
             <h1>Test Email</h1>
-            <p>This is a test email from the ONNRIDES system.</p>
+            <p>This is a test email from the Mister Rides system.</p>
             <p>Test ID: ${testId}</p>
             <p>Timestamp: ${new Date().toISOString()}</p>
             <p>Environment: ${process.env.NODE_ENV || 'unknown'}</p>

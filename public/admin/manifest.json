@@ -1,7 +1,7 @@
 {
-  "name": "OnnRides Admin Dashboard",
-  "short_name": "OnnRides Admin",
-  "description": "Online admin dashboard for OnnRides vehicle rental service management (requires internet connection)",
+  "name": "Mister Rides Admin Dashboard",
+  "short_name": "Mister Rides Admin",
+  "description": "Online admin dashboard for Mister Rides vehicle rental service management (requires internet connection)",
   "start_url": "/admin/dashboard",
   "scope": "/admin/",
   "display": "standalone",
@@ -94,7 +94,7 @@
       "sizes": "1280x720",
       "type": "image/png",
       "platform": "wide",
-      "label": "Dashboard view of OnnRides Admin"
+      "label": "Dashboard view of Mister Rides Admin"
     }
   ]
 } 

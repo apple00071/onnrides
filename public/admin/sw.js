@@ -1,4 +1,4 @@
-// OnnRides Admin Service Worker
+// Mister Rides Admin Service Worker
 // This service worker enables PWA functionality without offline caching
 
 const VERSION = 'v6';
@@ -63,7 +63,7 @@ self.addEventListener('push', (event) => {
   console.log('[Admin Service Worker] Push received:', event);
   
   let notification = {
-    title: 'OnnRides Admin',
+    title: 'Mister Rides Admin',
     body: 'New notification',
     icon: '/admin/icon-192x192.png',
     badge: '/admin/icon-192x192.png',

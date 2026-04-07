@@ -174,7 +174,7 @@ For any queries: +91 8309031203
 * Late returns will incur charges of ₹100/- per hour.
 * For extensions, please call support for confirmation.
 
-Thank you for choosing OnnRides! 🚗`;
+Thank you for choosing Mister Rides! 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(bookingData.phone_number, message);
 
@@ -234,7 +234,7 @@ For any queries: +91 8309031203
 * Late returns will incur charges of ₹100/- per hour.
 * For extensions, please call support for confirmation.
 
-Thank you for choosing OnnRides! 🏍️ 🚗`;
+Thank you for choosing Mister Rides! 🏍️ 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(data.phone_number, message);
 
@@ -278,9 +278,9 @@ Your booking is now confirmed and active. You will receive pickup details shortl
 
 📞 Contact Us:
 For any queries: +91 8309031203
-Email: contact@onnrides.com
+Email: contact@misterrides.com
 
-Thank you for choosing OnnRides! 🚗`;
+Thank you for choosing Mister Rides! 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(paymentData.phone_number, message);
 
@@ -340,7 +340,7 @@ Please arrive 15 minutes before your scheduled pickup time.
 
 📞 Contact Us:
 For any queries: +91 8309031203
-Email: contact@onnrides.com
+Email: contact@misterrides.com
 
 See you soon! 🚗`;
 
@@ -389,7 +389,7 @@ ${tripData.security_deposit_amount !== undefined ? `* Security Deposit: ₹${tri
 
 📞 24/7 Support:
 Emergency: +91 8309031203
-Email: contact@onnrides.com
+Email: contact@misterrides.com
 
 Have a safe journey! 🛣️`;
 
@@ -442,7 +442,7 @@ ${bookingData.pickup_location ? `* Return Location: ${bookingData.pickup_locatio
 
 📞 Support: +91 8309031203
 
-Thank you for choosing OnnRides! 🚗`;
+Thank you for choosing Mister Rides! 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(bookingData.phone_number, message);
 
@@ -492,7 +492,7 @@ For any queries: +91 8309031203
 * Late returns will incur charges of ₹100/- per hour.
 * For extensions, please call support for confirmation.
 
-Thank you for choosing OnnRides! 🚗`;
+Thank you for choosing Mister Rides! 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(bookingData.phone_number, message);
 
@@ -541,9 +541,9 @@ We're sorry to see you go! If you need to book again in the future, we'll be her
 
 📞 Contact Us:
 For any queries: +91 8309031203
-Email: contact@onnrides.com
+Email: contact@misterrides.com
 
-Thank you for considering OnnRides! 🚗`;
+Thank you for considering Mister Rides! 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(cancellationData.customer_phone, message);
 
@@ -595,9 +595,9 @@ Please ensure you return the vehicle by the new return date to avoid additional 
 
 📞 Contact Us:
 For any queries: +91 8309031203
-Email: contact@onnrides.com
+Email: contact@misterrides.com
 
-Thank you for choosing OnnRides! 🚗`;
+Thank you for choosing Mister Rides! 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(extensionData.customer_phone, message);
 
@@ -633,7 +633,7 @@ Thank you for choosing OnnRides! 🚗`;
 
 Dear ${completionData.customer_name || 'Customer'},
 
-Thank you for choosing OnnRides! Your trip has been completed successfully.
+Thank you for choosing Mister Rides! Your trip has been completed successfully.
 
 📋 Completed Trip Details:
 * Booking ID: ${completionData.booking_id}
@@ -649,7 +649,7 @@ Need another ride? Visit our website or contact us anytime!
 
 📞 Contact Us:
 For any queries: +91 8309031203
-Email: contact@onnrides.com
+Email: contact@misterrides.com
 
 Drive safe and see you again soon! 🛣️`;
 
@@ -702,11 +702,11 @@ Your trip has been completed.
 * Return Date: ${formatIST(returnData.return_date)}${additionalChargesInfo}${securityDepositRefundInfo}
 
 🎉 Thank You!
-We appreciate your business and hope you had a great experience with OnnRides!
+We appreciate your business and hope you had a great experience with Mister Rides!
 
 📞 Contact Us:
 For any queries: +91 8309031203
-Email: contact@onnrides.com
+Email: contact@misterrides.com
 
 See you again soon! 🚗`;
 
@@ -760,9 +760,9 @@ This is a ${reminderData.reminder_type} reminder for your pending payment.
 
 📞 Contact Us:
 For payment assistance: +91 8309031203
-Email: contact@onnrides.com
+Email: contact@misterrides.com
 
-Thank you for choosing OnnRides! 🚗`;
+Thank you for choosing Mister Rides! 🚗`;
 
       const result = await this.wasenderService.sendTextMessage(reminderData.customer_phone, message);
 
@@ -804,7 +804,7 @@ ${modificationData.modification_reason && modificationData.modification_reason.t
 
 📞 Contact Us:
 For any queries: +91 8309031203
-Email: contact@onnrides.com
+Email: contact@misterrides.com
 
 Thank you for your understanding! 🚗`;
 
@@ -885,11 +885,11 @@ Thank you! 🚗`;
         reviewLink = 'https://g.page/r/CYzDbcg5kcDMEAE/review';
       }
 
-      const message = `🌟 *How was your ride with OnnRides?*
+      const message = `🌟 *How was your ride with Mister Rides?*
 
 Dear ${bookingData.customer_name || 'Customer'},
 
-Thank you for choosing OnnRides for your recent trip with the ${bookingData.vehicle_model}! We hope you had a smooth and enjoyable journey.
+Thank you for choosing Mister Rides for your recent trip with the ${bookingData.vehicle_model}! We hope you had a smooth and enjoyable journey.
 
 To help us improve, could you please rate your experience?
 ⭐⭐⭐⭐⭐ Excellent

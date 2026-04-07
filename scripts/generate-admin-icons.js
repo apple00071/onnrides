@@ -179,7 +179,7 @@ async function generateAdminIcons() {
             <svg width="${screenshotWidth}" height="${screenshotHeight}">
               <rect x="0" y="0" width="${screenshotWidth}" height="${screenshotHeight}" fill="#f8f9fa" />
               <rect x="0" y="0" width="${screenshotWidth}" height="80" fill="#f26e24" />
-              <text x="20" y="50" font-family="Arial" font-size="28" font-weight="bold" fill="white">OnnRides Admin Dashboard</text>
+              <text x="20" y="50" font-family="Arial" font-size="28" font-weight="bold" fill="white">Mister Rides Admin Dashboard</text>
               <text x="${screenshotWidth/2}" y="${screenshotHeight/2 + 100}" font-family="Arial" font-size="24" text-anchor="middle" fill="#333">Vehicle Management · Bookings · User Analytics</text>
               <text x="${screenshotWidth/2}" y="${screenshotHeight/2 + 150}" font-family="Arial" font-size="18" text-anchor="middle" fill="#666">✓ Secure Admin Access</text>
               <text x="${screenshotWidth/2}" y="${screenshotHeight/2 + 180}" font-family="Arial" font-size="18" text-anchor="middle" fill="#666">✓ Real-time Notifications</text>

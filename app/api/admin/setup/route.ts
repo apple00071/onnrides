@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     `);
 
     // Create admin user
-    const adminEmail = 'admin@onnrides.com';
+    const adminEmail = 'admin@misterrides.com';
     const adminPassword = 'admin@123';
 
     // Hash the password

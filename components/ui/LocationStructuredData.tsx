@@ -16,7 +16,7 @@ interface LocationData {
 
 export default function LocationStructuredData({
   locations,
-  baseUrl = 'https://onnrides.com'
+  baseUrl = 'https://misterrides.com'
 }: {
   locations: LocationData[];
   baseUrl?: string;

@@ -11,7 +11,7 @@ const MAX_FAILURE_THRESHOLD = 5;
 // Define admin notification recipients
 export const ADMIN_EMAILS = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
 export const ADMIN_PHONES = process.env.ADMIN_PHONES ? process.env.ADMIN_PHONES.split(',') : [];
-export const DEFAULT_ADMIN_EMAILS = ['contact@onnrides.com', 'onnrides@gmail.com'];
+export const DEFAULT_ADMIN_EMAILS = ['contact@misterrides.com', 'misterrides@gmail.com'];
 export const DEFAULT_ADMIN_PHONES = ['8247494622', '9182495481', '8309031203'];
 
 // Helper function to format date in IST
@@ -365,7 +365,7 @@ export class AdminNotificationService {
         ${detailsHtml}
         
         <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666;">
-          <p>This is an automated notification from OnnRides.</p>
+          <p>This is an automated notification from Mister Rides.</p>
           <p>Sent at: ${formatDateIST(new Date())}</p>
         </div>
       </div>
