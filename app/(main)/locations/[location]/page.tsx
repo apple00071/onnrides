@@ -62,8 +62,23 @@ export async function generateMetadata({ params }: LocationPageProps): Promise<M
   };
 }
 
+const VALID_LOCATIONS = [
+  'madhapur',
+  'gachibowli',
+  'hitec-city',
+  'kondapur',
+  'jubilee-hills',
+  'erragadda',
+  'ameerpet',
+  'sr-nagar'
+];
+
 export default async function LocationPage({ params }: LocationPageProps) {
-  const location = decodeURIComponent(params.location);
+  const location = decodeURIComponent(params.location).toLowerCase();
+
+  if (!VALID_LOCATIONS.includes(location)) {
+    notFound();
+  }
 
   // Get vehicles from database using direct query
   const result = await query(`
@@ -72,10 +87,6 @@ export default async function LocationPage({ params }: LocationPageProps) {
     AND is_available = true 
     ORDER BY created_at DESC
   `, [location]);
-
-  if (result.rows.length === 0) {
-    notFound();
-  }
 
   // Transform the vehicles data to match the Vehicle interface
   const vehicles: Vehicle[] = result.rows.map((row: VehicleRow) => ({
@@ -160,11 +171,28 @@ export default async function LocationPage({ params }: LocationPageProps) {
       </div>
 
       <h2 className="text-2xl font-semibold mb-4">Available Bikes in {formattedLocation}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {vehicles.map((vehicle) => (
-          <VehicleCard key={vehicle.id} vehicle={vehicle} />
-        ))}
-      </div>
+      {vehicles.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {vehicles.map((vehicle) => (
+            <VehicleCard key={vehicle.id} vehicle={vehicle} />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-orange-50/60 border border-orange-100 rounded-xl p-8 text-center space-y-4 my-6">
+          <p className="text-gray-600 text-lg">
+            No bikes are currently available for booking at our {formattedLocation} branch.
+          </p>
+          <p className="text-gray-500 text-sm">
+            We are working on restocking our fleet here soon. In the meantime, you can check our complete Hyderabad fleet.
+          </p>
+          <a
+            href="/bikes"
+            className="inline-block bg-[#f26e24] hover:bg-[#e85d1c] text-white px-6 py-2.5 rounded-lg font-semibold transition-colors"
+          >
+            Browse All Bikes
+          </a>
+        </div>
+      )}
 
       <div className="mt-12 prose max-w-none border-t pt-8">
         <h2 className="text-xl font-semibold mb-4">Bike Rental Services in {formattedLocation}</h2>
