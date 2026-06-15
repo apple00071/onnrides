@@ -66,6 +66,36 @@ const nextConfig = {
         destination: '/privacy-policy',
         permanent: true,
       },
+      {
+        source: '/locations/gachibowli',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/locations/hitec-city',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/locations/kondapur',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/locations/jubilee-hills',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/locations/ameerpet',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/locations/sr-nagar',
+        destination: '/',
+        permanent: true,
+      },
     ];
   },
 };
