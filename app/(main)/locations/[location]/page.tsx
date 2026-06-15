@@ -1,8 +1,6 @@
 import { Metadata } from 'next';
-import { query } from '@/lib/db';
-import { VehicleCard, Vehicle } from '@/components/ui/VehicleCard';
 import { notFound } from 'next/navigation';
-import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import HeroSection from '@/components/ui/HeroSection';
 import LocationStructuredData from '@/components/ui/LocationStructuredData';
 import { getLocationAddress, getLocationCoordinates, getLocationPostalCode, getNearbyAreas, getLocationLandmarks, getLocationDescription } from '@/lib/location-utils';
 
@@ -12,25 +10,15 @@ interface LocationPageProps {
   };
 }
 
-interface VehicleRow {
-  id: string;
-  name: string;
-  type: string;
-  images: string | null;
-  price_per_hour: number;
-  is_available: boolean;
-  location: string;
-}
-
 // Generate metadata for each location
 export async function generateMetadata({ params }: LocationPageProps): Promise<Metadata> {
-  const location = decodeURIComponent(params.location);
-  const capitalizedLocation = location.charAt(0).toUpperCase() + location.slice(1);
+  const location = decodeURIComponent(params.location).toLowerCase();
+  const capitalizedLocation = location.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   const areas = getNearbyAreas(location);
   const description = getLocationDescription(location);
 
   return {
-    title: `Bike Rental in ${capitalizedLocation}, Hyderabad | Mister Rides`,
+    title: `Bike Rental in ${capitalizedLocation}, Hyderabad`,
     description: description || `Rent bikes in ${capitalizedLocation}, Hyderabad. Choose from Activa, Dio & more. Free delivery, no hidden charges. Book Now & Get 10% Off!`,
     keywords: [
       `bike rental in ${location}`,
@@ -52,7 +40,7 @@ export async function generateMetadata({ params }: LocationPageProps): Promise<M
       description: `🏍️ Rent bikes in ${capitalizedLocation} at best prices. Multiple bikes available. Free delivery to ${areas.join(', ')}. Book Now!`,
       images: [
         {
-          url: `/images/locations/${location.toLowerCase()}.jpg`,
+          url: `/images/og-image.jpg`,
           width: 1200,
           height: 630,
           alt: `Bike Rental in ${capitalizedLocation} - Mister Rides`
@@ -73,33 +61,14 @@ const VALID_LOCATIONS = [
   'sr-nagar'
 ];
 
-export default async function LocationPage({ params }: LocationPageProps) {
+export default function LocationPage({ params }: LocationPageProps) {
   const location = decodeURIComponent(params.location).toLowerCase();
 
   if (!VALID_LOCATIONS.includes(location)) {
     notFound();
   }
 
-  // Get vehicles from database using direct query
-  const result = await query(`
-    SELECT * FROM vehicles 
-    WHERE location = $1 
-    AND is_available = true 
-    ORDER BY created_at DESC
-  `, [location]);
-
-  // Transform the vehicles data to match the Vehicle interface
-  const vehicles: Vehicle[] = result.rows.map((row: VehicleRow) => ({
-    id: row.id,
-    name: row.name,
-    description: row.type || '',
-    image: row.images ? row.images.split(',')[0] : '',
-    price: row.price_per_hour * 24,
-    category: row.type || '',
-    available: row.is_available ?? true
-  }));
-
-  const formattedLocation = location.charAt(0).toUpperCase() + location.slice(1);
+  const formattedLocation = location.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   const areas = getNearbyAreas(location);
   const landmarks = getLocationLandmarks(location);
   const description = getLocationDescription(location);
@@ -122,105 +91,107 @@ export default async function LocationPage({ params }: LocationPageProps) {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Breadcrumbs
-        items={[
-          { label: 'Home', href: '/' },
-          { label: 'Locations', href: '/locations' },
-          { label: formattedLocation, href: `/locations/${location}` }
-        ]}
-        className="mb-8"
-      />
-
+    <>
       <LocationStructuredData locations={[locationData]} />
 
-      <h1 className="text-3xl font-bold mb-6">
-        Bike Rental in {formattedLocation}, Hyderabad
-      </h1>
+      {/* Hero Section — same search form as homepage */}
+      <HeroSection />
 
-      <div className="prose max-w-none mb-8">
-        <p className="text-lg">
-          {description || `Looking for reliable bike rentals in ${formattedLocation}, Hyderabad? Mister Rides offers a wide selection of well-maintained bikes including Activa, Dio, and Access at competitive rates.`}
-          {' '}Whether you need a bike for a few hours or several days, we've got you covered with free delivery to {areas.join(', ')}.
-        </p>
+      {/* Location-specific SEO content below the hero */}
+      <div className="container mx-auto px-4 py-12 max-w-5xl">
 
+        {/* Intro */}
+        <section className="mb-10">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            Bike Rental in {formattedLocation}, Hyderabad
+          </h1>
+          <p className="text-lg text-gray-600 leading-relaxed">
+            {description || `Looking for reliable bike rentals in ${formattedLocation}, Hyderabad? Mister Rides offers a wide selection of well-maintained bikes including Activa, Dio, and Access at competitive rates.`}
+            {' '}Whether you need a bike for a few hours or several days, we&apos;ve got you covered with free delivery to {areas.join(', ')}.
+          </p>
+        </section>
+
+        {/* Landmarks */}
         {landmarks.length > 0 && (
-          <div className="mt-4">
-            <h2 className="text-xl font-semibold mb-3">Popular Landmarks Near Our {formattedLocation} Branch</h2>
-            <div className="flex flex-wrap gap-2 mb-6">
+          <section className="mb-10">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Popular Landmarks Near Our {formattedLocation} Branch
+            </h2>
+            <div className="flex flex-wrap gap-2">
               {landmarks.map((landmark, idx) => (
-                <span key={idx} className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium border border-gray-200">
+                <span key={idx} className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-sm font-medium border border-gray-200">
                   📍 {landmark}
                 </span>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        <div className="mt-4">
-          <h2 className="text-xl font-semibold mb-3">Why Rent from Mister Rides in {formattedLocation}?</h2>
-          <ul className="list-disc pl-6">
-            <li>Starting at just ₹199/day</li>
-            <li>Free delivery to your location in {formattedLocation}</li>
-            <li>Well-maintained bikes & 24/7 support</li>
-            <li>No hidden charges or high deposits</li>
-            <li>Conveniently located near {landmarks[0] || 'major transport hubs'}</li>
-            <li>Flexible rental duration (Hourly/Daily/Monthly)</li>
+        {/* Why choose us */}
+        <section className="mb-10 bg-orange-50/50 border border-orange-100 rounded-2xl p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Why Rent from Mister Rides in {formattedLocation}?
+          </h2>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              `Starting at just ₹199/day`,
+              `Free delivery to your location in ${formattedLocation}`,
+              `Well-maintained bikes & 24/7 support`,
+              `No hidden charges or high deposits`,
+              `Conveniently located near ${landmarks[0] || 'major transport hubs'}`,
+              `Flexible rental duration (Hourly/Daily/Monthly)`,
+            ].map((point, i) => (
+              <li key={i} className="flex items-start gap-2 text-gray-700 text-sm">
+                <span className="text-[#f26e24] mt-0.5">✓</span>
+                {point}
+              </li>
+            ))}
           </ul>
-        </div>
-      </div>
+        </section>
 
-      <h2 className="text-2xl font-semibold mb-4">Available Bikes in {formattedLocation}</h2>
-      {vehicles.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {vehicles.map((vehicle) => (
-            <VehicleCard key={vehicle.id} vehicle={vehicle} />
-          ))}
-        </div>
-      ) : (
-        <div className="bg-orange-50/60 border border-orange-100 rounded-xl p-8 text-center space-y-4 my-6">
-          <p className="text-gray-600 text-lg">
-            No bikes are currently available for booking at our {formattedLocation} branch.
+        {/* Area coverage */}
+        <section className="mb-10">
+          <h2 className="text-xl font-semibold text-gray-900 mb-3">
+            Bike Rental Services in {formattedLocation}
+          </h2>
+          <p className="text-gray-600">
+            We provide bike rental services across {formattedLocation} including {areas.join(', ')}.
+            {landmarks.length > 0 && ` Our strategic location near ${landmarks.slice(0, 2).join(' and ')} ensures quick delivery and pickup services across the area.`}
           </p>
-          <p className="text-gray-500 text-sm">
-            We are working on restocking our fleet here soon. In the meantime, you can check our complete Hyderabad fleet.
-          </p>
-          <a
-            href="/bikes"
-            className="inline-block bg-[#f26e24] hover:bg-[#e85d1c] text-white px-6 py-2.5 rounded-lg font-semibold transition-colors"
-          >
-            Browse All Bikes
-          </a>
-        </div>
-      )}
+        </section>
 
-      <div className="mt-12 prose max-w-none border-t pt-8">
-        <h2 className="text-xl font-semibold mb-4">Bike Rental Services in {formattedLocation}</h2>
-        <p>
-          We provide bike rental services across {formattedLocation} including {areas.join(', ')}.
-          Our strategic location near {landmarks.join(', ')} ensures quick delivery and pickup services across the area.
-        </p>
-
-        <h2 className="text-xl font-semibold mt-6 mb-4">Frequently Asked Questions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-          <div>
-            <h3 className="font-semibold text-gray-900">What documents do I need to rent a bike in {formattedLocation}?</h3>
-            <p className="text-gray-600">You need a valid government ID (Aadhar/PAN/Passport) and a valid driving license for the vehicle category.</p>
+        {/* FAQ */}
+        <section>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">
+            Frequently Asked Questions — {formattedLocation}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[
+              {
+                q: `What documents do I need to rent a bike in ${formattedLocation}?`,
+                a: `You need a valid government ID (Aadhar/PAN/Passport) and a valid driving license for the vehicle category.`
+              },
+              {
+                q: `Do you provide helmets?`,
+                a: `Yes, we provide ISI certified helmets with all our bike rentals at no additional cost for your safety.`
+              },
+              {
+                q: `What are your working hours in ${formattedLocation}?`,
+                a: `We are open from 8 AM to 8 PM, 7 days a week. Support is available 24/7 for active bookings.`
+              },
+              {
+                q: `Is there a limit on kilometers?`,
+                a: `Most of our rentals in ${formattedLocation} come with a generous daily limit. Please check the specific vehicle details for exact terms.`
+              },
+            ].map(({ q, a }, i) => (
+              <div key={i} className="border border-gray-100 rounded-xl p-5 bg-white shadow-sm">
+                <h3 className="font-semibold text-gray-900 mb-2 text-sm">{q}</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">{a}</p>
+              </div>
+            ))}
           </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">Do you provide helmets?</h3>
-            <p className="text-gray-600">Yes, we provide ISI certified helmets with all our bike rentals at no additional cost for your safety.</p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">What are your working hours in {formattedLocation}?</h3>
-            <p className="text-gray-600">We are open from 8 AM to 8 PM, 7 days a week. Support is available 24/7 for active bookings.</p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">Is there a limit on kilometers?</h3>
-            <p className="text-gray-600">Most of our rentals in {formattedLocation} come with a generous daily limit. Please check the specific vehicle details for exact terms.</p>
-          </div>
-        </div>
+        </section>
       </div>
-    </div>
+    </>
   );
 }
