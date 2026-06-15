@@ -54,7 +54,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-xl border shadow-sm gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-xl border shadow-sm gap-4 md:hidden">
         <div className="hidden md:block">
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">System Reports</h1>
           <p className="text-xs text-gray-500 mt-0.5">View and export activity logs</p>

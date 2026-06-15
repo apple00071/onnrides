@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       // Update user's password
       await query(
         `UPDATE users 
-         SET password_hash = $1::uuid,
+         SET password_hash = $1,
              updated_at = NOW()
          WHERE id = $2::uuid`,
         [hashedPassword, resetData.id]

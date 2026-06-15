@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     const params: any[] = [];
 
     if (type) {
-      sqlQuery += ' AND type = $1::uuid';
+      sqlQuery += ' AND type = $1';
       params.push(type);
     }
 

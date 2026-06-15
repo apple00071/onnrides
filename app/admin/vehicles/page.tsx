@@ -434,18 +434,7 @@ export default function VehiclesPage() {
     const allLocations = Array.from(new Set(vehicles.flatMap((v: Vehicle) => formatLocations(v.location)))).sort();
 
     content = (
-      <div className="space-y-6">
-
-        {/* Desktop Header Actions (Hidden on Mobile) */}
-        <div className="hidden md:flex justify-end mb-6">
-          <Button
-            onClick={handleAddClick}
-            className="bg-[#f26e24] hover:bg-[#e05d13] text-white shadow-sm"
-          >
-            <FaPlus className="w-4 h-4 mr-2" />
-            Add Vehicle
-          </Button>
-        </div>
+      <div className="space-y-4">
 
         {/* Bulk Actions Toolbar */}
         {selectedVehicles.length > 0 && (
@@ -479,18 +468,28 @@ export default function VehiclesPage() {
         )}
 
         {/* Filters & Search */}
-        {/* Filters & Search */}
-        <div className="bg-white p-3 md:px-4 md:py-3 rounded-xl border shadow-sm">
+        <div className="bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(0,0,0,0.015)]">
           <div className="flex flex-col xl:flex-row gap-3 xl:items-center">
             {/* Search - Main focus */}
             <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
-                placeholder="Search..."
+                placeholder="Search by name, brand or model..."
                 value={searchQuery}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-                className="pl-10 h-9 border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 transition-all w-full"
+                className="pl-10 h-10 border-slate-200 focus:border-[#f26e24] focus:ring-1 focus:ring-[#f26e24]/40 rounded-xl w-full text-sm placeholder-slate-400 transition-all"
               />
+            </div>
+
+            {/* Desktop Add Button */}
+            <div className="hidden md:block">
+              <Button
+                onClick={handleAddClick}
+                className="bg-[#f26e24] hover:bg-[#e05d13] text-white h-10 px-5 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1.5"
+              >
+                <FaPlus className="w-3 h-3" />
+                Add Vehicle
+              </Button>
             </div>
 
             {/* Mobile Toggle */}
@@ -499,44 +498,44 @@ export default function VehiclesPage() {
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
                 className={cn(
-                  "flex-1 h-9 text-xs font-bold uppercase tracking-wider rounded-lg",
+                  "flex-1 h-10 text-xs font-bold uppercase tracking-wider rounded-xl border-slate-200",
                   showFilters && "bg-orange-50 border-orange-200 text-[#f26e24]"
                 )}
               >
                 <Search className="h-3.5 w-3.5 mr-1.5" />
-                {showFilters ? 'Hide' : 'Filters'}
+                {showFilters ? 'Hide Filters' : 'Show Filters'}
               </Button>
               <Button
                 onClick={handleAddClick}
-                className="flex-1 bg-[#f26e24] text-white h-9 px-4 rounded-lg font-bold text-xs"
+                className="flex-1 bg-[#f26e24] hover:bg-[#e05d13] text-white h-10 px-4 rounded-xl font-bold text-xs shadow-sm transition-all"
               >
-                Add
+                Add Vehicle
               </Button>
             </div>
 
             {/* Filters Row */}
             <div className={cn(
-              "flex flex-col md:flex-row gap-3 md:items-center w-full",
+              "flex flex-col md:flex-row gap-3 md:items-center w-full xl:w-auto",
               !showFilters && "hidden md:flex"
             )}>
-              <div className="flex items-center gap-2 p-1.5 rounded-lg border border-gray-200 bg-gray-50/50 h-9 w-full md:w-auto">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/50 h-10 w-full md:w-auto">
                 <Checkbox
                   id="select-all"
                   checked={selectedVehicles.length === filteredVehicles.length && filteredVehicles.length > 0}
                   onCheckedChange={() => toggleSelectAll(filteredVehicles)}
-                  className="border-gray-300"
+                  className="border-slate-300 rounded-md data-[state=checked]:bg-[#f26e24] data-[state=checked]:border-[#f26e24]"
                 />
-                <Label htmlFor="select-all" className="text-xs font-semibold text-gray-700 cursor-pointer select-none whitespace-nowrap">
-                  All ({filteredVehicles.length})
+                <Label htmlFor="select-all" className="text-xs font-semibold text-slate-600 cursor-pointer select-none whitespace-nowrap">
+                  Select All ({filteredVehicles.length})
                 </Label>
               </div>
 
               <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto">
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="h-9 w-full md:w-[130px] border-gray-200 text-xs">
+                  <SelectTrigger className="h-10 w-full md:w-[130px] border-slate-200 text-xs rounded-xl focus:ring-offset-0 focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24]">
                     <SelectValue placeholder="Type" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white border border-slate-200/80 rounded-xl">
                     <SelectItem value="all">All Types</SelectItem>
                     {vehicleTypes.map(type => (
                       <SelectItem key={type} value={type}>{type}</SelectItem>
@@ -545,10 +544,10 @@ export default function VehiclesPage() {
                 </Select>
 
                 <Select value={brandFilter} onValueChange={setBrandFilter}>
-                  <SelectTrigger className="h-9 w-full md:w-[130px] border-gray-200 text-xs">
+                  <SelectTrigger className="h-10 w-full md:w-[130px] border-slate-200 text-xs rounded-xl focus:ring-offset-0 focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24]">
                     <SelectValue placeholder="Brand" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white border border-slate-200/80 rounded-xl">
                     <SelectItem value="all">All Brands</SelectItem>
                     {vehicleBrands.map(brand => (
                       <SelectItem key={brand} value={brand}>{brand}</SelectItem>
@@ -557,10 +556,10 @@ export default function VehiclesPage() {
                 </Select>
 
                 <Select value={locationFilter} onValueChange={setLocationFilter}>
-                  <SelectTrigger className="h-9 w-full md:w-[130px] border-gray-200 text-xs col-span-2 md:col-span-1">
+                  <SelectTrigger className="h-10 w-full md:w-[130px] border-slate-200 text-xs rounded-xl col-span-2 md:col-span-1 focus:ring-offset-0 focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24]">
                     <SelectValue placeholder="Location" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white border border-slate-200/80 rounded-xl">
                     <SelectItem value="all">All Locations</SelectItem>
                     {allLocations.map(loc => (
                       <SelectItem key={loc} value={loc}>{loc}</SelectItem>
@@ -569,12 +568,12 @@ export default function VehiclesPage() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-3 md:flex bg-gray-100 p-1 rounded-lg h-9 w-full md:w-auto gap-1 md:gap-0">
+              <div className="grid grid-cols-3 md:flex bg-slate-100 p-1 rounded-xl h-10 w-full md:w-auto gap-1 md:gap-0 border border-slate-200/40">
                 <button
                   onClick={() => setAvailabilityFilter('all')}
                   className={cn(
-                    "px-1 md:px-3 py-1 text-[10px] sm:text-xs font-bold rounded-md transition-all whitespace-nowrap flex items-center justify-center",
-                    availabilityFilter === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    "px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap flex items-center justify-center",
+                    availabilityFilter === 'all' ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
                   )}
                 >
                   All
@@ -582,20 +581,20 @@ export default function VehiclesPage() {
                 <button
                   onClick={() => setAvailabilityFilter('available')}
                   className={cn(
-                    "px-1 md:px-3 py-1 text-[10px] sm:text-xs font-bold rounded-md transition-all whitespace-nowrap flex items-center justify-center",
-                    availabilityFilter === 'available' ? "bg-white text-green-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    "px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap flex items-center justify-center",
+                    availabilityFilter === 'available' ? "bg-white text-green-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
                   )}
                 >
-                  Avail
+                  Available
                 </button>
                 <button
                   onClick={() => setAvailabilityFilter('unavailable')}
                   className={cn(
-                    "px-1 md:px-3 py-1 text-[10px] sm:text-xs font-bold rounded-md transition-all whitespace-nowrap flex items-center justify-center",
-                    availabilityFilter === 'unavailable' ? "bg-white text-red-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    "px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap flex items-center justify-center",
+                    availabilityFilter === 'unavailable' ? "bg-white text-red-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
                   )}
                 >
-                  Unavail
+                  Unavailable
                 </button>
               </div>
             </div>
@@ -603,29 +602,30 @@ export default function VehiclesPage() {
         </div>
 
         {/* Results count */}
-        <div className="text-sm text-gray-600">
+        <div className="text-xs font-bold text-slate-500 tracking-wide uppercase">
           Showing {filteredVehicles.length} of {vehicles.length} vehicles
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredVehicles.map((vehicle: Vehicle) => (
-            <Card key={vehicle.id} className="bg-white border border-gray-200 rounded-lg shadow-sm relative">
+            <Card key={vehicle.id} className="bg-white border border-slate-200/70 rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.015)] relative overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:shadow-md hover:border-[#f26e24]/30">
               {/* Bulk Select Checkbox */}
-              <div className="absolute top-2 left-2 z-10">
+              <div className="absolute top-3 left-3 z-10">
                 <Checkbox
                   checked={selectedVehicles.includes(vehicle.id)}
                   onCheckedChange={() => toggleVehicleSelection(vehicle.id)}
-                  className="rounded-md border-gray-300 bg-white/50 backdrop-blur-sm data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all shadow-sm"
+                  className="rounded-md border-slate-200 bg-white/70 backdrop-blur-xs data-[state=checked]:bg-[#f26e24] data-[state=checked]:border-[#f26e24] transition-all shadow-sm"
                 />
               </div>
+              
               {/* Image */}
-              <div className="relative h-44 bg-gray-50/50">
+              <div className="relative h-48 bg-slate-50/50 flex items-center justify-center p-6 border-b border-slate-100/50">
                 <Image
                   src={getValidImageUrl(vehicle.images)}
                   alt={vehicle.name}
                   fill
-                  className="object-contain p-4 mix-blend-multiply"
+                  className="object-contain p-4 mix-blend-multiply transition-transform duration-300 hover:scale-105"
                   onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
                     logger.warn('Image failed to load:', { vehicleId: vehicle.id, images: vehicle.images });
                     const target = e.target as HTMLImageElement;
@@ -635,15 +635,22 @@ export default function VehiclesPage() {
                   priority={true}
                 />
                 <Badge
-                  className={`absolute top-2 right-2 border-0 shadow-sm font-bold text-[10px] uppercase tracking-wider ${vehicle.is_available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                  className={cn(
+                    "absolute top-3 right-3 border-0 shadow-sm font-bold text-[9px] uppercase tracking-wider rounded-xl px-2.5 py-0.5",
+                    vehicle.is_available 
+                      ? "bg-green-50 text-green-700 border border-green-200/30" 
+                      : "bg-red-50 text-red-700 border border-red-200/30"
+                  )}
                 >
                   {vehicle.is_available ? 'Available' : 'Unavailable'}
                 </Badge>
               </div>
-              <CardContent className="p-3 md:p-4">
+
+              <CardContent className="p-4 space-y-4">
                 {/* Status Indicators */}
-                <div className="flex items-center justify-end mb-2">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-tight">
+                <div className="flex items-center justify-between border-b border-slate-100/60 pb-3">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{vehicle.type}</span>
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
                     {vehicle.location_quantities && Object.keys(vehicle.location_quantities).length > 0 ? (
                       <span>
                         QTY: {Object.entries(vehicle.location_quantities).map(([loc, qty], idx) => (
@@ -665,15 +672,15 @@ export default function VehiclesPage() {
                 <div className="space-y-3">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-bold text-gray-900 leading-tight">{vehicle.name}</h3>
-                      <p className="text-xs font-semibold text-gray-400 capitalize mt-0.5">{vehicle.type}</p>
+                      <h3 className="font-extrabold text-slate-800 text-base leading-snug tracking-tight">{vehicle.name}</h3>
+                      <p className="text-[10px] font-bold text-[#f26e24] uppercase tracking-wider mt-1">{vehicle.brand || 'Mister Rides'}</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-black text-gray-900 tracking-tight">
+                      <div className="text-lg font-black text-slate-800 tracking-tight leading-none">
                         ₹{vehicle.price_per_hour}/hr
                       </div>
                       {vehicle.price_7_days && (
-                        <div className="text-[10px] font-bold text-gray-400">
+                        <div className="text-[10px] font-bold text-slate-400 mt-1">
                           ₹{vehicle.price_7_days}/week
                         </div>
                       )}
@@ -685,7 +692,7 @@ export default function VehiclesPage() {
                     {formatLocations(vehicle.location).map((loc, index) => (
                       <span
                         key={index}
-                        className="text-[9px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200/50"
+                        className="text-[9px] font-bold text-slate-500 bg-slate-50 border border-slate-200/50 px-2 py-0.5 rounded-lg"
                       >
                         {loc}
                       </span>
@@ -693,32 +700,31 @@ export default function VehiclesPage() {
                   </div>
 
                   {/* Quick Actions */}
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-100/80 mt-2">
                     <div className="flex items-center gap-2">
-                      <div className="relative group">
-                        <Switch
-                          id={`is_available-${vehicle.id}`}
-                          checked={vehicle.is_available}
-                          onCheckedChange={(checked: boolean) => handleAvailabilityChange(vehicle.id, checked)}
-                          className="data-[state=checked]:bg-green-500"
-                        />
-                      </div>
+                      <Switch
+                        id={`is_available-${vehicle.id}`}
+                        checked={vehicle.is_available}
+                        onCheckedChange={(checked: boolean) => handleAvailabilityChange(vehicle.id, checked)}
+                        className="data-[state=checked]:bg-green-500 scale-90"
+                      />
                       <Label
                         htmlFor={`is_available-${vehicle.id}`}
                         className={cn(
-                          "text-[9px] font-black uppercase tracking-widest",
-                          vehicle.is_available ? "text-green-600" : "text-gray-400"
+                          "text-[9px] font-black uppercase tracking-widest cursor-pointer select-none",
+                          vehicle.is_available ? "text-green-600" : "text-slate-400"
                         )}
                       >
                         {vehicle.is_available ? 'Online' : 'Offline'}
                       </Label>
                     </div>
-                    <div className="flex gap-2">
+                    
+                    <div className="flex gap-1.5">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(vehicle)}
-                        className="h-8 px-3 text-xs"
+                        className="h-8 px-3 text-xs bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 rounded-xl font-semibold transition-all duration-150"
                       >
                         Edit
                       </Button>
@@ -726,7 +732,7 @@ export default function VehiclesPage() {
                         variant="destructive"
                         size="sm"
                         onClick={() => setVehicleToDelete(vehicle.id)}
-                        className="h-8 px-3 text-xs bg-red-500 hover:bg-red-600 text-white"
+                        className="h-8 px-3 text-xs bg-red-50 text-red-600 border border-red-100/40 hover:bg-red-100 hover:text-red-700 rounded-xl font-semibold transition-all duration-150"
                       >
                         Delete
                       </Button>
@@ -737,8 +743,8 @@ export default function VehiclesPage() {
             </Card>
           ))}
           {vehicles.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No vehicles found. Add a vehicle to get started.</p>
+            <div className="text-center py-12 col-span-full">
+              <p className="text-slate-400">No vehicles found. Add a vehicle to get started.</p>
             </div>
           )}
         </div>
@@ -747,7 +753,7 @@ export default function VehiclesPage() {
   }
 
   return (
-    <div className="p-4 max-w-7xl mx-auto">
+    <div className="py-2 w-full">
       {content}
       {editingVehicle && (
         <EditVehicleModal

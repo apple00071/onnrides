@@ -22,6 +22,8 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith('/api/maintenance') ||
         pathname.startsWith('/api/health') ||
         pathname.startsWith('/api/cron') ||
+        pathname.startsWith('/api/reviews') ||
+        pathname.startsWith('/api/contact') ||
         (pathname.startsWith('/api/vehicles') && request.method === 'GET');
 
       if (isPublicApiRoute) {

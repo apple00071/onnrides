@@ -270,8 +270,8 @@ export default function WhatsAppAdminPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">WhatsApp Testing Panel (WaSender)</h1>
+    <div className="py-2 w-full">
+      <h1 className="text-3xl md:hidden font-bold mb-6">WhatsApp Testing Panel (WaSender)</h1>
 
       <div className="grid gap-6">
         {/* Session Status Card */}

@@ -167,7 +167,7 @@ export default function FinancialReconciliationPage() {
   }
 
   return (
-    <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6">
+    <div className="py-2 w-full space-y-4 md:space-y-6">
       {/* Header Actions */}
       <div className="flex justify-end">
         <Button

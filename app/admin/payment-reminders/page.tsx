@@ -129,7 +129,7 @@ export default function PaymentRemindersPage() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
+                <div className="md:hidden">
                     <h1 className="text-2xl font-bold tracking-tight">Payment Reminders</h1>
                     <p className="text-muted-foreground">Manage and send payment reminders for pending bookings.</p>
                 </div>

@@ -27,6 +27,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if WhatsApp API credentials are configured
+    const apiKey = process.env.WASENDER_API_KEY;
+    const personalAccessToken = process.env.WASENDER_PERSONAL_ACCESS_TOKEN;
+    if (!apiKey && !personalAccessToken) {
+      return NextResponse.json(
+        { success: false, error: 'WhatsApp API credentials are not configured. Please add WASENDER_API_KEY or WASENDER_PERSONAL_ACCESS_TOKEN to your environment (.env) file.' },
+        { status: 400 }
+      );
+    }
+
     // Get booking details with combined customer information (from users or custom booking fields)
     const bookingResult = await query(`
       SELECT 

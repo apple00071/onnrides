@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/auth/user';
 import type { User } from '@/lib/types';
 import logger from '@/lib/logger';
 import { randomUUID } from 'crypto';
+import { uploadFile } from '@/lib/upload';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,8 +26,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Invalid document type' }, { status: 400 });
     }
 
-    // TODO: Upload file to cloud storage and get URL
-    const fileUrl = 'https://example.com/placeholder'; // Replace with actual file upload
+    // Upload file to cloud storage and get URL
+    const folderPath = `documents/${user.id}/${type}`;
+    const fileUrl = await uploadFile(file, folderPath);
     const now = new Date().toISOString();
 
     const result = await query(

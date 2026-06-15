@@ -10,7 +10,6 @@ import { randomUUID } from 'crypto';
 export const dynamic = 'force-dynamic';
 export const preferredRegion = 'auto';
 export const runtime = 'nodejs';
-export const bodyParser = false;
 
 export async function POST(request: NextRequest) {
   try {

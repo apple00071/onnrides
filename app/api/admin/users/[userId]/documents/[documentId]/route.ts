@@ -26,7 +26,7 @@ export async function DELETE(
 
     // First get the document details to delete from storage if needed
     const documentResult = await query(
-      'SELECT * FROM user_documents WHERE id = $1::uuid AND user_id = $2',
+      'SELECT * FROM documents WHERE id = $1::uuid AND user_id = $2::uuid',
       [documentId, userId]
     );
 
@@ -39,7 +39,7 @@ export async function DELETE(
 
     // Delete the document from the database
     await query(
-      'DELETE FROM user_documents WHERE id = $1::uuid AND user_id = $2',
+      'DELETE FROM documents WHERE id = $1::uuid AND user_id = $2::uuid',
       [documentId, userId]
     );
 
@@ -85,10 +85,10 @@ export async function PUT(
 
     // Update document status
     const result = await query(
-      `UPDATE user_documents 
-       SET status = $1::uuid, 
+      `UPDATE documents 
+       SET status = $1, 
            updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $2 AND user_id = $3 
+       WHERE id = $2::uuid AND user_id = $3::uuid 
        RETURNING *`,
       [status, documentId, userId]
     );
@@ -140,7 +140,7 @@ export async function GET(
 
     // Get document details
     const documentResult = await query(
-      'SELECT * FROM user_documents WHERE id = $1::uuid AND user_id = $2',
+      'SELECT * FROM documents WHERE id = $1::uuid AND user_id = $2::uuid',
       [documentId, userId]
     );
 
@@ -158,7 +158,7 @@ export async function GET(
       success: true,
       document: {
         ...document,
-        url: document.url,
+        url: document.file_url,
         content_type: document.content_type || 'application/octet-stream'
       }
     });

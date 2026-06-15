@@ -151,150 +151,154 @@ export function Sidebar() {
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && setIsHovered(false)}
         animate={{
-          width: (isOpen || isHovered) ? 192 : 64,
+          width: (isOpen || isHovered) ? 220 : 70,
           transition: { duration: 0.2, ease: "easeInOut" }
         }}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-background shadow-xl transition-shadow",
-          "hidden md:flex",
-          (isHovered && !isOpen) && "shadow-2xl ring-1 ring-black/5"
+          "fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-white text-slate-800 border-slate-200/80 shadow-[2px_0_15px_rgba(0,0,0,0.02)]",
+          "hidden md:flex"
         )}
       >
-        <div className="flex h-16 items-center justify-center px-4">
+        <div className="flex h-12 items-center justify-center px-4 border-b border-slate-100/80">
           <div className={cn(
-            "relative h-8 transition-all duration-200",
-            (isOpen || isHovered) ? "w-28" : "w-8"
+            "relative h-8 transition-all duration-200 flex items-center justify-center",
+            (isOpen || isHovered) ? "w-36" : "w-8"
           )}>
-            <Image
-              src="/logo.png"
-              alt="Mister Rides Admin"
-              fill
-              className="object-contain"
-              priority
-              sizes="(max-width: 768px) 100vw, 112px"
-            />
+            {(isOpen || isHovered) ? (
+              <span className="text-lg font-black tracking-wider text-[#f26e24]">
+                MISTER RIDES
+              </span>
+            ) : (
+              <span className="text-xl font-black text-[#f26e24]">M</span>
+            )}
           </div>
         </div>
 
-        <ScrollArea className="flex-1 overflow-hidden">
-          <nav className="grid gap-1 px-2">
-            {filteredLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  pathname === link.href ? "bg-accent" : "transparent"
-                )}
-              >
-                <link.icon className="h-5 w-5 shrink-0" />
-                <span className={cn(
-                  "whitespace-nowrap transition-all duration-200",
-                  (isOpen || isHovered) ? "opacity-100 w-auto" : "opacity-0 w-0 md:hidden"
-                )}>
-                  {link.label}
-                </span>
-              </Link>
-            ))}
+        <ScrollArea className="flex-1 overflow-hidden py-4">
+          <nav className="grid gap-1 px-3">
+            {filteredLinks.map((link) => {
+              const isActive = pathname === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={cn(
+                    "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 relative overflow-hidden",
+                    isActive 
+                      ? "text-[#f26e24] bg-slate-50 shadow-sm" 
+                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-50/50"
+                  )}
+                >
+                  {/* Left Active border line */}
+                  {isActive && (
+                    <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#f26e24]" />
+                  )}
+                  <link.icon className={cn(
+                    "h-5 w-5 shrink-0 transition-colors duration-150",
+                    isActive ? "text-[#f26e24]" : "text-slate-400 group-hover:text-slate-600"
+                  )} />
+                  <span className={cn(
+                    "whitespace-nowrap transition-all duration-200",
+                    (isOpen || isHovered) ? "opacity-100 w-auto" : "opacity-0 w-0 md:hidden"
+                  )}>
+                    {link.label}
+                  </span>
+                </Link>
+              );
+            })}
           </nav>
         </ScrollArea>
       </motion.div>
 
       {/* Mobile Header */}
-      <div className="fixed top-0 left-0 right-0 h-16 bg-background border-b md:hidden z-50">
-        <div className="flex h-full items-center justify-between px-3">
+      <div className="fixed top-0 left-0 right-0 h-12 bg-white border-b border-slate-200 md:hidden z-50 px-4">
+        <div className="flex h-full items-center justify-between">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
               onClick={toggle}
-              className="md:hidden"
+              className="md:hidden text-slate-600 hover:bg-slate-50"
               aria-label={isOpen ? "Close menu" : "Open menu"}
             >
               <Menu className="h-5 w-5" />
             </Button>
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-gray-900 line-clamp-1">
-                {sidebarLinks.find(link => link.href === pathname)?.label || 'Admin'}
-              </span>
-            </div>
+            <span className="text-sm font-bold text-slate-800">
+              {sidebarLinks.find(link => link.href === pathname)?.label || 'Admin'}
+            </span>
           </div>
-          <div className="relative h-7 w-24">
-            <Image
-              src="/logo.png"
-              alt="Mister Rides Admin"
-              fill
-              className="object-contain"
-              priority
-              sizes="96px"
-            />
-          </div>
+          <span className="text-sm font-black tracking-wider text-[#f26e24]">
+            MISTER RIDES
+          </span>
         </div>
       </div>
 
-      {/* Mobile Sidebar */}
+      {/* Mobile Sidebar Drawer */}
       <AnimatePresence>
         {isOpen && isMobile && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
+              animate={{ opacity: 0.3 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="fixed inset-0 z-40 bg-black/80 md:hidden backdrop-blur-sm"
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-40 bg-black/40 md:hidden backdrop-blur-xs"
               onClick={toggle}
             />
             <motion.div
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 z-50 w-[220px] bg-background shadow-lg md:hidden"
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="fixed inset-y-0 left-0 z-50 w-[240px] bg-white border-r border-slate-200 shadow-2xl md:hidden flex flex-col"
             >
-              <div className="flex h-16 items-center justify-between px-4 border-b">
-                <div className="relative h-8 w-28">
-                  <Image
-                    src="/logo.png"
-                    alt="Mister Rides Admin"
-                    fill
-                    className="object-contain"
-                    priority
-                    sizes="112px"
-                  />
-                </div>
+              <div className="flex h-12 items-center justify-between px-4 border-b border-slate-100">
+                <span className="text-sm font-black tracking-wider text-[#f26e24]">
+                  MISTER RIDES
+                </span>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={toggle}
+                  className="text-slate-500 hover:text-slate-800"
                   aria-label="Close menu"
                 >
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-              <ScrollArea className="flex-1 overflow-hidden">
-                <nav className="grid gap-1 p-2">
-                  {filteredLinks.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={toggle}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
-                        "hover:bg-accent hover:text-accent-foreground transition-colors",
-                        pathname === link.href ? "bg-accent" : "transparent"
-                      )}
-                    >
-                      <link.icon className="h-5 w-5" />
-                      <span>{link.label}</span>
-                    </Link>
-                  ))}
+              <ScrollArea className="flex-1 overflow-hidden py-4">
+                <nav className="grid gap-1 px-3">
+                  {filteredLinks.map((link) => {
+                    const isActive = pathname === link.href;
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={toggle}
+                        className={cn(
+                          "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all relative overflow-hidden",
+                          isActive 
+                            ? "text-[#f26e24] bg-slate-50" 
+                            : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                        )}
+                      >
+                        {isActive && (
+                          <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#f26e24]" />
+                        )}
+                        <link.icon className={cn(
+                          "h-5 w-5 shrink-0",
+                          isActive ? "text-[#f26e24]" : "text-slate-400"
+                        )} />
+                        <span>{link.label}</span>
+                      </Link>
+                    );
+                  })}
                 </nav>
               </ScrollArea>
-              <div className="border-t p-4">
+              <div className="border-t border-slate-100 p-4">
                 <button
                   onClick={() => signOut({ callbackUrl: '/admin-login' })}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 transition-all active:scale-[0.98]"
                 >
                   <LogOut className="h-5 w-5" />
                   <span>Logout</span>

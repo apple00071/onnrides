@@ -146,14 +146,13 @@ export default function NewVehicleReturnPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 px-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Vehicle Return</h1>
-          <p className="text-gray-600 mt-2">
-            Enter the final details to complete the booking
-          </p>
-        </div>
+    <div className="py-2 w-full">
+      <div className="mb-4">
+        <h1 className="text-3xl md:hidden font-bold text-gray-900">Vehicle Return</h1>
+        <p className="text-gray-600 mt-1">
+          Enter the final details to complete the booking
+        </p>
+      </div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-4">
@@ -466,6 +465,5 @@ export default function NewVehicleReturnPage() {
           </form>
         </Form>
       </div>
-    </div >
   );
 } 

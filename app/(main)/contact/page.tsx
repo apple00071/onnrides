@@ -17,6 +17,8 @@ export default function ContactPage() {
     phone: '',
     message: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -37,8 +39,29 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement form submission
-    console.log(formData);
+    setIsSubmitting(true);
+    setSubmitStatus(null);
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setSubmitStatus({ type: 'success', message: 'Thank you! Your message has been sent.' });
+        setFormData({ name: '', email: '', phone: '', message: '' });
+      } else {
+        setSubmitStatus({ type: 'error', message: data.error || 'Failed to send message.' });
+      }
+    } catch (error) {
+      setSubmitStatus({ type: 'error', message: 'An unexpected error occurred. Please try again later.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -96,6 +119,17 @@ export default function ContactPage() {
         {/* Contact Form */}
         <div className="bg-white rounded-lg shadow-sm p-4 xs:p-6">
           <h2 className="h2 mb-6">Send us a Message</h2>
+          
+          {submitStatus && (
+            <div className={`p-4 rounded-md mb-6 text-sm ${
+              submitStatus.type === 'success' 
+                ? 'bg-green-50 text-green-800 border border-green-200' 
+                : 'bg-red-50 text-red-800 border border-red-200'
+            }`}>
+              {submitStatus.message}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4 xs:space-y-6">
             <div>
               <label htmlFor="name" className="form-label">
@@ -159,9 +193,10 @@ export default function ContactPage() {
 
             <button
               type="submit"
-              className="btn btn-primary w-full"
+              disabled={isSubmitting}
+              className="btn btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Send Message
+              {isSubmitting ? 'Sending...' : 'Send Message'}
             </button>
           </form>
         </div>

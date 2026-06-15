@@ -191,11 +191,11 @@ export default function StaffManagementPage() {
     }
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
+        <div className="py-2 w-full">
             <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Staff Management</h1>
-                    <p className="text-sm text-gray-500 mt-1">Manage staff access and permissions</p>
+                    <h1 className="text-2xl md:hidden font-bold text-gray-900 tracking-tight">Staff Management</h1>
+                    <p className="text-sm text-gray-500 mt-1 md:hidden">Manage staff access and permissions</p>
                 </div>
                 <Button
                     onClick={openAddModal}

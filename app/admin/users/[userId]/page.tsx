@@ -2,9 +2,29 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ArrowLeft, UserCircle, Mail, Phone, Calendar, Shield } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { 
+  Loader2, 
+  ArrowLeft, 
+  UserCircle, 
+  Mail, 
+  Phone, 
+  Calendar, 
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  TrendingUp,
+  UserCheck,
+  XCircle,
+  CheckCircle2,
+  Clock,
+  ArrowUpRight,
+  Eye,
+  FileText
+} from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
@@ -116,6 +136,39 @@ export default function UserDetailsPage() {
     };
   }, [params.userId, sessionStatus, session, router]);
 
+  const handleUpdateDocumentStatus = async (documentId: string, status: 'approved' | 'rejected') => {
+    if (!user) return;
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}/documents`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ documentId, status })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to update document status');
+
+      if (data.success) {
+        setUser(prevUser => {
+          if (!prevUser) return null;
+          return {
+            ...prevUser,
+            documents: prevUser.documents?.map(doc => 
+              doc.id === documentId ? { ...doc, status } : doc
+            )
+          };
+        });
+        toast.success(`Document ${status} successfully`);
+      } else {
+        throw new Error(data.error || 'Failed to update document status');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update document status');
+    }
+  };
+
   // Show loading state with better UI feedback
   if (sessionStatus === 'loading' || loading) {
     return (
@@ -169,219 +222,304 @@ export default function UserDetailsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="py-2 w-full">
+      <div className="mb-4">
         <Button
           variant="ghost"
           onClick={() => router.back()}
-          className="mb-4"
+          className="text-primary hover:text-primary/80 flex items-center gap-2 p-0 h-auto font-bold text-xs md:text-sm tracking-tight"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back to Users</span>
         </Button>
+      </div>
 
-        <div className="grid gap-6">
-          {/* User Details Card */}
-          <Card className="p-6">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold">User Details</h1>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant={user.is_blocked ? "destructive" : "outline"}
-                    onClick={async () => {
-                      try {
-                        const response = await fetch(`/api/admin/users/${user.id}/toggle-block`, {
-                          method: 'POST'
-                        });
-                        if (!response.ok) throw new Error('Failed to update user status');
-                        const updatedUser = await response.json();
-                        setUser(updatedUser);
-                        toast.success(user.is_blocked ? 'User unblocked successfully' : 'User blocked successfully');
-                      } catch (err) {
-                        toast.error('Failed to update user status');
-                      }
-                    }}
-                  >
-                    {user.is_blocked ? 'Unblock User' : 'Block User'}
-                  </Button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Left Column: Profile Card & Documents */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* User Profile Card */}
+          <Card className="bg-white border border-slate-200/70 rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.015)] overflow-hidden">
+            <CardContent className="p-6">
+              <div className="relative flex flex-col items-center pb-6 border-b border-slate-100/80">
+                <div className="h-20 w-20 rounded-full bg-orange-50 border-2 border-orange-200 text-[#f26e24] flex items-center justify-center font-black text-3xl shadow-xs">
+                  {user.name.charAt(0).toUpperCase()}
                 </div>
+                <h2 className="text-lg font-black text-slate-800 tracking-tight mt-4 text-center leading-tight">
+                  {user.name}
+                </h2>
+                <Badge className={cn(
+                  "mt-2 font-bold uppercase text-[9px] tracking-wider px-2 py-0.5 border-0",
+                  user.is_blocked 
+                    ? "bg-red-50 text-red-600" 
+                    : "bg-green-50 text-green-600"
+                )}>
+                  {user.is_blocked ? 'Blocked' : 'Active Member'}
+                </Badge>
               </div>
 
-              <div className="grid gap-4">
-                <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                  <UserCircle className="w-5 h-5 text-gray-500" />
-                  <div>
-                    <p className="text-sm text-gray-500">Name</p>
-                    <p className="font-medium">{user.name}</p>
+              {/* Contact Information */}
+              <div className="space-y-4 pt-6">
+                <div className="flex items-center gap-3 text-slate-600 p-0.5">
+                  <Mail className="w-4 h-4 text-slate-400 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Email</p>
+                    <p className="font-semibold text-slate-700 truncate mt-1 text-sm">{user.email}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                  <Mail className="w-5 h-5 text-gray-500" />
-                  <div>
-                    <p className="text-sm text-gray-500">Email</p>
-                    <p className="font-medium">{user.email}</p>
+                <div className="flex items-center gap-3 text-slate-600 p-0.5">
+                  <Phone className="w-4 h-4 text-slate-400 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Phone</p>
+                    <p className="font-semibold text-slate-700 mt-1 text-sm">{user.phone || 'Not provided'}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                  <Phone className="w-5 h-5 text-gray-500" />
-                  <div>
-                    <p className="text-sm text-gray-500">Phone</p>
-                    <p className="font-medium">{user.phone || 'Not provided'}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                  <Calendar className="w-5 h-5 text-gray-500" />
-                  <div>
-                    <p className="text-sm text-gray-500">Member Since</p>
-                    <p className="font-medium">
+                <div className="flex items-center gap-3 text-slate-600 p-0.5">
+                  <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Member Since</p>
+                    <p className="font-semibold text-slate-700 mt-1 text-sm">
                       {formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}
                     </p>
                   </div>
                 </div>
               </div>
-            </div>
+
+              {/* Block/Unblock Button */}
+              <div className="pt-6 mt-6 border-t border-slate-100/80">
+                <Button
+                  variant={user.is_blocked ? "destructive" : "outline"}
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(`/api/admin/users/${user.id}/toggle-block`, {
+                        method: 'POST'
+                      });
+                      if (!response.ok) throw new Error('Failed to update user status');
+                      const updatedUser = await response.json();
+                      setUser(updatedUser);
+                      toast.success(user.is_blocked ? 'User unblocked successfully' : 'User blocked successfully');
+                    } catch (err) {
+                      toast.error('Failed to update user status');
+                    }
+                  }}
+                  className={cn(
+                    "w-full h-10 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all duration-150 flex items-center justify-center gap-2",
+                    user.is_blocked 
+                      ? "bg-red-50 text-red-600 border-red-100/50 hover:bg-red-100 hover:text-red-700" 
+                      : "bg-slate-50 text-slate-700 border-slate-200/60 hover:bg-slate-100 hover:text-slate-800"
+                  )}
+                >
+                  {user.is_blocked ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+                  <span>{user.is_blocked ? 'Unblock User' : 'Block User'}</span>
+                </Button>
+              </div>
+            </CardContent>
           </Card>
 
           {/* Documents Card */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Documents</h2>
-            {user.documents && user.documents.length > 0 ? (
-              <div className="space-y-4">
-                {user.documents.map((doc) => (
-                  <div key={doc.id} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="font-medium capitalize">{doc.type.replace('_', ' ')}</h3>
-                        <p className="text-sm text-gray-500">
-                          Uploaded {formatDistanceToNow(new Date(doc.created_at), { addSuffix: true })}
-                        </p>
+          <Card className="bg-white border border-slate-200/70 rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.015)]">
+            <CardContent className="p-6">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-slate-400" /> Documents
+              </h3>
+              
+              {user.documents && user.documents.length > 0 ? (
+                <div className="space-y-3">
+                  {user.documents.map((doc) => (
+                    <div key={doc.id} className="border border-slate-100 rounded-xl p-3 bg-slate-50/30">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-bold text-slate-700 text-xs capitalize leading-none">{doc.type.replace('_', ' ')}</h4>
+                          <p className="text-[9px] font-semibold text-slate-400 mt-1">
+                            {formatDistanceToNow(new Date(doc.created_at), { addSuffix: true })}
+                          </p>
+                        </div>
+                        <Badge className={cn(
+                          "font-bold uppercase text-[8px] tracking-wider px-1.5 py-0.5 rounded border-0",
+                          doc.status === 'approved' ? "bg-green-50 text-green-700" :
+                          doc.status === 'rejected' ? "bg-red-50 text-red-700" :
+                          "bg-yellow-50 text-yellow-700"
+                        )}>
+                          {doc.status}
+                        </Badge>
                       </div>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        doc.status === 'approved' ? 'bg-green-100 text-green-800' :
-                        doc.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {doc.status}
-                      </span>
-                    </div>
-                    {doc.rejection_reason && (
-                      <p className="text-sm text-red-600 mt-2">
-                        Reason: {doc.rejection_reason}
-                      </p>
-                    )}
-                    <div className="mt-2">
-                      <a 
-                        href={doc.file_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-sm text-blue-600 hover:text-blue-800"
-                      >
-                        View Document
-                      </a>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-4 text-gray-500">
-                Document verification is not required for this user
-              </div>
-            )}
-          </Card>
+                      {doc.rejection_reason && (
+                        <p className="text-[10px] text-red-600 mt-2 font-medium bg-red-50/50 p-1.5 rounded">
+                          Reason: {doc.rejection_reason}
+                        </p>
+                      )}
+                      <div className="mt-3 flex justify-between items-center border-t border-slate-100/60 pt-2.5">
+                        <a 
+                          href={doc.file_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-bold text-[#f26e24] hover:text-[#e05d13] flex items-center gap-1"
+                        >
+                          View Document <ArrowUpRight className="w-3.5 h-3.5" />
+                        </a>
 
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleUpdateDocumentStatus(doc.id, 'approved')}
+                            className={cn(
+                              "text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border flex items-center gap-1 transition-all duration-150",
+                              doc.status === 'approved' 
+                                ? "bg-green-50 text-green-600 border-green-200/50 cursor-default"
+                                : "bg-white text-slate-500 border-slate-200 hover:bg-green-50/50 hover:text-green-600 hover:border-green-200/50"
+                            )}
+                            disabled={doc.status === 'approved'}
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Approve</span>
+                          </button>
+                          
+                          <button
+                            onClick={() => handleUpdateDocumentStatus(doc.id, 'rejected')}
+                            className={cn(
+                              "text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border flex items-center gap-1 transition-all duration-150",
+                              doc.status === 'rejected'
+                                ? "bg-red-50 text-red-600 border-red-200/50 cursor-default"
+                                : "bg-white text-slate-500 border-slate-200 hover:bg-red-50/50 hover:text-red-600 hover:border-red-200/50"
+                            )}
+                            disabled={doc.status === 'rejected'}
+                          >
+                            <XCircle className="w-3 h-3" />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-slate-400 text-xs font-medium border border-dashed border-slate-200 rounded-xl">
+                  Document verification not required
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column: Statistics & Booking History */}
+        <div className="lg:col-span-2 space-y-6">
           {/* Trip Statistics Card */}
           {user.trip_data && (
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Trip Statistics</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Total Trips</p>
-                  <p className="text-2xl font-semibold">{user.trip_data.total_trips}</p>
+            <Card className="bg-white border border-slate-200/70 rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.015)]">
+              <CardContent className="p-6">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-slate-400" /> Trip Statistics
+                </h3>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 bg-slate-50/50 border border-slate-100 rounded-xl border-l-4 border-l-blue-500 shadow-xs">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Trips</p>
+                    <p className="text-xl font-black text-slate-800 mt-1 tabular-nums">{user.trip_data.total_trips}</p>
+                  </div>
+                  
+                  <div className="p-3 bg-slate-50/50 border border-slate-100 rounded-xl border-l-4 border-l-green-500 shadow-xs">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Completed</p>
+                    <p className="text-xl font-black text-green-600 mt-1 tabular-nums">{user.trip_data.completed_trips}</p>
+                  </div>
+
+                  <div className="p-3 bg-slate-50/50 border border-slate-100 rounded-xl border-l-4 border-l-red-500 shadow-xs">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Cancelled</p>
+                    <p className="text-xl font-black text-red-600 mt-1 tabular-nums">{user.trip_data.cancelled_trips}</p>
+                  </div>
+
+                  <div className="p-3 bg-slate-50/50 border border-slate-100 rounded-xl border-l-4 border-l-[#f26e24] shadow-xs">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Spent</p>
+                    <p className="text-xl font-black text-slate-800 mt-1 tabular-nums">₹{user.trip_data.total_spent.toLocaleString()}</p>
+                  </div>
                 </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Completed Trips</p>
-                  <p className="text-2xl font-semibold text-green-600">{user.trip_data.completed_trips}</p>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Cancelled Trips</p>
-                  <p className="text-2xl font-semibold text-red-600">{user.trip_data.cancelled_trips}</p>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Total Spent</p>
-                  <p className="text-2xl font-semibold">₹{user.trip_data.total_spent}</p>
-                </div>
+
                 {user.trip_data.favorite_vehicle_type && (
-                  <div className="p-3 bg-gray-50 rounded-lg col-span-2 md:col-span-4">
-                    <p className="text-sm text-gray-500">Favorite Vehicle Type</p>
-                    <p className="text-lg font-medium">{user.trip_data.favorite_vehicle_type}</p>
+                  <div className="mt-4 p-3 bg-slate-50/50 border border-slate-100 rounded-xl flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-500">Favorite Vehicle Type</span>
+                    <Badge variant="outline" className="bg-white border-slate-200 text-slate-700 capitalize font-bold text-[10px] py-0.5 px-2.5">
+                      {user.trip_data.favorite_vehicle_type}
+                    </Badge>
                   </div>
                 )}
-              </div>
+              </CardContent>
             </Card>
           )}
 
           {/* Booking History Card */}
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Booking History</h2>
-            {user.bookings && user.bookings.length > 0 ? (
-              <div className="space-y-4">
-                {user.bookings.map((booking) => (
-                  <div key={booking.id} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="font-medium">{booking.vehicle.name}</h3>
-                        <p className="text-sm text-gray-500">{booking.vehicle.type}</p>
+          <Card className="bg-white border border-slate-200/70 rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.015)]">
+            <CardContent className="p-6">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-slate-400" /> Booking History
+              </h3>
+              
+              {user.bookings && user.bookings.length > 0 ? (
+                <div className="space-y-3">
+                  {user.bookings.map((booking) => (
+                    <div 
+                      key={booking.id} 
+                      className="group bg-slate-50/30 hover:bg-white border border-slate-200/50 hover:border-[#f26e24]/20 rounded-2xl p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xs flex flex-col sm:flex-row justify-between sm:items-center gap-4 cursor-pointer"
+                      onClick={() => router.push(`/admin/bookings/${booking.booking_id}`)}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/10 tracking-widest uppercase">
+                            {booking.booking_id}
+                          </span>
+                          <h4 className="font-extrabold text-slate-800 text-sm">{booking.vehicle?.name || 'Unknown Vehicle'}</h4>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">• {booking.vehicle?.type || 'N/A'}</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-4 text-xs text-slate-500 font-medium">
+                          <div>
+                            <span className="text-[9px] font-bold text-slate-300 uppercase block tracking-wider">Pickup</span>
+                            <span className="text-slate-600">{new Date(booking.start_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                          </div>
+                          <div className="text-slate-300 font-bold uppercase text-[9px] mt-2">to</div>
+                          <div>
+                            <span className="text-[9px] font-bold text-slate-300 uppercase block tracking-wider">Dropoff</span>
+                            <span className="text-slate-600">{new Date(booking.end_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          booking.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {booking.status}
-                        </span>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          booking.payment_status === 'completed' ? 'bg-green-100 text-green-800' :
-                          booking.payment_status === 'failed' ? 'bg-red-100 text-red-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {booking.payment_status}
-                        </span>
+
+                      <div className="flex sm:flex-col justify-between sm:items-end gap-2 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
+                        <div className="text-right">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase block tracking-widest">Amount</span>
+                          <span className="text-sm font-black text-slate-800 tabular-nums">₹{booking.total_price.toLocaleString()}</span>
+                        </div>
+                        
+                        <div className="flex gap-1.5">
+                          <Badge className={cn(
+                            "font-bold uppercase text-[8px] tracking-wider px-1.5 py-0.5 border-0 shadow-xs",
+                            booking.status === 'completed' ? "bg-green-50 text-green-700" :
+                            booking.status === 'cancelled' ? "bg-red-50 text-red-700" :
+                            "bg-yellow-50 text-yellow-700"
+                          )}>
+                            {booking.status}
+                          </Badge>
+                          
+                          <Badge variant="outline" className={cn(
+                            "font-bold uppercase text-[8px] tracking-wider px-1.5 py-0.5 border-0 shadow-xs",
+                            booking.payment_status === 'completed' ? "bg-green-50 text-green-700" :
+                            booking.payment_status === 'failed' ? "bg-red-50 text-red-700" :
+                            "bg-yellow-50 text-yellow-700"
+                          )}>
+                            {booking.payment_status}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-500">Start Date</p>
-                        <p>{new Date(booking.start_date).toLocaleDateString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">End Date</p>
-                        <p>{new Date(booking.end_date).toLocaleDateString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Amount</p>
-                        <p className="font-medium">₹{booking.total_price}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Booking ID</p>
-                        <p className="font-mono text-xs">{booking.booking_id}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                No booking history available
-              </div>
-            )}
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10 text-slate-400 text-xs font-medium border border-dashed border-slate-200 rounded-2xl bg-slate-50/10">
+                  No booking history available
+                </div>
+              )}
+            </CardContent>
           </Card>
         </div>
       </div>
     </div>
   );
-} 
+}

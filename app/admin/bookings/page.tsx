@@ -87,7 +87,7 @@ export default function BookingsPage() {
   const paymentOptions = Array.from(new Set(bookings.map((b: Booking) => b.payment_status)));
 
   return (
-    <div className="space-y-3 md:space-y-6">
+    <div className="py-2 space-y-3 md:space-y-4">
       <div className="bg-white p-2 md:p-3 rounded-xl border shadow-sm">
         <div className="space-y-2 md:space-y-3">
           {/* Main Action Row - Always visible */}

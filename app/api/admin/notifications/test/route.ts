@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
       vehicle_name: 'Royal Enfield Classic 350',
       start_date: new Date(),
       end_date: new Date(Date.now() + 24 * 60 * 60 * 1000), // Next day
-      total_price: 1499
+      total_price: 1499,
+      advance_paid: 1499
     };
 
     const adminNotificationService = AdminNotificationService.getInstance();

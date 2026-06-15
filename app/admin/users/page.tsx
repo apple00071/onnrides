@@ -115,7 +115,7 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="py-2 space-y-4">
       {/* Header & Actions Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-xl border shadow-sm gap-4">
         <div className="flex justify-between items-center w-full sm:w-auto gap-3">

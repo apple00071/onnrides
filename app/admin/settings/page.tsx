@@ -137,7 +137,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="py-2 space-y-4">
       <div className="md:hidden text-sm font-medium text-gray-400 mb-2 px-1">
         Admin / Settings
       </div>

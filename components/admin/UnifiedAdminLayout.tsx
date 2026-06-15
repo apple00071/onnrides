@@ -54,41 +54,42 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <div className="flex min-h-screen bg-gray-50/50">
+        <div className="flex min-h-screen bg-slate-50/60 font-sans">
             <Sidebar />
 
             <div className={cn(
                 "flex flex-1 flex-col transition-all duration-200",
-                isMobile ? "pt-16" : (isOpen || isHovered ? "md:ml-48" : "md:ml-16")
+                isMobile ? "pt-12" : (isOpen || isHovered ? "md:ml-[220px]" : "md:ml-[70px]")
             )}>
                 {/* Desktop Header */}
-                <header className="hidden md:flex h-16 items-center justify-between border-b bg-background px-8 sticky top-0 z-30">
-                    <h1 className="text-xl font-semibold tracking-tight text-gray-900">
+                <header className="hidden md:flex h-12 items-center justify-between border-b border-gray-200/40 bg-white/80 backdrop-blur-md px-5 sticky top-0 z-30 shadow-[0_2px_15px_rgba(0,0,0,0.015)]">
+                    <h1 className="text-base font-extrabold tracking-tight text-slate-800">
                         {getPageName()}
                     </h1>
 
                     <div className="flex items-center gap-4">
-                        <Button variant="ghost" size="icon" className="text-muted-foreground mr-2">
+                        <Button variant="ghost" size="icon" className="relative text-slate-500 hover:text-[#f26e24] hover:bg-slate-100/50 rounded-xl transition-all duration-150">
                             <Bell className="h-5 w-5" />
+                            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-gradient-to-r from-[#f26e24] to-[#ff8c42] rounded-full border border-white" />
                         </Button>
 
-                        <div className="flex items-center gap-3 pl-4 border-l">
+                        <div className="flex items-center gap-3 pl-4 border-l border-gray-200/80">
                             <div className="text-right">
-                                <p className="text-sm font-medium leading-none text-gray-900">
+                                <p className="text-sm font-bold text-slate-800 leading-none">
                                     {session?.user?.name || 'Admin'}
                                 </p>
-                                <p className="text-xs text-muted-foreground mt-1">
+                                <p className="text-[10px] font-black uppercase text-[#f26e24] tracking-wider mt-1.5 leading-none">
                                     Administrator
                                 </p>
                             </div>
-                            <UserCircle className="h-8 w-8 text-muted-foreground/50" />
+                            <UserCircle className="h-8 w-8 text-slate-400/80" />
                         </div>
 
                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={handleSignOut}
-                            className="text-muted-foreground hover:text-destructive transition-colors ml-2"
+                            className="text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-150 ml-1"
                             title="Sign out"
                         >
                             <LogOut className="h-5 w-5" />
@@ -98,7 +99,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
                 {/* Mobile Title (Optional, since Sidebar already has mobile header) */}
 
-                <main className="flex-1 p-3 md:p-8">
+                <main className="flex-1 p-3 md:p-4">
                     <ErrorBoundary>
                         {children}
                     </ErrorBoundary>

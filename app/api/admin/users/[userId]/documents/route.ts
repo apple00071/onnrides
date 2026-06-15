@@ -127,7 +127,7 @@ export async function PATCH(
     }
 
     const result = await query(
-      'UPDATE documents SET status = $1::uuid, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+      'UPDATE documents SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2::uuid RETURNING *',
       [status, documentId]
     );
 

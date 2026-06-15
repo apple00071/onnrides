@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, addHours, isBefore, isAfter, startOfToday, parse } from 'date-fns';
 import Link from 'next/link';
-import { Upload } from 'lucide-react';
+import { Upload, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { compressImage } from '@/lib/utils/image-compression';
 
@@ -476,14 +476,14 @@ export default function OfflineBookingPage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold">Create Offline Booking</h1>
+    <div className="py-2 w-full">
+      <div className="mb-4">
         <Link
           href="/admin/bookings"
-          className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
+          className="text-[#f26e24] hover:text-[#e05d13] flex items-center gap-2 font-bold text-xs md:text-sm tracking-tight"
         >
-          Back to Bookings
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back to Bookings</span>
         </Link>
       </div>
 

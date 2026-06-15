@@ -258,8 +258,8 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
   }
 
   return (
-    <div className="p-3 md:p-8 max-w-full">
-      <div className="mb-4 md:mb-8">
+    <div className="py-2 max-w-full">
+      <div className="mb-4 md:mb-6">
         <Button
           variant="ghost"
           onClick={() => router.back()}
@@ -273,7 +273,7 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
       <div className="bg-white md:bg-transparent rounded-xl md:rounded-none border md:border-0 shadow-sm md:shadow-none p-3 md:p-0 mb-4">
         <div className="flex flex-col md:flex-row justify-between items-start gap-3 mb-4 md:mb-6 pb-4 md:pb-6 border-b md:border-0">
           <div className="space-y-1">
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Booking Details</h1>
+            <h1 className="text-xl md:hidden font-bold text-gray-900 tracking-tight">Booking Details</h1>
             <div className="flex items-center gap-3 text-xs text-gray-500">
               <span className="font-medium text-primary px-2 py-0.5 bg-primary/5 rounded">ID: {booking.booking_id}</span>
               <span className="w-1 h-1 rounded-full bg-gray-300"></span>
