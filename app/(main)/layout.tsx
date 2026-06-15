@@ -5,6 +5,7 @@ import LocationStructuredData from '@/components/ui/LocationStructuredData';
 import { locationData } from '@/data/locations';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://misterrides.com'),
   title: 'Mister Rides - Bike Rental Service in Hyderabad',
   description: 'Rent bikes and scooters in Hyderabad at affordable hourly & daily rates. Easy booking, multiple locations in Madhapur & Erragadda.',
   keywords: [
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Mister Rides - Best Bike Rental Service in Hyderabad',
     description: 'Rent bikes and scooters in Hyderabad at affordable hourly & daily rates. Multiple locations with easy booking process.',
-    url: 'https://www.misterrides.com',
+    url: 'https://misterrides.com',
     siteName: 'Mister Rides',
     images: [
       {
@@ -47,7 +48,7 @@ export const metadata: Metadata = {
     site: '@misterrides'
   },
   alternates: {
-    canonical: 'https://www.misterrides.com',
+    canonical: 'https://misterrides.com',
   },
   robots: {
     index: true,
@@ -61,7 +62,7 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    google: 'your-google-verification-code',
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
   }
 };
 

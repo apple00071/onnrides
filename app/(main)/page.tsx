@@ -11,13 +11,13 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Mister Rides - Affordable Bike & Vehicle Rental in Hyderabad',
     description: 'Rent bikes, scooters & vehicles in Hyderabad. Hourly, daily & weekly rentals with free delivery available.',
-    url: 'https://www.misterrides.com',
+    url: 'https://misterrides.com',
     siteName: 'Mister Rides',
     locale: 'en_IN',
     type: 'website',
     images: [
       {
-        url: 'https://www.misterrides.com/images/og-image.jpg',
+        url: 'https://misterrides.com/images/og-image.jpg',
         width: 1200,
         height: 630,
         alt: 'Mister Rides Vehicle Rental Service',
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Mister Rides - Bike Rental Service in Hyderabad',
     description: 'Rent bikes, scooters & vehicles in Hyderabad at affordable rates. Multiple locations with easy booking process.',
-    images: ['https://www.misterrides.com/images/og-image.jpg'],
+    images: ['https://misterrides.com/images/og-image.jpg'],
   },
 };
 

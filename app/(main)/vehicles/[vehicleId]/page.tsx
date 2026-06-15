@@ -63,7 +63,7 @@ function cleanLocationData(locationData: any): string[] {
 export async function generateMetadata({ params }: { params: Promise<{ vehicleId: string }> }): Promise<Metadata> {
   try {
     const resolvedParams = await params;
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?id=${resolvedParams.vehicleId}`, { cache: 'no-store' });
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?id=${resolvedParams.vehicleId}`);
     const vehicle = await response.json();
 
     return {
