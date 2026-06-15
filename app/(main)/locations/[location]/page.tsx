@@ -16,25 +16,58 @@ export async function generateMetadata({ params }: LocationPageProps): Promise<M
   const capitalizedLocation = location.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   const areas = getNearbyAreas(location);
   const description = getLocationDescription(location);
+  const landmarks = getLocationLandmarks(location);
+
+  // Extract clean landmark names (e.g. "ISB" from "ISB (Indian School of Business)")
+  const cleanLandmarks: string[] = [];
+  landmarks.forEach(landmark => {
+    cleanLandmarks.push(landmark);
+    if (landmark.includes('(')) {
+      const match = landmark.match(/^([^(]+)\(([^)]+)\)/);
+      if (match) {
+        const primary = match[1].trim();
+        const secondary = match[2].trim();
+        if (primary) cleanLandmarks.push(primary);
+        if (secondary) cleanLandmarks.push(secondary);
+      }
+    }
+    if (landmark.toLowerCase().includes('office')) {
+      cleanLandmarks.push(landmark.replace(/office/i, '').trim());
+    }
+    if (landmark.toLowerCase().includes('hyderabad')) {
+      cleanLandmarks.push(landmark.replace(/hyderabad/i, '').trim());
+    }
+  });
+
+  const uniqueLandmarks = Array.from(new Set(cleanLandmarks)).filter(Boolean);
+
+  const landmarkKeywords = uniqueLandmarks.flatMap(landmark => [
+    `bike rental near ${landmark}`,
+    `rent bike near ${landmark}`,
+    `scooter rental near ${landmark}`,
+    `two wheeler rent near ${landmark}`
+  ]);
+
+  const baseKeywords = [
+    `bike rental in ${location}`,
+    `activa on rent in ${location}`,
+    `bike rental near ${location}`,
+    `two wheeler for rent in ${location}`,
+    `bike rental ${location}`,
+    `${location} bike rental`,
+    `honda activa rental ${location}`,
+    `bike rental service ${location}`,
+    `two wheeler rental ${location}`,
+    `bike on rent near ${location}`,
+    `scooter rental ${location}`,
+    `hourly bike rental ${location}`,
+    `monthly bike rental ${location}`
+  ];
 
   return {
     title: `Bike Rental in ${capitalizedLocation}, Hyderabad`,
     description: description || `Rent bikes in ${capitalizedLocation}, Hyderabad. Choose from Activa, Dio & more. Free delivery, no hidden charges. Book Now & Get 10% Off!`,
-    keywords: [
-      `bike rental in ${location}`,
-      `activa on rent in ${location}`,
-      `bike rental near ${location}`,
-      `two wheeler for rent in ${location}`,
-      `bike rental ${location}`,
-      `${location} bike rental`,
-      `honda activa rental ${location}`,
-      `bike rental service ${location}`,
-      `two wheeler rental ${location}`,
-      `bike on rent near ${location}`,
-      `scooter rental ${location}`,
-      `hourly bike rental ${location}`,
-      `monthly bike rental ${location}`
-    ],
+    keywords: Array.from(new Set([...baseKeywords, ...landmarkKeywords])),
     openGraph: {
       title: `Best Bike Rental in ${capitalizedLocation} | Starting ₹199/day | Mister Rides`,
       description: `🏍️ Rent bikes in ${capitalizedLocation} at best prices. Multiple bikes available. Free delivery to ${areas.join(', ')}. Book Now!`,
@@ -52,7 +85,13 @@ export async function generateMetadata({ params }: LocationPageProps): Promise<M
 
 const VALID_LOCATIONS = [
   'madhapur',
-  'erragadda'
+  'gachibowli',
+  'hitec-city',
+  'kondapur',
+  'jubilee-hills',
+  'erragadda',
+  'ameerpet',
+  'sr-nagar'
 ];
 
 export default function LocationPage({ params }: LocationPageProps) {
