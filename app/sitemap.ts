@@ -17,13 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Get all locations
   const locations = [
     'madhapur',
-    'gachibowli',
-    'hitec-city',
-    'kondapur',
-    'jubilee-hills',
-    'erragadda',
-    'ameerpet',
-    'sr-nagar'
+    'erragadda'
   ];
 
   // Get all bike categories

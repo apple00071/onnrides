@@ -52,13 +52,7 @@ export async function generateMetadata({ params }: LocationPageProps): Promise<M
 
 const VALID_LOCATIONS = [
   'madhapur',
-  'gachibowli',
-  'hitec-city',
-  'kondapur',
-  'jubilee-hills',
-  'erragadda',
-  'ameerpet',
-  'sr-nagar'
+  'erragadda'
 ];
 
 export default function LocationPage({ params }: LocationPageProps) {

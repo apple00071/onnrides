@@ -22,48 +22,6 @@ const locations = [
     address: 'R S hotel, Metro Station Erragadda, Prem Nagar, Erragadda, Hyderabad, 500018',
     description: 'Serving SR Nagar, Ameerpet, Kukatpally, and nearby commercial areas. Conveniently located right next to the metro station.',
     phone: '+91 83090 31203',
-  },
-  {
-    id: 'gachibowli',
-    name: 'Gachibowli',
-    address: 'Gachibowli Cross Roads, near DLF Cyber City, Hyderabad, 500032',
-    description: 'Ideal pickup point for tech professionals in financial district, DLF, and Nanakramguda.',
-    phone: '+91 83090 31203',
-  },
-  {
-    id: 'hitec-city',
-    name: 'Hitec City',
-    address: 'Hitec City Metro Station, near Cyber Towers, Hyderabad, 500081',
-    description: 'Located in the heart of Hyderabad\'s tech corridor, serving Mindspace, Cyber Towers and corporate campuses.',
-    phone: '+91 83090 31203',
-  },
-  {
-    id: 'kondapur',
-    name: 'Kondapur',
-    address: 'Kondapur Main Road, near Botanical Garden, Hyderabad, 500084',
-    description: 'Serving residential and business zones around Kondapur, Hafeezpet and botanical garden area.',
-    phone: '+91 83090 31203',
-  },
-  {
-    id: 'jubilee-hills',
-    name: 'Jubilee Hills',
-    address: 'Road No. 36, near Jubilee Hills Check Post, Hyderabad, 500033',
-    description: 'Serving premium zones in Jubilee Hills, Banjara Hills, and Film Nagar.',
-    phone: '+91 83090 31203',
-  },
-  {
-    id: 'ameerpet',
-    name: 'Ameerpet',
-    address: 'Ameerpet Metro Station, Hyderabad, 500016',
-    description: 'Central hub serving coaching centers, PG hostels, and retail markets in Ameerpet and Punjagutta.',
-    phone: '+91 83090 31203',
-  },
-  {
-    id: 'sr-nagar',
-    name: 'SR Nagar',
-    address: 'Sanjeeva Reddy Nagar Metro Station, Hyderabad, 500038',
-    description: 'Serving student hubs and residential areas of SR Nagar, Balkampet and BK Guda.',
-    phone: '+91 83090 31203',
   }
 ];
 
