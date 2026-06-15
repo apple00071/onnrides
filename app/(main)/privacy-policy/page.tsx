@@ -1,3 +1,10 @@
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy',
+  description: 'Read the privacy policy for using Mister Rides vehicle rental services. Learn how we collect, use, and protect your personal data.',
+};
+
 export default function PrivacyPolicyPage() {
   return (
     <main className="min-h-screen bg-gray-50 py-12">

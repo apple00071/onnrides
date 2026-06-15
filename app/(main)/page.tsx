@@ -5,12 +5,12 @@ import FleetSection from '@/components/ui/FleetSection';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Mister Rides - Best Bike & Vehicle Rental Service in Hyderabad',
-  description: 'Rent bikes, scooters & vehicles in Hyderabad at affordable rates. Multiple locations in Madhapur & Erragadda with hourly, daily & weekly rental options.',
-  keywords: 'bike rental Hyderabad, vehicle rental service, two wheeler rent, Activa rental Hyderabad, Madhapur bike rental, Erragadda vehicle rental, scooter rental near me',
+  title: 'Best Bike Rental in Hyderabad | Rent Activa & Scooters | Mister Rides',
+  description: 'Rent bikes and scooters in Hyderabad starting at ₹199/day. Easy online booking for Activa, Dio, Access & more. Multiple pickup points in Madhapur & Erragadda with zero hidden charges.',
+  keywords: 'bike rental Hyderabad, vehicle rental service, two wheeler rent, Activa rental Hyderabad, Madhapur bike rental, Erragadda vehicle rental, scooter rental near me, rent scooter Hyderabad',
   openGraph: {
-    title: 'Mister Rides - Affordable Bike & Vehicle Rental in Hyderabad',
-    description: 'Rent bikes, scooters & vehicles in Hyderabad. Hourly, daily & weekly rentals with free delivery available.',
+    title: 'Best Bike Rental in Hyderabad | Rent Activa & Scooters | Mister Rides',
+    description: 'Rent bikes and scooters in Hyderabad starting at ₹199/day. Choose from Activa, Dio, Access & more. Multiple pickup points, free delivery, zero hidden charges.',
     url: 'https://misterrides.com',
     siteName: 'Mister Rides',
     locale: 'en_IN',
@@ -26,8 +26,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Mister Rides - Bike Rental Service in Hyderabad',
-    description: 'Rent bikes, scooters & vehicles in Hyderabad at affordable rates. Multiple locations with easy booking process.',
+    title: 'Best Bike Rental in Hyderabad | Rent Activa & Scooters | Mister Rides',
+    description: 'Rent bikes and scooters in Hyderabad starting at ₹199/day. Choose from Activa, Dio, Access & more. Multiple pickup points, free delivery, zero hidden charges.',
     images: ['https://misterrides.com/images/og-image.jpg'],
   },
 };

@@ -181,7 +181,7 @@ export default async function RootLayout({
         contactPoint: [
           {
             '@type': 'ContactPoint',
-            telephone: '+91-8247494622',
+            telephone: '+91-8309031203',
             contactType: 'customer service',
             areaServed: 'Hyderabad',
             availableLanguage: ['English', 'Hindi', 'Telugu']
@@ -202,7 +202,7 @@ export default async function RootLayout({
         name: 'Mister Rides Vehicle Rental (Formerly Onn Rides)',
         image: `${baseUrl}/logo.png`,
         url: baseUrl,
-        telephone: '+91-8247494622',
+        telephone: '+91-8309031203',
         priceRange: '₹₹',
         address: {
           '@type': 'PostalAddress',

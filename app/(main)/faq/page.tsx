@@ -95,7 +95,7 @@ export default function FAQPage() {
             Contact Us
           </Link>
           <a 
-            href="tel:+919876543210" 
+            href="tel:+918309031203" 
             className="border border-primary text-primary px-6 py-3 rounded-lg font-semibold hover:bg-primary hover:text-white transition-colors"
           >
             Call Us

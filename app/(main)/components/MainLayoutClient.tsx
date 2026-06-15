@@ -61,7 +61,7 @@ export default function MainLayoutClient({
               'latitude': '17.4449',
               'longitude': '78.3812'
             },
-            'telephone': '+91-8247494622',
+            'telephone': '+91-8309031203',
             'email': 'support@misterrides.com',
             'openingHoursSpecification': {
               '@type': 'OpeningHoursSpecification',

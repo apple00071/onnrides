@@ -6,7 +6,10 @@ import { locationData } from '@/data/locations';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://misterrides.com'),
-  title: 'Mister Rides - Bike Rental Service in Hyderabad',
+  title: {
+    default: 'Mister Rides - Best Bike Rental Service in Hyderabad',
+    template: '%s | Mister Rides'
+  },
   description: 'Rent bikes and scooters in Hyderabad at affordable hourly & daily rates. Easy booking, multiple locations in Madhapur & Erragadda.',
   keywords: [
     'bike rental Hyderabad',

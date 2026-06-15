@@ -1,4 +1,11 @@
+import { Metadata } from 'next';
 import { Grid } from '@/components/layout/Grid';
+
+export const metadata: Metadata = {
+  title: 'About Us',
+  description: 'Learn more about Mister Rides (formerly Onn Rides), the premier two-wheeler rental platform in Hyderabad. Discover our mission, fleet standards, and story.',
+  keywords: 'about mister rides, bike rental company hyderabad, two wheeler rental service, onn rides history',
+};
 
 export default function AboutPage() {
   return (

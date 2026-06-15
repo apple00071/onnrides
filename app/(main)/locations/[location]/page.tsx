@@ -107,7 +107,7 @@ export default async function LocationPage({ params }: LocationPageProps) {
       closes: '20:00'
     },
     priceRange: '₹₹',
-    telephone: '+91-8247494622'
+    telephone: '+91-8309031203'
   };
 
   return (
