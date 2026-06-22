@@ -1,7 +1,7 @@
 'use client';
 
 import logger from '@/lib/logger';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
@@ -11,6 +11,18 @@ import '@/styles/datepicker.css';
 import { cn } from "@/lib/utils";
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+
+const DatePickerInput = forwardRef(({ value, onClick, placeholder, className }: any, ref: any) => (
+  <input
+    value={value}
+    onClick={onClick}
+    placeholder={placeholder}
+    ref={ref}
+    className={className}
+    inputMode="none"
+  />
+));
+DatePickerInput.displayName = 'DatePickerInput';
 
 export default function HeroSection() {
   const router = useRouter();
@@ -452,7 +464,7 @@ function SearchFormContent({
               onChangeRaw={(event) => {
                 if (event) event.preventDefault();
               }}
-              readOnly
+              customInput={<DatePickerInput />}
             />
           </div>
           <div className="relative">
@@ -505,7 +517,7 @@ function SearchFormContent({
                 onChangeRaw={(event) => {
                   if (event) event.preventDefault();
                 }}
-                readOnly
+                customInput={<DatePickerInput />}
               />
             </div>
             <div className="relative">
