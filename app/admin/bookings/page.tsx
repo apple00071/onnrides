@@ -66,10 +66,14 @@ export default function BookingsPage() {
 
   // Derived filtered bookings
   const filteredBookings = bookings.filter((booking: Booking) => {
+    const bookingId = booking.booking_id || '';
+    const userName = booking.user?.name || '';
+    const regNumber = booking.registration_number || '';
+
     const matchesSearch =
-      booking.booking_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      booking.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      booking.registration_number.toLowerCase().includes(searchQuery.toLowerCase());
+      bookingId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      regNumber.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || booking.status === statusFilter;
     const matchesPayment = paymentFilter === 'all' || booking.payment_status === paymentFilter;
