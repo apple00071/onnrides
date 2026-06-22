@@ -4,9 +4,32 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, addHours, isBefore, isAfter, startOfToday, parse } from 'date-fns';
 import Link from 'next/link';
-import { Upload, ArrowLeft } from 'lucide-react';
+import { 
+  Upload, 
+  ArrowLeft, 
+  User, 
+  Calendar as CalendarIcon, 
+  Bike, 
+  FileText, 
+  CreditCard, 
+  ShieldCheck, 
+  Check, 
+  AlertCircle, 
+  CheckCircle2, 
+  MapPin, 
+  Mail, 
+  Phone, 
+  AlertTriangle,
+  ArrowRight,
+  Sparkles
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { compressImage } from '@/lib/utils/image-compression';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface Vehicle {
   id: string;
@@ -30,6 +53,7 @@ export default function OfflineBookingPage() {
   const [endDate, setEndDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [activeStep, setActiveStep] = useState(1);
   const [fileUploads, setFileUploads] = useState({
     dlScan: null as File | null,
     aadharScan: null as File | null,
@@ -47,6 +71,32 @@ export default function OfflineBookingPage() {
     selfie: false,
   });
   const [existingDocUrls, setExistingDocUrls] = useState<Record<string, string>>({});
+
+  const [formData, setFormData] = useState({
+    customerName: '',
+    phoneNumber: '',
+    email: '',
+    alternatePhone: '',
+    aadharNumber: '',
+    fatherNumber: '',
+    motherNumber: '',
+    dateOfBirth: '',
+    dlNumber: '',
+    dlExpiryDate: '',
+    permanentAddress: '',
+    vehicleId: '',
+    registrationNumber: '',
+    rentalAmount: '',
+    securityDepositAmount: '',
+    totalAmount: '',
+    paidAmount: '',
+    pendingAmount: '',
+    paymentMethod: '',
+    paymentStatus: '',
+    paymentReference: '',
+    pickupLocation: '',
+    termsAccepted: false,
+  });
 
   // Validate Aadhar number
   const validateAadhar = (aadhar: string) => {
@@ -165,32 +215,6 @@ export default function OfflineBookingPage() {
       field === 'paidAmount' ? value : formData.paidAmount
     );
   };
-
-  const [formData, setFormData] = useState({
-    customerName: '',
-    phoneNumber: '',
-    email: '',
-    alternatePhone: '',
-    aadharNumber: '',
-    fatherNumber: '',
-    motherNumber: '',
-    dateOfBirth: '',
-    dlNumber: '',
-    dlExpiryDate: '',
-    permanentAddress: '',
-    vehicleId: '',
-    registrationNumber: '',
-    rentalAmount: '',
-    securityDepositAmount: '',
-    totalAmount: '',
-    paidAmount: '',
-    pendingAmount: '',
-    paymentMethod: '',
-    paymentStatus: '',
-    paymentReference: '',
-    pickupLocation: '',
-    termsAccepted: false,
-  });
 
   // Convert 24h time to 12h format for display
   const to12Hour = (time24: string) => {
@@ -465,7 +489,7 @@ export default function OfflineBookingPage() {
         throw new Error(`Failed to create booking: ${errorText}`);
       }
 
-      const result = await response.json();
+      toast.success('Offline booking created successfully!');
       router.push('/admin/bookings');
     } catch (error) {
       console.error('Failed to create booking:', error);
@@ -475,572 +499,1053 @@ export default function OfflineBookingPage() {
     }
   };
 
+  // Helper check status functions
+  const isStep1Complete = () => {
+    return !!(formData.customerName && formData.phoneNumber && formData.aadharNumber && validateAadhar(formData.aadharNumber) && formData.dlNumber && formData.permanentAddress);
+  };
+  const isStep2Complete = () => {
+    return !!(formData.pickupLocation && startDate && startTime && endDate && endTime && formData.vehicleId && formData.registrationNumber);
+  };
+  const isStep3Complete = () => {
+    return !!((fileUploads.dlScan || reusingDocs.dlScan) && (fileUploads.aadharScan || reusingDocs.aadharScan) && (fileUploads.selfie || reusingDocs.selfie));
+  };
+  const isStep4Complete = () => {
+    return !!(formData.rentalAmount && formData.securityDepositAmount && formData.paidAmount && formData.paymentMethod && formData.termsAccepted);
+  };
+
+  const getDurationString = () => {
+    if (!startDate || !startTime || !endDate || !endTime) return '';
+    try {
+      const startDateTime = new Date(`${startDate}T${startTime}:00`);
+      const endDateTime = new Date(`${endDate}T${endTime}:00`);
+      const diffMs = endDateTime.getTime() - startDateTime.getTime();
+      if (isNaN(diffMs) || diffMs <= 0) return '';
+      
+      const totalHours = diffMs / (1000 * 60 * 60);
+      const days = Math.floor(totalHours / 24);
+      const hours = Math.round(totalHours % 24);
+      
+      let durationStr = '';
+      if (days > 0) {
+        durationStr += `${days} ${days === 1 ? 'Day' : 'Days'}`;
+      }
+      if (hours > 0) {
+        if (durationStr) durationStr += ' ';
+        durationStr += `${hours} ${hours === 1 ? 'Hour' : 'Hours'}`;
+      }
+      return durationStr || `${totalHours} Hours`;
+    } catch {
+      return '';
+    }
+  };
+
+  const nextStep = () => {
+    if (activeStep < 4) setActiveStep(prev => prev + 1);
+  };
+
+  const prevStep = () => {
+    if (activeStep > 1) setActiveStep(prev => prev - 1);
+  };
+
   return (
-    <div className="py-2 w-full">
-      <div className="mb-4">
+    <div className="py-1 w-full px-2 sm:px-4">
+      {/* Header breadcrumb */}
+      <div className="mb-6">
         <Link
           href="/admin/bookings"
-          className="text-[#f26e24] hover:text-[#e05d13] flex items-center gap-2 font-bold text-xs md:text-sm tracking-tight"
+          className="text-[#f26e24] hover:text-[#e05d13] flex items-center gap-2 font-bold text-xs md:text-sm tracking-tight transition-colors duration-200"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Bookings</span>
         </Link>
       </div>
 
-      <form onSubmit={handleSubmit} encType="multipart/form-data" className="space-y-6">
-        {/* Customer Information */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-medium mb-4">Customer Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Customer Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.customerName}
-                onChange={(e) => setFormData(prev => ({ ...prev, customerName: e.target.value }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              />
+      {/* Main Content Layout Grid */}
+      <div className="lg:grid lg:grid-cols-12 lg:gap-8 items-start">
+        {/* Left Column: Form Content */}
+        <div className="lg:col-span-8 space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            
+            {/* STEP 1: CUSTOMER INFORMATION */}
+            {activeStep === 1 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 space-y-6 transition-all duration-300">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <User className="h-5.5 w-5.5 text-[#f26e24]" />
+                    <span>Customer Profile</span>
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">Enter customer credentials. 10-digit phone will check for returning customer profiles.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Phone Number */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Phone Number <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="tel"
+                        value={formData.phoneNumber}
+                        onChange={(e) => handlePhoneChange('phoneNumber', e.target.value)}
+                        placeholder="10-digit number"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Customer Name */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Customer Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.customerName}
+                      onChange={(e) => setFormData(prev => ({ ...prev, customerName: e.target.value }))}
+                      placeholder="Full Name"
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200"
+                      required
+                    />
+                  </div>
+
+                  {/* Email */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="email@example.com"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Alternate Phone */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Alternate Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.alternatePhone}
+                      onChange={(e) => handlePhoneChange('alternatePhone', e.target.value)}
+                      placeholder="Secondary phone"
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200"
+                    />
+                  </div>
+
+                  {/* Aadhar Number */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Aadhar Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.aadharNumber}
+                      onChange={handleAadharChange}
+                      placeholder="XXXX XXXX XXXX"
+                      maxLength={14}
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200"
+                      required
+                    />
+                  </div>
+
+                  {/* DL Number */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      DL Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.dlNumber}
+                      onChange={(e) => setFormData(prev => ({ ...prev, dlNumber: e.target.value.toUpperCase() }))}
+                      placeholder="Driving License Number"
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200"
+                      required
+                    />
+                  </div>
+
+                  {/* Father's Number */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Father's Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.fatherNumber}
+                      onChange={(e) => handlePhoneChange('fatherNumber', e.target.value)}
+                      placeholder="Father's phone"
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200"
+                    />
+                  </div>
+
+                  {/* Mother's Number */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Mother's Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.motherNumber}
+                      onChange={(e) => handlePhoneChange('motherNumber', e.target.value)}
+                      placeholder="Mother's phone"
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200"
+                    />
+                  </div>
+
+                  {/* Date of Birth */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Date of Birth
+                    </label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal h-[42px] rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-gray-100/50 text-gray-800 hover:text-gray-900 transition-colors",
+                            !formData.dateOfBirth && "text-gray-400"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 text-gray-400 flex-shrink-0" />
+                          <span className="truncate whitespace-nowrap">
+                            {formData.dateOfBirth ? format(new Date(formData.dateOfBirth), "dd MMM yyyy") : "Pick Date of Birth"}
+                          </span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.dateOfBirth ? new Date(formData.dateOfBirth) : undefined}
+                          onSelect={(date) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              dateOfBirth: date ? format(date, 'yyyy-MM-dd') : ''
+                            }));
+                          }}
+                          disabled={(date) => date > new Date()}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* DL Expiry Date */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      DL Expiry Date
+                    </label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal h-[42px] rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-gray-100/50 text-gray-800 hover:text-gray-900 transition-colors",
+                            !formData.dlExpiryDate && "text-gray-400"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 text-gray-400 flex-shrink-0" />
+                          <span className="truncate whitespace-nowrap">
+                            {formData.dlExpiryDate ? format(new Date(formData.dlExpiryDate), "dd MMM yyyy") : "Pick DL Expiry Date"}
+                          </span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.dlExpiryDate ? new Date(formData.dlExpiryDate) : undefined}
+                          onSelect={(date) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              dlExpiryDate: date ? format(date, 'yyyy-MM-dd') : ''
+                            }));
+                          }}
+                          disabled={(date) => date < startOfToday()}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Address */}
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Permanent Address <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={formData.permanentAddress}
+                      onChange={(e) => setFormData(prev => ({ ...prev, permanentAddress: e.target.value }))}
+                      rows={3}
+                      placeholder="Complete residential address"
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200 resize-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Footer steps button */}
+                <div className="flex justify-end pt-4">
+                  <button
+                    type="button"
+                    onClick={nextStep}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-[#f26e24] hover:bg-[#d95e1d] text-white text-sm font-semibold rounded-xl transition-all duration-200 shadow-md shadow-orange-100 hover:shadow-lg"
+                  >
+                    <span>Next: Vehicle & Dates</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: RENTAL & VEHICLE DETAILS */}
+            {activeStep === 2 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 space-y-6 transition-all duration-300">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <CalendarIcon className="h-5.5 w-5.5 text-[#f26e24]" />
+                    <span>Rental Details & Vehicle Selection</span>
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">Configure rental schedule and select an available vehicle card.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Location */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Pickup Location <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <select
+                        value={formData.pickupLocation}
+                        onChange={(e) => setFormData(prev => ({ ...prev, pickupLocation: e.target.value }))}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200 cursor-pointer appearance-none"
+                        required
+                      >
+                        <option value="">Select Location</option>
+                        <option value="Madhapur">Madhapur</option>
+                        <option value="Erragadda">Erragadda</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="hidden sm:block" />
+
+                  {/* Start Date/Time */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Start Date & Time <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "flex-1 justify-start text-left font-normal h-[42px] rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-gray-100/50 text-gray-800 hover:text-gray-900 transition-colors",
+                              !startDate && "text-gray-400"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <span className="truncate whitespace-nowrap">
+                              {startDate ? format(new Date(startDate), "dd MMM yyyy") : "Pick Start Date"}
+                            </span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={startDate ? new Date(startDate) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                handleStartTimeChange(format(date, 'yyyy-MM-dd'), startTime);
+                              } else {
+                                handleStartTimeChange('', startTime);
+                              }
+                            }}
+                            disabled={(date) => date < startOfToday()}
+                          />
+                        </PopoverContent>
+                      </Popover>
+
+                      <Select 
+                        value={startTime} 
+                        onValueChange={(val: string) => handleStartTimeChange(startDate, val)}
+                      >
+                        <SelectTrigger className="w-32 h-[42px] rounded-xl border border-gray-200 bg-gray-50/50 text-gray-800 hover:bg-gray-100/50">
+                          <SelectValue placeholder="Time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getTimeOptions(true).map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* End Date/Time */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      End Date & Time <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "flex-1 justify-start text-left font-normal h-[42px] rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-gray-100/50 text-gray-800 hover:text-gray-900 transition-colors",
+                              !endDate && "text-gray-400"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <span className="truncate whitespace-nowrap">
+                              {endDate ? format(new Date(endDate), "dd MMM yyyy") : "Pick End Date"}
+                            </span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={endDate ? new Date(endDate) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                setEndDate(format(date, 'yyyy-MM-dd'));
+                              } else {
+                                setEndDate('');
+                              }
+                            }}
+                            disabled={(date) => {
+                              const minDateLimit = startDate ? new Date(startDate) : startOfToday();
+                              return date < minDateLimit;
+                            }}
+                          />
+                        </PopoverContent>
+                      </Popover>
+
+                      <Select 
+                        value={endTime} 
+                        onValueChange={(val: string) => setEndTime(val)}
+                      >
+                        <SelectTrigger className="w-32 h-[42px] rounded-xl border border-gray-200 bg-gray-50/50 text-gray-800 hover:bg-gray-100/50">
+                          <SelectValue placeholder="Time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getTimeOptions(false).map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vehicle Selection Grid */}
+                <div className="pt-4 border-t border-gray-100">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">
+                    Available Vehicles <span className="text-red-500">*</span>
+                  </label>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[340px] overflow-y-auto pr-2 pb-2">
+                    {vehicles.map((vehicle) => {
+                      const isSelected = formData.vehicleId === vehicle.id;
+                      return (
+                        <div
+                          key={vehicle.id}
+                          onClick={() => setFormData(prev => ({ ...prev, vehicleId: vehicle.id }))}
+                          className={`cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 select-none ${
+                            isSelected
+                              ? 'border-[#f26e24] bg-orange-50/30 shadow-sm'
+                              : 'border-gray-100 hover:border-gray-200 bg-white hover:bg-gray-50/30'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
+                                <Bike className="h-4 w-4 text-[#f26e24]" />
+                                <span>{vehicle.name}</span>
+                              </h4>
+                              <p className="text-[10px] text-gray-500 capitalize mt-0.5">
+                                {vehicle.type}
+                              </p>
+                            </div>
+                            <span className="text-xs font-bold text-[#f26e24] bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-lg">
+                              ₹{vehicle.price_per_hour}/hr
+                            </span>
+                          </div>
+                          
+                          <div className="mt-4 flex justify-between items-center">
+                            <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide ${
+                              isSelected ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {isSelected ? 'Selected' : 'Available'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {vehicles.length === 0 && (
+                      <div className="col-span-full py-8 text-center text-gray-500 border border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
+                        <Bike className="mx-auto h-8 w-8 text-gray-400 mb-2 animate-bounce" />
+                        <p className="text-sm font-medium">No vehicles listed</p>
+                        <p className="text-xs text-gray-400 mt-1">Please select Location, Dates, and Times above to search.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Registration Number */}
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="max-w-xs">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Registration Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.registrationNumber}
+                      onChange={(e) => setFormData(prev => ({ ...prev, registrationNumber: e.target.value.toUpperCase() }))}
+                      placeholder="TS-08-XX-XXXX"
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm font-mono tracking-wider transition-all duration-200"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Navigation Buttons */}
+                <div className="flex justify-between pt-4">
+                  <button
+                    type="button"
+                    onClick={prevStep}
+                    className="px-6 py-2.5 border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-semibold rounded-xl transition-all duration-200"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={nextStep}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-[#f26e24] hover:bg-[#d95e1d] text-white text-sm font-semibold rounded-xl transition-all duration-200 shadow-md shadow-orange-100 hover:shadow-lg"
+                  >
+                    <span>Next: Documents</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: REQUIRED DOCUMENTS */}
+            {activeStep === 3 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 space-y-6 transition-all duration-300">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <FileText className="h-5.5 w-5.5 text-[#f26e24]" />
+                    <span>Identity Verification Documents</span>
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">Upload scan of Driving License, Aadhaar card, and capture/upload customer selfie.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  {/* DL Scan */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Driving License <span className="text-red-500">*</span>
+                    </label>
+                    
+                    <div className="flex flex-col items-center justify-center w-full">
+                      {filePreviews.dlScan ? (
+                        <div className="relative w-full h-40 border border-gray-200 rounded-2xl overflow-hidden bg-gray-50 p-2">
+                          <img
+                            src={filePreviews.dlScan}
+                            alt="DL Preview"
+                            className="w-full h-full object-contain rounded-xl"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFileUploads(prev => ({ ...prev, dlScan: null }));
+                              setFilePreviews(prev => ({ ...prev, dlScan: null }));
+                              setReusingDocs(prev => ({ ...prev, dlScan: false }));
+                            }}
+                            className="absolute top-2 right-2 bg-red-500/90 text-white rounded-full p-1 w-6 h-6 flex items-center justify-center leading-none text-xs hover:bg-red-600 transition-colors"
+                          >
+                            ×
+                          </button>
+                          {reusingDocs.dlScan && (
+                            <span className="absolute bottom-2 left-2 right-2 bg-green-600/90 text-white text-[10px] py-1 text-center font-bold rounded-lg border border-green-500 tracking-wider">
+                              REUSED
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-gray-200 border-dashed rounded-2xl cursor-pointer bg-gray-50 hover:bg-gray-100/50 transition-colors">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                            <Upload className="w-7 h-7 mb-2 text-[#f26e24]" />
+                            <p className="text-xs font-semibold text-gray-700">Upload DL Scan</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Image or PDF</p>
+                          </div>
+                          <input
+                            type="file"
+                            name="dlScan"
+                            className="hidden"
+                            onChange={(e) => handleFileUpload(e, 'dlScan')}
+                            accept="image/*,.pdf" capture="environment"
+                            required={!reusingDocs.dlScan}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Aadhar Scan */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Aadhaar Card <span className="text-red-500">*</span>
+                    </label>
+                    
+                    <div className="flex flex-col items-center justify-center w-full">
+                      {filePreviews.aadharScan ? (
+                        <div className="relative w-full h-40 border border-gray-200 rounded-2xl overflow-hidden bg-gray-50 p-2">
+                          <img
+                            src={filePreviews.aadharScan}
+                            alt="Aadhaar Preview"
+                            className="w-full h-full object-contain rounded-xl"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFileUploads(prev => ({ ...prev, aadharScan: null }));
+                              setFilePreviews(prev => ({ ...prev, aadharScan: null }));
+                              setReusingDocs(prev => ({ ...prev, aadharScan: false }));
+                            }}
+                            className="absolute top-2 right-2 bg-red-500/90 text-white rounded-full p-1 w-6 h-6 flex items-center justify-center leading-none text-xs hover:bg-red-600 transition-colors"
+                          >
+                            ×
+                          </button>
+                          {reusingDocs.aadharScan && (
+                            <span className="absolute bottom-2 left-2 right-2 bg-green-600/90 text-white text-[10px] py-1 text-center font-bold rounded-lg border border-green-500 tracking-wider">
+                              REUSED
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-gray-200 border-dashed rounded-2xl cursor-pointer bg-gray-50 hover:bg-gray-100/50 transition-colors">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                            <Upload className="w-7 h-7 mb-2 text-[#f26e24]" />
+                            <p className="text-xs font-semibold text-gray-700">Upload Aadhaar</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Image or PDF</p>
+                          </div>
+                          <input
+                            type="file"
+                            name="aadharScan"
+                            className="hidden"
+                            onChange={(e) => handleFileUpload(e, 'aadharScan')}
+                            accept="image/*,.pdf" capture="environment"
+                            required={!reusingDocs.aadharScan}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Selfie Photo */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Customer Selfie <span className="text-red-500">*</span>
+                    </label>
+                    
+                    <div className="flex flex-col items-center justify-center w-full">
+                      {filePreviews.selfie ? (
+                        <div className="relative w-full h-40 border border-gray-200 rounded-2xl overflow-hidden bg-gray-50 p-2">
+                          <img
+                            src={filePreviews.selfie}
+                            alt="Selfie Preview"
+                            className="w-full h-full object-contain rounded-xl"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFileUploads(prev => ({ ...prev, selfie: null }));
+                              setFilePreviews(prev => ({ ...prev, selfie: null }));
+                              setReusingDocs(prev => ({ ...prev, selfie: false }));
+                            }}
+                            className="absolute top-2 right-2 bg-red-500/90 text-white rounded-full p-1 w-6 h-6 flex items-center justify-center leading-none text-xs hover:bg-red-600 transition-colors"
+                          >
+                            ×
+                          </button>
+                          {reusingDocs.selfie && (
+                            <span className="absolute bottom-2 left-2 right-2 bg-green-600/90 text-white text-[10px] py-1 text-center font-bold rounded-lg border border-green-500 tracking-wider">
+                              REUSED
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-gray-200 border-dashed rounded-2xl cursor-pointer bg-gray-50 hover:bg-gray-100/50 transition-colors">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                            <Upload className="w-7 h-7 mb-2 text-[#f26e24]" />
+                            <p className="text-xs font-semibold text-gray-700">Upload Selfie</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Camera portrait image</p>
+                          </div>
+                          <input
+                            type="file"
+                            name="selfie"
+                            className="hidden"
+                            onChange={(e) => handleFileUpload(e, 'selfie')}
+                            accept="image/*" capture="environment"
+                            required={!reusingDocs.selfie}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Navigation Buttons */}
+                <div className="flex justify-between pt-4">
+                  <button
+                    type="button"
+                    onClick={prevStep}
+                    className="px-6 py-2.5 border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-semibold rounded-xl transition-all duration-200"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={nextStep}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-[#f26e24] hover:bg-[#d95e1d] text-white text-sm font-semibold rounded-xl transition-all duration-200 shadow-md shadow-orange-100 hover:shadow-lg"
+                  >
+                    <span>Next: Settlement</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 4: PAYMENT SETTLEMENT & TERMS */}
+            {activeStep === 4 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8 space-y-6 transition-all duration-300">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <CreditCard className="h-5.5 w-5.5 text-[#f26e24]" />
+                    <span>Settlement & Terms Agreement</span>
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">Configure pricing terms and record initial advance payments collected.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Rental Amount */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Rental Amount (₹) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.rentalAmount}
+                      onChange={(e) => handleAmountChange('rentalAmount', e.target.value)}
+                      placeholder="Rental charge value"
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200"
+                      required
+                    />
+                  </div>
+
+                  {/* Security Deposit */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Security Deposit (₹) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.securityDepositAmount}
+                      onChange={(e) => handleAmountChange('securityDepositAmount', e.target.value)}
+                      placeholder="Deposit amount"
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200"
+                      required
+                    />
+                  </div>
+
+                  {/* Gross Total (Calculated) */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                      Gross Total Price (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.totalAmount}
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-100 border border-gray-200 text-sm font-semibold text-gray-700"
+                      disabled
+                    />
+                  </div>
+
+                  {/* Paid Amount */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Paid Advance Amount (₹) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.paidAmount}
+                      onChange={(e) => handleAmountChange('paidAmount', e.target.value)}
+                      placeholder="Amount collected now"
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200"
+                      required
+                    />
+                  </div>
+
+                  {/* Pending Amount (Calculated) */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                      Pending Amount / Balance Due (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.pendingAmount}
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-100 border border-gray-200 text-sm font-semibold text-[#f26e24]"
+                      disabled
+                    />
+                  </div>
+
+                  {/* Payment Method */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Payment Method <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.paymentMethod}
+                      onChange={(e) => setFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm cursor-pointer appearance-none"
+                      required
+                    >
+                      <option value="">Select payment method</option>
+                      <option value="cash">Cash</option>
+                      <option value="upi">UPI</option>
+                      <option value="card">Card</option>
+                      <option value="bank_transfer">Bank Transfer</option>
+                    </select>
+                  </div>
+
+                  {/* Payment Reference */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                      Payment Reference ID
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.paymentReference}
+                      onChange={(e) => setFormData(prev => ({ ...prev, paymentReference: e.target.value }))}
+                      placeholder="Transaction hash or reference"
+                      className="w-full px-4 py-2.5 rounded-xl bg-gray-50/50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24]/20 focus:border-[#f26e24] text-sm transition-all duration-200"
+                    />
+                  </div>
+                </div>
+
+                {/* Terms and Conditions */}
+                <div className="pt-6 border-t border-gray-100 space-y-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1">
+                    <AlertTriangle className="h-4 w-4 text-orange-500" />
+                    <span>Rider Regulations & Agreement</span>
+                  </h3>
+                  
+                  <div className="bg-gray-50 rounded-xl p-4 text-[11px] text-gray-600 space-y-2 border border-gray-200/50 max-h-40 overflow-y-auto">
+                    <p>• The vehicle will have a full tank of fuel, and it should be returned with a full tank.</p>
+                    <p>• The vehicle should be returned in the same condition as it was rented.</p>
+                    <p>• Any damage to the vehicle will be charged to the customer.</p>
+                    <p>• The security deposit will be refunded after the vehicle is returned and inspected.</p>
+                    <p>• Late returns will be charged at ₹100/- per hour. Extension requires a call to support.</p>
+                    <p>• The customer is responsible for any traffic violations during the rental period.</p>
+                    <p>• The customer must have a valid driving license.</p>
+                    <p>• The customer must be above 21 years of age.</p>
+                    <p>• The customer must provide valid ID proof.</p>
+                    <p>• Smoking is not allowed in the vehicle.</p>
+                  </div>
+
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="termsAccepted"
+                      checked={formData.termsAccepted}
+                      onChange={(e) => setFormData(prev => ({ ...prev, termsAccepted: e.target.checked }))}
+                      className="h-4.5 w-4.5 text-[#f26e24] focus:ring-[#f26e24] border-gray-300 rounded-lg cursor-pointer"
+                      required
+                    />
+                    <label htmlFor="termsAccepted" className="ml-2 block text-xs font-semibold text-gray-700 cursor-pointer select-none">
+                      I verify that the customer has read and agreed to all terms and conditions
+                    </label>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-between pt-4 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={prevStep}
+                    className="px-6 py-2.5 border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-semibold rounded-xl transition-all duration-200"
+                  >
+                    Back
+                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => router.back()}
+                      className="px-6 py-2.5 border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-semibold rounded-xl transition-all duration-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-6 py-2.5 bg-[#f26e24] hover:bg-[#d95e1d] text-white text-sm font-bold rounded-xl transition-all duration-200 shadow-md shadow-orange-100 hover:shadow-lg disabled:opacity-50"
+                    >
+                      {loading ? 'Creating...' : 'Create Booking'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </form>
+        </div>
+
+        {/* Right Column: Live Booking Summary Panel (Invoice Ticket) */}
+        <div className="lg:col-span-4 mt-8 lg:mt-0">
+          <div className="bg-white rounded-2xl border border-gray-150 shadow-sm overflow-hidden sticky top-6">
+            <div className="bg-[#f26e24] p-4 text-white">
+              <h3 className="font-bold text-base flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5" />
+                <span>Booking Summary</span>
+              </h3>
+              <p className="text-[10px] text-orange-100">Live details and calculations</p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Phone Number <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="tel"
-                value={formData.phoneNumber}
-                onChange={(e) => handlePhoneChange('phoneNumber', e.target.value)}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Alternate Phone
-              </label>
-              <input
-                type="tel"
-                value={formData.alternatePhone}
-                onChange={(e) => handlePhoneChange('alternatePhone', e.target.value)}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Aadhar Number <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.aadharNumber}
-                onChange={handleAadharChange}
-                placeholder="XXXX XXXX XXXX"
-                maxLength={14}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Father's Number
-              </label>
-              <input
-                type="tel"
-                value={formData.fatherNumber}
-                onChange={(e) => handlePhoneChange('fatherNumber', e.target.value)}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mother's Number
-              </label>
-              <input
-                type="tel"
-                value={formData.motherNumber}
-                onChange={(e) => handlePhoneChange('motherNumber', e.target.value)}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Date of Birth
-              </label>
-              <input
-                type="date"
-                value={formData.dateOfBirth}
-                onChange={(e) => setFormData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
-                max={format(new Date(), 'yyyy-MM-dd')}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                DL Number <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.dlNumber}
-                onChange={(e) => setFormData(prev => ({ ...prev, dlNumber: e.target.value.toUpperCase() }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                DL Expiry Date
-              </label>
-              <input
-                type="date"
-                value={formData.dlExpiryDate}
-                onChange={(e) => setFormData(prev => ({ ...prev, dlExpiryDate: e.target.value }))}
-                min={format(new Date(), 'yyyy-MM-dd')}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Permanent Address <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={formData.permanentAddress}
-                onChange={(e) => setFormData(prev => ({ ...prev, permanentAddress: e.target.value }))}
-                rows={3}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              />
+            
+            <div className="p-6 space-y-6">
+              {/* Customer Info */}
+              <div>
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Customer</h4>
+                {formData.customerName ? (
+                  <div>
+                    <p className="font-bold text-gray-900 text-sm">{formData.customerName}</p>
+                    <p className="text-xs text-gray-500">{formData.phoneNumber || 'No phone number'}</p>
+                    {isReturningCustomer && (
+                      <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
+                        <CheckCircle2 className="h-3 w-3" /> Returning Customer
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">No customer details entered yet</p>
+                )}
+              </div>
+
+              {/* Selected Vehicle Info */}
+              <div>
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Vehicle</h4>
+                {formData.vehicleId && vehicles.length > 0 && vehicles.find(v => v.id === formData.vehicleId) ? (
+                  (() => {
+                    const selectedVehicle = vehicles.find(v => v.id === formData.vehicleId);
+                    return (
+                      <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+                        <div>
+                          <p className="font-bold text-gray-900 text-xs">{selectedVehicle?.name}</p>
+                          <p className="text-[10px] text-gray-500 capitalize">{selectedVehicle?.type}</p>
+                        </div>
+                        {formData.registrationNumber && (
+                          <span className="text-[10px] font-mono font-bold bg-white px-2.5 py-1 border border-gray-200 rounded-lg text-gray-800 tracking-wider shadow-sm">
+                            {formData.registrationNumber}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <p className="text-xs text-gray-400 italic">No vehicle selected yet</p>
+                )}
+              </div>
+
+              {/* Rental Schedule Duration */}
+              <div>
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Duration</h4>
+                {startDate && startTime && endDate && endTime ? (
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Pickup:</span>
+                      <span className="font-semibold text-gray-800">{format(new Date(startDate), 'dd MMM yyyy')} {to12Hour(startTime)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Return:</span>
+                      <span className="font-semibold text-gray-800">{format(new Date(endDate), 'dd MMM yyyy')} {to12Hour(endTime)}</span>
+                    </div>
+                    {getDurationString() && (
+                      <div className="flex justify-between text-xs pt-1.5 border-t border-dashed border-gray-100">
+                        <span className="text-gray-500">Total Duration:</span>
+                        <span className="font-bold text-[#f26e24]">{getDurationString()}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">Enter dates to calculate duration</p>
+                )}
+              </div>
+
+              {/* Invoice calculation breakdown */}
+              <div className="pt-4 border-t border-gray-100 space-y-3">
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Invoice</h4>
+                
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Rental Charge:</span>
+                    <span className="font-semibold text-gray-800">₹{formData.rentalAmount || '0'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Security Deposit:</span>
+                    <span className="font-semibold text-gray-800">₹{formData.securityDepositAmount || '0'}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-gray-100 font-bold text-gray-900">
+                    <span>Gross Total:</span>
+                    <span>₹{formData.totalAmount || '0'}</span>
+                  </div>
+                  <div className="flex justify-between text-green-600 font-semibold">
+                    <span>Paid Advance:</span>
+                    <span>-₹{formData.paidAmount || '0'}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-double border-gray-200 font-extrabold text-sm text-gray-900">
+                    <span>Balance Due:</span>
+                    <span className="text-[#f26e24]">₹{formData.pendingAmount || '0'}</span>
+                  </div>
+                </div>
+
+                {/* Status Badge */}
+                <div className="pt-2">
+                  <span className={`w-full text-center py-2 px-4 rounded-xl text-[10px] font-bold inline-block border ${
+                    formData.paymentStatus === 'paid'
+                      ? 'bg-green-50 text-green-700 border-green-200'
+                      : formData.paymentStatus === 'partially_paid'
+                        ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                        : 'bg-red-50 text-red-700 border-red-200'
+                  }`}>
+                    PAYMENT STATUS: {
+                      formData.paymentStatus === 'paid' 
+                        ? 'FULLY PAID' 
+                        : formData.paymentStatus === 'partially_paid' 
+                          ? 'PARTIALLY PAID' 
+                          : 'PENDING'
+                    }
+                  </span>
+                </div>
+              </div>
+
+
             </div>
           </div>
         </div>
-
-        {/* Rental Details */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-medium mb-4">Rental Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Pickup Location <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={formData.pickupLocation}
-                onChange={(e) => setFormData(prev => ({ ...prev, pickupLocation: e.target.value }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              >
-                <option value="">Select Location</option>
-                <option value="Madhapur">Madhapur</option>
-                <option value="Erragadda">Erragadda</option>
-              </select>
-            </div>
-            <div className="hidden md:block"></div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Start Date & Time <span className="text-red-500">*</span>
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => handleStartTimeChange(e.target.value, startTime)}
-                  min={format(new Date(), 'yyyy-MM-dd')}
-                  className="flex-1 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                  required
-                />
-                <select
-                  value={startTime}
-                  onChange={(e) => handleStartTimeChange(startDate, e.target.value)}
-                  className="w-40 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
-                  required
-                >
-                  <option value="">Time</option>
-                  {getTimeOptions(true).map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                End Date & Time <span className="text-red-500">*</span>
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate || format(new Date(), 'yyyy-MM-dd')}
-                  className="flex-1 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                  required
-                />
-                <select
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-40 px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:border-transparent"
-                  required
-                >
-                  <option value="">Time</option>
-                  {getTimeOptions(false).map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-
-        {/* Vehicle Details */}
-        < div className="bg-white rounded-lg shadow p-6 mt-6" >
-          <h2 className="text-xl font-medium mb-4">Vehicle Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select Vehicle <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={formData.vehicleId}
-                onChange={(e) => setFormData(prev => ({ ...prev, vehicleId: e.target.value }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              >
-                <option value="">Select a vehicle</option>
-                {vehicles.map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.name} - {vehicle.type} ({vehicle.location || 'No location'}) - ₹{vehicle.price_per_hour}/hr
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-sm text-gray-500">
-                {vehicles.length > 0
-                  ? `Available vehicles: ${vehicles.length}`
-                  : 'Please select date and time to see available vehicles'}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Registration Number <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.registrationNumber}
-                onChange={(e) => setFormData(prev => ({ ...prev, registrationNumber: e.target.value.toUpperCase() }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              />
-            </div>
-          </div>
-        </div >
-
-        {/* Payment Details */}
-        < div className="bg-white rounded-lg shadow p-6" >
-          <h2 className="text-xl font-medium mb-4">Payment Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Rental Amount <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                value={formData.rentalAmount}
-                onChange={(e) => handleAmountChange('rentalAmount', e.target.value)}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Security Deposit Amount <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                value={formData.securityDepositAmount}
-                onChange={(e) => handleAmountChange('securityDepositAmount', e.target.value)}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Total Amount
-              </label>
-              <input
-                type="number"
-                value={formData.totalAmount}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                disabled
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Paid Amount <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                value={formData.paidAmount}
-                onChange={(e) => handleAmountChange('paidAmount', e.target.value)}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Pending Amount
-              </label>
-              <input
-                type="number"
-                value={formData.pendingAmount}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                disabled
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Reference
-              </label>
-              <input
-                type="text"
-                value={formData.paymentReference}
-                onChange={(e) => setFormData(prev => ({ ...prev, paymentReference: e.target.value }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Method <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={formData.paymentMethod}
-                onChange={(e) => setFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                required
-              >
-                <option value="">Select payment method</option>
-                <option value="cash">Cash</option>
-                <option value="upi">UPI</option>
-                <option value="card">Card</option>
-                <option value="bank_transfer">Bank Transfer</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Status
-              </label>
-              <input
-                type="text"
-                value={formData.paymentStatus}
-                className="w-full px-4 py-2 rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50"
-                disabled
-              />
-            </div>
-          </div>
-        </div >
-
-        {/* Documents */}
-        < div className="bg-white rounded-lg shadow p-6" >
-          <h2 className="text-xl font-medium mb-4">Documents</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                DL Scan <span className="text-red-500">*</span>
-              </label>
-              <div className="flex flex-col items-center justify-center w-full">
-                {filePreviews.dlScan ? (
-                  <div className="relative w-full h-32 mb-2">
-                    <img
-                      src={filePreviews.dlScan}
-                      alt="DL Preview"
-                      className="w-full h-full object-contain rounded-lg"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFileUploads(prev => ({ ...prev, dlScan: null }));
-                        setFilePreviews(prev => ({ ...prev, dlScan: null }));
-                        setReusingDocs(prev => ({ ...prev, dlScan: false }));
-                      }}
-                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1 w-6 h-6 flex items-center justify-center leading-none"
-                    >
-                      ×
-                    </button>
-                    {reusingDocs.dlScan && (
-                      <span className="absolute bottom-0 left-0 right-0 bg-green-500/80 text-white text-[10px] py-0.5 text-center font-bold">REUSED</span>
-                    )}
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                      <p className="text-sm text-gray-500">Click to upload DL scan</p>
-                    </div>
-                    <input
-                      type="file"
-                      name="dlScan"
-                      className="hidden"
-                      onChange={(e) => handleFileUpload(e, 'dlScan')}
-                      accept="image/*,.pdf" capture="environment"
-                      required
-                    />
-                  </label>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Aadhar Scan <span className="text-red-500">*</span>
-              </label>
-              <div className="flex flex-col items-center justify-center w-full">
-                {filePreviews.aadharScan ? (
-                  <div className="relative w-full h-32 mb-2">
-                    <img
-                      src={filePreviews.aadharScan}
-                      alt="Aadhar Preview"
-                      className="w-full h-full object-contain rounded-lg"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFileUploads(prev => ({ ...prev, aadharScan: null }));
-                        setFilePreviews(prev => ({ ...prev, aadharScan: null }));
-                        setReusingDocs(prev => ({ ...prev, aadharScan: false }));
-                      }}
-                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1 w-6 h-6 flex items-center justify-center leading-none"
-                    >
-                      ×
-                    </button>
-                    {reusingDocs.aadharScan && (
-                      <span className="absolute bottom-0 left-0 right-0 bg-green-500/80 text-white text-[10px] py-0.5 text-center font-bold">REUSED</span>
-                    )}
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                      <p className="text-sm text-gray-500">Click to upload Aadhar scan</p>
-                    </div>
-                    <input
-                      type="file"
-                      name="aadharScan"
-                      className="hidden"
-                      onChange={(e) => handleFileUpload(e, 'aadharScan')}
-                      accept="image/*,.pdf" capture="environment"
-                      required
-                    />
-                  </label>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Selfie <span className="text-red-500">*</span>
-              </label>
-              <div className="flex flex-col items-center justify-center w-full">
-                {filePreviews.selfie ? (
-                  <div className="relative w-full h-32 mb-2">
-                    <img
-                      src={filePreviews.selfie}
-                      alt="Selfie Preview"
-                      className="w-full h-full object-contain rounded-lg"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFileUploads(prev => ({ ...prev, selfie: null }));
-                        setFilePreviews(prev => ({ ...prev, selfie: null }));
-                        setReusingDocs(prev => ({ ...prev, selfie: false }));
-                      }}
-                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1 w-6 h-6 flex items-center justify-center leading-none"
-                    >
-                      ×
-                    </button>
-                    {reusingDocs.selfie && (
-                      <span className="absolute bottom-0 left-0 right-0 bg-green-500/80 text-white text-[10px] py-0.5 text-center font-bold">REUSED</span>
-                    )}
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                      <p className="text-sm text-gray-500">Click to upload selfie</p>
-                    </div>
-                    <input
-                      type="file"
-                      name="selfie"
-                      className="hidden"
-                      onChange={(e) => handleFileUpload(e, 'selfie')}
-                      accept="image/*" capture="environment"
-                      required
-                    />
-                  </label>
-                )}
-              </div>
-            </div>
-          </div>
-        </div >
-
-        {/* Terms and Conditions */}
-        < div className="bg-white rounded-lg shadow p-6" >
-          <h2 className="text-xl font-medium mb-4">Terms and Conditions</h2>
-          <div className="space-y-4">
-            <div className="text-sm text-gray-600 space-y-2">
-              <p>• The vehicle will have a full tank of fuel, and it should be returned with a full tank.</p>
-              <p>• The vehicle should be returned in the same condition as it was rented.</p>
-              <p>• Any damage to the vehicle will be charged to the customer.</p>
-              <p>• The security deposit will be refunded after the vehicle is returned and inspected.</p>
-              <p>• Late returns will be charged at ₹100/- per hour. Extension requires a call to support.</p>
-              <p>• The customer is responsible for any traffic violations during the rental period.</p>
-              <p>• The customer must have a valid driving license.</p>
-              <p>• The customer must be above 21 years of age.</p>
-              <p>• The customer must provide valid ID proof.</p>
-              <p>• Smoking is not allowed in the vehicle.</p>
-            </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="termsAccepted"
-                checked={formData.termsAccepted}
-                onChange={(e) => setFormData(prev => ({ ...prev, termsAccepted: e.target.checked }))}
-                className="h-4 w-4 text-[#f26e24] focus:ring-[#f26e24] border-gray-300 rounded"
-                required
-              />
-              <label htmlFor="termsAccepted" className="ml-2 block text-sm text-gray-900">
-                I accept the terms and conditions
-              </label>
-            </div>
-          </div>
-        </div >
-
-        {/* Action Buttons */}
-        < div className="flex justify-end gap-4" >
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="px-6 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-6 py-2 bg-[#f26e24] text-white rounded-md hover:bg-[#d95e1d] focus:outline-none focus:ring-2 focus:ring-[#f26e24] focus:ring-opacity-50 disabled:opacity-50"
-          >
-            {loading ? 'Creating...' : 'Create Booking'}
-          </button>
-        </div >
-      </form >
-    </div >
+      </div>
+    </div>
   );
-} 
+}

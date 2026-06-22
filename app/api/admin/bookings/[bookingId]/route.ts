@@ -255,7 +255,10 @@ export async function PATCH(
       vehicle_id,
       pickup_location,
       total_price,
-      modification_reason
+      modification_reason,
+      refund_processed,
+      refund_amount,
+      refund_method
     } = body;
 
     // Get current booking details for comparison
@@ -408,6 +411,53 @@ export async function PATCH(
             [currentBooking.id]
           );
         }
+      } else if (status === 'cancelled' && currentBooking.status !== 'cancelled') {
+        const isRefundProcessed = refund_processed !== undefined ? !!refund_processed : (parseFloat(currentBooking.paid_amount || '0') > 0);
+        const resolvedRefundAmount = isRefundProcessed ? (refund_amount !== undefined ? parseFloat(refund_amount) : parseFloat(currentBooking.paid_amount || '0')) : 0;
+        const resolvedRefundMethod = refund_method || 'upi';
+
+        if (isRefundProcessed && resolvedRefundAmount > 0) {
+          // Insert payment record
+          await client.query(
+            `INSERT INTO payments (
+                id,
+                booking_id,
+                amount,
+                status,
+                method,
+                reference,
+                created_at,
+                updated_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+            [
+              randomUUID(),
+              currentBooking.id,
+              -Math.abs(resolvedRefundAmount), // Negative amount for refund
+              'refunded',
+              resolvedRefundMethod,
+              'Admin cancellation refund'
+            ]
+          );
+
+          // Update booking payment_status to 'refunded' and pending_amount = 0
+          await client.query(
+            `UPDATE bookings SET 
+                payment_status = 'refunded',
+                pending_amount = 0,
+                updated_at = NOW()
+               WHERE id = $1`,
+            [currentBooking.id]
+          );
+        } else {
+          // If no refund is processed, just set pending_amount to 0
+          await client.query(
+            `UPDATE bookings SET 
+                pending_amount = 0,
+                updated_at = NOW()
+               WHERE id = $1`,
+            [currentBooking.id]
+          );
+        }
       } else if (status === 'confirmed' || status === 'initiated' || status === 'active') {
         // Removed automatic flip: is_available should be a manual admin control only
       }
@@ -439,6 +489,9 @@ export async function PATCH(
         const statusChange = modifications.find(mod => mod.includes('Status:'));
         if (statusChange) {
           if (statusChange.includes('→ cancelled')) {
+            const isRefundProcessed = refund_processed !== undefined ? !!refund_processed : (parseFloat(currentBooking.paid_amount || '0') > 0);
+            const resolvedRefundAmount = isRefundProcessed ? (refund_amount !== undefined ? parseFloat(refund_amount) : parseFloat(currentBooking.paid_amount || '0')) : 0;
+
             await whatsappService.sendBookingCancellation({
               booking_id: currentBooking.booking_id,
               customer_name: currentBooking.user_name,
@@ -447,8 +500,8 @@ export async function PATCH(
               start_date: new Date(currentBooking.start_date),
               end_date: new Date(currentBooking.end_date),
               cancellation_reason: modification_reason || 'Cancelled by admin',
-              refund_amount: currentBooking.total_price,
-              refund_status: 'Processing'
+              refund_amount: resolvedRefundAmount,
+              refund_status: isRefundProcessed ? 'Processed' : undefined
             });
 
             logger.info('Admin booking cancellation WhatsApp notification sent', { bookingId: resolvedParams.bookingId });

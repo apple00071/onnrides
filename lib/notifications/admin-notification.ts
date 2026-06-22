@@ -340,7 +340,8 @@ export class AdminNotificationService {
         let formattedValue = value;
 
         // Format dates
-        if (value instanceof Date || (typeof value === 'string' && !isNaN(Date.parse(value)))) {
+        const isDateKey = key.toLowerCase().includes('date') || key.toLowerCase().includes('time') || key.toLowerCase().includes('_at') || key.toLowerCase().endsWith(' at');
+        if (value instanceof Date || (typeof value === 'string' && isDateKey && !isNaN(Date.parse(value)))) {
           formattedValue = formatDateIST(value);
         }
 
@@ -387,7 +388,8 @@ export class AdminNotificationService {
         let formattedValue = value;
 
         // Format dates
-        if (value instanceof Date || (typeof value === 'string' && !isNaN(Date.parse(value)))) {
+        const isDateKey = key.toLowerCase().includes('date') || key.toLowerCase().includes('time') || key.toLowerCase().includes('_at') || key.toLowerCase().endsWith(' at');
+        if (value instanceof Date || (typeof value === 'string' && isDateKey && !isNaN(Date.parse(value)))) {
           formattedValue = formatDateIST(value);
         }
 

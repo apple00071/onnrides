@@ -170,7 +170,7 @@ export async function POST(request: Request) {
           formData.get('dlNumber'),
           formData.get('dlExpiryDate') || null,
           formData.get('permanentAddress'),
-          formData.get('vehicleModel'),
+          vehicleName,
           formData.get('registrationNumber'),
           formData.get('paymentMethod'),
           formData.get('paidAmount'),
@@ -232,14 +232,16 @@ export async function POST(request: Request) {
           customer_name: (formData.get('customerName') as string),
           phone_number: (formData.get('phoneNumber') as string),
           email: (formData.get('email') as string),
-          vehicle_model: (formData.get('vehicleModel') as string),
+          vehicle_model: vehicleName,
           registration_number: (formData.get('registrationNumber') as string),
           start_date: new Date(formData.get('startDateTime') as string),
           end_date: new Date(formData.get('endDateTime') as string),
           total_amount: Number(formData.get('totalAmount')),
           pickup_location: (formData.get('pickupLocation') as string) || 'Madhapur',
           status: 'active',
-          security_deposit: Number(formData.get('securityDepositAmount'))
+          security_deposit: Number(formData.get('securityDepositAmount')),
+          paid_amount: Number(formData.get('paidAmount')),
+          pending_amount: Number(formData.get('pendingAmount'))
         }),
         adminService.sendBookingNotification({
           booking_id: displayBookingId,

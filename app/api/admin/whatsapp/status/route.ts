@@ -15,12 +15,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // WaSender is stateless, so we assume it's connected if env vars are present
-    const isConfigured = !!process.env.WASENDER_API_KEY;
+    // Check if the current provider is configured
+    const provider = process.env.WHATSAPP_PROVIDER || (process.env.OPENWA_API_KEY ? 'openwa' : 'wasender');
+    let isConfigured = false;
+    let errorMsg = undefined;
+
+    if (provider === 'openwa') {
+      isConfigured = !!process.env.OPENWA_API_KEY;
+      errorMsg = isConfigured ? undefined : 'OpenWA API Key missing';
+    } else {
+      isConfigured = !!process.env.WASENDER_API_KEY;
+      errorMsg = isConfigured ? undefined : 'WaSender API Key missing';
+    }
 
     return NextResponse.json({
       status: isConfigured ? 'connected' : 'disconnected',
-      error: isConfigured ? undefined : 'WaSender API Key missing'
+      provider: provider,
+      error: errorMsg
     });
   } catch (error) {
     return NextResponse.json(

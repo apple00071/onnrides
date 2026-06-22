@@ -268,16 +268,24 @@ export default function WhatsAppAdminPage() {
       </div>
     );
   }
+  const isConnected = sessionStatus && sessionStatus.success && (
+    sessionStatus.sessionStatus?.status === 'CONNECTED' ||
+    sessionStatus.sessionStatus?.status === 'connected' ||
+    (Array.isArray(sessionStatus.sessionStatus) && sessionStatus.sessionStatus.length > 0 && sessionStatus.sessionStatus[0].status === 'CONNECTED') ||
+    (sessionStatus.sessionStatus && !sessionStatus.sessionStatus.status && !Array.isArray(sessionStatus.sessionStatus))
+  );
+
+  const activeProvider = sessionStatus?.sessionStatus?.provider || 'WhatsApp';
 
   return (
     <div className="py-2 w-full">
-      <h1 className="text-3xl md:hidden font-bold mb-6">WhatsApp Testing Panel (WaSender)</h1>
+      <h1 className="text-3xl md:hidden font-bold mb-6">WhatsApp Testing Panel</h1>
 
       <div className="grid gap-6">
         {/* Session Status Card */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">WaSender Session Status</h2>
+            <h2 className="text-xl font-semibold">WhatsApp Session Status ({activeProvider})</h2>
             <Button onClick={checkSessionStatus} disabled={isLoading} variant="outline">
               {isLoading ? 'Checking...' : 'Refresh Status'}
             </Button>
@@ -287,10 +295,10 @@ export default function WhatsAppAdminPage() {
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <div className={`w-3 h-3 rounded-full ${
-                  sessionStatus.success && sessionStatus.sessionStatus ? 'bg-green-500' : 'bg-red-500'
+                  isConnected ? 'bg-green-500' : 'bg-red-500'
                 }`} />
                 <span className="font-medium">
-                  {sessionStatus.success && sessionStatus.sessionStatus ? 'Connected' : 'Not Connected'}
+                  {isConnected ? 'Connected' : 'Not Connected'}
                 </span>
               </div>
 
@@ -481,7 +489,7 @@ export default function WhatsAppAdminPage() {
             <p><strong>Status Endpoint:</strong> GET /api/whatsapp/wasender/status</p>
             <p><strong>Send Message:</strong> POST /api/whatsapp/wasender/send</p>
             <p><strong>Run Tests:</strong> POST /api/whatsapp/wasender/test</p>
-            <p><strong>API Key:</strong> {process.env.NEXT_PUBLIC_WASENDER_API_KEY ? 'Configured' : 'Not configured'}</p>
+            <p><strong>Active Provider:</strong> {activeProvider}</p>
           </div>
         </Card>
       </div>

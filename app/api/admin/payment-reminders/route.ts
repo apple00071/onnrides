@@ -28,11 +28,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if WhatsApp API credentials are configured
-    const apiKey = process.env.WASENDER_API_KEY;
-    const personalAccessToken = process.env.WASENDER_PERSONAL_ACCESS_TOKEN;
-    if (!apiKey && !personalAccessToken) {
+    const provider = process.env.WHATSAPP_PROVIDER || (process.env.OPENWA_API_KEY ? 'openwa' : 'wasender');
+    let isConfigured = false;
+    let errorMsg = '';
+
+    if (provider === 'openwa') {
+      isConfigured = !!process.env.OPENWA_API_KEY;
+      errorMsg = 'WhatsApp API credentials are not configured. Please add OPENWA_API_KEY to your environment (.env) file.';
+    } else {
+      isConfigured = !!process.env.WASENDER_API_KEY || !!process.env.WASENDER_PERSONAL_ACCESS_TOKEN;
+      errorMsg = 'WhatsApp API credentials are not configured. Please add WASENDER_API_KEY or WASENDER_PERSONAL_ACCESS_TOKEN to your environment (.env) file.';
+    }
+
+    if (!isConfigured) {
       return NextResponse.json(
-        { success: false, error: 'WhatsApp API credentials are not configured. Please add WASENDER_API_KEY or WASENDER_PERSONAL_ACCESS_TOKEN to your environment (.env) file.' },
+        { success: false, error: errorMsg },
         { status: 400 }
       );
     }

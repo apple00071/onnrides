@@ -30,6 +30,8 @@ export interface BookingData {
   status: string;
   security_deposit?: number;
   reminder_type?: string;
+  paid_amount?: number;
+  pending_amount?: number;
 }
 
 export interface PaymentData {
@@ -470,6 +472,10 @@ Thank you for choosing Mister Rides! 🚗`;
         return false;
       }
 
+      const paidLine = bookingData.paid_amount !== undefined ? `\n* Paid Amount: ₹${bookingData.paid_amount}` : '';
+      const pendingLine = bookingData.pending_amount !== undefined ? `\n* Pending Amount: ₹${bookingData.pending_amount}` : '';
+      const depositLine = bookingData.security_deposit !== undefined ? `\n* Security Deposit: ₹${bookingData.security_deposit}` : '';
+
       const message = `📝 Offline Booking Confirmed!
 
 Dear ${bookingData.customer_name || 'Customer'},
@@ -481,8 +487,7 @@ Your booking has been Confirmed!
 * Vehicle: ${bookingData.vehicle_model}${bookingData.registration_number ? ` (${bookingData.registration_number})` : ''}
 * Start Date: ${formatIST(bookingData.start_date)}
 * End Date: ${formatIST(bookingData.end_date)}
-* Total Amount: ₹${bookingData.total_amount}
-${bookingData.security_deposit !== undefined ? `* Security Deposit: ₹${bookingData.security_deposit}` : ''}
+* Total Amount: ₹${bookingData.total_amount}${paidLine}${pendingLine}${depositLine}
 * Status: ${bookingData.status}
 
 📞 Contact Us:

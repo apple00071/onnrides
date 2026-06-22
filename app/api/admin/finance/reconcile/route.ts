@@ -54,7 +54,7 @@ export async function POST(request: Request) {
         );
         const expensesTotal = parseFloat(expensesRes.rows[0]?.total || '0');
 
-        const expectedBalance = openingBalance + totalCollections - cashRefunds - expensesTotal;
+        const expectedBalance = openingBalance + totalCollections - Math.abs(cashRefunds) - Math.abs(expensesTotal);
         const difference = closingBalance - expectedBalance;
         const status = difference === 0 ? 'balanced' : 'discrepancy';
 

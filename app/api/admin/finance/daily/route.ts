@@ -85,7 +85,7 @@ export async function GET(request: Request) {
         const totalRefunds = refundsResult.rows.reduce((sum, row: any) => sum + parseFloat(String(row.amount || '0')), 0);
 
         // Calculate closing balance
-        const closingBalance = Math.round((openingBalance + totalCollections - totalRefunds - totalExpenses) * 100) / 100;
+        const closingBalance = Math.round((openingBalance + totalCollections - Math.abs(totalRefunds) - Math.abs(totalExpenses)) * 100) / 100;
 
         // 6. Get Collections List for Transactions
         const collectionsResultList = await query(
@@ -118,6 +118,15 @@ export async function GET(request: Request) {
             }))
         ].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
+        // Check if the current date is already reconciled
+        const todayReconciledResult = await query(
+            'SELECT id, closing_balance, difference FROM daily_reconciliations WHERE date = $1',
+            [date]
+        );
+        const isReconciled = todayReconciledResult.rows.length > 0;
+        const reconciledClosingBalance = isReconciled ? parseFloat(todayReconciledResult.rows[0].closing_balance || '0') : null;
+        const reconciledDifference = isReconciled ? parseFloat(todayReconciledResult.rows[0].difference || '0') : null;
+
         return NextResponse.json({
             success: true,
             data: {
@@ -133,7 +142,10 @@ export async function GET(request: Request) {
                     expenses: totalExpenses,
                     totalCollections,
                     closingBalance,
-                    lastReconciled: openingBalanceResult.rows[0] ? date : null
+                    lastReconciled: openingBalanceResult.rows[0] ? date : null,
+                    isReconciled,
+                    reconciledClosingBalance,
+                    reconciledDifference
                 },
                 transactions
             }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -73,6 +74,8 @@ export function BookingsTable() {
   const [selectedBooking, setSelectedBooking] = useState<BookingWithRelations | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  
+  const router = useRouter();
 
   useEffect(() => {
     fetchBookings();
@@ -137,64 +140,8 @@ export function BookingsTable() {
     setIsHistoryModalOpen(true);
   };
 
-  const handleCancelBooking = async (booking: BookingWithRelations) => {
-    try {
-      // Store the original booking state
-      const originalBooking = { ...booking };
-
-      // Optimistically update the UI
-      setBookings(prevBookings =>
-        prevBookings.map(b =>
-          b.booking_id === booking.booking_id
-            ? {
-              ...b,
-              status: 'cancelled',
-              payment_status: 'cancelled',
-              updated_at: new Date().toISOString()
-            }
-            : b
-        )
-      );
-
-      const response = await fetch(`/api/admin/bookings`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          bookingId: booking.booking_id,
-          action: 'cancel'
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Revert the optimistic update on error
-        setBookings(prevBookings =>
-          prevBookings.map(b =>
-            b.booking_id === booking.booking_id
-              ? originalBooking
-              : b
-          )
-        );
-        throw new Error(data.error || 'Failed to cancel booking');
-      }
-
-      toast.success("Success", {
-        description: "Booking cancelled successfully"
-      });
-
-      // Refresh the data to ensure consistency with server state
-      await fetchBookings();
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to cancel booking';
-      logger.error('Error cancelling booking:', { error: errorMessage, bookingId: booking.booking_id });
-      toast.error("Error", {
-        description: errorMessage,
-      });
-    }
+  const handleCancelBooking = (booking: BookingWithRelations) => {
+    router.push(`/admin/bookings/${booking.booking_id}`);
   };
 
   const getStatusBadgeVariant = (status: string) => {
