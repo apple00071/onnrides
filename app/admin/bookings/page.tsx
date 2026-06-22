@@ -25,6 +25,11 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
   // Filtering states
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -35,7 +40,7 @@ export default function BookingsPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/admin/bookings?t=' + Date.now(), {
+      const response = await fetch(`/api/admin/bookings?page=${currentPage}&t=${Date.now()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -49,6 +54,8 @@ export default function BookingsPage() {
       const data = await response.json();
       if (data.success) {
         setBookings(data.data);
+        setTotalPages(data.pagination?.totalPages || 1);
+        setTotalItems(data.pagination?.totalItems || 0);
       } else {
         throw new Error(data.error || 'Failed to fetch bookings');
       }
@@ -58,7 +65,7 @@ export default function BookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentPage]);
 
   useEffect(() => {
     fetchBookings();
@@ -87,8 +94,8 @@ export default function BookingsPage() {
     setPaymentFilter('all');
   };
 
-  const statusOptions = Array.from(new Set(bookings.map((b: Booking) => b.status)));
-  const paymentOptions = Array.from(new Set(bookings.map((b: Booking) => b.payment_status)));
+  const statusOptions = ['pending', 'confirmed', 'initiated', 'active', 'completed', 'cancelled', 'failed'];
+  const paymentOptions = ['pending', 'completed', 'failed', 'refunded', 'partially_paid'];
 
   return (
     <div className="py-2 space-y-3 md:space-y-4">
@@ -283,6 +290,35 @@ export default function BookingsPage() {
                 </div>
               ))}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-t">
+                <div className="flex-1 text-xs md:text-sm text-gray-500 font-medium">
+                  Showing page {currentPage} of {totalPages} ({totalItems} bookings total)
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="h-8 text-xs font-semibold px-3"
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="h-8 text-xs font-semibold px-3"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
