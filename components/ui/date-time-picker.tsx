@@ -73,6 +73,8 @@ const DateTimePicker = ({ date, setDate, minDate, className }: DateTimePickerPro
           min={minDate ? formatDate(minDate) : undefined}
           onChange={handleDateChange}
           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+          onFocus={(e) => e.target.blur()}
+          onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
         />
         <Select
           value={formatTime(date)}

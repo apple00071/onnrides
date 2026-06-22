@@ -452,6 +452,7 @@ function SearchFormContent({
               onChangeRaw={(event) => {
                 if (event) event.preventDefault();
               }}
+              readOnly
             />
           </div>
           <div className="relative">
@@ -504,6 +505,7 @@ function SearchFormContent({
                 onChangeRaw={(event) => {
                   if (event) event.preventDefault();
                 }}
+                readOnly
               />
             </div>
             <div className="relative">
