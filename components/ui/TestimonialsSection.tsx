@@ -97,12 +97,17 @@ export default function TestimonialsSection() {
   }
 
   return (
-    <section className="py-16">
+    <section className="py-20 bg-gradient-to-b from-white via-orange-50/20 to-gray-50 relative overflow-hidden">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">What Our Customers Say</h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">
-            Don't just take our word for it - hear from our satisfied customers about their experience with Mister Rides.
+        <div className="text-center mb-14 max-w-3xl mx-auto">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-[#f26e24] bg-orange-100/70 rounded-full border border-orange-200 mb-3">
+            ⭐ 4.9/5 Rating from 1,000+ Hyderabad Bikers
+          </span>
+          <h2 className="text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight">
+            Loved By <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#f26e24] to-amber-500">Riders Across The City</span>
+          </h2>
+          <p className="text-gray-600 text-base mt-3">
+            Real stories and reviews from travelers, daily commuters, and delivery partners who rely on Mister Rides.
           </p>
         </div>
 

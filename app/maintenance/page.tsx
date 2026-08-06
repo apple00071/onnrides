@@ -61,7 +61,7 @@ export default function MaintenancePage() {
           <div className="pt-4 border-t border-gray-200">
             <div className="flex justify-center space-x-6">
               <a
-                href="https://instagram.com/Mister Rides"
+                href="https://www.instagram.com/misterrides/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-400 hover:text-pink-500 transition-colors"

@@ -137,31 +137,31 @@ export default function Navbar() {
 
   return (
     <>
-      <header className={`sticky top-0 z-50 w-full bg-white transition-all duration-300 ${scrolled ? 'shadow-md' : 'border-b'} m-0 p-0`}>
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center">
-              <div className="relative h-8 md:h-9 w-28 md:w-32">
+      <header className={`sticky top-0 z-50 w-full transition-all duration-300 ${scrolled ? 'glass-navbar shadow-md backdrop-blur-lg border-b border-orange-500/20 py-1' : 'bg-white/95 backdrop-blur-md border-b border-gray-100 py-2'} m-0 p-0`}>
+        <div className="container flex h-16 items-center justify-between px-4">
+          <div className="flex items-center space-x-6">
+            <Link href="/" className="flex items-center group">
+              <div className="relative h-8 md:h-10 w-28 md:w-36 transition-transform group-hover:scale-105">
                 <Image
                   src="/logo.png"
                   alt="Mister Rides"
                   fill
                   className="object-contain"
                   priority
-                  sizes="(max-width: 768px) 112px, 128px"
+                  sizes="(max-width: 768px) 112px, 144px"
                 />
               </div>
             </Link>
-            <nav className="hidden md:flex items-center space-x-6 ml-8">
+            <nav className="hidden md:flex items-center space-x-6">
               <Link
                 href="/about"
-                className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24] transition-colors"
+                className={`text-sm font-semibold transition-colors hover:text-[#f26e24] ${pathname === '/about' ? 'text-[#f26e24] font-bold' : 'text-gray-600'}`}
               >
                 About
               </Link>
               <Link
                 href="/contact"
-                className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24] transition-colors"
+                className={`text-sm font-semibold transition-colors hover:text-[#f26e24] ${pathname === '/contact' ? 'text-[#f26e24] font-bold' : 'text-gray-600'}`}
               >
                 Contact Us
               </Link>
@@ -178,13 +178,13 @@ export default function Navbar() {
                   <nav className="flex items-center space-x-6 mr-4">
                     <Link
                       href="/delivery-bookings"
-                      className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24] transition-colors"
+                      className="text-sm font-medium text-gray-600 hover:text-[#f26e24] transition-colors"
                     >
                       Deliveries
                     </Link>
                     <Link
                       href="/delivery-partners"
-                      className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24] transition-colors"
+                      className="text-sm font-medium text-gray-600 hover:text-[#f26e24] transition-colors"
                     >
                       Partner Dashboard
                     </Link>
@@ -196,13 +196,13 @@ export default function Navbar() {
               <>
                 <Link
                   href="/auth/signin"
-                  className="text-sm font-goodtimes text-gray-500 hover:text-[#f26e24] transition-colors"
+                  className="text-sm font-semibold text-gray-700 hover:text-[#f26e24] px-3 py-2 rounded-lg transition-colors"
                 >
                   Sign In
                 </Link>
                 <Link
                   href="/auth/signup"
-                  className="bg-[#f26e24] text-white hover:bg-[#e05d13] px-4 py-2 rounded-md text-sm font-goodtimes transition-colors"
+                  className="bg-gradient-to-r from-[#f26e24] to-[#ff8c42] text-white hover:opacity-95 px-5 py-2 rounded-full text-sm font-semibold shadow-md glow-orange transition-all transform hover:-translate-y-0.5"
                 >
                   Sign Up
                 </Link>

@@ -211,9 +211,20 @@ export default function HeroSection() {
 
         {/* Desktop Search Form */}
         <div className="hidden sm:flex absolute inset-0 items-center justify-start z-10">
-          <div className="w-full max-w-7xl mx-auto px-4 md:px-6">
-            <div className="w-[350px] md:w-[400px]">
-              <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 md:p-6">
+          <div className="w-full max-w-7xl mx-auto px-4 md:px-8">
+            <div className="w-[380px] md:w-[430px]">
+              <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-5 md:p-7 border border-white/80 relative">
+                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#f26e24] via-amber-400 to-[#10b981] rounded-t-2xl" />
+                <div className="mb-4">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-[#f26e24] bg-orange-50 rounded-full border border-orange-200/80 mb-2">
+                    <span className="w-2 h-2 rounded-full bg-[#f26e24] animate-ping inline-block" />
+                    Hyderabad's #1 Bike Rental
+                  </span>
+                  <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight">
+                    Rent Your Ride <span className="text-[#f26e24]">Instantly</span>
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">Zero Security Deposit • Free Helmet Included</p>
+                </div>
                 <SearchFormContent
                   pickupDate={pickupDate}
                   setPickupDate={setPickupDate}
@@ -237,7 +248,13 @@ export default function HeroSection() {
 
         {/* Mobile Search Form */}
         <div className="sm:hidden absolute inset-x-0 bottom-0 p-4 z-20">
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-4 border border-gray-100">
+          <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-4 border border-white/80 relative">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#f26e24] to-[#10b981] rounded-t-2xl" />
+            <div className="mb-3">
+              <span className="inline-block px-2.5 py-0.5 text-[11px] font-bold text-[#f26e24] bg-orange-50 rounded-full">
+                Rent Bikes @ ₹199/day
+              </span>
+            </div>
             <SearchFormContent
               pickupDate={pickupDate}
               setPickupDate={setPickupDate}
@@ -460,6 +477,7 @@ function SearchFormContent({
               className="block w-full p-2.5 text-sm border border-gray-200 rounded-xl text-gray-500 bg-gray-50/50 focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] cursor-pointer outline-none transition-colors"
               showPopperArrow={false}
               popperClassName="date-picker-popper"
+              popperPlacement="bottom-start"
               calendarClassName="shadow-lg border border-gray-200 rounded-lg"
               onChangeRaw={(event) => {
                 if (event) event.preventDefault();
@@ -513,6 +531,7 @@ function SearchFormContent({
                 className="block w-full p-2.5 text-sm border border-gray-200 rounded-xl text-gray-500 bg-gray-50/50 focus:ring-1 focus:ring-[#f26e24] focus:border-[#f26e24] cursor-pointer outline-none transition-colors"
                 showPopperArrow={false}
                 popperClassName="date-picker-popper"
+                popperPlacement="bottom-start"
                 calendarClassName="shadow-lg border border-gray-200 rounded-lg"
                 onChangeRaw={(event) => {
                   if (event) event.preventDefault();
@@ -539,9 +558,19 @@ function SearchFormContent({
       <button
         onClick={handleSearch}
         disabled={isLoading}
-        className="w-full mt-4 bg-[#f26e24] text-white py-3 rounded-full text-base font-semibold hover:bg-[#e05d13] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+        className="w-full mt-5 bg-gradient-to-r from-[#f26e24] via-[#f57c00] to-[#ff8c42] text-white py-3.5 px-6 rounded-xl text-base font-bold tracking-wide hover:brightness-110 active:scale-[0.98] transition-all transform disabled:opacity-50 disabled:cursor-not-allowed shadow-lg glow-orange flex items-center justify-center gap-2"
       >
-        {isLoading ? 'Searching...' : isDeliveryPartner ? 'Find Available Bikes' : 'Search Bikes'}
+        {isLoading ? (
+          <span className="inline-flex items-center gap-2">
+            <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Searching Rides...
+          </span>
+        ) : (
+          <span>{isDeliveryPartner ? 'Find Partner Bikes' : 'Search Available Rides →'}</span>
+        )}
       </button>
     </div>
   );

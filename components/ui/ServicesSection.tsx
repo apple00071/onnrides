@@ -1,54 +1,71 @@
 'use client';
 
-import { Clock, PhoneCall, Calendar, Settings, Shield, MapPin } from 'lucide-react';
+import { Clock, PhoneCall, Calendar, Settings, Shield, MapPin, Sparkles } from 'lucide-react';
 
 const services = [
   {
     icon: Clock,
-    title: 'Easy Booking',
-    description: 'Book your ride in just a few clicks through our user-friendly platform',
-    color: 'bg-orange-50'
+    title: 'Instant Online Booking',
+    description: 'Reserve your favorite bike in less than 60 seconds with simple OTP verification.',
+    gradient: 'from-[#f26e24] to-amber-500',
+    bgColor: 'bg-orange-50/70',
+    borderColor: 'border-orange-100'
   },
   {
     icon: PhoneCall,
-    title: '24/7 Support',
-    description: 'Our dedicated team is available round the clock to assist you',
-    color: 'bg-blue-50'
+    title: '24/7 Roadside Assistance',
+    description: 'Dedicated helpline & breakdown support anywhere across Hyderabad.',
+    gradient: 'from-blue-500 to-indigo-600',
+    bgColor: 'bg-blue-50/70',
+    borderColor: 'border-blue-100'
   },
   {
     icon: Calendar,
-    title: 'Flexible Rentals',
-    description: 'Choose from hourly, daily, or weekly rental options',
-    color: 'bg-green-50'
+    title: 'Zero Deposit Options',
+    description: 'Flexible daily, weekly, or monthly rentals without blocking high security deposits.',
+    gradient: 'from-emerald-500 to-teal-600',
+    bgColor: 'bg-emerald-50/70',
+    borderColor: 'border-emerald-100'
   },
   {
     icon: Settings,
-    title: 'Well Maintained',
-    description: 'All our vehicles undergo regular maintenance checks',
-    color: 'bg-purple-50'
+    title: 'Sanitized & Serviced Rides',
+    description: 'Every vehicle is multi-point inspected, disinfected, and safety checked before dispatch.',
+    gradient: 'from-purple-500 to-violet-600',
+    bgColor: 'bg-purple-50/70',
+    borderColor: 'border-purple-100'
   },
   {
     icon: Shield,
-    title: 'Insurance Coverage',
-    description: 'Comprehensive insurance coverage for worry-free rides',
-    color: 'bg-pink-50'
+    title: 'Free Helmets & Insurance',
+    description: 'Complimentary clean ISI-marked helmet and comprehensive insurance included.',
+    gradient: 'from-pink-500 to-rose-600',
+    bgColor: 'bg-pink-50/70',
+    borderColor: 'border-pink-100'
   },
   {
     icon: MapPin,
-    title: 'Multiple Locations',
-    description: 'Pick up and drop off at convenient locations across the city',
-    color: 'bg-yellow-50'
+    title: 'Madhapur & Erragadda Hubs',
+    description: 'Convenient pickup locations close to metro stations with doorstep delivery options.',
+    gradient: 'from-amber-500 to-yellow-600',
+    bgColor: 'bg-amber-50/70',
+    borderColor: 'border-amber-100'
   }
 ];
 
 export default function ServicesSection() {
   return (
-    <section className="py-16 bg-white">
+    <section className="py-20 bg-white relative">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Services We Offer</h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">
-            Experience hassle-free bike rentals with our comprehensive services designed for your convenience
+        <div className="text-center mb-16 max-w-3xl mx-auto">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-[#f26e24] bg-orange-50 rounded-full border border-orange-200/80 mb-3">
+            <Sparkles className="w-3.5 h-3.5" /> Why Choose Mister Rides
+          </span>
+          <h2 className="text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight">
+            Premium Features <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#f26e24] to-amber-500">Made For You</span>
+          </h2>
+          <p className="text-gray-600 text-base mt-3">
+            Experience hassle-free two-wheeler rentals in Hyderabad with complete safety, transparency, and top-tier convenience.
           </p>
         </div>
 
@@ -56,17 +73,17 @@ export default function ServicesSection() {
           {services.map((service, index) => (
             <div
               key={index}
-              className={`${service.color} rounded-2xl p-6 transition-transform duration-300 hover:scale-105`}
+              className={`group relative rounded-2xl p-7 border ${service.borderColor} ${service.bgColor} backdrop-blur-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:bg-white`}
             >
-              <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <service.icon className="w-8 h-8 text-[#f26e24]" />
-                </div>
+              <div className="flex flex-col justify-between h-full">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${service.gradient} text-white flex items-center justify-center shadow-md mb-6 transform group-hover:scale-110 transition-transform`}>
+                    <service.icon className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-[#f26e24] transition-colors">
                     {service.title}
                   </h3>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 text-sm leading-relaxed">
                     {service.description}
                   </p>
                 </div>

@@ -91,7 +91,7 @@ export function BusinessStructuredData({
     telephone,
     sameAs: [
       'https://www.facebook.com/Mister Rides',
-      'https://www.instagram.com/Mister Rides',
+      'https://www.instagram.com/misterrides/',
       'https://twitter.com/Mister Rides',
     ],
     department: locations,
