@@ -69,15 +69,40 @@ export async function POST(request: Request) {
     ]);
 
     // Calculate total hours for the booking
-    const start = new Date(formData.get('startDateTime') as string);
-    const end = new Date(formData.get('endDateTime') as string);
+    const startStr = formData.get('startDateTime') as string;
+    const endStr = formData.get('endDateTime') as string;
 
-    // Validate that pickup time is in the future
-    const now = new Date();
-    if (start.getTime() < now.getTime()) {
+    if (!startStr || !endStr) {
       return NextResponse.json({
         success: false,
-        error: 'Pickup time must be in the future'
+        error: 'Start and end date/time are required'
+      }, { status: 400 });
+    }
+
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid start or end date/time'
+      }, { status: 400 });
+    }
+
+    if (end.getTime() <= start.getTime()) {
+      return NextResponse.json({
+        success: false,
+        error: 'Return time must be after pickup time'
+      }, { status: 400 });
+    }
+
+    // Validate that pickup time is not in the past (allow 30 minutes grace period for walk-in counter bookings)
+    const now = new Date();
+    const gracePeriodMs = 30 * 60 * 1000;
+    if (start.getTime() < (now.getTime() - gracePeriodMs)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Pickup time cannot be in the past'
       }, { status: 400 });
     }
 

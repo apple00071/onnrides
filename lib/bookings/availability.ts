@@ -20,6 +20,11 @@ export async function checkVehicleAvailability(
         const start = new Date(startDate);
         const end = new Date(endDate);
 
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            logger.error('Invalid dates provided to checkVehicleAvailability', { startDate, endDate });
+            return false;
+        }
+
         // First get the vehicle's total quantity
         const vehicleResult = await query(
             'SELECT quantity FROM vehicles WHERE id = $1',

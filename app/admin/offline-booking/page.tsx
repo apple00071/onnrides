@@ -237,8 +237,8 @@ export default function OfflineBookingPage() {
     if (date && time) {
       try {
         const [hours, minutes] = time.split(':').map(Number);
-        const startDateTime = new Date(date);
-        startDateTime.setHours(hours, minutes);
+        const [y, m, d] = date.split('-').map(Number);
+        const startDateTime = new Date(y, m - 1, d, hours, minutes);
         const endDateTime = addHours(startDateTime, 24);
 
         setEndDate(format(endDateTime, 'yyyy-MM-dd'));
@@ -396,6 +396,22 @@ export default function OfflineBookingPage() {
       alert('Please select a pickup location.');
       isValid = false;
     }
+    if (!startDate || !startTime) {
+      alert('Please select a pickup date and time.');
+      isValid = false;
+    }
+    if (!endDate || !endTime) {
+      alert('Please select a return date and time.');
+      isValid = false;
+    }
+    if (startDate && startTime && endDate && endTime) {
+      const startDateTime = new Date(`${startDate}T${startTime}:00`);
+      const endDateTime = new Date(`${endDate}T${endTime}:00`);
+      if (endDateTime.getTime() <= startDateTime.getTime()) {
+        alert('Return date & time must be after pickup date & time.');
+        isValid = false;
+      }
+    }
     if (!newFormData.vehicleId) {
       alert('Please select a vehicle.');
       isValid = false;
@@ -484,16 +500,18 @@ export default function OfflineBookingPage() {
         body: formDataToSend,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to create booking: ${errorText}`);
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.success) {
+        const errorText = data?.error || 'Failed to create booking';
+        throw new Error(errorText);
       }
 
       toast.success('Offline booking created successfully!');
       router.push('/admin/bookings');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create booking:', error);
-      alert('Failed to create booking. Please try again.');
+      alert(error?.message || 'Failed to create booking. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -540,6 +558,66 @@ export default function OfflineBookingPage() {
   };
 
   const nextStep = () => {
+    if (activeStep === 1) {
+      if (!formData.phoneNumber) {
+        alert('Phone Number is required.');
+        return;
+      }
+      if (!formData.customerName) {
+        alert('Customer Name is required.');
+        return;
+      }
+      if (!formData.aadharNumber) {
+        alert('Aadhar Number is required.');
+        return;
+      }
+      if (!validateAadhar(formData.aadharNumber)) {
+        alert('Please enter a valid 12-digit Aadhar number.');
+        return;
+      }
+      if (!formData.dlNumber) {
+        alert('Driving License Number is required.');
+        return;
+      }
+      if (!formData.permanentAddress) {
+        alert('Permanent Address is required.');
+        return;
+      }
+    } else if (activeStep === 2) {
+      if (!formData.pickupLocation) {
+        alert('Please select a pickup location.');
+        return;
+      }
+      if (!startDate || !startTime) {
+        alert('Please select a pickup date and time.');
+        return;
+      }
+      if (!endDate || !endTime) {
+        alert('Please select a return date and time.');
+        return;
+      }
+      const startDateTime = new Date(`${startDate}T${startTime}:00`);
+      const endDateTime = new Date(`${endDate}T${endTime}:00`);
+      if (endDateTime.getTime() <= startDateTime.getTime()) {
+        alert('Return date and time must be after pickup date and time.');
+        return;
+      }
+      if (!formData.vehicleId) {
+        alert('Please select an available vehicle.');
+        return;
+      }
+      if (!formData.registrationNumber) {
+        alert('Registration Number is required.');
+        return;
+      }
+    } else if (activeStep === 3) {
+      if ((!fileUploads.dlScan && !reusingDocs.dlScan) ||
+        (!fileUploads.aadharScan && !reusingDocs.aadharScan) ||
+        (!fileUploads.selfie && !reusingDocs.selfie)) {
+        alert('Please upload all required documents (DL Scan, Aadhar Scan, and Selfie).');
+        return;
+      }
+    }
     if (activeStep < 4) setActiveStep(prev => prev + 1);
   };
 
@@ -865,8 +943,6 @@ export default function OfflineBookingPage() {
                             onSelect={(date) => {
                               if (date) {
                                 handleStartTimeChange(format(date, 'yyyy-MM-dd'), startTime);
-                              } else {
-                                handleStartTimeChange('', startTime);
                               }
                             }}
                             disabled={(date) => date < startOfToday()}
@@ -920,8 +996,6 @@ export default function OfflineBookingPage() {
                             onSelect={(date) => {
                               if (date) {
                                 setEndDate(format(date, 'yyyy-MM-dd'));
-                              } else {
-                                setEndDate('');
                               }
                             }}
                             disabled={(date) => {
