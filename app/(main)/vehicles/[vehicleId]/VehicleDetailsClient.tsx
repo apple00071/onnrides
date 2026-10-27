@@ -94,7 +94,7 @@ export default function VehicleDetailsClient({ params }: Props) {
   useEffect(() => {
     const fetchVehicle = async () => {
       try {
-        const response = await fetch(`/api/vehicles?id=${params.vehicleId}`);
+        const response = await fetch(`/api/vehicles/${params.vehicleId}`);
         if (!response.ok) {
           throw new Error('Failed to fetch vehicle details');
         }

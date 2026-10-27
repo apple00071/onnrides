@@ -79,6 +79,9 @@ export async function generateMetadata({ params }: LocationPageProps): Promise<M
           alt: `Bike Rental in ${capitalizedLocation} - Mister Rides`
         }
       ]
+    },
+    alternates: {
+      canonical: `/locations/${location}`,
     }
   };
 }

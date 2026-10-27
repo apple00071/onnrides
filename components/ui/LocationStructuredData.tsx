@@ -27,8 +27,8 @@ export default function LocationStructuredData({
     '@id': `${baseUrl}/locations/${location.addressLocality.toLowerCase()}#business`,
     name: `${location.name} - ${location.addressLocality}`,
     image: [
-      `${baseUrl}/images/locations/${location.addressLocality.toLowerCase()}-1.jpg`,
-      `${baseUrl}/images/locations/${location.addressLocality.toLowerCase()}-2.jpg`
+      `${baseUrl}/images/og-image.jpg`,
+      `${baseUrl}/logo.png`
     ],
     '@graph': [
       {

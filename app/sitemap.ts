@@ -26,30 +26,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     'sr-nagar'
   ];
 
-  // Get all bike categories
-  const bikeCategories = [
-    'activa',
-    'dio',
-    'access',
-    'jupiter',
-    'pleasure',
-    'fascino'
-  ];
-
   // Generate location-specific bike rental URLs
   const locationUrls = locations.map(location => ({
     url: `${baseUrl}/locations/${location}`,
     lastModified: new Date(),
     changeFrequency: 'daily' as const,
     priority: 0.9
-  }));
-
-  // Generate bike category URLs
-  const bikeCategoryUrls = bikeCategories.map(category => ({
-    url: `${baseUrl}/bikes/${category}`,
-    lastModified: new Date(),
-    changeFrequency: 'daily' as const,
-    priority: 0.8
   }));
 
   // Get all available bikes from database
@@ -146,5 +128,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ] satisfies MetadataRoute.Sitemap;
 
   // Combine all URLs and ensure they match the Sitemap type
-  return [...staticRoutes, ...locationUrls, ...bikeCategoryUrls, ...bikeUrls] satisfies MetadataRoute.Sitemap;
+  return [...staticRoutes, ...locationUrls, ...bikeUrls] satisfies MetadataRoute.Sitemap;
 } 

@@ -30,6 +30,9 @@ export const metadata: Metadata = {
     description: 'Rent bikes and scooters in Hyderabad starting at ₹199/day. Choose from Activa, Dio, Access & more. Multiple pickup points, free delivery, zero hidden charges.',
     images: ['https://misterrides.com/images/og-image.jpg'],
   },
+  alternates: {
+    canonical: '/',
+  },
 };
 
 export default function Home() {

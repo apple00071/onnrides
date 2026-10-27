@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import VehicleDetailsClient from './VehicleDetailsClient';
 import { BookVehicleForm } from '@/app/(main)/BookVehicleForm';
 import logger from '@/lib/logger';
+import { query } from '@/lib/db';
 
 // Helper function to clean locations
 function cleanLocationData(locationData: any): string[] {
@@ -63,34 +64,53 @@ function cleanLocationData(locationData: any): string[] {
 export async function generateMetadata({ params }: { params: Promise<{ vehicleId: string }> }): Promise<Metadata> {
   try {
     const resolvedParams = await params;
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?id=${resolvedParams.vehicleId}`);
-    const vehicle = await response.json();
+    const result = await query(
+      'SELECT id, name, price_per_hour, type FROM vehicles WHERE id = $1',
+      [resolvedParams.vehicleId]
+    );
 
-    return {
-      title: `Rent ${vehicle.name} | Mister Rides`,
-      description: `Rent ${vehicle.name} starting at ₹${vehicle.price_per_hour}/hour. ${vehicle.description}`,
-    };
+    if (result.rowCount && result.rows[0]) {
+      const vehicle = result.rows[0];
+      const title = `Rent ${vehicle.name} in Hyderabad | Mister Rides`;
+      const description = `Rent ${vehicle.name} in Hyderabad starting at ₹${vehicle.price_per_hour || 199}/hour. Doorstep delivery, verified bikes & affordable rates.`;
+
+      return {
+        title,
+        description,
+        alternates: {
+          canonical: `/vehicles/${vehicle.id}`,
+        },
+        openGraph: {
+          title,
+          description,
+          url: `https://misterrides.com/vehicles/${vehicle.id}`,
+          images: [{ url: '/images/og-image.jpg', width: 1200, height: 630, alt: vehicle.name }],
+        },
+      };
+    }
   } catch (error) {
-    return {
-      title: 'Vehicle Details | Mister Rides',
-      description: 'Find your perfect ride with Mister Rides rental services.',
-    };
+    logger.error('Error generating vehicle metadata:', error);
   }
+
+  return {
+    title: 'Vehicle Details | Mister Rides',
+    description: 'Find your perfect ride with Mister Rides rental services.',
+  };
 }
 
 export default async function VehicleDetailsPage({ params }: { params: Promise<{ vehicleId: string }> }) {
   try {
     const resolvedParams = await params;
-    // Server-side fetch vehicle details
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vehicles?id=${resolvedParams.vehicleId}`, {
-      cache: 'no-store',
-    });
+    const result = await query(
+      'SELECT * FROM vehicles WHERE id = $1',
+      [resolvedParams.vehicleId]
+    );
     
-    if (!response.ok) {
+    if (!result.rowCount || !result.rows[0]) {
       throw new Error('Failed to fetch vehicle details');
     }
     
-    const vehicle = await response.json();
+    const vehicle = result.rows[0];
     
     // Ensure price is coming correctly
     const price = Number(vehicle.price_per_hour || vehicle.pricePerHour || 0);

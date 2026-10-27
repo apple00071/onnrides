@@ -39,6 +39,9 @@ export const metadata: Metadata = {
         alt: 'Bike Rental in Hyderabad - Mister Rides'
       }
     ]
+  },
+  alternates: {
+    canonical: '/bikes'
   }
 };
 

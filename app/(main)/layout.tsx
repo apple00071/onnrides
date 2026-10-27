@@ -50,9 +50,6 @@ export const metadata: Metadata = {
     creator: '@misterrides',
     site: '@misterrides'
   },
-  alternates: {
-    canonical: 'https://misterrides.com',
-  },
   robots: {
     index: true,
     follow: true,
