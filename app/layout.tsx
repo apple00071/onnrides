@@ -62,8 +62,11 @@ const securityHeaders = {
 // Update metadata with proper favicon configuration
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://misterrides.com'),
-  title: 'Best Bike Rental in Hyderabad | Activa on Rent | Honda Dio Rental | Mister Rides (Formerly Onn Rides)',
-  description: 'Top-rated bike rental service in Hyderabad. Rent Activa at ₹199/day, Honda Dio, Access & more. Multiple pickup points in Madhapur, Gachibowli & Erragadda. ✓Hourly Rental ✓Free Delivery ✓No Hidden Charges',
+  title: {
+    default: 'Bike Rental in Hyderabad | Starting ₹199/day | Mister Rides',
+    template: '%s | Mister Rides'
+  },
+  description: 'Rent Activa, bikes & scooters in Hyderabad starting at ₹199/day. Easy online booking, zero deposit, free helmet, and pickup points in Madhapur & Erragadda.',
   keywords: [
     'bike rental in hyderabad',
     'bike for rent in hyderabad',

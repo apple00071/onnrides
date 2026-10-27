@@ -32,16 +32,21 @@ export default function Footer() {
               <h4 className="text-xs font-bold uppercase tracking-wider text-gray-900 border-b border-gray-100 pb-2">Hub Locations</h4>
               <div className="space-y-3 text-xs">
                 <div>
-                  <p className="font-semibold text-[#f26e24] flex items-center gap-1">
+                  <Link href="/locations/erragadda" className="font-semibold text-[#f26e24] hover:underline flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5" /> Erragadda Hub
-                  </p>
-                  <p className="text-gray-500 mt-0.5">R S Hotel, Erragadda Metro Station, Hyderabad - 500018</p>
+                  </Link>
+                  <p className="text-gray-500 mt-0.5">Near Erragadda Metro Station, Hyderabad - 500018</p>
                 </div>
                 <div>
-                  <p className="font-semibold text-[#f26e24] flex items-center gap-1">
+                  <Link href="/locations/madhapur" className="font-semibold text-[#f26e24] hover:underline flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5" /> Madhapur Hub
-                  </p>
-                  <p className="text-gray-500 mt-0.5">Plot 69, Road 57, Mega Hills, Madhapur - 500081</p>
+                  </Link>
+                  <p className="text-gray-500 mt-0.5">Plot 69, Mega Hills, Madhapur - 500081</p>
+                </div>
+                <div className="pt-1">
+                  <Link href="/locations" className="text-[#f26e24] font-semibold hover:underline">
+                    All Pickup Locations →
+                  </Link>
                 </div>
               </div>
             </div>
@@ -53,6 +58,12 @@ export default function Footer() {
                 <Link href="/" className="block text-gray-600 hover:text-[#f26e24] font-medium transition-colors">
                   Home
                 </Link>
+                <Link href="/bikes" className="block text-gray-600 hover:text-[#f26e24] font-medium transition-colors">
+                  Rent Bikes & Scooters
+                </Link>
+                <Link href="/locations" className="block text-gray-600 hover:text-[#f26e24] font-medium transition-colors">
+                  Rental Locations
+                </Link>
                 <Link href="/about" className="block text-gray-600 hover:text-[#f26e24] font-medium transition-colors">
                   About Us
                 </Link>
@@ -60,7 +71,7 @@ export default function Footer() {
                   Contact Us
                 </Link>
                 <Link href="/faq" className="block text-gray-600 hover:text-[#f26e24] font-medium transition-colors">
-                  Frequently Asked Questions
+                  FAQs
                 </Link>
               </div>
             </div>
@@ -75,8 +86,8 @@ export default function Footer() {
                 <Link href="/terms" className="block text-gray-600 hover:text-[#f26e24] font-medium transition-colors">
                   Terms & Conditions
                 </Link>
-                <Link href="/blogs" className="block text-gray-600 hover:text-[#f26e24] font-medium transition-colors">
-                  Blogs & News
+                <Link href="/refund" className="block text-gray-600 hover:text-[#f26e24] font-medium transition-colors">
+                  Refund Policy
                 </Link>
               </div>
             </div>

@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { BikeRentalFAQ } from '@/components/ui/BikeRentalFAQ';
 
 export const metadata: Metadata = {
-  title: 'Bike Rental in Hyderabad | Activa on Rent | Honda Dio | Mister Rides',
-  description: 'Rent bikes in Hyderabad starting ₹199/day. Choose from Activa, Dio, Access & more. Multiple locations, free delivery, no hidden charges. Book Now & Get 10% Off!',
+  title: 'Bike Rental in Hyderabad | Activa & Scooters',
+  description: 'Rent Activa, Dio, Access & cruiser bikes in Hyderabad starting at ₹199/day. Zero deposit, free helmet, multiple pickup locations across Hyderabad.',
   keywords: [
     'bike rental in hyderabad',
     'bike for rent in hyderabad',

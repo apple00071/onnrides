@@ -220,10 +220,10 @@ export default function HeroSection() {
                     <span className="w-2 h-2 rounded-full bg-[#f26e24] animate-ping inline-block" />
                     Hyderabad's #1 Bike Rental
                   </span>
-                  <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight">
-                    Rent Your Ride <span className="text-[#f26e24]">Instantly</span>
-                  </h2>
-                  <p className="text-xs text-gray-500 mt-1">Zero Security Deposit • Free Helmet Included</p>
+                  <h1 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight">
+                    Bike Rental in Hyderabad <span className="text-[#f26e24]">@ ₹199/day</span>
+                  </h1>
+                  <p className="text-xs text-gray-500 mt-1">Rent Activa, Scooters & Bikes • Free Helmet • Zero Deposit</p>
                 </div>
                 <SearchFormContent
                   pickupDate={pickupDate}
@@ -251,9 +251,13 @@ export default function HeroSection() {
           <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-4 border border-white/80 relative">
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#f26e24] to-[#10b981] rounded-t-2xl" />
             <div className="mb-3">
-              <span className="inline-block px-2.5 py-0.5 text-[11px] font-bold text-[#f26e24] bg-orange-50 rounded-full">
-                Rent Bikes @ ₹199/day
+              <span className="inline-block px-2.5 py-0.5 text-[11px] font-bold text-[#f26e24] bg-orange-50 rounded-full mb-1">
+                Hyderabad's #1 Bike Rental
               </span>
+              <h1 className="text-lg font-bold text-gray-900 leading-tight">
+                Bike Rental in Hyderabad <span className="text-[#f26e24]">@ ₹199/day</span>
+              </h1>
+              <p className="text-[11px] text-gray-500 mt-0.5">Rent Activa, Scooters & Bikes • Zero Deposit</p>
             </div>
             <SearchFormContent
               pickupDate={pickupDate}
