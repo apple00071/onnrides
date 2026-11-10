@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { format, startOfToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -14,9 +14,10 @@ interface BookingActionsProps {
   bookingId: string;
   currentStatus: string;
   booking?: any;
+  className?: string;
 }
 
-export function BookingActions({ bookingId, currentStatus, booking }: BookingActionsProps) {
+export function BookingActions({ bookingId, currentStatus, booking, className }: BookingActionsProps) {
   const [loading, setLoading] = useState(false);
   const [showExtendDialog, setShowExtendDialog] = useState(false);
 
@@ -243,34 +244,43 @@ export function BookingActions({ bookingId, currentStatus, booking }: BookingAct
   };
 
   return (
-    <div className="mt-6 flex flex-wrap gap-3">
+    <div className={className || "mt-6 flex flex-wrap gap-3"}>
       {currentStatus === 'active' && (
         <>
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={openExtendDialog}
             disabled={loading}
-            className="px-6 py-2.5 bg-orange-500 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-orange-600 disabled:opacity-50 shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2"
+            className="flex items-center gap-2 text-xs font-bold border-orange-200 text-orange-600 hover:bg-orange-50 h-9 rounded-lg px-4"
           >
-            Extend Booking
-          </button>
-          <button
+            <Clock className="h-4 w-4" />
+            <span>Extend Booking</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleReturnVehicle}
             disabled={loading}
-            className="px-6 py-2.5 bg-green-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-green-700 disabled:opacity-50 shadow-lg shadow-green-600/20 transition-all flex items-center gap-2"
+            className="flex items-center gap-2 text-xs font-bold border-green-200 text-green-700 hover:bg-green-50 h-9 rounded-lg px-4"
           >
-            Return Vehicle
-          </button>
+            <CheckCircle2 className="h-4 w-4" />
+            <span>Return Vehicle</span>
+          </Button>
         </>
       )}
 
       {(currentStatus === 'active' || currentStatus === 'confirmed' || currentStatus === 'initiated') && (
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={openCancelDialog}
           disabled={loading}
-          className="px-6 py-2.5 bg-red-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-red-700 disabled:opacity-50 shadow-lg shadow-red-600/20 transition-all flex items-center gap-2"
+          className="flex items-center gap-2 text-xs font-bold border-red-200 text-red-600 hover:bg-red-50 h-9 rounded-lg px-4"
         >
-          Cancel Booking
-        </button>
+          <XCircle className="h-4 w-4" />
+          <span>Cancel Booking</span>
+        </Button>
       )}
 
       <Dialog open={showExtendDialog} onOpenChange={setShowExtendDialog}>

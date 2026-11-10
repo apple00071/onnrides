@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDateTime } from '@/lib/utils/time-formatter';
 import { toast } from 'sonner';
-import { ArrowLeft, Eye, Pencil, PlayCircle, CheckCircle, Car, FileText, UserCircle, Edit3, ChevronDown, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Eye, Pencil, PlayCircle, CheckCircle, Car, FileText, UserCircle, Edit3, ChevronDown, ChevronRight, Clock, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BookingActions } from '@/components/bookings/BookingActions';
 import { DocumentViewerModal } from '@/components/ui/DocumentViewerModal';
@@ -88,6 +88,21 @@ interface BookingDetails {
     reference: string;
     created_at: string;
   }[];
+}
+
+function formatRentalDuration(fromStr?: string, toStr?: string): string {
+  if (!fromStr || !toStr) return 'N/A';
+  const start = new Date(fromStr);
+  const end = new Date(toStr);
+  const diffHours = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60)));
+  if (diffHours < 24) {
+    return `${diffHours} Hour${diffHours !== 1 ? 's' : ''}`;
+  }
+  const days = Math.floor(diffHours / 24);
+  const remHours = diffHours % 24;
+  return remHours > 0 
+    ? `${days} Day${days !== 1 ? 's' : ''}, ${remHours} Hr${remHours !== 1 ? 's' : ''}` 
+    : `${days} Day${days !== 1 ? 's' : ''}`;
 }
 
 export default function BookingDetailsPage({ params }: { params: { bookingId: string } }) {
@@ -258,7 +273,7 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
   }
 
   return (
-    <div className="py-2 max-w-full">
+    <div className="py-2 pb-16 max-w-full">
       <div className="mb-4 md:mb-6">
         <Button
           variant="ghost"
@@ -282,16 +297,16 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Badge className={`${getBadgeColor(booking.status)} shadow-sm font-bold text-[10px] md:text-xs uppercase tracking-wider px-3 py-1`}>
+            <Badge variant="outline" className={`${getBadgeColor(booking.status)} font-bold text-[10px] md:text-xs uppercase tracking-wider px-3 py-1 rounded-md border`}>
               {booking.status}
             </Badge>
-            <Badge variant="outline" className={`${getBadgeColor(booking.payment_status)} font-bold text-[10px] md:text-xs uppercase tracking-wider px-3 py-1`}>
+            <Badge variant="outline" className={`${getBadgeColor(booking.payment_status)} font-bold text-[10px] md:text-xs uppercase tracking-wider px-3 py-1 rounded-md border`}>
               {booking.booking_type === 'online' && booking.payment_status === 'partially_paid' && booking.status !== 'cancelled' ?
                 '5% Collected' :
                 `Payment: ${booking.payment_status}`
               }
             </Badge>
-            <div className="flex items-center gap-2 ml-2">
+            <div className="flex flex-wrap items-center gap-2 ml-2">
               {booking.status === 'confirmed' && (
                 <Button
                   variant="outline"
@@ -303,6 +318,12 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                   <span>Initiate Trip</span>
                 </Button>
               )}
+              <BookingActions
+                bookingId={booking.booking_id}
+                currentStatus={booking.status}
+                booking={booking}
+                className="flex items-center gap-2"
+              />
               <Button
                 variant="outline"
                 size="sm"
@@ -385,47 +406,79 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                 </div>
               </div>
 
-              {/* Trip Schedule Card */}
-              <div className="bg-gray-50/50 md:bg-white p-3 md:p-4 md:border md:rounded-xl md:shadow-sm">
-                <h3 className="hidden md:flex text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 items-center gap-2">
-                  <PlayCircle className="h-4 w-4" /> Trip Schedule
-                </h3>
+              {/* Trip Schedule & Rental Overview in balanced 2-column grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-4">
+                {/* Trip Schedule Card */}
+                <div className="bg-gray-50/50 md:bg-white p-3 md:p-4 border-b md:border md:rounded-xl md:shadow-sm">
+                  <h3 className="hidden md:flex text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 items-center gap-2">
+                    <PlayCircle className="h-4 w-4" /> Trip Schedule
+                  </h3>
 
-                <div className="relative pl-8 border-l-2 border-orange-100 space-y-4">
-                  <div className="relative">
-                    <div className="absolute -left-[33px] top-1.5 h-4 w-4 rounded-full bg-green-500 border-2 border-white shadow-[0_0_10px_rgba(34,197,94,0.4)]"></div>
-                    <div className="flex justify-between items-baseline">
-                      <p className="font-semibold text-gray-900 text-sm">{formatDateTime(booking.duration.from)}</p>
-                      <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Pickup</span>
+                  <div className="relative pl-8 border-l-2 border-orange-100 space-y-4">
+                    <div className="relative">
+                      <div className="absolute -left-[33px] top-1.5 h-4 w-4 rounded-full bg-green-500 border-2 border-white shadow-[0_0_10px_rgba(34,197,94,0.4)]"></div>
+                      <div className="flex justify-between items-baseline">
+                        <p className="font-semibold text-gray-900 text-sm">{formatDateTime(booking.duration.from)}</p>
+                        <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Pickup</span>
+                      </div>
+                      <p className="text-xs font-medium text-gray-500 mt-0.5">
+                        <span className="text-[10px] text-gray-300 font-normal uppercase">Location:</span> {getCleanLocation(booking.pickup_location)}
+                      </p>
                     </div>
-                    <p className="text-xs font-medium text-gray-500 mt-0.5">
-                      <span className="text-[10px] text-gray-300 font-normal uppercase">Location:</span> {getCleanLocation(booking.pickup_location)}
-                    </p>
+
+                    <div className="relative">
+                      <div className="absolute -left-[33px] top-1.5 h-4 w-4 rounded-full bg-orange-500 border-2 border-white shadow-[0_0_10px_rgba(249,115,22,0.4)]"></div>
+                      <div className="flex justify-between items-baseline">
+                        <p className="font-semibold text-gray-900 text-sm">{formatDateTime(booking.duration.to)}</p>
+                        <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Dropoff</span>
+                      </div>
+
+                      {/* Visual indicator for extension if multiple payments exist (implying extension) or if duration seems long */}
+                      {booking.payment_breakdown && booking.payment_breakdown.length > 1 && (
+                        <div className="mt-2 text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-1 rounded w-fit inline-flex items-center gap-2 border border-blue-100">
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                          Extended Trip
+                        </div>
+                      )}
+
+                      {booking.vehicle_return ? (
+                        <div className="mt-2 text-[10px] font-bold uppercase bg-green-100 text-green-700 px-2 py-0.5 rounded w-fit inline-flex items-center gap-2">
+                          <CheckCircle className="h-3 w-3" />
+                          Returned: {formatDateTime(booking.vehicle_return.return_date)}
+                        </div>
+                      ) : (
+                        <p className="text-xs font-medium text-gray-400 mt-0.5 italic">Return to same location</p>
+                      )}
+                    </div>
                   </div>
+                </div>
 
-                  <div className="relative">
-                    <div className="absolute -left-[33px] top-1.5 h-4 w-4 rounded-full bg-orange-500 border-2 border-white shadow-[0_0_10px_rgba(249,115,22,0.4)]"></div>
-                    <div className="flex justify-between items-baseline">
-                      <p className="font-semibold text-gray-900 text-sm">{formatDateTime(booking.duration.to)}</p>
-                      <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Dropoff</span>
+                {/* Rental Overview Card */}
+                <div className="bg-white p-3 md:p-4 border-b md:border md:rounded-xl md:shadow-sm flex flex-col justify-between">
+                  <div>
+                    <h3 className="hidden md:flex text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 items-center gap-2">
+                      <Clock className="h-4 w-4" /> Rental Overview
+                    </h3>
+                    <div className="space-y-3 text-xs">
+                      <div className="flex justify-between items-center py-1.5 border-b border-gray-50">
+                        <span className="text-gray-500">Duration</span>
+                        <span className="font-semibold text-gray-900">{formatRentalDuration(booking.duration.from, booking.duration.to)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1.5 border-b border-gray-50">
+                        <span className="text-gray-500">Booking Channel</span>
+                        <span className="font-semibold text-gray-900 capitalize">{booking.booking_type} Booking</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1.5 border-b border-gray-50">
+                        <span className="text-gray-500">Pickup Branch</span>
+                        <span className="font-semibold text-gray-900">{getCleanLocation(booking.pickup_location)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1.5">
+                        <span className="text-gray-500">Terms & Agreement</span>
+                        <span className="inline-flex items-center gap-1 font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded text-[10px]">
+                          <ShieldCheck className="h-3 w-3" /> Accepted
+                        </span>
+                      </div>
                     </div>
-
-                    {/* Visual indicator for extension if multiple payments exist (implying extension) or if duration seems long */}
-                    {booking.payment_breakdown && booking.payment_breakdown.length > 1 && (
-                      <div className="mt-2 text-[10px] font-bold uppercase bg-blue-50 text-blue-600 px-2 py-1 rounded w-fit inline-flex items-center gap-2 border border-blue-100">
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
-                        Extended Trip
-                      </div>
-                    )}
-
-                    {booking.vehicle_return ? (
-                      <div className="mt-2 text-[10px] font-bold uppercase bg-green-100 text-green-700 px-2 py-0.5 rounded w-fit inline-flex items-center gap-2">
-                        <CheckCircle className="h-3 w-3" />
-                        Returned: {formatDateTime(booking.vehicle_return.return_date)}
-                      </div>
-                    ) : (
-                      <p className="text-xs font-medium text-gray-400 mt-0.5 italic">Return to same location</p>
-                    )}
                   </div>
                 </div>
               </div>
@@ -560,9 +613,13 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
                 </div>
 
                 {booking.payment_reference && (
-                  <div className="pt-4 border-t border-gray-50">
-                    <p className="text-[9px] font-bold text-gray-300 uppercase tracking-widest mb-1">Payment Reference</p>
-                    <p className="text-xs font-mono text-gray-500 break-all">{booking.payment_reference}</p>
+                  <div className="mt-4 pt-3 border-t border-gray-100">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Payment Reference</p>
+                    <div className="bg-gray-50 border border-gray-200/80 rounded-lg p-2.5">
+                      <p className="text-xs font-mono text-gray-800 break-all select-all font-medium">
+                        {booking.payment_reference}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -616,12 +673,6 @@ export default function BookingDetailsPage({ params }: { params: { bookingId: st
         </div>
       )
       }
-
-      <BookingActions
-        bookingId={booking.booking_id}
-        currentStatus={booking.status}
-        booking={booking}
-      />
 
       {/* Trip Initiation Details Section */}
       {
