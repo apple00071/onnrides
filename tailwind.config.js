@@ -52,7 +52,10 @@ module.exports = {
   				DEFAULT: '#f26e24',
   				hover: '#e05d13'
   			},
-  			secondary: '#333333',
+  			secondary: {
+  				DEFAULT: '#333333',
+  				foreground: '#ffffff'
+  			},
   			destructive: {
   				DEFAULT: 'hsl(var(--destructive))',
   				foreground: 'hsl(var(--destructive-foreground))'
