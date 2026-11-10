@@ -32,15 +32,41 @@ export default function BookingsPage() {
 
   // Filtering states
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter, paymentFilter]);
 
   const fetchBookings = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`/api/admin/bookings?page=${currentPage}&t=${Date.now()}`, {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        t: Date.now().toString(),
+      });
+      if (debouncedSearch.trim()) {
+        params.set('search', debouncedSearch.trim());
+      }
+      if (statusFilter && statusFilter !== 'all') {
+        params.set('status', statusFilter);
+      }
+      if (paymentFilter && paymentFilter !== 'all') {
+        params.set('payment', paymentFilter);
+      }
+
+      const response = await fetch(`/api/admin/bookings?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -65,33 +91,21 @@ export default function BookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage]);
+  }, [currentPage, debouncedSearch, statusFilter, paymentFilter]);
 
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
 
-  // Derived filtered bookings
-  const filteredBookings = bookings.filter((booking: Booking) => {
-    const bookingId = booking.booking_id || '';
-    const userName = booking.user?.name || '';
-    const regNumber = booking.registration_number || '';
-
-    const matchesSearch =
-      bookingId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      regNumber.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus = statusFilter === 'all' || booking.status === statusFilter;
-    const matchesPayment = paymentFilter === 'all' || booking.payment_status === paymentFilter;
-
-    return matchesSearch && matchesStatus && matchesPayment;
-  });
+  // Server handles filtering across the entire database
+  const filteredBookings = bookings;
 
   const resetFilters = () => {
     setSearchQuery('');
+    setDebouncedSearch('');
     setStatusFilter('all');
     setPaymentFilter('all');
+    setCurrentPage(1);
   };
 
   const statusOptions = ['pending', 'confirmed', 'initiated', 'active', 'completed', 'cancelled', 'failed'];

@@ -126,6 +126,41 @@ export async function GET(request: Request) {
     const limit = 10;
     const offset = (page - 1) * limit;
 
+    const search = url.searchParams.get('search')?.trim() || '';
+    const status = url.searchParams.get('status')?.trim() || '';
+    const payment = url.searchParams.get('payment')?.trim() || url.searchParams.get('payment_status')?.trim() || '';
+
+    const whereConditions: string[] = [];
+    const queryParams: any[] = [];
+
+    if (search) {
+      queryParams.push(`%${search}%`);
+      const pIdx = queryParams.length;
+      whereConditions.push(`(
+        b.booking_id ILIKE $${pIdx} OR 
+        b.customer_name ILIKE $${pIdx} OR 
+        u.name ILIKE $${pIdx} OR 
+        b.phone_number ILIKE $${pIdx} OR 
+        u.phone ILIKE $${pIdx} OR 
+        ti.customer_phone ILIKE $${pIdx} OR 
+        b.registration_number ILIKE $${pIdx} OR 
+        ti.vehicle_number ILIKE $${pIdx} OR 
+        v.name ILIKE $${pIdx}
+      )`);
+    }
+
+    if (status && status !== 'all') {
+      queryParams.push(status);
+      whereConditions.push(`b.status = $${queryParams.length}`);
+    }
+
+    if (payment && payment !== 'all') {
+      queryParams.push(payment);
+      whereConditions.push(`b.payment_status = $${queryParams.length}`);
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
     // Get bookings with related data
     const queryText = `
       SELECT 
@@ -161,13 +196,23 @@ export async function GET(request: Request) {
       LEFT JOIN users u ON b.user_id = u.id
       LEFT JOIN vehicles v ON b.vehicle_id = v.id
       LEFT JOIN trip_initiations ti ON b.id = ti.booking_id
+      ${whereClause}
       ORDER BY b.created_at DESC
-      LIMIT $1 OFFSET $2
+      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
     `;
 
-    const result = await query(queryText, [limit, offset]);
+    const dataParams = [...queryParams, limit, offset];
+    const result = await query(queryText, dataParams);
 
-    const countResult = await query('SELECT COUNT(*) FROM bookings');
+    const countQuery = `
+      SELECT COUNT(*) 
+      FROM bookings b
+      LEFT JOIN users u ON b.user_id = u.id
+      LEFT JOIN vehicles v ON b.vehicle_id = v.id
+      LEFT JOIN trip_initiations ti ON b.id = ti.booking_id
+      ${whereClause}
+    `;
+    const countResult = await query(countQuery, queryParams);
     const totalItems = parseInt(countResult.rows[0].count);
     const totalPages = Math.ceil(totalItems / limit);
 
