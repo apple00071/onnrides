@@ -204,9 +204,10 @@ export default function FinancialReconciliationPage() {
 
   // Filters and search logic
   const filteredTransactions = transactions.filter(t => {
-    const matchesSearch = 
-      t.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      (t.booking_id && t.booking_id.toLowerCase().includes(searchQuery.toLowerCase()));
+    const query = (searchQuery || '').toLowerCase();
+    const customerName = (t.customer_name || '').toLowerCase();
+    const bookingId = (t.booking_id || '').toLowerCase();
+    const matchesSearch = !query || customerName.includes(query) || bookingId.includes(query);
     const matchesTab = activeTab === 'all' || t.type === activeTab;
     return matchesSearch && matchesTab;
   });

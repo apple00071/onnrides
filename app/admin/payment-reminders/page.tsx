@@ -112,11 +112,21 @@ export default function PaymentRemindersPage() {
         }
     };
 
-    const filteredBookings = bookings.filter(booking =>
-        booking.booking_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.customer_phone.includes(searchTerm)
-    );
+    const filteredBookings = bookings.filter(booking => {
+        if (!searchTerm) return true;
+        const term = searchTerm.toLowerCase();
+        const bookingId = (booking.booking_id || '').toLowerCase();
+        const customerName = (booking.customer_name || '').toLowerCase();
+        const customerPhone = (booking.customer_phone || '').toLowerCase();
+        const vehicleName = (booking.vehicle_name || '').toLowerCase();
+
+        return (
+            bookingId.includes(term) ||
+            customerName.includes(term) ||
+            customerPhone.includes(term) ||
+            vehicleName.includes(term)
+        );
+    });
 
     if (authStatus === 'loading' || isLoading) {
         return (
