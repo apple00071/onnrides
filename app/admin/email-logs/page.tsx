@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDateTime } from '@/lib/utils/time-formatter';
+import { getBadgeColor } from '@/lib/constants/status-colors';
 
 interface EmailLog {
     id: string;
@@ -106,14 +107,8 @@ export default function EmailLogsPage() {
     };
 
     const getStatusBadge = (status: string) => {
-        const variants: { [key: string]: string } = {
-            success: 'bg-green-500',
-            error: 'bg-red-500',
-            pending: 'bg-yellow-500'
-        };
-
         return (
-            <Badge className={variants[status.toLowerCase()] || 'bg-gray-500'}>
+            <Badge className={`${getBadgeColor(status)} font-semibold uppercase text-[10px] tracking-wider px-2.5 py-0.5 border shadow-none`}>
                 {status}
             </Badge>
         );

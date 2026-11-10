@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { formatDateTime } from '@/lib/utils/time-formatter';
+import { getBadgeColor } from '@/lib/constants/status-colors';
 
 interface WhatsAppLog {
     id: string;
@@ -84,14 +85,8 @@ export default function WhatsAppLogsPage() {
     };
 
     const getStatusBadge = (status: string) => {
-        const variants: { [key: string]: string } = {
-            success: 'bg-green-500',
-            error: 'bg-red-500',
-            pending: 'bg-yellow-500'
-        };
-
         return (
-            <Badge className={variants[status.toLowerCase()] || 'bg-gray-500'}>
+            <Badge className={`${getBadgeColor(status)} font-semibold uppercase text-[10px] tracking-wider px-2.5 py-0.5 border shadow-none`}>
                 {status}
             </Badge>
         );
