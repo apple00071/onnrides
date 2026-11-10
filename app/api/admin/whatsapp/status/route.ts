@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       isConfigured = !!process.env.OPENWA_API_KEY;
       errorMsg = isConfigured ? undefined : 'OpenWA API Key missing';
     } else {
-      isConfigured = !!process.env.WASENDER_API_KEY;
+      isConfigured = !!process.env.WASENDER_API_KEY || !!process.env.WASENDER_PERSONAL_ACCESS_TOKEN;
       errorMsg = isConfigured ? undefined : 'WaSender API Key missing';
     }
 

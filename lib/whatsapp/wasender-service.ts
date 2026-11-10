@@ -64,8 +64,8 @@ export class WaSenderService {
       }
 
       // Fallback/legacy WaSender
-      const apiKey = process.env.WASENDER_API_KEY;
-      const personalAccessToken = process.env.WASENDER_PERSONAL_ACCESS_TOKEN;
+      const apiKey = process.env.WASENDER_API_KEY || process.env.WASENDER_PERSONAL_ACCESS_TOKEN;
+      const personalAccessToken = process.env.WASENDER_PERSONAL_ACCESS_TOKEN || apiKey;
       const webhookSecret = process.env.WASENDER_WEBHOOK_SECRET;
 
       if (!apiKey && !personalAccessToken) {
@@ -361,11 +361,29 @@ Thank you for choosing Mister Rides! 🙏`;
     }
 
     try {
+      if (this.wasender && typeof this.wasender.getSessionStatus === 'function') {
+        const result = await this.wasender.getSessionStatus();
+        const rawStatus = result?.response?.status || result?.status || 'CONNECTED';
+        return {
+          status: String(rawStatus).toUpperCase(),
+          provider: 'wasender',
+          raw: result
+        };
+      }
+
       const sessions = await this.wasender.getAllWhatsAppSessions();
-      return sessions;
+      return {
+        status: Array.isArray(sessions) && sessions.length > 0 ? 'CONNECTED' : 'DISCONNECTED',
+        provider: 'wasender',
+        raw: sessions
+      };
     } catch (error) {
       logger.error('Error getting session status:', error);
-      return null;
+      return {
+        status: 'DISCONNECTED',
+        provider: 'wasender',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   }
 }
